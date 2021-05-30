@@ -3,8 +3,6 @@ services:
   nginx_proxy:
     image: docker:1.21-alpine
     restart: on-failure
-    build:
-      context: ./nginx
     ports:
       - "80:80"
     volumes:
