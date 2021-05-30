@@ -19,4 +19,4 @@ apt install -y docker-ce docker-compose
 
 # After this command is executed
 # cd https-streaming
-# docker-compose up -d
+# docker-compose up -d --force-recreate
