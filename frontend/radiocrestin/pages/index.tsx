@@ -1,6 +1,6 @@
 import Head from 'next/head'
 import styles from '../styles/Home.module.scss'
-import Plyr from 'plyr-react'
+import Plyr, {HTMLPlyrVideoElement} from 'plyr-react'
 import 'plyr-react/dist/plyr.css'
 import React, {useEffect, useRef, useState} from "react";
 import PlyrJS from "plyr";
@@ -91,6 +91,7 @@ export function RadioPlayer(props: any) {
     }]
   };
   return <Plyr
+      // @ts-ignore
       ref={playerRef}
       source={playerSrc}
       options={
@@ -180,6 +181,7 @@ export default function Home(initialProps: any) {
 
 
   const playStation = (stationId: number) => {
+    // @ts-ignore
     if(playingStation && playingStation.id === stationId) {
       stopStation();
     } else {
@@ -187,6 +189,7 @@ export default function Home(initialProps: any) {
     }
   }
 
+  // @ts-ignore
   return (
     <div className={styles.container}>
       <Head>
@@ -214,6 +217,7 @@ export default function Home(initialProps: any) {
               return b.score - a.score;
             }).slice(0, 4).map((recommendedStation: any, index: number) => {
                   const station = playerStations?.find((o: any) => o.id === recommendedStation.id);
+                  // @ts-ignore
                   return <a className={styles.card}  data-selected={playingStation && recommendedStation.id==playingStation.id} key={index} onClick={event => {
                     event.preventDefault();
                     playStation(recommendedStation.id)}
@@ -245,6 +249,7 @@ export default function Home(initialProps: any) {
           })?.map((station: any, index: number) =>
               <a className={styles.radio_station_link}
                  key={index}
+                  // @ts-ignore
                  data-selected={playingStation && station.id==playingStation.id}
                  onClick={event => {
                 event.preventDefault();
