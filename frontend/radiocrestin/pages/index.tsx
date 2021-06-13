@@ -206,7 +206,8 @@ export default function Home(initialProps: any) {
       {/*  /!*</a>*!/*/}
       {/*</footer>*/}
       <ContactButton isPlaying={playingStation}/>
-
+      
+      <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "b46514f4157046a2b57c4b1872c09ef9"}'/>
     </div>
   )
 
