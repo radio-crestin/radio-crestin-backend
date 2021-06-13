@@ -1,0 +1,37 @@
+
+.plyr {
+  width: 400px !important;
+
+  .plyr__controls {
+    background: linear-gradient(90deg, #0f4ca6 12.34%, #0070f3 87.09%) !important;
+    color: white !important;
+    border-radius: inherit !important;
+    padding: 15px 27px !important;
+    box-shadow: 2px 5px 8px 5px rgba(210,210,210,0.52) !important;
+    -webkit-box-shadow: 2px 5px 8px 5px rgba(210,210,210,0.52) !important;
+    -moz-box-shadow: 2px 5px 8px 5px rgba(210,210,210,0.52) !important;
+  }
+  .plyr__volume {
+    min-width: 100px !important;
+    input[type=range] {
+      color: white !important;
+    }
+  }
+  .plyr__controls {
+    .plyr__controls__item:first-child {
+      border-radius: 38px !important;
+      background: white !important;
+      color: #16477e !important;
+      padding: 7px 6px 7px 9px !important;
+      width: 33px;
+      height: 33px;
+      transition-duration: 0s;
+    }
+    .plyr__controls__item:first-child[aria-label="Pause"] {
+      padding: 7px 6px 7px 7px !important;
+      svg {
+        width: 19px !important;
+      }
+    }
+  }
+}
