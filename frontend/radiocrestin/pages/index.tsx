@@ -1,9 +1,7 @@
 import Head from 'next/head'
 import styles from '../styles/Home.module.scss'
-import Plyr from 'plyr-react'
 import 'plyr-react/dist/plyr.css'
-import React, {useEffect, useRef, useState} from "react";
-import PlyrJS from "plyr";
+import React, {useEffect, useState} from "react";
 import dynamic from 'next/dynamic';
 
 import {isMobile} from 'react-device-detect';
@@ -101,6 +99,7 @@ export default function Home(initialProps: any) {
   }
 
   const stopStation = () => {
+    console.log("Stopping")
     originalSetPlayingStation(undefined);
   }
 
@@ -206,7 +205,7 @@ export default function Home(initialProps: any) {
       {/*  /!*</a>*!/*/}
       {/*</footer>*/}
       <ContactButton isPlaying={playingStation}/>
-      
+
       <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "b46514f4157046a2b57c4b1872c09ef9"}'/>
     </div>
   )

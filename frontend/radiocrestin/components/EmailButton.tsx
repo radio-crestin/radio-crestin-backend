@@ -1,10 +1,11 @@
 import styles from "../styles/Home.module.scss";
 import React from "react";
+import {isMobile} from "react-device-detect";
 
 
 export default function EmailButton(props: any) {
     return <a href="mailto:iosifnicolae2@gmail.com" target="_blank" className={styles.contactButton} style={{
-        "bottom": props.isPlaying ? "104px" : "32px"
+        "bottom": props.isPlaying ? isMobile? "93px" : "104px" : "32px"
     }}>
         <div className={styles.contactLinkButton}>
             <svg xmlns="http://www.w3.org/2000/svg" height="30px" viewBox="0 0 24 24" width="30px" fill="#fff">

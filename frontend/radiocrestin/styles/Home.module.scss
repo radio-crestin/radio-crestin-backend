@@ -242,6 +242,17 @@
   bottom: 0;
   right: 0;
   justify-content: center;
+  width: 373px;
+  max-width: 100%;
+
+  @media (max-width: 600px) {
+    & {
+      width: auto;
+      left: 0;
+      right: 0;
+      bottom: 15px;
+    }
+  }
 
   .radio_player {
     display: flex;
@@ -255,6 +266,14 @@
     -ms-transition: opacity .2s ease-in-out;
     -o-transition: opacity .2s ease-in-out;
     transition: opacity .2s ease-in-out;
+
+
+    @media (max-width: 600px) {
+      & {
+        padding: 0;
+        width: auto;
+      }
+    }
   }
 }
 

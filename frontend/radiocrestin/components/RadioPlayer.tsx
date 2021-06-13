@@ -13,6 +13,8 @@ export default function RadioPlayer(props: any) {
         // @ts-ignore
         const player = playerRef.current.plyr;
 
+        let stoppedByError = false;
+
         if(typeof player.config.title === "undefined") {
             // @ts-ignore
             player.stop();
@@ -20,9 +22,12 @@ export default function RadioPlayer(props: any) {
         } else {
             // @ts-ignore
             player.play();
+            stoppedByError = false;
         }
         player.on('pause', function() {
-            // props.onStationStopped();
+            if(!stoppedByError) {
+                props.onStationStopped();
+            }
         });
         player.on('loadeddata', function() {
             // player.elements.display.currentStation.textContent = player.config.title;
@@ -32,6 +37,7 @@ export default function RadioPlayer(props: any) {
         });
         player.on('stalled', function() {
             // alert('A aparut o problema neasteptata. Va rugam incercati mai tarziu!')
+            stoppedByError = true;
             player.pause();
             console.trace('stalled', event)
             if (playingStation && remaining_retries > 0) {
@@ -44,6 +50,7 @@ export default function RadioPlayer(props: any) {
             }
         });
         player.on('error', function(event: any) {
+            stoppedByError = true;
             console.trace('error', event)
             if (!player.media.paused && event.detail.plyr.media.error && event.detail.plyr.failed && remaining_error_retries > 0) {
                 setTimeout(function() {

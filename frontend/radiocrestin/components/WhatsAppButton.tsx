@@ -1,9 +1,10 @@
 import styles from "../styles/Home.module.scss";
 import React from "react";
+import {isMobile} from 'react-device-detect';
 
 export default function WhatsAppButton(props: any) {
     return <a href="https://wa.me/40701087702?text=Buna ziua" target="_blank" className={styles.contactButton} style={{
-        "bottom": props.isPlaying ? "104px" : "32px"
+        "bottom": props.isPlaying ? isMobile? "93px" : "104px" : "32px"
     }}>
         <div className={styles.contactLinkButton}>
             <svg xmlns="http://www.w3.org/2000/svg" width="30px" height="30px" viewBox="0 0 24 24">
