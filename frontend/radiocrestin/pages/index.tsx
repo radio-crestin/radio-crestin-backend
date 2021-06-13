@@ -6,6 +6,7 @@ import React, {useEffect, useRef, useState} from "react";
 import PlyrJS from "plyr";
 import Moment from "react-moment";
 import 'moment/locale/ro';
+import {addBasePath} from "next/dist/next-server/lib/router/router";
 
 function useStickyState(defaultValue: any, key: any) {
   const [value, setValue] = useState(() => {
@@ -29,10 +30,7 @@ function useStickyState(defaultValue: any, key: any) {
 
 
 export function RadioPlayer(props: any) {
-  const playingStation = React.useMemo(
-      () => props.station,
-      props.station
-  );
+  const playingStation = props.station;
 
   let remaining_retries = 5;
   let remaining_error_retries = 5;
@@ -51,7 +49,7 @@ export function RadioPlayer(props: any) {
       player.play();
     }
     player.on('pause', function() {
-      props.onStationStopped();
+      // props.onStationStopped();
     });
     player.on('loadeddata', function() {
       // player.elements.display.currentStation.textContent = player.config.title;
@@ -60,10 +58,10 @@ export function RadioPlayer(props: any) {
       // player.elements.display.currentStation.textContent = 'Se incarca..';
     });
     player.on('stalled', function() {
-      alert('A aparut o problema neasteptata. Va rugam incercati mai tarziu!')
+      // alert('A aparut o problema neasteptata. Va rugam incercati mai tarziu!')
       player.pause();
       console.trace('stalled', event)
-      if (!player.media.paused && remaining_retries > 0) {
+      if (playingStation && remaining_retries > 0) {
         setTimeout(function() {
           console.log("Retrying to play..")
           // player.source = lastPlayerSource;
@@ -82,19 +80,16 @@ export function RadioPlayer(props: any) {
           remaining_error_retries--;
         }, remaining_error_retries === 5 ? 0 : 1000);
       }
-
     });
   })
   const playerSrc: PlyrJS.SourceInfo = {
     type: 'audio',
     title: playingStation?.title,
     sources: [{
-      src: playingStation?.url,
+      src: playingStation?.stream_url,
       type: 'audio/mp3'
     }]
   };
-
-  console.log("rendering radio")
   return <Plyr
       ref={playerRef}
       source={playerSrc}
@@ -111,48 +106,84 @@ export function RadioPlayer(props: any) {
       }/>
 }
 
+const MemoRadioPlayer = React.memo(RadioPlayer, (prevProps, nextProps) => {
+  return JSON.stringify(prevProps.station) === JSON.stringify(nextProps.station);
+})
+
 export default function Home(initialProps: any) {
   let syncStationsInterval: any;
   const [playerStations, setPlayerStations] = useState(initialProps.stations);
-  const [recentPlayedStations, setRecentPlayedStations] = useStickyState([], 'RECENT_PLAYED_STATIONS');
-  const [playingStationId, originalSetPlayingStationId] = useState(-1);
-  const [t, setTest] = useState(-1);
+
+
+  const getInitialRecommendedStations = () => {
+    return playerStations.map((s: any) => {
+      return {
+        id: s.id,
+        plays: 0,
+        score: Math.random()
+      }
+    })
+  }
+
+  const [recommendedStations, setRecommendedStations] = useStickyState({}, 'RECOMMENDED_STATIONS');
+  const [playingStation, originalSetPlayingStation] = useState();
+  const [searchValue, setSearchValue] = useState("");
+
+  playerStations.forEach((station: any) => {
+    let changed = false;
+    if(!recommendedStations[station.id]) {
+      recommendedStations[station.id] = {
+        id: station.id,
+        plays: 0,
+        score: Math.random(),
+      };
+      changed = true;
+    }
+    if(changed) {
+      return setRecommendedStations(recommendedStations);
+    }
+  })
 
   useEffect(() => {
-    console.trace("starting interval")
     if(typeof syncStationsInterval === "undefined") {
-      syncStationsInterval = setInterval(async () => {
-        setTest(2)
-        console.log("refresh stations")
-      }, 2000);
+      syncStationsInterval = setInterval(() => {
+        getStations().then(stations => setPlayerStations(stations));
+      }, 30000);
+      getStations().then(stations => setPlayerStations(stations));
     }
-    // return () => {
-    //   clearInterval(syncStationsInterval);
-    // }
-  });
-  const setPlayingStationId = (stationId: number) => {
-    originalSetPlayingStationId(stationId);
-    if(stationId !== -1) {
-      let newRecentPlayedStationsIds = JSON.parse(JSON.stringify(recentPlayedStations));
-      newRecentPlayedStationsIds.push({
-        id: stationId,
-        timestamp: (new Date()).toISOString(),
-      });
-      newRecentPlayedStationsIds = newRecentPlayedStationsIds.filter((value: any, index: any, self: any) => {
-        return self.indexOf(self.find((v: any) => v.id === value.id)) === index;
-      });
-      newRecentPlayedStationsIds = newRecentPlayedStationsIds.sort((n1: any,n2: any) => n2.timestamp - n1.timestamp);
-      newRecentPlayedStationsIds = newRecentPlayedStationsIds.slice(0, 4);
-      setRecentPlayedStations(newRecentPlayedStationsIds);
+    return () => {
+      clearInterval(syncStationsInterval);
     }
+  }, []);
+
+
+  const startStation = (stationId: number) => {
+    originalSetPlayingStation(JSON.parse(JSON.stringify(playerStations.find((s:any) => s.id === stationId))));
+    let newRecommendedStations = JSON.parse(JSON.stringify(recommendedStations));
+    let stationRecommendation = newRecommendedStations[stationId] || {
+      id: stationId,
+      plays: 0,
+    };
+    stationRecommendation.plays++;
+    newRecommendedStations[stationId] = stationRecommendation;
+
+    // Recalculate the score
+    const totalPlays = Object.values(newRecommendedStations).reduce((accumulator: number, currentValue: any) => accumulator + currentValue.plays, 0);
+      Object.keys(newRecommendedStations).forEach(function(key) {newRecommendedStations[key].score = newRecommendedStations[key].plays/totalPlays;
+    });
+    setRecommendedStations(newRecommendedStations);
+  }
+
+  const stopStation = () => {
+    originalSetPlayingStation(undefined);
   }
 
 
   const playStation = (stationId: number) => {
-    if(playingStationId === stationId) {
-      setPlayingStationId(-1);
+    if(playingStation && playingStation.id === stationId) {
+      stopStation();
     } else {
-      setPlayingStationId(stationId);
+      startStation(stationId);
     }
   }
 
@@ -165,7 +196,7 @@ export default function Home(initialProps: any) {
         <style>
         {
           `#radio_player {
-            opacity: ${playingStationId !== -1 ? "1": "0"}
+            opacity: ${playingStation ? "1": "0"}
           }
         `}
       </style>
@@ -177,42 +208,56 @@ export default function Home(initialProps: any) {
         </h1>
 
         <div className={styles.grid} style={{marginTop: "4rem"}}>
-          <h2 className={styles.section_subtitle}>Recomandate pentru tine</h2>
-          {recentPlayedStations.map((recentPlayedStation: any, index: number) => {
-            const station = playerStations?.find(o => o.id === recentPlayedStation.id);
-            if(station) {
-              return <a className={styles.card}  data-selected={recentPlayedStation.id==playingStationId} key={index} onClick={event => {
-                event.preventDefault();
-                playStation(recentPlayedStation.id)}
-              }>
-                <h2>{station.title}</h2>
-                <p>{station.current_song}</p>
-                {recentPlayedStation.timestamp ? <Moment fromNow>{new Date(recentPlayedStation.timestamp)}</Moment> : null}
-              </a>
-            } else {
-              return null;
-            }
-          }
-              )}
+          <div className={styles.recommended_stations}>
+            <h2 className={styles.section_subtitle}>Recomandate pentru tine</h2>
+            {Object.values(recommendedStations).sort((a: any, b: any) => {
+              return b.score - a.score;
+            }).slice(0, 4).map((recommendedStation: any, index: number) => {
+                  const station = playerStations?.find((o: any) => o.id === recommendedStation.id);
+                  return <a className={styles.card}  data-selected={playingStation && recommendedStation.id==playingStation.id} key={index} onClick={event => {
+                    event.preventDefault();
+                    playStation(recommendedStation.id)}
+                  }>
+                    <h2>{station.title}</h2>
+                    <p>{station.stats.current_song}</p>
+                    <small>{station.stats.listeners > 0? `${station.stats.listeners} ascultători` : ""}</small>
+                  </a>
+                }
+            )}
+          </div>
         </div>
 
 
         <div className={styles.grid}>
           <h2 className={styles.section_subtitle}>Stații de radiouri creștine</h2>
-          {/*<input  className={styles.search_card} type="text" placeholder="Tasteaza numele statiei.." name="search"/>*/}
-          {playerStations?.map((station: any, index: number) =>
-              <a className={styles.radio_station_link} key={index} onClick={event => {
+
+          <input
+              className={styles.search_card}
+              type="text"
+              placeholder="Tastează numele stației.."
+              name="search"
+              value={searchValue}
+              onChange={e=> setSearchValue(e.target.value.trim())}
+          />
+
+          {playerStations?.filter((station: any) => {
+            return searchValue === "" || station.title.toLowerCase().includes(searchValue.toLowerCase())
+          })?.map((station: any, index: number) =>
+              <a className={styles.radio_station_link}
+                 key={index}
+                 data-selected={playingStation && station.id==playingStation.id}
+                 onClick={event => {
                 event.preventDefault();
                 playStation(station.id)
               }}>
-              <h2>{station.title}</h2>
+                <h2>{station.title}  <small>{station.stats.current_song}</small></h2>
             </a>)}
         </div>
         <div className={styles.radio_player_wrapper}>
           <div id="radio_player" className={styles.radio_player}>
-            <RadioPlayer
-            station={playerStations[0]}
-            onStationStopped={() => setPlayingStationId(-1)}
+            <MemoRadioPlayer
+            station={playingStation}
+            onStationStopped={stopStation}
             />
           </div>
         </div>
@@ -235,10 +280,13 @@ export default function Home(initialProps: any) {
 
 }
 Home.getInitialProps = async (ctx: any) => {
-  return { stations: await getStations() }
+  return { stations: (await getStations()).map((s: any) => {
+    s["listeners"] = null;
+    return s;
+    }) }
 }
 
 async function getStations() {
-  const res = await fetch('https://api.radio-crestin.ro/stations')
+  const res = await fetch(`https://api.radio-crestin.ro/stations`)
   return (await res.json())["stations"]
 }

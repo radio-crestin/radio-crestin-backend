@@ -148,6 +148,7 @@
   border: 1px solid #eaeaea;
   transition: color 0.15s ease, border-color 0.15s ease;
   width: 100%;
+  border-radius: 10px;
 }
 
 .search_card:hover,
@@ -168,23 +169,44 @@
   border-radius: 10px;
   transition: color 0.15s ease, border-color 0.15s ease;
   width: 100%;
-}
-.radio_station_link h2 {
-  margin: 1rem 0;
-}
 
-.radio_station_link:hover,
-.radio_station_link:focus,
-.radio_station_link:active, .radio_station_link[data-selected="true"] {
-  color: #0070f3;
-  border-color: #0070f3;
-  cursor: pointer;
+  &:hover,
+  &:focus,
+  &:active, &[data-selected="true"] {
+    color: #0070f3;
+    border-color: #0070f3;
+    cursor: pointer;
+  }
+
+  small{
+    font-weight: 300;
+    font-size: 1.1rem;
+    color: #ababab;
+    float: right;
+    line-height: 2rem;
+    max-width: 400px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  h2 {
+    margin: 1rem 0;
+  }
 }
 
 @media (max-width: 600px) {
   .grid {
     width: 100%;
     flex-direction: column;
+  }
+}
+
+.recommended_stations {
+  @extend .grid;
+  small {
+    font-size: 0.75rem;
+    color: #bbbbbb;
   }
 }
 
@@ -195,17 +217,18 @@
   bottom: 0;
   right: 0;
   justify-content: center;
-}
-.radio_player {
-  display: flex;
-  max-width: 100%;
-  width: 100%;
-  padding-right: 50px;
-  padding-bottom: 28px;
-  justify-content: flex-end;
-  -webkit-transition: opacity .2s ease-in-out;
-  -moz-transition: opacity .2s ease-in-out;
-  -ms-transition: opacity .2s ease-in-out;
-  -o-transition: opacity .2s ease-in-out;
-  transition: opacity .2s ease-in-out;
+
+  .radio_player {
+    display: flex;
+    max-width: 100%;
+    width: 100%;
+    padding-right: 50px;
+    padding-bottom: 28px;
+    justify-content: flex-end;
+    -webkit-transition: opacity .2s ease-in-out;
+    -moz-transition: opacity .2s ease-in-out;
+    -ms-transition: opacity .2s ease-in-out;
+    -o-transition: opacity .2s ease-in-out;
+    transition: opacity .2s ease-in-out;
+  }
 }

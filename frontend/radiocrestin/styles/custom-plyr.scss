@@ -1,6 +1,7 @@
 
 .plyr {
   width: 400px !important;
+  border-radius: 4px !important;
 
   .plyr__controls {
     background: linear-gradient(90deg, #0f4ca6 12.34%, #0070f3 87.09%) !important;
@@ -17,6 +18,11 @@
       color: white !important;
     }
   }
+
+  .plyr__control:hover, .plyr--audio .plyr__control[aria-expanded=true] {
+    background: #124ca6 !important;
+  }
+
   .plyr__controls {
     .plyr__controls__item:first-child {
       border-radius: 38px !important;
