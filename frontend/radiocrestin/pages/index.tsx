@@ -5,6 +5,7 @@ import React, {useEffect, useState} from "react";
 import dynamic from 'next/dynamic';
 
 import {isMobile} from 'react-device-detect';
+import Marquee from 'react-fast-marquee'
 
 function useStickyState(defaultValue: any, key: any) {
   const [value, setValue] = useState(() => {
@@ -37,18 +38,6 @@ const MemoRadioPlayer = React.memo(RadioPlayer, (prevProps, nextProps) => {
 export default function Home(initialProps: any) {
   let syncStationsInterval: any;
   const [playerStations, setPlayerStations] = useState(initialProps.stations);
-
-
-  const getInitialRecommendedStations = () => {
-    return playerStations.map((s: any) => {
-      return {
-        id: s.id,
-        plays: 0,
-        score: Math.random()
-      }
-    })
-  }
-
   const [recommendedStations, setRecommendedStations] = useStickyState({}, 'RECOMMENDED_STATIONS');
   const [playingStation, originalSetPlayingStation] = useState();
   const [searchValue, setSearchValue] = useState("");
@@ -99,7 +88,6 @@ export default function Home(initialProps: any) {
   }
 
   const stopStation = () => {
-    console.log("Stopping")
     originalSetPlayingStation(undefined);
   }
 
@@ -147,7 +135,8 @@ export default function Home(initialProps: any) {
                     playStation(recommendedStation.id)}
                   }>
                     <h2>{station.title}</h2>
-                    <p>{station.stats.current_song}</p>
+
+                    <p><Marquee speed={10} delay={10} gradient={false} play={station.stats.current_song.length > 30}>{station.stats.current_song}</Marquee></p>
                     <small>{station.stats.listeners > 0? `${station.stats.listeners} ascultători` : ""}</small>
                   </a>
                 }
@@ -179,7 +168,7 @@ export default function Home(initialProps: any) {
                 event.preventDefault();
                 playStation(station.id)
               }}>
-                <h2>{station.title}  <small>{station.stats.current_song}</small></h2>
+                <h2>{station.title}  <small><Marquee speed={10} delay={10} gradient={false} play={station.stats.current_song.length > 30}>{station.stats.current_song}</Marquee></small></h2>
             </a>)}
         </div>
         <div className={styles.radio_player_wrapper}>
