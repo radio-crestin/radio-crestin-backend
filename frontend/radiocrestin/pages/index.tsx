@@ -208,6 +208,6 @@ Home.getInitialProps = async (ctx: any) => {
 }
 
 async function getStations() {
-  const res = await fetch(`https://api.radio-crestin.ro/stations`)
+  const res = await fetch(`https://api.radio-crestin.com/stations`)
   return (await res.json())["stations"]
 }
