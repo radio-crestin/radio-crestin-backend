@@ -1,0 +1,3 @@
+You are allowed to use the code of this project just for projects which are used to promote christian radio stations.
+A christian station is a station which broadcast content accordingly with the Holy Scripture.
+THe use of this project for other purposes is prohibited!!
