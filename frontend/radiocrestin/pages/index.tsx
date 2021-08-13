@@ -136,8 +136,8 @@ export default function Home(initialProps: any) {
                   }>
                     <h2>{station.title}</h2>
 
-                    <p><Marquee speed={10} delay={10} gradient={false} play={station.stats.current_song.length > 30}>{station.stats.current_song}</Marquee></p>
-                    <small>{station.stats.listeners > 0? `${station.stats.listeners} ascultători` : ""}</small>
+                    <p><Marquee speed={10} delay={10} gradient={false} play={station?.stats?.current_song?.length > 30}>{station?.stats?.current_song}</Marquee></p>
+                    <small>{station?.stats?.listeners > 0? `${station?.stats?.listeners} ascultători` : ""}</small>
                   </a>
                 }
             )}
@@ -168,7 +168,7 @@ export default function Home(initialProps: any) {
                 event.preventDefault();
                 playStation(station.id)
               }}>
-                <h2>{station.title}  <small><Marquee speed={10} delay={10} gradient={false} play={station.stats.current_song.length > 30}>{station.stats.current_song}</Marquee></small></h2>
+                <h2>{station.title}  <small><Marquee speed={10} delay={10} gradient={false} play={station?.stats?.current_song?.length > 30}>{station?.stats?.current_song}</Marquee></small></h2>
             </a>)}
         </div>
         <div className={styles.radio_player_wrapper}>
