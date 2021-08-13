@@ -196,6 +196,16 @@ export default function Home(initialProps: any) {
       <ContactButton isPlaying={playingStation}/>
 
       <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "c2153a600cc94f69848e4decff1983a1"}'></script>
+      <!-- Global site tag (gtag.js) - Google Analytics -->
+      <script async src="https://www.googletagmanager.com/gtag/js?id=UA-204935415-1">
+      </script>
+      <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'UA-204935415-1');
+      </script>
     </div>
   )
 
