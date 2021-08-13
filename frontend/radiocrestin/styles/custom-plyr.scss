@@ -13,6 +13,8 @@
     -moz-box-shadow: 2px 5px 8px 5px rgba(210,210,210,0.52) !important;
   }
   .plyr__volume {
+    max-width: 115px !important;
+    width: 40% !important;
     min-width: 100px !important;
     input[type=range] {
       color: white !important;
