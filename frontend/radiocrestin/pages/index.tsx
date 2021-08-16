@@ -199,6 +199,7 @@ export default function Home(initialProps: any) {
       <script async src="https://www.googletagmanager.com/gtag/js?id=UA-204935415-1">
       </script>
       <script src="/ga.js"></script>
+      <script src="/hj.js"></script>
     </div>
   )
 
