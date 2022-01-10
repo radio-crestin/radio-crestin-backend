@@ -5,6 +5,9 @@ import React, {useEffect, useState} from "react";
 import dynamic from 'next/dynamic';
 import {isMobile} from 'react-device-detect';
 import Marquee from 'react-fast-marquee'
+import useSWR from 'swr'
+
+const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 function useStickyState(defaultValue: any, key: any) {
   const [value, setValue] = useState(() => {
@@ -35,38 +38,42 @@ const MemoRadioPlayer = React.memo(RadioPlayer, (prevProps, nextProps) => {
 })
 
 export default function Home(initialProps: any) {
-  let syncStationsInterval: any;
-  const [playerStations, setPlayerStations] = useState(initialProps.stations);
   const [recommendedStations, setRecommendedStations] = useStickyState({}, 'RECOMMENDED_STATIONS');
   const [playingStation, originalSetPlayingStation] = useState();
   const [searchValue, setSearchValue] = useState("");
 
-  playerStations.forEach((station: any) => {
-    let changed = false;
-    if(!recommendedStations[station.id]) {
-      recommendedStations[station.id] = {
-        id: station.id,
-        plays: 0,
-        score: Math.random(),
-      };
-      changed = true;
-    }
-    if(changed) {
-      return setRecommendedStations(recommendedStations);
-    }
-  })
 
+  const { data, error } = useSWR('/api/v1/stations', fetcher, {
+    refreshInterval: 2000
+  });
+  if(error) {
+    console.error(error);
+  }
+  if (error) {
+    console.error("An error has occurred. Please retry later!");
+  }
+  let playerStations: any[];
+  if (!data) {
+    playerStations = initialProps.stations;
+  } else {
+    playerStations = data["stations"];
+  }
   useEffect(() => {
-    if(typeof syncStationsInterval === "undefined") {
-      syncStationsInterval = setInterval(() => {
-        getStations().then(stations => setPlayerStations(stations));
-      }, 30000);
-      getStations().then(stations => setPlayerStations(stations));
-    }
-    return () => {
-      clearInterval(syncStationsInterval);
-    }
-  }, []);
+    playerStations.forEach((station: any) => {
+      let changed = false;
+      if(!recommendedStations[station.id]) {
+        recommendedStations[station.id] = {
+          id: station.id,
+          plays: 0,
+          score: Math.random(),
+        };
+        changed = true;
+      }
+      if(changed) {
+        return setRecommendedStations(recommendedStations);
+      }
+    })
+  }, [playerStations]);
 
 
   const startStation = (stationId: number) => {
@@ -100,7 +107,7 @@ export default function Home(initialProps: any) {
     }
   }
 
-  // @ts-ignore
+
   // @ts-ignore
   return (
     <div className={styles.container}>
@@ -136,7 +143,7 @@ export default function Home(initialProps: any) {
                   }>
                     <h2>{station.title}</h2>
 
-                    <p><Marquee speed={10} delay={10} gradient={false} play={station?.stats?.current_song?.length > 30}>{station?.stats?.current_song}</Marquee></p>
+                    <div><Marquee speed={10} delay={10} gradient={false} play={station?.stats?.current_song?.length > 30}>{station?.stats?.current_song}</Marquee></div>
                     <small>{station?.stats?.listeners > 0? `${station?.stats?.listeners} ascultători` : ""}</small>
                   </a>
                 }
@@ -205,13 +212,9 @@ export default function Home(initialProps: any) {
 
 }
 Home.getInitialProps = async (ctx: any) => {
+  const getStations = require("./api/v1/stations");
   return { stations: (await getStations()).map((s: any) => {
     s["listeners"] = null;
     return s;
     }) }
-}
-
-async function getStations() {
-  const res = await fetch(`https://api.radio-crestin.com/stations`)
-  return (await res.json())["stations"]
 }

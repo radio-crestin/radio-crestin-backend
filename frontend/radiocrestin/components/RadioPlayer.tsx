@@ -11,16 +11,18 @@ export default function RadioPlayer(props: any) {
     const playerRef = useRef()
     useEffect(() => {
         // @ts-ignore
-        const player = playerRef.current.plyr;
+        if(typeof playerRef?.current?.plyr?.id === "undefined") {
+            return
+        }
 
+        // @ts-ignore
+        const player = playerRef.current.plyr;
         let stoppedByError = false;
 
-        if(typeof player.config.title === "undefined") {
-            // @ts-ignore
+        if(typeof player?.config?.title === "undefined") {
             player.stop();
 
         } else {
-            // @ts-ignore
             player.play();
             stoppedByError = false;
         }
@@ -61,6 +63,7 @@ export default function RadioPlayer(props: any) {
                 }, remaining_error_retries === 5 ? 0 : 1000);
             }
         });
+
     })
     const playerSrc: PlyrJS.SourceInfo = {
         type: 'audio',
@@ -78,7 +81,7 @@ export default function RadioPlayer(props: any) {
             {
                 debug: false,
                 settings: ['quality'],
-                autoplay: false,
+                autoplay: true,
                 volume: 0.8,
                 resetOnEnd: true,
                 invertTime: false,
