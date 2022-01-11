@@ -3,7 +3,7 @@ import React from "react";
 import {isMobile} from 'react-device-detect';
 
 export default function WhatsAppButton(props: any) {
-    return <a href="https://wa.me/40701087702?text=Buna ziua" target="_blank" className={styles.contactButton} style={{
+    return <a href="https://wa.me/40773994595?text=Buna ziua" target="_blank" className={styles.contactButton} style={{
         "bottom": props.isPlaying ? isMobile? "93px" : "104px" : "32px"
     }}>
         <div className={styles.contactLinkButton}>
