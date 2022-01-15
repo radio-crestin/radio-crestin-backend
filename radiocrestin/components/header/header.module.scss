@@ -1,0 +1,61 @@
+.containerBackground {
+  max-width: 1400px;
+  height: 70vh;
+  margin: 2% auto 0;
+  position: relative;
+  background: linear-gradient(153deg, rgba(0, 0, 0, .8), rgba(0, 0, 0, .48) 40.54%, transparent), url('../../public/images/forest.jpg');
+  background-position-y: center;
+  background-position-x: center;
+  background-size: cover;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+
+  .titleLogo {
+    display: flex;
+    align-items: center;
+    margin-left: 65px;
+    margin-top: 50px;
+    color: white;
+
+    img {
+      height: 33px;
+      padding-right: 10px;
+    }
+  }
+
+  .contentBottom {
+    display: flex;
+    bottom: 0;
+    width: 90%;
+    margin: 0 auto 78px;
+    color: white;
+
+    .welcome {
+      width: 50%;
+      font-style: normal;
+      font-weight: bold;
+
+      .verseOfDay {
+        position: relative;
+        margin-top: 30px;
+        max-width: 300px;
+        margin-left: 13px;
+        line-height: 20px;
+
+        &:before {
+          border-left: 3px solid white;
+          display: block;
+          position: absolute;
+          left: -10px;
+          height: 100%;
+          content: "";
+        }
+      }
+    }
+
+    .radioPlayer {
+      width: 50%;
+    }
+  }
+}

@@ -7,6 +7,7 @@ import {isMobile} from 'react-device-detect';
 import Marquee from 'react-fast-marquee'
 import useSWR from 'swr'
 import {getStations} from "./api/v1/stations";
+import Header from "../components/header/header";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -125,74 +126,72 @@ export default function Home(initialProps: any) {
       </Head>
 
       <main className={styles.main}>
-        <h1 className={styles.title}>
-          Radiouri <span className={styles.highlighted_title}>Creștine</span>
-        </h1>
+        <Header />
 
-        <div className={styles.grid} style={{marginTop: "4rem"}}>
-          <div className={styles.recommended_stations}>
-            <h2 className={styles.section_subtitle}>Recomandate pentru tine</h2>
-            {Object.values(recommendedStations).sort((a: any, b: any) => {
-              return b.score - a.score;
-            }).slice(0, 4).map((recommendedStation: any, index: number) => {
-              return {
-                recommendedStation,
-                index,
-                station: playerStations?.find((o: any) => o.id === recommendedStation.id)
-              };
-            }).filter(v=> typeof v.station !== "undefined").map(({recommendedStation, index, station}: any) => {
-                  // @ts-ignore
-                  return <a className={styles.card}  data-selected={playingStation && recommendedStation.id==playingStation.id} key={index} onClick={event => {
-                    event.preventDefault();
-                    playStation(recommendedStation.id)}
-                  }>
-                    <h2>{station.title}</h2>
+        {/*<div className={styles.grid} style={{marginTop: "4rem"}}>*/}
+        {/*  <div className={styles.recommended_stations}>*/}
+        {/*    <h2 className={styles.section_subtitle}>Recomandate pentru tine</h2>*/}
+        {/*    {Object.values(recommendedStations).sort((a: any, b: any) => {*/}
+        {/*      return b.score - a.score;*/}
+        {/*    }).slice(0, 4).map((recommendedStation: any, index: number) => {*/}
+        {/*      return {*/}
+        {/*        recommendedStation,*/}
+        {/*        index,*/}
+        {/*        station: playerStations?.find((o: any) => o.id === recommendedStation.id)*/}
+        {/*      };*/}
+        {/*    }).filter(v=> typeof v.station !== "undefined").map(({recommendedStation, index, station}: any) => {*/}
+        {/*          // @ts-ignore*/}
+        {/*          return <a className={styles.card}  data-selected={playingStation && recommendedStation.id==playingStation.id} key={index} onClick={event => {*/}
+        {/*            event.preventDefault();*/}
+        {/*            playStation(recommendedStation.id)}*/}
+        {/*          }>*/}
+        {/*            <h2>{station.title}</h2>*/}
 
-                    <div><Marquee speed={10} delay={10} gradient={false} play={station?.stats?.current_song?.length > 30}>{station?.stats?.current_song}</Marquee></div>
-                    <small>{station?.stats?.listeners > 0? `${station?.stats?.listeners} ascultători` : ""}</small>
-                  </a>
-                }
-            )
+        {/*            <div><Marquee speed={10} delay={10} gradient={false} play={station?.stats?.current_song?.length > 30}>{station?.stats?.current_song}</Marquee></div>*/}
+        {/*            <small>{station?.stats?.listeners > 0? `${station?.stats?.listeners} ascultători` : ""}</small>*/}
+        {/*          </a>*/}
+        {/*        }*/}
+        {/*    )*/}
 
-            }
-          </div>
-        </div>
+        {/*    }*/}
+        {/*  </div>*/}
+        {/*</div>*/}
 
 
-        <div className={styles.grid}>
-          <h2 className={styles.section_subtitle}>Stații de radiouri creștine</h2>
+        {/*<div className={styles.grid}>*/}
+        {/*  <h2 className={styles.section_subtitle}>Stații de radiouri creștineee</h2>*/}
 
-          <input
-              className={styles.search_card}
-              type="text"
-              placeholder="Tastează numele stației.."
-              name="search"
-              value={searchValue}
-              onChange={e=> setSearchValue(e.target.value.trim())}
-          />
+        {/*  <input*/}
+        {/*      className={styles.search_card}*/}
+        {/*      type="text"*/}
+        {/*      placeholder="Tastează numele stației.."*/}
+        {/*      name="search"*/}
+        {/*      value={searchValue}*/}
+        {/*      onChange={e=> setSearchValue(e.target.value.trim())}*/}
+        {/*  />*/}
 
-          {playerStations?.filter((station: any) => {
-            return searchValue === "" || station.title.toLowerCase().includes(searchValue.toLowerCase())
-          })?.map((station: any, index: number) =>
-              <a className={styles.radio_station_link}
-                 key={index}
-                  // @ts-ignore
-                 data-selected={playingStation && station.id==playingStation.id}
-                 onClick={event => {
-                event.preventDefault();
-                playStation(station.id)
-              }}>
-                <h2>{station.title}  <small><Marquee speed={10} delay={10} gradient={false} play={station?.stats?.current_song?.length > 30}>{station?.stats?.current_song}</Marquee></small></h2>
-            </a>)}
-        </div>
-        <div className={styles.radio_player_wrapper}>
-          <div id="radio_player" className={styles.radio_player}>
-            <MemoRadioPlayer
-            station={playingStation}
-            onStationStopped={stopStation}
-            />
-          </div>
-        </div>
+        {/*  {playerStations?.filter((station: any) => {*/}
+        {/*    return searchValue === "" || station.title.toLowerCase().includes(searchValue.toLowerCase())*/}
+        {/*  })?.map((station: any, index: number) =>*/}
+        {/*      <a className={styles.radio_station_link}*/}
+        {/*         key={index}*/}
+        {/*          // @ts-ignore*/}
+        {/*         data-selected={playingStation && station.id==playingStation.id}*/}
+        {/*         onClick={event => {*/}
+        {/*        event.preventDefault();*/}
+        {/*        playStation(station.id)*/}
+        {/*      }}>*/}
+        {/*        <h2>{station.title}  <small><Marquee speed={10} delay={10} gradient={false} play={station?.stats?.current_song?.length > 30}>{station?.stats?.current_song}</Marquee></small></h2>*/}
+        {/*    </a>)}*/}
+        {/*</div>*/}
+        {/*<div className={styles.radio_player_wrapper}>*/}
+        {/*  <div id="radio_player" className={styles.radio_player}>*/}
+        {/*    <MemoRadioPlayer*/}
+        {/*    station={playingStation}*/}
+        {/*    onStationStopped={stopStation}*/}
+        {/*    />*/}
+        {/*  </div>*/}
+        {/*</div>*/}
       </main>
 
       {/*<footer className={styles.footer}>*/}

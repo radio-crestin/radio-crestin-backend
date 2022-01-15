@@ -40,9 +40,11 @@ const updateStationStatsCache = async ({stations, station_stats_by_station_id}: 
     if (!fs.existsSync(path.join(HISTORY_DATA_DIRECTORY_PATH, today))){
         fs.mkdirSync(path.join(HISTORY_DATA_DIRECTORY_PATH, today));
     }
-    await fs.writeFileSync(path.join(HISTORY_DATA_DIRECTORY_PATH, today, `${now.toISOString()}.json`), JSON.stringify({
-        stations, station_stats_by_station_id
-    }))
+
+    //TODO: verify if it is still needed
+    // await fs.writeFileSync(path.join(HISTORY_DATA_DIRECTORY_PATH, today, `${now.toISOString()}.json`), JSON.stringify({
+    //     stations, station_stats_by_station_id
+    // }))
 }
 
 const statsFormatter = (stats:Stats) => {
