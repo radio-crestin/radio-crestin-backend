@@ -1,13 +1,13 @@
 import {HISTORY_DATA_DIRECTORY_PATH, Station, STATIONS, STATIONS_STATS_REFRESH_MS} from "../../../../constants";
 import {Promise} from "bluebird";
-import fs from "fs";
 import path from "path";
 import {STATION_STATS_BY_STATION_ID_CACHE} from "./index";
+import { AbortController } from "node-abort-controller";
 
 export interface Stats {
         timestamp: string
-        current_song: string
-        listeners: string | undefined
+        current_song: string | null
+        listeners: string | null
 }
 export interface StreamStatus {
     up: boolean
@@ -17,17 +17,17 @@ export interface StreamStatus {
 export interface StationStats {
     rawData: any
     stats: Stats
-    error?: any | undefined
-    streamStatus?: StreamStatus | undefined
+    error?: any | null
+    streamStatus?: StreamStatus | null
 }
 export interface StationStatsByStationId { [key: number]: StationStats }
 
 const updateStationStatsCache = async ({stations, station_stats_by_station_id}: {stations: Station[], station_stats_by_station_id: StationStatsByStationId}) => {
-    console.log("stations: ", stations);
-    console.log("station_stats_by_station_id: ", station_stats_by_station_id);
     const now = new Date();
     let today = now.toISOString().slice(0, 10);
     Object.assign(STATION_STATS_BY_STATION_ID_CACHE, station_stats_by_station_id);
+
+    const fs = require("fs");
 
     if (!fs.existsSync(HISTORY_DATA_DIRECTORY_PATH)){
         fs.mkdirSync(HISTORY_DATA_DIRECTORY_PATH);
@@ -43,6 +43,18 @@ const updateStationStatsCache = async ({stations, station_stats_by_station_id}: 
     await fs.writeFileSync(path.join(HISTORY_DATA_DIRECTORY_PATH, today, `${now.toISOString()}.json`), JSON.stringify({
         stations, station_stats_by_station_id
     }))
+}
+
+const statsFormatter = (stats:Stats) => {
+    if(stats.current_song) {
+        // Decode Unicode special chars
+        stats.current_song = stats.current_song.replace(/&#(\d+);/g, function(match, dec) {
+            return String.fromCharCode(dec);
+        })
+        stats.current_song = stats.current_song + " ";
+        stats.current_song = stats.current_song.replace("_", " ");
+    }
+    return stats
 }
 
 const extractStats = async ({url, headers, statsExtractor, decodeJson}: {url: string, headers?: any, statsExtractor: (data: any) => Stats, decodeJson: boolean}): Promise<StationStats> => {
@@ -67,7 +79,7 @@ const extractStats = async ({url, headers, statsExtractor, decodeJson}: {url: st
         .then(async (data) => {
             return {
                 rawData: data,
-                stats: statsExtractor(data)
+                stats: statsFormatter(statsExtractor(data))
             }
         })
         .catch(error => {
@@ -76,8 +88,8 @@ const extractStats = async ({url, headers, statsExtractor, decodeJson}: {url: st
                 rawData: {},
                 stats: {
                     timestamp: (new Date()).toISOString(),
-                    current_song: "",
-                    listeners: undefined,
+                    current_song: null,
+                    listeners: null,
                 },
                 error: JSON.parse(JSON.stringify(error, Object.getOwnPropertyNames(error)))
             }
@@ -94,8 +106,8 @@ const extractShoutcastStats = async ({shoutcast_stats_url}: {shoutcast_stats_url
         statsExtractor: (data) => {
             return {
                 timestamp: (new Date()).toISOString(),
-                current_song: data["songtitle"],
-                listeners: data["currentlisteners"],
+                current_song: data["songtitle"] || null,
+                listeners: data["currentlisteners"] || null,
             };
         }
     });
@@ -111,8 +123,8 @@ const extractRadioCoStats = async ({radio_co_stats_url}: {radio_co_stats_url: st
         statsExtractor: (data) => {
             return {
                 timestamp: (new Date()).toISOString(),
-                current_song: data["songtitle"],
-                listeners: data["currentlisteners"],
+                current_song: data["songtitle"] || null,
+                listeners: data["currentlisteners"] || null,
             };
         }
     });
@@ -130,8 +142,8 @@ const extractIcecastStats = async ({icecast_stats_url}: {icecast_stats_url: stri
             let source = data["icestats"]["source"].find((source: any) => source.listenurl.includes(listenurl));
             return {
                 timestamp: (new Date()).toISOString(),
-                current_song: source["title"],
-                listeners: source["listeners"],
+                current_song: source["title"] || null,
+                listeners: source["listeners"] || null,
             };
         }
     });
@@ -169,8 +181,8 @@ const extractShoutcastXmlStats = async ({shoutcast_xml_stats_url}: {shoutcast_xm
             }
             return {
                 timestamp: (new Date()).toISOString(),
-                current_song: data["SONGTITLE"] || "",
-                listeners: data["CURRENTLISTENERS"] || undefined,
+                current_song: data["SONGTITLE"]  || null,
+                listeners: data["CURRENTLISTENERS"] || null,
             };
         }
     });
@@ -207,8 +219,8 @@ const extractOldIcecastHtmlStats = async ({old_icecast_html_stats_url}: {old_ice
             }
             return {
                 timestamp: (new Date()).toISOString(),
-                current_song: data["Current Song"] || "",
-                listeners: data["Current Listeners"] || undefined,
+                current_song: data["Current Song"]  || null,
+                listeners: data["Current Listeners"] || null,
             };
         }
     });
@@ -245,20 +257,22 @@ const extractOldShoutcastHtmlStats = async ({old_shoutcast_stats_html_url}: {old
             }
             return {
                 timestamp: (new Date()).toISOString(),
-                current_song:  /\((?<listeners>[0-9+]) unique\)/gmi.exec(data["Stream Status"])?.groups?.listeners || "",
-                listeners: data["Current Listeners"] || undefined,
+                current_song:  /\((?<listeners>[0-9+]) unique\)/gmi.exec(data["Stream Status"])?.groups?.listeners  || null,
+                listeners: data["Current Listeners"] || null,
             };
         }
     });
 }
 
 const fetchWithTimeout = async function (url: string, options: any, timeout = 5000) {
-    return Promise.race([
-        fetch(url, options),
-        new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('timeout')), timeout)
-        )
-    ]);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout)
+
+    return fetch(url, {
+        signal: controller.signal,
+        ...options,
+
+    });
 }
 
 const getStreamStatus = ({streamUrl}: {streamUrl:string}): Promise<StreamStatus> => {
@@ -284,7 +298,7 @@ const getStreamStatus = ({streamUrl}: {streamUrl:string}): Promise<StreamStatus>
             "sec-fetch-user": "?1",
             "upgrade-insecure-requests": "1"
         }
-    }, 10000).then(async (response) => {
+    }, 2000).then(async (response) => {
         let s = streamUrl;
         responseStatus = response.status;
         latencyMs = Math.round(process.hrtime(start)[1]/ 1000000);
@@ -305,6 +319,7 @@ const getStreamStatus = ({streamUrl}: {streamUrl:string}): Promise<StreamStatus>
             }
             return {up: false, latencyMs, rawData: {headers, responseStatus, textResponse}}
         }
+
 
         return {up: true, latencyMs, rawData: {headers, responseStatus}}            // RETURN DATA TRANSFERED AS BLOB
     }).catch((error) => {

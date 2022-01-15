@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import {isMobile} from 'react-device-detect';
 import Marquee from 'react-fast-marquee'
 import useSWR from 'swr'
+import {getStations} from "./api/v1/stations";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -107,7 +108,6 @@ export default function Home(initialProps: any) {
     }
   }
 
-
   // @ts-ignore
   return (
     <div className={styles.container}>
@@ -135,7 +135,12 @@ export default function Home(initialProps: any) {
             {Object.values(recommendedStations).sort((a: any, b: any) => {
               return b.score - a.score;
             }).slice(0, 4).map((recommendedStation: any, index: number) => {
-                  const station = playerStations?.find((o: any) => o.id === recommendedStation.id);
+              return {
+                recommendedStation,
+                index,
+                station: playerStations?.find((o: any) => o.id === recommendedStation.id)
+              };
+            }).filter(v=> typeof v.station !== "undefined").map(({recommendedStation, index, station}: any) => {
                   // @ts-ignore
                   return <a className={styles.card}  data-selected={playingStation && recommendedStation.id==playingStation.id} key={index} onClick={event => {
                     event.preventDefault();
@@ -147,7 +152,9 @@ export default function Home(initialProps: any) {
                     <small>{station?.stats?.listeners > 0? `${station?.stats?.listeners} ascultători` : ""}</small>
                   </a>
                 }
-            )}
+            )
+
+            }
           </div>
         </div>
 
@@ -211,10 +218,18 @@ export default function Home(initialProps: any) {
   )
 
 }
-Home.getInitialProps = async (ctx: any) => {
-  const getStations = require("./api/v1/stations");
-  return { stations: (await getStations()).map((s: any) => {
+
+export async function getStaticProps() {
+  const s = (await getStations());
+
+  const stations = s.map((s: any) => {
     s["listeners"] = null;
     return s;
-    }) }
+  });
+  console.log("stations: ", stations);
+  return {
+    props: {
+      stations
+    }
+  }
 }

@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node server.js",
     "build": "next build",
     "build-cloudflare": "next build && next export",
-    "start": "next start"
+    "start": "NODE_ENV=production node server.js"
   },
   "dependencies": {
     "@types/bluebird": "^3.5.36",
@@ -15,6 +15,7 @@
     "next": "12.0.7",
     "next-absolute-url": "^1.2.2",
     "next-runtime-dotenv": "^1.4.0",
+    "node-abort-controller": "^3.0.1",
     "node-media-server": "^2.3.8",
     "plyr-react": "^3.2.1",
     "react": "17.0.2",
