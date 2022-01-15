@@ -1,0 +1,53 @@
+@use "../../styles/globalVariables";
+
+.containerPlayer {
+  width: 488px;
+  height: 209px;
+  background: #F0F0F0;
+  border-radius: 15px;
+  display: flex;
+  color: black;
+  padding: 18px;
+  float: right;
+  margin-right: 36px;
+  margin-bottom: 36px;
+  gap: 20px;
+
+  .descriptionSong {
+    width: calc(58% - 20px);
+    padding-left: 11px;
+
+    .radioName{
+      margin-top: 30px;
+      font-style: normal;
+      font-weight: normal;
+      font-size: 14px;
+      line-height: 16px;
+      color: globalVariables.$color-1;
+    }
+
+    .nameSong{
+      margin: 5px 0;
+      font-size: 1.3em;
+      font-weight: 800;
+    }
+
+    .artist{
+      font-weight: 500;
+    }
+
+    .containerPlyr{
+      margin-top: 75px;
+    }
+  }
+
+  .imageSong {
+
+    img{
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 13px;
+    }
+  }
+}

@@ -4,14 +4,20 @@
     justify-content: center;
 }
 
-@mixin mobileResponsive {
-    @media screen and (max-width: 767px) {
-        @content;
-    }
+@mixin desktopResponsive {
+  @media screen and (max-width: 1600px) {
+    @content;
+  }
 }
 
 @mixin tabletResponsive {
-    @media screen and (max-width: 1023px) {
+  @media screen and (max-width: 1023px) {
+    @content;
+  }
+}
+
+@mixin mobileResponsive {
+    @media screen and (max-width: 767px) {
         @content;
     }
 }

@@ -1,6 +1,6 @@
-import styles from './header.module.scss'
+import styles from './Header.module.scss'
 import logoImg from '../../public/images/Logo.svg'
-import RadioPlayer from "../RadioPlayer";
+import RadioPlayer from "../RadioPlayer/RadioPlayer";
 
 export default function Header() {
 

@@ -7,7 +7,7 @@ import {isMobile} from 'react-device-detect';
 import Marquee from 'react-fast-marquee'
 import useSWR from 'swr'
 import {getStations} from "./api/v1/stations";
-import Header from "../components/header/header";
+import Header from "../components/Header/Header";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -33,7 +33,7 @@ function useStickyState(defaultValue: any, key: any) {
 
 const ContactButton = dynamic(() => isMobile ? import("../components/WhatsAppButton") : import("../components/EmailButton"), { ssr: false })
 
-const RadioPlayer = dynamic(() => import("../components/RadioPlayer"), { ssr: true })
+const RadioPlayer = dynamic(() => import("../components/RadioPlayer/RadioPlayer"), { ssr: true })
 
 const MemoRadioPlayer = React.memo(RadioPlayer, (prevProps, nextProps) => {
   return JSON.stringify(prevProps.station) === JSON.stringify(nextProps.station);
