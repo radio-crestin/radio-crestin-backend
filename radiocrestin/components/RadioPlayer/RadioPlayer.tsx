@@ -2,8 +2,8 @@ import React, { useEffect, useRef } from "react";
 import PlyrJS from "plyr";
 import Plyr from "plyr-react";
 import styles from "./RadioPlayer.module.scss"
-import castTV from '../../public/images/castTV.svg'
-import imgSong from '../../public/images/image-008.jpg'
+import castTV from 'public/images/castTV.svg'
+import imgSong from 'public/images/image-008.jpg'
 
 export default function RadioPlayer(props: any) {
     const playingStation = props.station;

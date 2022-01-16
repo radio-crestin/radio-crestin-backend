@@ -1,4 +1,4 @@
-@use "../../styles/globalVariables";
+@use 'styles/globalVariables';
 @use 'styles/mixinHelper';
 
 .containerPlayer {
@@ -10,6 +10,8 @@
   margin-right: 36px;
   margin-bottom: 36px;
   gap: 20px;
+  width: fit-content;
+  margin-left: auto;
 
   @include mixinHelper.tabletResponsive{
     margin-right: 0;

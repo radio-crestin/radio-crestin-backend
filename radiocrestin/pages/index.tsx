@@ -1,12 +1,11 @@
 import Head from 'next/head'
-import styles from '../styles/Home.module.scss'
 import 'plyr-react/dist/plyr.css'
 import React, {useEffect, useState} from "react";
 import dynamic from 'next/dynamic';
 import {isMobile} from 'react-device-detect';
 import useSWR from 'swr'
 import {getStations} from "./api/v1/stations";
-import Header from "../components/Header/Header";
+import Header from "components/Header/Header";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -30,9 +29,9 @@ function useStickyState(defaultValue: any, key: any) {
   return [value, setValue];
 }
 
-const ContactButton = dynamic(() => isMobile ? import("../components/WhatsAppButton") : import("../components/EmailButton"), { ssr: false })
+const ContactButton = dynamic(() => isMobile ? import("components/WhatsAppButton") : import("components/EmailButton"), { ssr: false })
 
-const RadioPlayer = dynamic(() => import("../components/RadioPlayer/RadioPlayer"), { ssr: true })
+const RadioPlayer = dynamic(() => import("components/RadioPlayer/RadioPlayer"), { ssr: true })
 
 const MemoRadioPlayer = React.memo(RadioPlayer, (prevProps, nextProps) => {
   return JSON.stringify(prevProps.station) === JSON.stringify(nextProps.station);
@@ -110,7 +109,7 @@ export default function Home(initialProps: any) {
 
   // @ts-ignore
   return (
-    <div className={styles.container}>
+    <div>
       <Head>
         <title>Radio Crestin</title>
         <meta name="description" content="Lista de radiouri crestine." />
@@ -124,7 +123,7 @@ export default function Home(initialProps: any) {
       </style>
       </Head>
 
-      <main className={styles.main}>
+      <main>
         <Header />
       </main>
       <ContactButton isPlaying={playingStation}/>
