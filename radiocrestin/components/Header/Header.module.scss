@@ -17,6 +17,11 @@
     max-width: 90%;
   }
 
+  @include mixinHelper.tabletResponsive{
+    max-width: 100%;
+    margin: 0;
+  }
+
   .titleLogo {
     display: flex;
     align-items: center;
@@ -36,11 +41,25 @@
     width: 100%;
     color: white;
 
+    @include mixinHelper.tabletResponsive{
+      @include mixinHelper.center-content;
+      flex-direction: column;
+    }
+
     .welcome {
-      width: 50%;
+      width: inherit;
       font-style: normal;
       font-weight: bold;
       margin-left: 100px;
+
+      @include mixinHelper.tabletResponsive{
+        margin-left: 0;
+        text-align: center;
+      }
+
+      .goodMorning{
+        font-size: 42px;
+      }
 
       .verseOfDay {
         position: relative;
@@ -48,6 +67,10 @@
         max-width: 300px;
         margin-left: 13px;
         line-height: 20px;
+
+        @include mixinHelper.tabletResponsive{
+          margin: 35px auto;
+        }
 
         &:before {
           border-left: 3px solid white;
@@ -62,6 +85,10 @@
 
     .radioPlayer {
       width: 50%;
+
+      @include mixinHelper.tabletResponsive{
+        width: unset;
+      }
     }
   }
 }

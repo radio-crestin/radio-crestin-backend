@@ -80,7 +80,7 @@ export default function RadioPlayer(props: any) {
 
     <div className={styles.containerPlayer}>
       <div className={styles.descriptionSong}>
-        <img style={{ cursor: "pointer", float: "right", marginTop: 2 }} src={castTV.src} />
+        <img className={styles.castTVImg}  src={castTV.src} alt="cast icon"/>
         <h4 className={styles.radioName}>Aripi spre cer</h4>
         <h2 className={styles.nameSong}>Sunt iubit</h2>
         <h3 className={styles.artist}> Silo</h3>

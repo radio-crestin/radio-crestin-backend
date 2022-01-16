@@ -1,21 +1,34 @@
 @use "../../styles/globalVariables";
+@use 'styles/mixinHelper';
 
 .containerPlayer {
-  width: 488px;
-  height: 209px;
   background: #F0F0F0;
   border-radius: 15px;
   display: flex;
   color: black;
   padding: 18px;
-  float: right;
   margin-right: 36px;
   margin-bottom: 36px;
   gap: 20px;
 
+  @include mixinHelper.tabletResponsive{
+    margin-right: 0;
+  }
+
   .descriptionSong {
-    width: calc(58% - 20px);
+    width: 220px;
     padding-left: 11px;
+
+    @include mixinHelper.mobileResponsive{
+      width: 189px;
+    }
+
+    .castTVImg {
+      cursor: pointer;
+      float: right;
+      margin-top: 5px;
+      width: 18px;
+    }
 
     .radioName{
       margin-top: 30px;
@@ -24,6 +37,10 @@
       font-size: 14px;
       line-height: 16px;
       color: globalVariables.$color-1;
+
+      @include mixinHelper.mobileResponsive{
+        margin-top: 0;
+      }
     }
 
     .nameSong{
@@ -37,11 +54,20 @@
     }
 
     .containerPlyr{
-      margin-top: 75px;
+      margin-top: 25px;
     }
   }
 
   .imageSong {
+    width: 150px;
+    height: 150px;
+
+    @include mixinHelper.mobileResponsive{
+      @include mixinHelper.center-content;
+      margin: auto;
+      width: 100px;
+      height: 100px;
+    }
 
     img{
       width: 100%;

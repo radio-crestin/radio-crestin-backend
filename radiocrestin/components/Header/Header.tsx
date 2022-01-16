@@ -13,7 +13,7 @@ export default function Header() {
 
       <div className={`${styles.contentBottom}`}>
         <div className={`${styles.welcome}`}>
-          <h1>Buna dimineata!</h1>
+          <h1 className={styles.goodMorning}>Buna dimineata!</h1>
           <h4 className={`${styles.verseOfDay}`}>Ferice de cei ce plâng, căci ei vor fi mângâiaţi! MATEI 5:4</h4>
         </div>
         <div className={`${styles.radioPlayer}`}>
