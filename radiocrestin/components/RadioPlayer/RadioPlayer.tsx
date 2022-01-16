@@ -1,6 +1,9 @@
-import React, {useEffect, useRef} from "react";
+import React, { useEffect, useRef } from "react";
 import PlyrJS from "plyr";
 import Plyr from "plyr-react";
+import styles from "./RadioPlayer.module.scss"
+import castTV from 'public/images/castTV.svg'
+import imgSong from 'public/images/image-008.jpg'
 
 export default function RadioPlayer(props: any) {
     const playingStation = props.station;
@@ -65,20 +68,30 @@ export default function RadioPlayer(props: any) {
         });
 
     })
-    const playerSrc: PlyrJS.SourceInfo = {
-        type: 'audio',
-        title: playingStation?.title,
-        sources: [{
-            src: playingStation?.stream_url,
-            type: 'audio/mp3'
-        }]
-    };
-    return <Plyr
-        // @ts-ignore
-        ref={playerRef}
-        source={playerSrc}
-        options={
-            {
+  const playerSrc: PlyrJS.SourceInfo = {
+    type: 'audio',
+    title: playingStation?.title,
+    sources: [{
+      src: playingStation?.stream_url,
+      type: 'audio/mp3'
+    }]
+  };
+  return <>
+
+    <div className={styles.containerPlayer}>
+      <div className={styles.descriptionSong}>
+        <img className={styles.castTVImg}  src={castTV.src} alt="cast icon"/>
+        <h4 className={styles.radioName}>Aripi spre cer</h4>
+        <h2 className={styles.nameSong}>Sunt iubit</h2>
+        <h3 className={styles.artist}> Silo</h3>
+
+        <div className={styles.containerPlyr}>
+          <Plyr
+            // @ts-ignore
+            ref={ playerRef }
+            source={ playerSrc }
+            options={
+              {
                 debug: false,
                 settings: ['quality'],
                 autoplay: true,
@@ -86,6 +99,14 @@ export default function RadioPlayer(props: any) {
                 resetOnEnd: true,
                 invertTime: false,
                 controls: ['play', 'current-station1', 'current-time', 'mute', 'volume', 'pip', 'airplay'],
-            }
-        }/>
+              }
+            }/>
+        </div>
+
+      </div>
+      <div className={styles.imageSong}>
+        <img src={imgSong.src} />
+      </div>
+    </div>
+  </>
 }

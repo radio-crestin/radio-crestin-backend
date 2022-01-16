@@ -1,0 +1,92 @@
+@use 'styles/mixinHelper';
+
+.containerBackground {
+  max-width: 75%;
+  height: 70vh;
+  margin: 2% auto 0;
+  position: relative;
+  background: linear-gradient(153deg, rgba(0, 0, 0, .8), rgba(0, 0, 0, .48) 40.54%, transparent), url('../../public/images/header-bg.png');
+  background-position-y: center;
+  background-position-x: center;
+  background-size: cover;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+
+  @include mixinHelper.desktopResponsive{
+    max-width: 90%;
+  }
+
+  @include mixinHelper.tabletResponsive{
+    max-width: 100%;
+    margin: 0;
+  }
+}
+
+.titleLogo {
+  display: flex;
+  align-items: center;
+  margin-left: 65px;
+  margin-top: 50px;
+
+  img {
+    height: 33px;
+    padding-right: 10px;
+  }
+}
+
+.contentBottom {
+  display: flex;
+  bottom: 0;
+  width: 100%;
+
+  @include mixinHelper.tabletResponsive{
+    @include mixinHelper.center-content;
+    flex-direction: column;
+  }
+
+  .welcome {
+    width: inherit;
+    font-style: normal;
+    font-weight: bold;
+    margin-left: 65px;
+
+    @include mixinHelper.tabletResponsive{
+      margin-left: 0;
+      text-align: center;
+    }
+
+    .goodMorning{
+      font-size: 42px;
+    }
+
+    .verseOfDay {
+      position: relative;
+      margin-top: 30px;
+      max-width: 300px;
+      margin-left: 13px;
+      line-height: 20px;
+
+      @include mixinHelper.tabletResponsive{
+        margin: 35px auto;
+      }
+
+      &:before {
+        border-left: 3px solid white;
+        display: block;
+        position: absolute;
+        left: -10px;
+        height: 100%;
+        content: "";
+      }
+    }
+  }
+
+  .radioPlayer {
+    width: 50%;
+
+    @include mixinHelper.tabletResponsive{
+      width: unset;
+    }
+  }
+}
