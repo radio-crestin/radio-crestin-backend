@@ -21,74 +21,72 @@
     max-width: 100%;
     margin: 0;
   }
+}
 
-  .titleLogo {
-    display: flex;
-    align-items: center;
+.titleLogo {
+  display: flex;
+  align-items: center;
+  margin-left: 65px;
+  margin-top: 50px;
+
+  img {
+    height: 33px;
+    padding-right: 10px;
+  }
+}
+
+.contentBottom {
+  display: flex;
+  bottom: 0;
+  width: 100%;
+
+  @include mixinHelper.tabletResponsive{
+    @include mixinHelper.center-content;
+    flex-direction: column;
+  }
+
+  .welcome {
+    width: inherit;
+    font-style: normal;
+    font-weight: bold;
     margin-left: 65px;
-    margin-top: 50px;
-    color: white;
 
-    img {
-      height: 33px;
-      padding-right: 10px;
+    @include mixinHelper.tabletResponsive{
+      margin-left: 0;
+      text-align: center;
+    }
+
+    .goodMorning{
+      font-size: 42px;
+    }
+
+    .verseOfDay {
+      position: relative;
+      margin-top: 30px;
+      max-width: 300px;
+      margin-left: 13px;
+      line-height: 20px;
+
+      @include mixinHelper.tabletResponsive{
+        margin: 35px auto;
+      }
+
+      &:before {
+        border-left: 3px solid white;
+        display: block;
+        position: absolute;
+        left: -10px;
+        height: 100%;
+        content: "";
+      }
     }
   }
 
-  .contentBottom {
-    display: flex;
-    bottom: 0;
-    width: 100%;
-    color: white;
+  .radioPlayer {
+    width: 50%;
 
     @include mixinHelper.tabletResponsive{
-      @include mixinHelper.center-content;
-      flex-direction: column;
-    }
-
-    .welcome {
-      width: inherit;
-      font-style: normal;
-      font-weight: bold;
-      margin-left: 100px;
-
-      @include mixinHelper.tabletResponsive{
-        margin-left: 0;
-        text-align: center;
-      }
-
-      .goodMorning{
-        font-size: 42px;
-      }
-
-      .verseOfDay {
-        position: relative;
-        margin-top: 30px;
-        max-width: 300px;
-        margin-left: 13px;
-        line-height: 20px;
-
-        @include mixinHelper.tabletResponsive{
-          margin: 35px auto;
-        }
-
-        &:before {
-          border-left: 3px solid white;
-          display: block;
-          position: absolute;
-          left: -10px;
-          height: 100%;
-          content: "";
-        }
-      }
-    }
-
-    .radioPlayer {
-      width: 50%;
-
-      @include mixinHelper.tabletResponsive{
-        width: unset;
-      }
+      width: unset;
     }
   }
 }
