@@ -1,0 +1,26 @@
+@use 'styles/globalVariables';
+
+.category{
+  margin: 0 73px;
+
+  &:last-child{
+    margin-bottom: 100px;
+  }
+
+  .categoryName{
+    font-style: normal;
+    font-weight: bold;
+    font-size: 27px;
+    line-height: 31px;
+    display: flex;
+    align-items: center;
+    color: globalVariables.$color-5;
+    margin-bottom: 39px;
+    margin-top: 74px;
+  }
+
+  .listStations{
+    display: flex;
+    justify-content: space-between;
+  }
+}

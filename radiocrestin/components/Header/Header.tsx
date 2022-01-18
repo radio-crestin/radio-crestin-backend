@@ -1,11 +1,11 @@
 import styles from './Header.module.scss'
 import logoImg from 'public/images/Logo.svg'
-import RadioPlayer from "../RadioPlayer/RadioPlayer";
+import RadioPlayer from "./RadioPlayer/RadioPlayer";
 
 export default function Header() {
 
   return <>
-    <div className={ `${ styles.containerBackground }` }>
+    <div className={ `container ${ styles.containerBackground }` }>
       <div className={ `${ styles.titleLogo }` }>
         <img src={ logoImg.src } alt={ 'logo img' }/>
         <h1 className={ `${ styles.title }` }>Radio Creștin</h1>

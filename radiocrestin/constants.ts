@@ -63,7 +63,7 @@ export const STATIONS:Station[] =   [
         "stream_url": "https://radio.radio-crestin.com/https://instrumental.stream.aripisprecer.ro/radio.mp3;",
         "shoutcast_stats_url": "https://instrumental.stream.aripisprecer.ro/stats?json=1",
     },
-    // This station is down
+    // This Station is down
     // {
     //     "id": 7,
     //     "title": "Radio ALT FM Arad",
@@ -169,7 +169,7 @@ export const STATIONS:Station[] =   [
         "stream_url": "https://sp.totalstreaming.net/8125/stream",
         "shoutcast_xml_stats_url": "https://sp.totalstreaming.net/8125/stats",
     },
-    // This station is down
+    // This Station is down
     // {
     //     "id": 21,
     //     "title": "Radio Iubire Fara Margini",

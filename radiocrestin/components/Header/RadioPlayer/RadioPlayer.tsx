@@ -2,8 +2,8 @@ import React, { useEffect, useRef } from "react";
 import PlyrJS from "plyr";
 import Plyr from "plyr-react";
 import styles from "./RadioPlayer.module.scss"
-import castTV from 'public/images/castTV.svg'
-import imgSong from 'public/images/image-008.jpg'
+import castTV from '@/public/images/castTV.svg'
+import imgSong from '@/public/images/image-008.jpg'
 
 export default function RadioPlayer(props: any) {
     const playingStation = props.station;
@@ -82,7 +82,7 @@ export default function RadioPlayer(props: any) {
       <div className={styles.descriptionSong}>
         <img className={styles.castTVImg}  src={castTV.src} alt="cast icon"/>
         <h4 className={styles.radioName}>Aripi spre cer</h4>
-        <h2 className={styles.nameSong}>Sunt iubit</h2>
+        <h2 className={styles.songName}>Sunt iubit</h2>
         <h3 className={styles.artist}> Silo</h3>
 
         <div className={styles.containerPlyr}>

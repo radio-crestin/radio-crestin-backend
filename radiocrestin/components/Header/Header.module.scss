@@ -1,25 +1,21 @@
 @use 'styles/mixinHelper';
 
 .containerBackground {
-  max-width: 75%;
-  height: 70vh;
-  margin: 2% auto 0;
+  margin-top: 2%;
+  height: 700px;
   position: relative;
-  background: linear-gradient(153deg, rgba(0, 0, 0, .8), rgba(0, 0, 0, .48) 40.54%, transparent), url('../../public/images/header-bg.png');
-  background-position-y: center;
+  background: url('../../public/images/header-bg.jpg');
+  box-shadow: inset 118px 170px 250px rgb(0 0 0 / 39%);
+  background-position-y: -200px;
   background-position-x: center;
   background-size: cover;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  color: white;
 
-  @include mixinHelper.desktopResponsive{
-    max-width: 90%;
-  }
-
-  @include mixinHelper.tabletResponsive{
-    max-width: 100%;
-    margin: 0;
+  @include mixinHelper.mobileResponsive{
+    margin-top: 0;
   }
 }
 

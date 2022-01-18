@@ -1,0 +1,35 @@
+@use 'styles/globalVariables';
+
+.containerStation{
+  display: flex;
+  flex-direction: column;
+  width: 17%;
+
+  .stationImage{
+    width: auto;
+    border-radius: 27px;
+  }
+
+  .stationName{
+    font-style: normal;
+    font-weight: bold;
+    font-size: 28px;
+    line-height: 32px;
+    display: flex;
+    align-items: center;
+    color: globalVariables.$color-3;
+    margin-top: 10px;
+    margin-left: 16px;
+  }
+
+  .stationSong{
+    font-style: normal;
+    font-weight: bold;
+    font-size: 19px;
+    line-height: 22px;
+    display: flex;
+    align-items: center;
+    color: globalVariables.$color-4;
+    margin-left: 16px;
+  }
+}
