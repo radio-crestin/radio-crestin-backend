@@ -13,6 +13,8 @@
   flex-direction: column;
   justify-content: space-between;
   color: white;
+  border-bottom-left-radius: 25px;
+  border-top-right-radius: 25px;
 
   @include mixinHelper.mobileResponsive{
     margin-top: 0;
