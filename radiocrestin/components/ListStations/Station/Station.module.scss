@@ -1,13 +1,20 @@
 @use 'styles/globalVariables';
 
 .containerStation{
-  display: flex;
+  position: relative;
+  display: grid;
   flex-direction: column;
-  width: 17%;
 
   .stationImage{
-    width: auto;
+    width: 100%;
     border-radius: 27px;
+  }
+
+  .numberOfListeners{
+    width: fit-content;
+    position: absolute;
+    bottom: 78px;
+    right: 10px;
   }
 
   .stationName{

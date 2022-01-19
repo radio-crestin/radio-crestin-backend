@@ -4,6 +4,7 @@ import Plyr from "plyr-react";
 import styles from "./RadioPlayer.module.scss"
 import castTV from '@/public/images/castTV.svg'
 import imgSong from '@/public/images/image-008.jpg'
+import NumberOfListeners from "@/components/NumberOfListeners";
 
 export default function RadioPlayer(props: any) {
     const playingStation = props.station;
@@ -105,7 +106,10 @@ export default function RadioPlayer(props: any) {
 
       </div>
       <div className={styles.imageSong}>
-        <img src={imgSong.src} />
+        <img src={imgSong.src} alt={'Current song image.'} />
+        <div className={styles.numberOfListeners}>
+          <NumberOfListeners />
+        </div>
       </div>
     </div>
   </>
