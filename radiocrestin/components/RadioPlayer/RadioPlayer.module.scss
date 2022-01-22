@@ -25,7 +25,7 @@
     flex-direction: column;
     align-self: flex-end;
 
-    @include mixinHelper.mobileResponsive {
+    @include mixinHelper.onMobile {
       width: 189px;
     }
 
@@ -48,7 +48,7 @@
       line-height: 16px;
       color: globalVariables.$color-1;
 
-      @include mixinHelper.mobileResponsive {
+      @include mixinHelper.onMobile {
         margin-top: 0;
       }
     }
@@ -73,7 +73,7 @@
     width: 170px;
     height: 170px;
 
-    @include mixinHelper.mobileResponsive {
+    @include mixinHelper.onMobile {
       @include mixinHelper.center-content;
       margin: auto;
       width: 100px;

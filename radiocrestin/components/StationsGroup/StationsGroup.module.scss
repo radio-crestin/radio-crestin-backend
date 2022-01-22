@@ -29,7 +29,7 @@
       grid-template-columns: repeat(3, 1fr);
     }
 
-    @include mixinHelper.mobileResponsive {
+    @include mixinHelper.onMobile {
       grid-template-columns: repeat(1, 1fr);
     }
   }
