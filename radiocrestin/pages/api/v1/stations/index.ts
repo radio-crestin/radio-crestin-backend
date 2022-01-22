@@ -8,11 +8,13 @@ export const getStaticStationsData = (): StationData[] => {
   return STATIONS.map(station => {
     return {
       id: station.id,
+      order: station.order,
       title: station.title,
       website: station.website,
       contact: station.contact,
       stream_url: station.stream_url,
       thumbnail_url: station.thumbnail_url,
+      groups: station.groups,
     }
   });
 }
@@ -24,11 +26,13 @@ export const getStationsData = async (): Promise<StationData[]> => {
   return STATIONS.map(station => {
     return {
       id: station.id,
+      order: station.order,
       title: station.title,
       website: station.website,
       contact: station.contact,
       stream_url: station.stream_url,
       thumbnail_url: station.thumbnail_url,
+      groups: station.groups,
       stats: {
         ...STATION_STATS_BY_STATION_ID_CACHE[station.id]?.stats,
       }

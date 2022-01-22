@@ -1,7 +1,7 @@
 import React from "react";
 import headphone from "@/public/images/headphone.svg";
 
-export default function NumberOfListeners() {
+export default function NumberOfListeners({listeners}: { listeners?: number | null }) {
   return <>
     <div style={{
       display: "flex",
@@ -13,7 +13,8 @@ export default function NumberOfListeners() {
       borderRadius: "20px"
     }}>
       <img src={headphone.src} alt="cast icon"/>
-      <p style={{color: "white", fontSize: 15}}>120</p>
+      {listeners && (<p style={{color: "white", fontSize: 15}}>{listeners}</p>)}
+
     </div>
   </>
 }
