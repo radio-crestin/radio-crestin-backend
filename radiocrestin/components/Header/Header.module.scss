@@ -16,7 +16,9 @@
   border-bottom-left-radius: 25px;
   border-top-right-radius: 25px;
 
-  @include mixinHelper.mobileResponsive{
+  @include mixinHelper.tabletResponsive{
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 25px;
     margin-top: 0;
   }
 }

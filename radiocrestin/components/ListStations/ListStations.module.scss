@@ -1,4 +1,5 @@
 @use 'styles/globalVariables';
+@use 'styles/mixinHelper';
 
 .category{
   margin: 0 73px;
@@ -23,5 +24,13 @@
     display: grid;
     grid-template-columns: repeat(5,1fr);
     gap: 40px 30px;
+
+    @include mixinHelper.tabletResponsive{
+      grid-template-columns: repeat(3,1fr);
+    }
+
+    @include mixinHelper.mobileResponsive{
+      grid-template-columns: repeat(1,1fr);
+    }
   }
 }

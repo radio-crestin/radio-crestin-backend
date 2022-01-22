@@ -35,6 +35,10 @@
       position: absolute;
       right: 0;
       top: -20px;
+
+      @include mixinHelper.tabletResponsive{
+        top: 20px;
+      }
     }
 
     .radioName{
