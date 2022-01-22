@@ -1,5 +1,8 @@
 import {Station} from "./types";
 
+import defaultStationThumbnail
+  from '@/public/images/default-station-thumbnail.png'
+
 export const STATIONS: Station[] = [
   {
     "id": 1,
@@ -8,6 +11,7 @@ export const STATIONS: Station[] = [
     "contact": "contact@aripisprecer.ro",
     "stream_url": "https://radio.radio-crestin.com/https://mobile.stream.aripisprecer.ro/radio.mp3;",
     "shoutcast_stats_url": "https://mobile.stream.aripisprecer.ro/stats?json=1",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   {
     "id": 2,
@@ -16,6 +20,7 @@ export const STATIONS: Station[] = [
     "contact": "contact@aripisprecer.ro",
     "stream_url": "https://radio.radio-crestin.com/https://predici.stream.aripisprecer.ro/radio.mp3;",
     "shoutcast_stats_url": "https://predici.stream.aripisprecer.ro/stats?json=1",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   {
     "id": 3,
@@ -24,6 +29,7 @@ export const STATIONS: Station[] = [
     "contact": "contact@aripisprecer.ro",
     "stream_url": "https://radio.radio-crestin.com/https://popular.stream.aripisprecer.ro/radio.mp3;",
     "shoutcast_stats_url": "https://popular.stream.aripisprecer.ro/stats?json=1",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   {
     "id": 4,
@@ -32,6 +38,7 @@ export const STATIONS: Station[] = [
     "contact": "contact@aripisprecer.ro",
     "stream_url": "https://radio.radio-crestin.com/https://worship.stream.aripisprecer.ro/radio.mp3;",
     "shoutcast_stats_url": "https://worship.stream.aripisprecer.ro/stats?json=1",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   {
     "id": 5,
@@ -40,6 +47,7 @@ export const STATIONS: Station[] = [
     "contact": "contact@aripisprecer.ro",
     "stream_url": "https://radio.radio-crestin.com/https://international.stream.aripisprecer.ro/radio.mp3;",
     "shoutcast_stats_url": "https://international.stream.aripisprecer.ro/stats?json=1",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   {
     "id": 6,
@@ -48,6 +56,7 @@ export const STATIONS: Station[] = [
     "contact": "contact@aripisprecer.ro",
     "stream_url": "https://radio.radio-crestin.com/https://instrumental.stream.aripisprecer.ro/radio.mp3;",
     "shoutcast_stats_url": "https://instrumental.stream.aripisprecer.ro/stats?json=1",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   // This Station is down
   // {
@@ -57,6 +66,7 @@ export const STATIONS: Station[] = [
   //     "contact": "office@altfm.ro",
   //     "stream_url": "https://radio.radio-crestin.com/http://asculta.radiocnm.ro:8002/live",
   //     "old_icecast_html_stats_url": "http://asculta.radiocnm.ro:8002/",
+  // "thumbnail_url": defaultStationThumbnail.src,
   // },
   {
     "id": 8,
@@ -65,6 +75,7 @@ export const STATIONS: Station[] = [
     "contact": "office@radioarmonia.ro",
     "stream_url": "https://radio.radio-crestin.com/http://video.bluespot.ro:8001/listen.mp3",
     "shoutcast_stats_url": "http://video.bluespot.ro:8001/stats?json=1",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   // TODO: this stream is down
   // {
@@ -82,6 +93,7 @@ export const STATIONS: Station[] = [
     "contact": "radio@biruitor.eu",
     "stream_url": "https://radio.radio-crestin.com/https://cast1.asurahosting.com/proxy/valer/stream",
     "icecast_stats_url": "https://cast1.asurahosting.com/proxy/valer/status-json.xsl?listen_url=live",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   {
     "id": 11,
@@ -89,7 +101,8 @@ export const STATIONS: Station[] = [
     "website": "https://ciresarii.ro/",
     "contact": "head.office@ciresarii.ro",
     "stream_url": "https://radio.radio-crestin.com/https://s3.radio.co/s6c0a773ad/listen",
-    "radio_co_stats_url": "https://public.radio.co/stations/s6c0a773ad/status"
+    "radio_co_stats_url": "https://public.radio.co/stations/s6c0a773ad/status",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   {
     "id": 12,
@@ -97,7 +110,8 @@ export const STATIONS: Station[] = [
     "website": "https://radiodecuvant.ro/",
     "contact": "radiodecuvant@gmail.com",
     "stream_url": "https://radio.radio-crestin.com/https://streamer.radio.co/sb94ce6fe2/listen",
-    "radio_co_stats_url": "https://public.radio.co/stations/sb94ce6fe2/status"
+    "radio_co_stats_url": "https://public.radio.co/stations/sb94ce6fe2/status",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   {
     "id": 13,
@@ -106,6 +120,7 @@ export const STATIONS: Station[] = [
     "contact": "",
     "stream_url": "https://radio.radio-crestin.com/http://asculta.radioekklesia.com:8005/stream",
     "shoutcast_stats_url": "http://asculta.radioekklesia.com:8005/stats?json=1",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   {
     "id": 14,
@@ -114,6 +129,7 @@ export const STATIONS: Station[] = [
     "contact": "contact@radioelim.ro",
     "stream_url": "https://radio.radio-crestin.com/http://91.213.11.102:8011/stream",
     "shoutcast_stats_url": "http://91.213.11.102:8011/stats?json=1",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   {
     "id": 15,
@@ -122,6 +138,7 @@ export const STATIONS: Station[] = [
     "contact": "contact@radioelim.ro",
     "stream_url": "https://radio.radio-crestin.com/http://91.213.11.102:8015/stream",
     "shoutcast_stats_url": "http://91.213.11.102:8015/stats?json=1",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   {
     "id": 17,
@@ -130,6 +147,7 @@ export const STATIONS: Station[] = [
     "contact": "contact@radioelim.ro",
     "stream_url": "https://radio.radio-crestin.com/http://91.213.11.102:8007/stream",
     "shoutcast_stats_url": "http://91.213.11.102:8007/stats?json=1",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   {
     "id": 18,
@@ -138,6 +156,7 @@ export const STATIONS: Station[] = [
     "contact": "contact@radioelim.ro",
     "stream_url": "https://radio.radio-crestin.com/http://91.213.11.102:8003/stream",
     "shoutcast_stats_url": "http://91.213.11.102:8003/stats?json=1",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   {
     "id": 19,
@@ -146,6 +165,7 @@ export const STATIONS: Station[] = [
     "contact": "redactie@radiofiladelfia.ro",
     "stream_url": "https://radio.radio-crestin.com/https://asculta.radiofiladelfia.ro:8000/;",
     "shoutcast_stats_url": "http://asculta.radiofiladelfia.ro:8080/stats?json=1",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   {
     "id": 20,
@@ -154,6 +174,7 @@ export const STATIONS: Station[] = [
     "contact": "info@filadelfia.md",
     "stream_url": "https://sp.totalstreaming.net/8125/stream",
     "shoutcast_xml_stats_url": "https://sp.totalstreaming.net/8125/stats",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   // This Station is down
   // {
@@ -171,6 +192,7 @@ export const STATIONS: Station[] = [
     "contact": "radiolevionline@gmail.com",
     "stream_url": "https://radio.radio-crestin.com/https://audio-radioleviro.bisericilive.com/radioleviro.mp3",
     "icecast_stats_url": "https://audio-radioleviro.bisericilive.com/status-json.xsl?listen_url=radioleviro",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   {
     "id": 23,
@@ -178,7 +200,8 @@ export const STATIONS: Station[] = [
     "website": "https://www.miculsamaritean.com/",
     "contact": "miculsamariteanmd@yahoo.com",
     "stream_url": "https://radio.radio-crestin.com/https://s5.radio.co/sfff7b7e97/listen",
-    "radio_co_stats_url": "https://public.radio.co/stations/sfff7b7e97/status"
+    "radio_co_stats_url": "https://public.radio.co/stations/sfff7b7e97/status",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   {
     "id": 24,
@@ -187,6 +210,7 @@ export const STATIONS: Station[] = [
     "contact": "wmbi@moody.edu",
     "stream_url": "https://radio.radio-crestin.com/https://primary.moodyradiostream.org/wmbifm-high.aac",
     // "icecast_stats_url": "https://primary.moodyradiostream.org/status-json.xsl?listen_url=wmbifm-high",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   {
     "id": 25,
@@ -194,7 +218,8 @@ export const STATIONS: Station[] = [
     "website": "https://www.oldchristianradio.com/",
     "contact": "mcfaddenm99@yahoo.com",
     "stream_url": "https://radio.radio-crestin.com/https://stream.radio.co/sf2c714555/listen",
-    "radio_co_stats_url": "https://public.radio.co/stations/sf2c714555/status"
+    "radio_co_stats_url": "https://public.radio.co/stations/sf2c714555/status",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   {
     "id": 26,
@@ -202,7 +227,8 @@ export const STATIONS: Station[] = [
     "website": "https://radioonouasansa.ro/radio/",
     "contact": "",
     "stream_url": "https://radio.radio-crestin.com/https/securestreams5.autopo.st:1951/;?type=http&nocache=15",
-    "shoutcast_stats_url": "https://securestreams5.autopo.st:1951/stats?json=1"
+    "shoutcast_stats_url": "https://securestreams5.autopo.st:1951/stats?json=1",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   {
     "id": 27,
@@ -210,6 +236,7 @@ export const STATIONS: Station[] = [
     "website": "http://www.philadelphiamansue.it/radio-philadelphia/",
     "contact": "",
     "stream_url": "https://radio.radio-crestin.com/http://94.130.106.91/radio/8000/radio.mp3",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   {
     "id": 28,
@@ -217,7 +244,8 @@ export const STATIONS: Station[] = [
     "website": "https://rvebucuresti.ro/",
     "contact": "contact@rvebucuresti.ro",
     "stream_url": "https://radio.radio-crestin.com/https/lb01.bpstream.com:8618/;",
-    "shoutcast_stats_url": "https://lb01.bpstream.com:8618/stats?json=1"
+    "shoutcast_stats_url": "https://lb01.bpstream.com:8618/stats?json=1",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   {
     "id": 29,
@@ -225,7 +253,8 @@ export const STATIONS: Station[] = [
     "website": "https://rvecj.ro/",
     "contact": "rvecluj@gmail.com",
     "stream_url": "https://radio.radio-crestin.com/https/s23.myradiostream.com/:18366/listen.mp3",
-    "shoutcast_stats_url": "https://s23.myradiostream.com/:18366/stats?json=1"
+    "shoutcast_stats_url": "https://s23.myradiostream.com/:18366/stats?json=1",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
   {
     "id": 30,
@@ -234,6 +263,7 @@ export const STATIONS: Station[] = [
     "contact": "contact@rvect.ro",
     "stream_url": "https://radio.radio-crestin.com/https://audio-rvectro.bisericilive.com/rvectro.mp3",
     "icecast_stats_url": "https://audio-rvectro.bisericilive.com/status-json.xsl?listen_url=rvectro",
+    "thumbnail_url": defaultStationThumbnail.src,
   },
 ];
 export const HISTORY_DATA_DIRECTORY_PATH = "./public/history"

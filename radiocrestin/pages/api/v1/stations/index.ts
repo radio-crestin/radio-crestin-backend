@@ -4,7 +4,7 @@ import {refreshStationsStats} from "./refresh";
 
 export const STATION_STATS_BY_STATION_ID_CACHE: StationStatsByStationId = {};
 
-export const getStaticStationsData = () => {
+export const getStaticStationsData = (): StationData[] => {
   return STATIONS.map(station => {
     return {
       id: station.id,
@@ -12,7 +12,7 @@ export const getStaticStationsData = () => {
       website: station.website,
       contact: station.contact,
       stream_url: station.stream_url,
-      stats: {}
+      thumbnail_url: station.thumbnail_url,
     }
   });
 }
@@ -28,6 +28,7 @@ export const getStationsData = async (): Promise<StationData[]> => {
       website: station.website,
       contact: station.contact,
       stream_url: station.stream_url,
+      thumbnail_url: station.thumbnail_url,
       stats: {
         ...STATION_STATS_BY_STATION_ID_CACHE[station.id]?.stats,
       }

@@ -27,6 +27,7 @@ interface BaseStation {
   website: string,
   contact: string,
   stream_url: string,
+  thumbnail_url: string,
 }
 
 export interface Station extends BaseStation {
@@ -42,5 +43,5 @@ export interface Station extends BaseStation {
 }
 
 export interface StationData extends BaseStation {
-  stats: Stats
+  stats?: Stats
 }
