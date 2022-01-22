@@ -1,25 +1,11 @@
 import styles from './Header.module.scss'
-import logoImg from 'public/images/Logo.svg'
-import RadioPlayer from "../RadioPlayer/RadioPlayer";
+import {ReactChild, ReactFragment, ReactPortal} from 'react';
 
-export default function Header() {
+export default function Header(props: { children: boolean | ReactChild | ReactFragment | ReactPortal | null | undefined; }) {
 
   return <>
-    <div className={ `${ styles.containerBackground }` }>
-      <div className={ `${ styles.titleLogo }` }>
-        <img src={ logoImg.src } alt={ 'logo img' }/>
-        <h1 className={ `${ styles.title }` }>Radio Creștin</h1>
-      </div>
-
-      <div className={`${styles.contentBottom}`}>
-        <div className={`${styles.welcome}`}>
-          <h1 className={styles.goodMorning}>Bună dimineața!</h1>
-          <h4 className={`${styles.verseOfDay}`}>Ferice de cei ce plâng, căci ei vor fi mângâiaţi! MATEI 5:4</h4>
-        </div>
-        <div className={`${styles.radioPlayer}`}>
-          <RadioPlayer />
-        </div>
-      </div>
+    <div className={`${styles.header}`}>
+      {props.children}
     </div>
   </>
 }

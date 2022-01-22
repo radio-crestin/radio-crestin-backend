@@ -1,25 +1,24 @@
 @use 'styles/mixinHelper';
 
-.containerBackground {
-  max-width: 75%;
-  height: 70vh;
-  margin: 2% auto 0;
+.header {
+  margin-top: 2%;
+  height: 610px;
   position: relative;
-  background: linear-gradient(153deg, rgba(0, 0, 0, .8), rgba(0, 0, 0, .48) 40.54%, transparent), url('../../public/images/header-bg.png');
-  background-position-y: center;
-  background-position-x: center;
+  // TODO: please use https://nextjs.org/docs/api-reference/next/image to load the image..
+  background: url('../../public/images/header-bg.jpg') no-repeat;
+  box-shadow: inset 200px 200px 250px 1px rgb(0 0 0 / 39%);
   background-size: cover;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  color: white;
+  //border-bottom-left-radius: 25px;
+  //border-top-right-radius: 25px;
 
-  @include mixinHelper.desktopResponsive{
-    max-width: 90%;
-  }
-
-  @include mixinHelper.tabletResponsive{
-    max-width: 100%;
-    margin: 0;
+  @include mixinHelper.onTablet {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 25px;
+    margin-top: 0;
   }
 }
 
@@ -40,7 +39,7 @@
   bottom: 0;
   width: 100%;
 
-  @include mixinHelper.tabletResponsive{
+  @include mixinHelper.onTablet {
     @include mixinHelper.center-content;
     flex-direction: column;
   }
@@ -51,12 +50,12 @@
     font-weight: bold;
     margin-left: 65px;
 
-    @include mixinHelper.tabletResponsive{
+    @include mixinHelper.onTablet {
       margin-left: 0;
       text-align: center;
     }
 
-    .goodMorning{
+    .goodMorning {
       font-size: 42px;
     }
 
@@ -67,7 +66,7 @@
       margin-left: 13px;
       line-height: 20px;
 
-      @include mixinHelper.tabletResponsive{
+      @include mixinHelper.onTablet {
         margin: 35px auto;
       }
 
@@ -85,7 +84,7 @@
   .radioPlayer {
     width: 50%;
 
-    @include mixinHelper.tabletResponsive{
+    @include mixinHelper.onTablet {
       width: unset;
     }
   }
