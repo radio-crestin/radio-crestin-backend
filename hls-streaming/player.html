@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>HLS Demo</title>
+    <link rel="stylesheet" href="https://cdn.plyr.io/1.8.2/plyr.css">
+</head>
+<body>
+<audio preload="true" id="player" controls crossorigin>
+    <script src="https://cdn.plyr.io/1.8.2/plyr.js"></script>
+    <script src="https://cdn.jsdelivr.net/hls.js/latest/hls.js"></script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const audio = document.querySelector("audio");
+            const source = "http://192.168.88.182:8080/hls/aripisprecer/index.m3u8";
+
+            // For more options see: https://github.com/sampotts/plyr/#options
+            // captions.update is required for captions to work with hls.js
+            const defaultOptions = {};
+
+            if (Hls.isSupported()) {
+                // For more Hls.js options, see https://github.com/dailymotion/hls.js
+                const hls = new Hls();
+                hls.loadSource(source);
+
+                // From the m3u8 playlist, hls parses the manifest and returns
+                // all available video qualities. This is important, in this approach,
+                // we will have one source on the Plyr player.
+                hls.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
+
+                    // Transform available levels into an array of integers (height values).
+                    const availableQualities = hls.levels.map((l) => l.bitrate)
+
+                    // Add new qualities to option
+                    defaultOptions.quality = {
+                        default: availableQualities[0],
+                        options: availableQualities,
+                        // this ensures Plyr to use Hls to update quality level
+                        forced: true,
+                        onChange: (e) => updateQuality(e),
+                    }
+                    console.log(hls.levels)
+                    // Initialize here
+                    const player = new Plyr(audio, defaultOptions);
+                });
+                hls.attachMedia(audio);
+                window.hls = hls;
+            }
+            plyr.setup(audio);
+
+            function updateQuality(newQuality) {
+                window.hls.levels.forEach((level, levelIndex) => {
+                    if (level.bitrate === newQuality) {
+                        console.log("Found quality match with " + newQuality);
+                        window.hls.currentLevel = levelIndex;
+                    }
+                });
+            }
+        });
+
+    </script>
+</body>
+</html>
