@@ -43,6 +43,11 @@ export default function Home(initialProps: { stationsData: StationData[] }) {
     console.log("Station selected: ", station);
   }
 
+  // TODO
+  // Align welcome message to the bottom left corner
+  // Decrease the height of the header
+  // Make the Station title smaller
+  //
   return (
     <>
       <PageHead/>

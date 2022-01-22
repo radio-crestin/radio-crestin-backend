@@ -4,11 +4,10 @@
   margin-top: 2%;
   height: 700px;
   position: relative;
-  background: url('../../public/images/header-bg.jpg');
-  background-repeat: no-repeat;
-  box-shadow: inset 118px 170px 250px rgb(0 0 0 / 39%);
-  background-position-y: -200px;
-  background-position-x: center;
+  // TODO: please use https://nextjs.org/docs/api-reference/next/image to load the image..
+  background: url('../../public/images/header-bg.jpg') no-repeat;
+  box-shadow: inset 118px 170px 250px rgba(0, 0, 0, 0.39);
+  background-size: cover;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
