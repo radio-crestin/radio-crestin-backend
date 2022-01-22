@@ -3,7 +3,7 @@ import headphone from "@/public/images/headphone.svg";
 
 export default function NumberOfListeners() {
   return <>
-    <div style={ {
+    <div style={{
       display: "flex",
       alignItems: "center",
       gap: "0 5px",
@@ -11,9 +11,9 @@ export default function NumberOfListeners() {
       background: "#020202a6",
       width: "fit-content",
       borderRadius: "20px"
-    } }>
-      <img src={ headphone.src } alt="cast icon"/>
-      <p style={ { color: "white", fontSize: 15 } }>120</p>
+    }}>
+      <img src={headphone.src} alt="cast icon"/>
+      <p style={{color: "white", fontSize: 15}}>120</p>
     </div>
   </>
 }

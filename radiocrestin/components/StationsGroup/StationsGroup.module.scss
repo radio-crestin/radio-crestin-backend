@@ -1,14 +1,14 @@
 @use 'styles/globalVariables';
 @use 'styles/mixinHelper';
 
-.category{
+.container {
   margin: 0 73px;
 
-  &:last-child{
+  &:last-child {
     margin-bottom: 100px;
   }
 
-  .categoryName{
+  .name {
     font-style: normal;
     font-weight: bold;
     font-size: 27px;
@@ -20,17 +20,17 @@
     margin-top: 74px;
   }
 
-  .listStations{
+  .stations {
     display: grid;
-    grid-template-columns: repeat(5,1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 40px 30px;
 
-    @include mixinHelper.tabletResponsive{
-      grid-template-columns: repeat(3,1fr);
+    @include mixinHelper.onTablet {
+      grid-template-columns: repeat(3, 1fr);
     }
 
-    @include mixinHelper.mobileResponsive{
-      grid-template-columns: repeat(1,1fr);
+    @include mixinHelper.mobileResponsive {
+      grid-template-columns: repeat(1, 1fr);
     }
   }
 }

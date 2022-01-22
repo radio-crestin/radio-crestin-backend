@@ -1,23 +1,23 @@
 @mixin center-content {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-@mixin desktopResponsive {
+@mixin onDesktop {
   @media screen and (max-width: 1600px) {
     @content;
   }
 }
 
-@mixin tabletResponsive {
+@mixin onTablet {
   @media screen and (max-width: 1023px) {
     @content;
   }
 }
 
 @mixin mobileResponsive {
-    @media screen and (max-width: 767px) {
-        @content;
-    }
+  @media screen and (max-width: 767px) {
+    @content;
+  }
 }

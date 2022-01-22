@@ -1,6 +1,6 @@
 @use 'styles/mixinHelper';
 
-.containerBackground {
+.header {
   margin-top: 2%;
   height: 700px;
   position: relative;
@@ -16,7 +16,7 @@
   border-bottom-left-radius: 25px;
   border-top-right-radius: 25px;
 
-  @include mixinHelper.tabletResponsive{
+  @include mixinHelper.onTablet {
     border-top-right-radius: 0;
     border-bottom-right-radius: 25px;
     margin-top: 0;
@@ -40,7 +40,7 @@
   bottom: 0;
   width: 100%;
 
-  @include mixinHelper.tabletResponsive{
+  @include mixinHelper.onTablet {
     @include mixinHelper.center-content;
     flex-direction: column;
   }
@@ -51,12 +51,12 @@
     font-weight: bold;
     margin-left: 65px;
 
-    @include mixinHelper.tabletResponsive{
+    @include mixinHelper.onTablet {
       margin-left: 0;
       text-align: center;
     }
 
-    .goodMorning{
+    .goodMorning {
       font-size: 42px;
     }
 
@@ -67,7 +67,7 @@
       margin-left: 13px;
       line-height: 20px;
 
-      @include mixinHelper.tabletResponsive{
+      @include mixinHelper.onTablet {
         margin: 35px auto;
       }
 
@@ -85,7 +85,7 @@
   .radioPlayer {
     width: 50%;
 
-    @include mixinHelper.tabletResponsive{
+    @include mixinHelper.onTablet {
       width: unset;
     }
   }

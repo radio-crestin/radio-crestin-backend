@@ -1,23 +1,23 @@
 @use 'styles/globalVariables';
 
-.containerStation{
+.containerStation {
   position: relative;
   display: grid;
   flex-direction: column;
 
-  .stationImage{
+  .stationImage {
     width: 100%;
     border-radius: 27px;
   }
 
-  .numberOfListeners{
+  .numberOfListeners {
     width: fit-content;
     position: absolute;
     top: 10px;
     right: 10px;
   }
 
-  .stationName{
+  .stationName {
     font-style: normal;
     font-weight: bold;
     font-size: 28px;
@@ -29,7 +29,7 @@
     margin-left: 16px;
   }
 
-  .stationSong{
+  .stationSong {
     font-style: normal;
     font-weight: bold;
     font-size: 19px;
