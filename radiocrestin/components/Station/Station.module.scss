@@ -6,14 +6,17 @@
   display: grid;
   flex-direction: column;
   cursor: pointer;
+  height: fit-content;
 
   &:hover{
-    opacity: 0.80;
+    opacity: 0.88;
   }
 }
 
 .stationImageContainer {
   position: relative;
+  border-radius: 27px;
+  background: #ffffff66;
 
   .stationImage{
     border-radius: 27px;
@@ -27,7 +30,11 @@
     top: 10px;
     right: 10px;
   }
+}
 
+.isSelected{
+  border: 2px rgba(0, 0, 0, 0.71) solid;
+  padding: 2px;
 }
 
 .stationSong {
@@ -38,8 +45,8 @@
 
   .songName, .songArtist{
     font-style: normal;
-    font-size: 1.25rem;
-    font-weight: 800;
+    font-size: 1.3rem;
+    font-weight: 700;
     color: black;
     margin-bottom: 5px;
 
@@ -50,18 +57,17 @@
   }
 
   .songArtist{
-    font-size: 0.95rem;
+    font-size: 1rem;
     font-weight: 700;
   }
 }
 
 .stationName {
-  @include mixinHelper.center-content;
   font-style: normal;
-  font-weight: 900;
-  font-size: 1.2rem;
+  font-weight: 600;
+  font-size: 1rem;
   letter-spacing: 0.05rem;
   color: globalVariables.$color-3;
-  margin-top: 10px;
+  margin-bottom: 10px;
   margin-left: 16px;
 }

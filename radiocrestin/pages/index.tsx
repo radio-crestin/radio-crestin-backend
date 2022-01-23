@@ -64,7 +64,7 @@ export default function Home(initialProps: { stationsData: StationData[] }) {
                 <StationsGroup groupName={g.groupName} key={g.groupName}>
                   {g.stationsData.map((s: any) => (
                     <Station station={s} key={g.groupName + s.title}
-                             onSelect={onStationSelect}/>
+                             onSelect={onStationSelect} isSelected={s.id === selectedStationId}/>
                   ))}
                 </StationsGroup>
               )

@@ -4,17 +4,18 @@ import NumberOfListeners from "@/components/NumberOfListeners";
 import { StationData } from "../../types";
 import Image from "next/image";
 
-export default function Station(props: { station: StationData, onSelect: (stationData: StationData) => void }) {
+export default function Station(props: { station: StationData, onSelect: (stationData: StationData) => void, isSelected: boolean }) {
   // TODO: adjust the font size when there is no station.title and station.artist (eg. Radio Micul Samaritean)
   // TODO: make the thumbnail unmovable
   // TODO: add an indicator when the station is playing like is on Spotify..
   // https://icons8.com/animated-icons/set/player
   // You can use this lib to convert LottieFile to svg https://github.com/chadly/lottie-to-svg
+
   return <>
     <div className={ styles.containerStation }
          onClick={ (e) => props.onSelect(props.station) }>
-
-      <div className={ styles.stationImageContainer }>
+      <div className={ styles.stationName }>{ props.station.title }</div>
+      <div className={`${styles.stationImageContainer} ${props.isSelected && styles.isSelected}`}>
         <Image
           src={ props.station.thumbnail_url }
           layout={ 'responsive' }
@@ -38,7 +39,6 @@ export default function Station(props: { station: StationData, onSelect: (statio
           </p>
         </div>
       </div>
-      <div className={ styles.stationName }>{ props.station.title }</div>
     </div>
   </>
 }

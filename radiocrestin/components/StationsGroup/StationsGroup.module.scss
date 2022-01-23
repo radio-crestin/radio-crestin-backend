@@ -22,8 +22,8 @@
 
   .stations {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 40px 30px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 50px 40px;
 
     @include mixinHelper.onTablet {
       grid-template-columns: repeat(3, 1fr);
