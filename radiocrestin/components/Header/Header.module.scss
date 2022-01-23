@@ -4,21 +4,20 @@
   margin-top: 2%;
   height: 610px;
   position: relative;
-  // TODO: please use https://nextjs.org/docs/api-reference/next/image to load the image..
-  background: url('../../public/images/header-bg.jpg') no-repeat;
-  box-shadow: inset 200px 200px 250px 1px rgb(0 0 0 / 39%);
-  background-size: cover;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  background: linear-gradient(to right, rgb(0 0 0 / 28%), rgb(0 0 0 / 12%));
   color: white;
-  //border-bottom-left-radius: 25px;
-  //border-top-right-radius: 25px;
 
   @include mixinHelper.onTablet {
     border-top-right-radius: 0;
     border-bottom-right-radius: 25px;
     margin-top: 0;
+  }
+
+  .headerImage{
+    z-index: -1;
   }
 }
 
