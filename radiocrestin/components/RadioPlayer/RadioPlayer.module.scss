@@ -14,7 +14,7 @@
   margin-left: auto;
 
   @include mixinHelper.onTablet {
-    margin-right: 0;
+    margin: 0 auto 36px;
   }
 
   .descriptionSong {

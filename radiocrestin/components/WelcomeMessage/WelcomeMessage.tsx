@@ -19,11 +19,9 @@ export default function WelcomeMessage() {
   // Also, we need to fetch the daily verse from an API
   return <>
     <div className={ `${ styles.contentBottom }` }>
-      <div className={ `${ styles.welcome }` }>
         <h1 className={ styles.goodMorning }>{ setWelcomeMessage() }</h1>
         <h4 className={ `${ styles.verseOfDay }` }>
           Ferice de cei ce plâng, căci ei vor fi mângâiaţi! MATEI 5:4</h4>
-      </div>
     </div>
   </>
 }

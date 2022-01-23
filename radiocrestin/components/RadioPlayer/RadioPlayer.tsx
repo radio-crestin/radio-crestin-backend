@@ -86,7 +86,6 @@ export default function RadioPlayer(props: { station?: StationData, started: boo
   // TODO: make the volume slider wider
   // TODO: when the user click play, increase the number of listeners by 1 so that he can see that
   // Also, delay the updated by 500 ms, also optional we can add an animation when we update the listeners counter.. to emphasis it
-  // TODO: make the player mobile responsive
   // TODO: normalize the sound volume (100% - 10db, 70% - 7db, etc)
 
   return <>

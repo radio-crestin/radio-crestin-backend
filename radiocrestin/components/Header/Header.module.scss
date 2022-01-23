@@ -34,49 +34,39 @@
 }
 
 .contentBottom {
-  display: flex;
-  bottom: 0;
-  width: 100%;
+  position: absolute;
+  bottom: 65px;
+  left: 65px;
 
   @include mixinHelper.onTablet {
     @include mixinHelper.center-content;
     flex-direction: column;
+    position: unset;
+    text-align: center;
   }
 
-  .welcome {
-    width: inherit;
-    font-style: normal;
-    font-weight: bold;
-    margin-left: 65px;
+  .goodMorning {
+    font-size: 42px;
+  }
+
+  .verseOfDay {
+    position: relative;
+    margin-top: 30px;
+    max-width: 300px;
+    margin-left: 13px;
+    line-height: 20px;
 
     @include mixinHelper.onTablet {
-      margin-left: 0;
-      text-align: center;
+      margin: 35px auto;
     }
 
-    .goodMorning {
-      font-size: 42px;
-    }
-
-    .verseOfDay {
-      position: relative;
-      margin-top: 30px;
-      max-width: 300px;
-      margin-left: 13px;
-      line-height: 20px;
-
-      @include mixinHelper.onTablet {
-        margin: 35px auto;
-      }
-
-      &:before {
-        border-left: 3px solid white;
-        display: block;
-        position: absolute;
-        left: -10px;
-        height: 100%;
-        content: "";
-      }
+    &:before {
+      border-left: 3px solid white;
+      display: block;
+      position: absolute;
+      left: -10px;
+      height: 100%;
+      content: "";
     }
   }
 
