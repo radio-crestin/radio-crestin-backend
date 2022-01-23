@@ -1,4 +1,5 @@
 @use 'styles/globalVariables';
+@use 'styles/mixinHelper';
 
 .containerStation {
   position: relative;
@@ -6,38 +7,61 @@
   flex-direction: column;
   cursor: pointer;
 
-  .stationImage {
-    width: 100%;
+  &:hover{
+    opacity: 0.80;
+  }
+}
+
+.stationImageContainer {
+  position: relative;
+
+  .stationImage{
     border-radius: 27px;
+    z-index: -1;
   }
 
   .numberOfListeners {
     width: fit-content;
+    z-index: 1;
     position: absolute;
     top: 10px;
     right: 10px;
   }
 
-  .stationName {
+}
+
+.stationSong {
+  position: absolute;
+  bottom: 20px;
+  left: 16px;
+  padding-right: 10px;
+
+  .songName, .songArtist{
     font-style: normal;
-    font-weight: bold;
-    font-size: 1.2rem;
-    line-height: 1.2rem;
-    display: flex;
-    align-items: center;
-    color: globalVariables.$color-3;
-    margin-top: 10px;
-    margin-left: 16px;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: black;
+    margin-bottom: 5px;
+
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
   }
 
-  .stationSong {
-    height: 1.6rem;
-    font-style: normal;
+  .songArtist{
     font-size: 0.95rem;
-    line-height: 1rem;
-    display: flex;
-    align-items: center;
-    color: globalVariables.$color-4;
-    margin-left: 16px;
+    font-weight: 700;
   }
+}
+
+.stationName {
+  @include mixinHelper.center-content;
+  font-style: normal;
+  font-weight: 900;
+  font-size: 1.2rem;
+  letter-spacing: 0.05rem;
+  color: globalVariables.$color-3;
+  margin-top: 10px;
+  margin-left: 16px;
 }
