@@ -48,12 +48,37 @@ const updateStationStatsCache = async (
 
 const statsFormatter = (stats: Stats) => {
   if (stats.current_song) {
+    const allowedCharacters = /[^a-zA-ZÀ-žaâăáeéèiîoóöőøsșşșştțţțţ\-\s?'&]/g;
+    // TODO: if songName has fewer than 3 characters set it to empty
     // Decode Unicode special chars
-    stats.current_song = stats.current_song.replace(/&#(\d+);/g, function (match, dec) {
-      return String.fromCharCode(dec);
-    })
-    stats.current_song = stats.current_song + " ";
-    stats.current_song = stats.current_song.replace("_", " ");
+    stats.current_song = {
+      songName: stats.current_song.songName
+        .replace(/&#(\d+);/g, function (match, dec) {
+          return String.fromCharCode(dec);
+        })
+        .replace("_", " ")
+        .replace("  ", " ")
+        .replace(allowedCharacters, "")
+        .replace(/^[a-z]/, function (m) {
+          return m.toUpperCase()
+        }),
+
+      artist: stats.current_song.artist
+        .replace(/&#(\d+);/g, function (match, dec) {
+          return String.fromCharCode(dec);
+        })
+        .replace("_", " ")
+        .replace("  ", " ")
+        .replace(allowedCharacters, "")
+        .replace(/^[a-z]/, function (m) {
+          return m.toUpperCase()
+        }),
+    }
+  }
+  if (stats.current_song?.songName?.length && stats.current_song?.songName?.length < 3) {
+    if (stats.current_song) {
+      stats.current_song.songName = "";
+    }
   }
   return stats
 }
@@ -110,9 +135,21 @@ const extractShoutcastStats = async ({shoutcast_stats_url}: { shoutcast_stats_ur
     },
     decodeJson: true,
     statsExtractor: (data) => {
+      const [firstPart, lastPart] = data["songtitle"]?.split(" - ") || ["", ""];
+      let songName, artist;
+      if (firstPart && lastPart) {
+        songName = lastPart;
+        artist = firstPart;
+      } else {
+        songName = firstPart;
+        artist = "";
+      }
       return {
         timestamp: (new Date()).toISOString(),
-        current_song: data["songtitle"] || null,
+        current_song: {
+          songName: songName?.trim(),
+          artist: artist?.trim()
+        } || null,
         listeners: data["currentlisteners"] || null,
       };
     }
@@ -127,9 +164,21 @@ const extractRadioCoStats = async ({radio_co_stats_url}: { radio_co_stats_url: s
     },
     decodeJson: true,
     statsExtractor: (data) => {
+      const [firstPart, lastPart] = data["current_track"]["title"]?.split(" - ") || ["", ""];
+      let songName, artist;
+      if (firstPart && lastPart) {
+        artist = firstPart;
+        songName = lastPart;
+      } else {
+        songName = firstPart;
+        artist = "";
+      }
       return {
         timestamp: (new Date()).toISOString(),
-        current_song: data["songtitle"] || null,
+        current_song: {
+          songName: songName?.trim(),
+          artist: artist?.trim()
+        } || null,
         listeners: data["currentlisteners"] || null,
       };
     }
@@ -146,9 +195,22 @@ const extractIcecastStats = async ({icecast_stats_url}: { icecast_stats_url: str
     statsExtractor: (data) => {
       let listenurl = /listen_url=(?<listen_url>.+)/gmi.exec(icecast_stats_url)?.groups?.listen_url || "";
       let source = data["icestats"]["source"].find((source: any) => source.listenurl.includes(listenurl));
+
+      const [firstPart, lastPart] = source["title"]?.split(" - ") || ["", ""];
+      let songName, artist;
+      if (firstPart && lastPart) {
+        artist = firstPart;
+        songName = lastPart;
+      } else {
+        songName = firstPart;
+        artist = "";
+      }
       return {
         timestamp: (new Date()).toISOString(),
-        current_song: source["title"] || null,
+        current_song: {
+          songName: songName?.trim(),
+          artist: artist?.trim()
+        } || null,
         listeners: source["listeners"] || null,
       };
     }
@@ -185,9 +247,22 @@ const extractShoutcastXmlStats = async ({shoutcast_xml_stats_url}: { shoutcast_x
           data[m?.groups?.param_data] = m?.groups?.value
         }
       }
+
+      const [firstPart, lastPart] = data["SONGTITLE"]?.split(" - ") || ["", ""];
+      let songName, artist;
+      if (firstPart && lastPart) {
+        artist = firstPart;
+        songName = lastPart;
+      } else {
+        songName = firstPart;
+        artist = "";
+      }
       return {
         timestamp: (new Date()).toISOString(),
-        current_song: data["SONGTITLE"] || null,
+        current_song: {
+          songName: songName?.trim(),
+          artist: artist?.trim()
+        } || null,
         listeners: data["CURRENTLISTENERS"] || null,
       };
     }
@@ -223,9 +298,22 @@ const extractOldIcecastHtmlStats = async ({old_icecast_html_stats_url}: { old_ic
           data[m?.groups?.param_data] = m?.groups?.value
         }
       }
+
+      const [firstPart, lastPart] = data["Current Song"]?.split(" - ") || ["", ""];
+      let songName, artist;
+      if (firstPart && lastPart) {
+        artist = firstPart;
+        songName = lastPart;
+      } else {
+        songName = firstPart;
+        artist = "";
+      }
       return {
         timestamp: (new Date()).toISOString(),
-        current_song: data["Current Song"] || null,
+        current_song: {
+          songName: songName?.trim(),
+          artist: artist?.trim()
+        } || null,
         listeners: data["Current Listeners"] || null,
       };
     }
@@ -261,9 +349,22 @@ const extractOldShoutcastHtmlStats = async ({old_shoutcast_stats_html_url}: { ol
           data[m?.groups?.param_data] = m?.groups?.value
         }
       }
+
+      const [firstPart, lastPart] = /\((?<listeners>[0-9+]) unique\)/gmi.exec(data["Stream Status"])?.groups?.listeners?.split(" - ") || ["", ""];
+      let songName, artist;
+      if (firstPart && lastPart) {
+        artist = firstPart;
+        songName = lastPart;
+      } else {
+        songName = firstPart;
+        artist = "";
+      }
       return {
         timestamp: (new Date()).toISOString(),
-        current_song: /\((?<listeners>[0-9+]) unique\)/gmi.exec(data["Stream Status"])?.groups?.listeners || null,
+        current_song: {
+          songName: songName?.trim(),
+          artist: artist?.trim()
+        } || null,
         listeners: data["Current Listeners"] || null,
       };
     }
@@ -365,6 +466,17 @@ export const refreshStationsStats = async () => {
   let station_stats_by_station_id: { [key: number]: StationStats } = {};
 
   await Promise.map(STATIONS, async (station: Station) => {
+
+      station_stats_by_station_id[station.id] = {
+        rawData: {},
+        stats: {
+          timestamp: (new Date()).toISOString(),
+          current_song: null,
+          listeners: null,
+        },
+        error: null
+      }
+
       if (typeof station.shoutcast_stats_url !== "undefined") {
         station_stats_by_station_id[station.id] = await extractShoutcastStats({shoutcast_stats_url: station.shoutcast_stats_url});
       }

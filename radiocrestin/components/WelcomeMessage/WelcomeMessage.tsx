@@ -2,7 +2,9 @@ import React from "react";
 import styles from "@/components/Header/Header.module.scss";
 
 export default function WelcomeMessage() {
-
+  // TODO
+  // Set the welcome messages based on the time of the day
+  // Also, we need to fetch the daily verse from an API
   return <>
     <div className={`${styles.contentBottom}`}>
       <div className={`${styles.welcome}`}>

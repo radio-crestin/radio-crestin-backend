@@ -1,5 +1,5 @@
 import "plyr-react/dist/plyr.css";
-import React from "react";
+import React, {useState} from "react";
 import dynamic from "next/dynamic";
 import Header from "components/Header/Header";
 import Logo from "@/components/Logo/Logo";
@@ -15,32 +15,26 @@ import {useStations} from "../hooks/stations";
 import Body from "@/components/Body/Body";
 import Station from "@/components/Station/Station";
 import Content from "@/components/Content/Content";
+import {useLocalStorageState} from "../utils/state";
 
 export const RadioPlayer = dynamic(() => import("components/RadioPlayer/RadioPlayer"), {
   ssr: true,
 });
 
 export default function Home(initialProps: { stationsData: StationData[] }) {
-  const {stationsData, isLoading, isError} = useStations({
+  // TODO: Add a message when isLoading/isError are true
+  const {stationsData, stationGroups, isLoading, isError} = useStations({
     refreshInterval: 2000,
     initialStationsData: initialProps.stationsData,
   });
-  // TODO: Add a message when isLoading/isError
-
-  // TODO: extract group name from stationsData
-  const stationGroups = {
-    general: {
-      groupName: "General",
-      stationsData: stationsData,
-    },
-    muzica: {
-      groupName: "Muzica",
-      stationsData: stationsData,
-    },
-  };
+  const [selectedStationId, selectStationId] = useLocalStorageState(-1, 'SELECTED_STATION_ID');
+  const [started, setStarted] = useState(false);
+  const selectedStation = stationsData.find(s => s.id === selectedStationId);
 
   const onStationSelect = (station: StationData) => {
-    console.log("Station selected: ", station);
+    console.log("Station selected: ", station, selectedStationId !== station.id);
+    setStarted(selectedStationId !== station.id ? true : !started);
+    selectStationId(station.id);
   }
 
   // TODO
@@ -57,7 +51,11 @@ export default function Home(initialProps: { stationsData: StationData[] }) {
           <Header>
             <Logo/>
             <WelcomeMessage/>
-            <RadioPlayer/>
+            <RadioPlayer
+              station={selectedStation}
+              started={started}
+              onStop={() => setStarted(false)}
+            />
           </Header>
 
           <Content>
@@ -65,7 +63,7 @@ export default function Home(initialProps: { stationsData: StationData[] }) {
               return (
                 <StationsGroup groupName={g.groupName} key={g.groupName}>
                   {g.stationsData.map((s: any) => (
-                    <Station stationData={s} key={g.groupName + s.title}
+                    <Station station={s} key={g.groupName + s.title}
                              onSelect={onStationSelect}/>
                   ))}
                 </StationsGroup>

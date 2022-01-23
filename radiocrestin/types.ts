@@ -1,7 +1,12 @@
+export interface Song {
+  songName: string
+  artist: string
+}
+
 export interface Stats {
   timestamp: string
-  current_song: string | null
-  listeners: string | null
+  current_song: Song | null
+  listeners: number | null
 }
 
 export interface StreamStatus {
@@ -23,11 +28,13 @@ export interface StationStatsByStationId {
 
 interface BaseStation {
   id: number,
+  order: number,
   title: string,
   website: string,
   contact: string,
   stream_url: string,
   thumbnail_url: string,
+  groups: string[]
 }
 
 export interface Station extends BaseStation {
@@ -44,4 +51,9 @@ export interface Station extends BaseStation {
 
 export interface StationData extends BaseStation {
   stats?: Stats
+}
+
+export interface StationGroup {
+  groupName: string,
+  stationsData: StationData[],
 }
