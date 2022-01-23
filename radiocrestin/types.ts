@@ -4,9 +4,15 @@ export interface Song {
 }
 
 export interface Stats {
-  timestamp: string
-  current_song: Song | null
-  listeners: number | null
+  timestamp?: string
+  current_song?: Song | null
+  listeners?: number | null
+}
+
+export interface Uptime {
+  up?: boolean
+  latency_ms?: number
+  status_message?: string
 }
 
 export interface StreamStatus {
@@ -50,7 +56,8 @@ export interface Station extends BaseStation {
 }
 
 export interface StationData extends BaseStation {
-  stats?: Stats
+  stats: Stats
+  uptime: Uptime
 }
 
 export interface StationGroup {

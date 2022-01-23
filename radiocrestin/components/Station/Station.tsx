@@ -15,7 +15,9 @@ export default function Station(props: { station: StationData, onSelect: (statio
       <img className={styles.stationImage} src={props.station.thumbnail_url}
            alt={props.station.title}/>
       <div className={styles.numberOfListeners}>
-        <NumberOfListeners listeners={props.station.stats?.listeners}/>
+        <NumberOfListeners
+          listeners={props.station.stats?.listeners}
+          isUp={props.station.uptime.up}/>
       </div>
       <div className={styles.stationName}>{props.station.title}</div>
       <div

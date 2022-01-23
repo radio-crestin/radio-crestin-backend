@@ -15,6 +15,8 @@ export const getStaticStationsData = (): StationData[] => {
       stream_url: station.stream_url,
       thumbnail_url: station.thumbnail_url,
       groups: station.groups,
+      uptime: {},
+      stats: {}
     }
   });
 }
@@ -24,6 +26,7 @@ export const getStationsData = async (): Promise<StationData[]> => {
     await refreshStationsStats();
   }
   return STATIONS.map(station => {
+    const streamStatus = STATION_STATS_BY_STATION_ID_CACHE[station.id]?.streamStatus;
     return {
       id: station.id,
       order: station.order,
@@ -33,6 +36,11 @@ export const getStationsData = async (): Promise<StationData[]> => {
       stream_url: station.stream_url,
       thumbnail_url: station.thumbnail_url,
       groups: station.groups,
+      uptime: {
+        up: streamStatus?.up,
+        latency_ms: streamStatus?.latencyMs,
+        status_message: streamStatus?.up ? `${station.title} is up` : `${station.title} is down`,
+      },
       stats: {
         ...STATION_STATS_BY_STATION_ID_CACHE[station.id]?.stats,
       }

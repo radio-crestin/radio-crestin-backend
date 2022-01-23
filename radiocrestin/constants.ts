@@ -101,6 +101,7 @@ export const STATIONS: Station[] = [
   //   "stream_url": "https://radio.radio-crestin.com/http://209.95.50.189:8006/;",
   //   "old_shoutcast_stats_html_url": "http://209.95.50.189:8006/",
   //   "thumbnail_url": defaultStationThumbnail,
+  //   "groups": ["Biblia"]
   // },
   {
     "id": 10,

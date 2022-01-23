@@ -1,14 +1,17 @@
 import React from "react";
 import headphone from "@/public/images/headphone.svg";
 
-export default function NumberOfListeners({listeners}: { listeners?: number | null }) {
+export default function NumberOfListeners({
+                                            listeners,
+                                            isUp
+                                          }: { listeners?: number | null, isUp?: boolean }) {
   return <>
     <div style={{
       display: "flex",
       alignItems: "center",
       gap: "0 5px",
       padding: "5px 7px",
-      background: "#020202a6",
+      background: isUp || typeof isUp === "undefined" ? "#020202a6" : "#7a7a7ab3",
       width: "fit-content",
       borderRadius: "20px"
     }}>
