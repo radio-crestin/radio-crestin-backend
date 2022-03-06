@@ -1,0 +1,8 @@
+{
+  "watch": [
+    "src"
+  ],
+  "ext": "ts",
+  "ignore": [],
+  "exec": "yarn run compile && node ./dist/index.js"
+}

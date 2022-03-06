@@ -1,0 +1,1 @@
+INSERT INTO "public"."station_metadata_fetch_category"("id", "created_at", "updated_at", "name") VALUES (6, E'2022-02-13T20:50:41.902507+00:00', E'2022-02-13T20:50:41.902507+00:00', E'old_shoutcast_html');

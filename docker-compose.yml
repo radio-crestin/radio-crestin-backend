@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  radiocrestin:
+    build:
+      context: frontend
+    restart: on-failure
+    ports:
+      - "127.0.0.1:8080:3000"
+    env_file:
+      - .env
+  mongo:
+    image: mongo
+    restart: always
+    ports:
+      - "127.0.0.1:2817:27017"
+    env_file:
+      - .env
+    volumes:
+      - ./data/mongo:/data/db
+  mongo-express:
+    image: mongo-express
+    restart: always
+    ports:
+      - "127.0.0.1:8081:8081"
+    env_file:
+      - .env
+  postgres:
+    image: postgres:13
+    restart: always
+    ports:
+      - 5432:5432
+    env_file:
+      - .env
+    volumes:
+      - postgres:/var/lib/postgresql/data
+
+volumes:
+  postgres:
+    name: radiocrestin-db
