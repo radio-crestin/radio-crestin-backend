@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node server.js",
     "build": "cross-env NODE_OPTIONS='--inspect' && next build",
+    "start:dev": "node server.js",
     "start": "cross-env NODE_ENV=production && node server.js"
   },
   "dependencies": {
