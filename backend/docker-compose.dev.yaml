@@ -1,0 +1,42 @@
+version: '3.6'
+services:
+  postgres:
+    image: postgres:13
+    restart: always
+    ports:
+      - "8543:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    env_file:
+      - .env
+  app:
+    build:
+      context: ./app
+    depends_on:
+      - graphql-engine
+    restart: always
+    env_file:
+      - .env
+  admin:
+    build:
+      context: ./admin
+    ports:
+      - "8545:8080"
+    depends_on:
+      - postgres
+    volumes:
+      - ./admin:/src
+    restart: always
+    env_file:
+      - .env
+  graphql-engine:
+    image: hasura/graphql-engine:v2.2.0
+    ports:
+      - "8080:8080"
+    depends_on:
+      - "postgres"
+    restart: always
+    env_file:
+      - .env
+volumes:
+  db_data:

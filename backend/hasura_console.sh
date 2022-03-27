@@ -1,1 +1,0 @@
-hasura console --envfile .env

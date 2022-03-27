@@ -422,7 +422,7 @@ const getStations = (): Promise<Station[]> => {
 
     return axios.request(options).then(function (response) {
         if (!response.data?.data) {
-            throw new Error(`Invalid response: ${JSON.stringify(response)}`);
+            throw new Error(`Invalid response: ${JSON.stringify(response.data)}`);
         }
 
         return response.data.data.stations as Station[];
