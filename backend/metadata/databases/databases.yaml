@@ -1,9 +1,9 @@
-- name: default
+- name: radiocrestin
   kind: postgres
   configuration:
     connection_info:
       database_url:
-        from_env: PG_DATABASE_URL
+        from_env: HASURA_GRAPHQL_DB_URL_FROM_ENV
       isolation_level: read-committed
       use_prepared_statements: false
-  tables: "!include default/tables/tables.yaml"
+  tables: "!include radiocrestin/tables/tables.yaml"

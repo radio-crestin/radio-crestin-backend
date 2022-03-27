@@ -1,1 +1,0 @@
-INSERT INTO "public"."station_metadata_fetch_category"("id", "created_at", "updated_at", "name") VALUES (2, E'2022-02-13T20:50:11.495943+00:00', E'2022-02-13T20:50:11.495943+00:00', E'old_icecast_html');
