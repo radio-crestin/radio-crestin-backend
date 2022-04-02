@@ -16,8 +16,9 @@ import {useLocalStorageState} from "../utils/state";
 import {getStationsMetadata} from "../services/stations";
 import {Station, StationGroup, StationsMetadata} from "../types";
 import StationComponent from "@/components/StationComponent/StationComponent";
+import StationHeader from "@/components/StationHeader/StationHeader";
 
-export const RadioPlayer = dynamic(() => import("components/RadioPlayer/RadioPlayer"), {
+export const StationPlayer = dynamic(() => import("components/RadioPlayer/RadioPlayer"), {
   ssr: true,
 });
 
@@ -53,36 +54,37 @@ export default function Home(initialProps: { stationsMetadata: StationsMetadata 
 
       <Body>
         <Container>
-          <Header>
-            <Logo/>
-            <WelcomeMessage/>
-            <RadioPlayer
-              key={selectedStation?.id}
-              station={selectedStation}
-              started={started}
-              onStop={() => setStarted(false)}
-            />
-          </Header>
+          <StationHeader/>
+          {/*<Header>*/}
+          {/*  <Logo/>*/}
+          {/*  <WelcomeMessage/>*/}
+          {/*  <RadioPlayer*/}
+          {/*    key={selectedStation?.id}*/}
+          {/*    station={selectedStation}*/}
+          {/*    started={started}*/}
+          {/*    onStop={() => setStarted(false)}*/}
+          {/*  />*/}
+          {/*</Header>*/}
 
-          <Content>
-            {Object.values(station_groups).sort((a, b) => a.order - b.order).map((g: StationGroup) => {
-              return (
-                <StationsGroup groupName={g.name} key={g.id}>
-                  {g.station_to_station_groups.map(s_g => stationById[s_g.station_id]).sort((a, b) => a.order - b.order).map((s) => {
-                    return (
-                      <StationComponent
-                        key={g.id + s.id}
-                        station={s}
-                        onSelect={onStationSelect}/>
-                    );
-                  })}
-                </StationsGroup>
-              )
-            })}
-          </Content>
+          {/*<Content>*/}
+          {/*  {Object.values(station_groups).sort((a, b) => a.order - b.order).map((g: StationGroup) => {*/}
+          {/*    return (*/}
+          {/*      <StationsGroup groupName={g.name} key={g.id}>*/}
+          {/*        {g.station_to_station_groups.map(s_g => stationById[s_g.station_id]).sort((a, b) => a.order - b.order).map((s) => {*/}
+          {/*          return (*/}
+          {/*            <StationComponent*/}
+          {/*              key={g.id + s.id}*/}
+          {/*              station={s}*/}
+          {/*              onSelect={onStationSelect}/>*/}
+          {/*          );*/}
+          {/*        })}*/}
+          {/*      </StationsGroup>*/}
+          {/*    )*/}
+          {/*  })}*/}
+          {/*</Content>*/}
         </Container>
 
-        <ContactButton/>
+        {/*<ContactButton/>*/}
       </Body>
 
       <Analytics/>

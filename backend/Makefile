@@ -26,3 +26,12 @@ reload-hasura-metadata:
 create-default-admin-superuser:
 	docker exec -ti "$$(docker ps | grep backend_admin | cut -d " " -f1)" bash -c "echo \"from django.contrib.auth import get_user_model; User = get_user_model(); User.objects.create_superuser('dev', 'dev@radio-crestin.com', 'dev-password')\"|python manage.py shell"
 
+
+create-admin-fixtures:
+	docker exec -ti "$$(docker ps | grep backend_admin | cut -d " " -f1)" bash -c "python manage.py dumpdata --exclude=admin --exclude=web.StationsNowPlaying --exclude=web.StationsUptime --exclude=web.songs --format=yaml -o /tmp/fixtures.yaml >/dev/null 2>&1  && cat /tmp/fixtures.yaml" > admin/fixtures/initial.yaml
+
+
+load-admin-fixtures:
+	docker exec -ti "$$(docker ps | grep backend_admin | cut -d " " -f1)" bash -c "python manage.py loaddata --format=yaml /src/fixtures/initial.yaml"
+
+

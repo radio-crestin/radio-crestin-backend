@@ -1,0 +1,13 @@
+@use 'styles/mixinHelper';
+
+.randomStationButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #15A3CD;
+  box-shadow: 0.25px 0.25px 0.25px 0px #00000040;
+  border-radius: 39px;
+  height: 55px;
+  width: 55px;
+}

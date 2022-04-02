@@ -22,8 +22,8 @@ class StationsMetadataFetchInline(admin.TabularInline):
 @admin.register(Stations)
 class StationsAdmin(ImportExportModelAdmin):
     search_fields = ['title', 'website', 'email', 'stream_url']
-    # list_filter = ('station', 'group')
-    list_display = ('title',)
+    list_filter = ('latest_station_uptime__is_up', 'groups', )
+    list_display = ('title',  'latest_station_now_playing',)
     readonly_fields = ('created_at', 'updated_at', 'latest_station_uptime', 'latest_station_now_playing',)
     inlines = [
         StationGroupsInline,

@@ -4,6 +4,7 @@ import Plyr from "plyr-react";
 import styles from "./RadioPlayer.module.scss"
 import NumberOfListeners from "@/components/NumberOfListeners";
 import {Station} from "../../types";
+import InviteButton from "@/components/InviteButton/InviteButton";
 
 export default function RadioPlayer(props: { station?: Station, started: boolean, onStop: () => void }) {
   // const startPlaying = props.startPlaying;
@@ -90,9 +91,10 @@ export default function RadioPlayer(props: { station?: Station, started: boolean
 
   return <>
     <div className={styles.containerPlayer}>
+      <InviteButton/>
       <div className={styles.descriptionSong}>
         {/*<img className={styles.castTVImg}  src={castTV.src} alt="cast icon"/>*/}
-        <h4 className={styles.radioName}>{props.station.title}</h4>
+        <h4 className={styles.radioName}>{props.station.title}123</h4>
         <h2
           className={styles.songName}>{props.station.now_playing?.song?.name}</h2>
         <h3

@@ -23,14 +23,14 @@ class StationGroups(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     name = models.TextField(unique=True)
-    order = models.FloatField()
+    order = models.FloatField(default=0)
 
     class Meta:
         managed = False
         verbose_name = "Station Group"
         verbose_name_plural = "Station Groups"
         db_table = 'station_groups'
-        ordering = ('-order',)
+        ordering = ('order',)
 
     def __str__(self):
         return f"{self.name} (order: {self.order})"
@@ -57,6 +57,7 @@ class StationToStationGroup(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     station = models.ForeignKey('Stations', models.DO_NOTHING)
     group = models.ForeignKey(StationGroups, models.DO_NOTHING)
+    order = models.FloatField(blank=True, null=True, default=0)
 
     class Meta:
         managed = False
@@ -73,10 +74,10 @@ class Stations(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     order = models.FloatField()
     title = models.TextField()
-    website = models.TextField()
-    email = models.TextField()
+    website = models.TextField(blank=True, null=True, )
+    email = models.TextField(blank=True, null=True, )
     stream_url = models.TextField()
-    thumbnail_url = models.TextField()
+    thumbnail_url = models.TextField(blank=True, null=True, )
     latest_station_uptime = models.ForeignKey('StationsUptime', models.DO_NOTHING, blank=True, null=True)
     latest_station_now_playing = models.ForeignKey('StationsNowPlaying', models.DO_NOTHING, blank=True, null=True)
 
