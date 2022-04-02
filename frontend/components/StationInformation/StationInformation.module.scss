@@ -1,0 +1,7 @@
+@use 'styles/mixinHelper';
+
+.container{
+  @include mixinHelper.center-content;
+  flex-direction: column;
+  width: 50%;
+}

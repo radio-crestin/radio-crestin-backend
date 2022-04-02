@@ -13,8 +13,9 @@ export default function StationHeader(props: any) {
         <InviteButton />
         <RandomStationButton />
       </div>
-      <div className={styles.row}>
+      <div className={styles.currentStation}>
         {/*<StationPlayer/>*/}
+        <div style={{ width: "50%" }}>Content left</div>
         <StationInformation />
       </div>
     </div>
