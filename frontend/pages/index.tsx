@@ -28,6 +28,7 @@ export default function Home(initialProps: { stationsMetadata: StationsMetadata 
     refreshInterval: 10000,
     initialStationsMetadata: initialProps.stationsMetadata,
   });
+
   const [selectedStationId, selectStationId] = useLocalStorageState(-1, 'SELECTED_STATION_ID');
   const [started, setStarted] = useState(false);
   const selectedStation = stations.find(s => s.id === selectedStationId);
@@ -55,38 +56,10 @@ export default function Home(initialProps: { stationsMetadata: StationsMetadata 
       <Body>
         <Container>
           <StationHeader/>
-          {/*<Header>*/}
-          {/*  <Logo/>*/}
-          {/*  <WelcomeMessage/>*/}
-          {/*  <RadioPlayer*/}
-          {/*    key={selectedStation?.id}*/}
-          {/*    station={selectedStation}*/}
-          {/*    started={started}*/}
-          {/*    onStop={() => setStarted(false)}*/}
-          {/*  />*/}
-          {/*</Header>*/}
-
-          {/*<Content>*/}
-          {/*  {Object.values(station_groups).sort((a, b) => a.order - b.order).map((g: StationGroup) => {*/}
-          {/*    return (*/}
-          {/*      <StationsGroup groupName={g.name} key={g.id}>*/}
-          {/*        {g.station_to_station_groups.map(s_g => stationById[s_g.station_id]).sort((a, b) => a.order - b.order).map((s) => {*/}
-          {/*          return (*/}
-          {/*            <StationComponent*/}
-          {/*              key={g.id + s.id}*/}
-          {/*              station={s}*/}
-          {/*              onSelect={onStationSelect}/>*/}
-          {/*          );*/}
-          {/*        })}*/}
-          {/*      </StationsGroup>*/}
-          {/*    )*/}
-          {/*  })}*/}
-          {/*</Content>*/}
+        {/*  TODO: Here must be the Favourite - Muzica - Predici - Populara... */}
+        {/*  TODO: Here must be all stations.*/}
         </Container>
-
-        {/*<ContactButton/>*/}
       </Body>
-
       <Analytics/>
     </>
   );

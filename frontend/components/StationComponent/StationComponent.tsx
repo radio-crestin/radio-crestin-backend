@@ -1,6 +1,5 @@
 import React from "react";
 import styles from "./Station.module.scss"
-import NumberOfListeners from "@/components/NumberOfListeners";
 import {Station} from "../../types";
 
 export default function StationComponent(props: { station: Station, onSelect: (Station: Station) => void }) {
@@ -14,11 +13,6 @@ export default function StationComponent(props: { station: Station, onSelect: (S
          onClick={(e) => props.onSelect(props.station)}>
       <img className={styles.stationImage} src={props.station.thumbnail_url}
            alt={props.station.title}/>
-      <div className={styles.numberOfListeners}>
-        <NumberOfListeners
-          listeners={props.station.now_playing?.listeners}
-          isUp={props.station.uptime?.up}/>
-      </div>
       <div className={styles.stationName}>{props.station.title}</div>
       <div
         className={styles.stationSong}>

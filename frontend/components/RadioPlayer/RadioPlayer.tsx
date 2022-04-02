@@ -2,7 +2,6 @@ import React, {useEffect, useMemo, useRef} from "react";
 import PlyrJS from "plyr";
 import Plyr from "plyr-react";
 import styles from "./RadioPlayer.module.scss"
-import NumberOfListeners from "@/components/NumberOfListeners";
 import {Station} from "../../types";
 import InviteButton from "@/components/InviteButton/InviteButton";
 
@@ -123,9 +122,6 @@ export default function RadioPlayer(props: { station?: Station, started: boolean
       </div>
       <div className={styles.imageSong}>
         <img src={props.station.thumbnail_url} alt={props.station.title}/>
-        <div className={styles.numberOfListeners}>
-          <NumberOfListeners listeners={props.station.now_playing?.listeners}/>
-        </div>
       </div>
     </div>
   </>
