@@ -41,7 +41,12 @@ query GetStations {
       song {
         id
         name
-        artist
+        thumbnail_url
+        artist {
+          id
+          name
+          thumbnail_url
+        }
       }
     }
   }

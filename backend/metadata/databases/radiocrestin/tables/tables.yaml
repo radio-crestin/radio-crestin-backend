@@ -1,3 +1,4 @@
+- "!include public_artists.yaml"
 - "!include public_songs.yaml"
 - "!include public_station_groups.yaml"
 - "!include public_station_metadata_fetch_categories.yaml"

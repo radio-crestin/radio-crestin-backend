@@ -1,81 +1,81 @@
 SET check_function_bodies = false;
 CREATE TABLE public.stations (
-    id integer NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    "order" integer DEFAULT 0 NOT NULL,
-    title text NOT NULL,
-    website text NOT NULL,
-    email text NOT NULL,
-    stream_url text NOT NULL,
-    thumbnail_url text NOT NULL,
-    latest_station_uptime_id integer,
-    latest_station_now_playing_id integer
+                                 id integer NOT NULL,
+                                 created_at timestamp with time zone DEFAULT now() NOT NULL,
+                                 updated_at timestamp with time zone DEFAULT now() NOT NULL,
+                                 "order" integer DEFAULT 0 NOT NULL,
+                                 title text NOT NULL,
+                                 website text NOT NULL,
+                                 email text NOT NULL,
+                                 stream_url text NOT NULL,
+                                 thumbnail_url text NOT NULL,
+                                 latest_station_uptime_id integer,
+                                 latest_station_now_playing_id integer
 );
 CREATE TABLE public.stations_now_playing (
-    id integer NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    "timestamp" timestamp with time zone NOT NULL,
-    station_id integer,
-    song_id integer,
-    raw_data jsonb NOT NULL,
-    error jsonb,
-    listeners integer
+                                             id integer NOT NULL,
+                                             created_at timestamp with time zone DEFAULT now() NOT NULL,
+                                             updated_at timestamp with time zone DEFAULT now() NOT NULL,
+                                             "timestamp" timestamp with time zone NOT NULL,
+                                             station_id integer,
+                                             song_id integer,
+                                             raw_data jsonb NOT NULL,
+                                             error jsonb,
+                                             listeners integer
 );
 CREATE FUNCTION public.get_latest_station_now_playing(station public.stations) RETURNS public.stations_now_playing
     LANGUAGE sql STABLE
     AS $$
-  SELECT *
-  FROM station_now_playing
-  WHERE
-    station_now_playing.timestamp > NOW() - '3 minutes'::interval AND
+SELECT *
+FROM station_now_playing
+WHERE
+        station_now_playing.timestamp > NOW() - '3 minutes'::interval AND
     station_now_playing.station_id = station.id
-  ORDER BY station_now_playing.timestamp DESC
-  LIMIT 1;
+ORDER BY station_now_playing.timestamp DESC
+    LIMIT 1;
 $$;
 CREATE FUNCTION public.set_current_timestamp_updated_at() RETURNS trigger
     LANGUAGE plpgsql
 AS $$
 DECLARE
-    _new record;
+_new record;
 BEGIN
-    _new := NEW;
-    _new."updated_at" = NOW();
+_new := NEW;
+_new."updated_at" = NOW();
     RETURN _new;
 END;
 $$;
 CREATE FUNCTION public.update_station_latest_station_now_playing_id_field() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
-    DECLARE active_author BOOLEAN;
-    BEGIN
-    UPDATE stations SET latest_station_now_playing_id=NEW."id" WHERE id = NEW."station_id";
-    RETURN NEW;
+DECLARE active_author BOOLEAN;
+BEGIN
+UPDATE stations SET latest_station_now_playing_id=NEW."id" WHERE id = NEW."station_id";
+RETURN NEW;
 END;
 $$;
 CREATE FUNCTION public.update_station_latest_station_uptime_id_field() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
-    DECLARE active_author BOOLEAN;
-    BEGIN
-    UPDATE stations SET latest_station_uptime_id=NEW."id" WHERE id = NEW."station_id";
-    RETURN NEW;
+DECLARE active_author BOOLEAN;
+BEGIN
+UPDATE stations SET latest_station_uptime_id=NEW."id" WHERE id = NEW."station_id";
+RETURN NEW;
 END;
 $$;
 CREATE TABLE public.station_groups (
-    id integer NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    name text NOT NULL,
-    "order" numeric DEFAULT '0'::numeric NOT NULL
+                                       id integer NOT NULL,
+                                       created_at timestamp with time zone DEFAULT now() NOT NULL,
+                                       updated_at timestamp with time zone DEFAULT now() NOT NULL,
+                                       name text NOT NULL,
+                                       "order" numeric DEFAULT '0'::numeric NOT NULL
 );
 CREATE TABLE public.songs (
-    id integer NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    name text NOT NULL,
-    artist text
+                              id integer NOT NULL,
+                              created_at timestamp with time zone DEFAULT now() NOT NULL,
+                              updated_at timestamp with time zone DEFAULT now() NOT NULL,
+                              name text NOT NULL,
+                              artist text
 );
 CREATE SEQUENCE public.song_id_seq
     AS integer
@@ -94,10 +94,10 @@ CREATE SEQUENCE public.station_id_seq
     CACHE 1;
 ALTER SEQUENCE public.station_id_seq OWNED BY public.stations.id;
 CREATE TABLE public.station_metadata_fetch_categories (
-    id integer NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    slug text NOT NULL
+                                                          id integer NOT NULL,
+                                                          created_at timestamp with time zone DEFAULT now() NOT NULL,
+                                                          updated_at timestamp with time zone DEFAULT now() NOT NULL,
+                                                          slug text NOT NULL
 );
 CREATE SEQUENCE public.station_metadata_fetch_category_id_seq
     AS integer
@@ -108,12 +108,12 @@ CREATE SEQUENCE public.station_metadata_fetch_category_id_seq
     CACHE 1;
 ALTER SEQUENCE public.station_metadata_fetch_category_id_seq OWNED BY public.station_metadata_fetch_categories.id;
 CREATE TABLE public.stations_metadata_fetch (
-    id integer NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    station_id integer,
-    station_metadata_fetch_category_id integer NOT NULL,
-    url text NOT NULL
+                                                id integer NOT NULL,
+                                                created_at timestamp with time zone DEFAULT now() NOT NULL,
+                                                updated_at timestamp with time zone DEFAULT now() NOT NULL,
+                                                station_id integer,
+                                                station_metadata_fetch_category_id integer NOT NULL,
+                                                url text NOT NULL
 );
 CREATE SEQUENCE public.station_metadata_fetch_id_seq
     AS integer
@@ -132,11 +132,11 @@ CREATE SEQUENCE public.station_now_playing_id_seq
     CACHE 1;
 ALTER SEQUENCE public.station_now_playing_id_seq OWNED BY public.stations_now_playing.id;
 CREATE TABLE public.station_to_station_group (
-    id integer NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    station_id integer NOT NULL,
-    group_id integer NOT NULL
+                                                 id integer NOT NULL,
+                                                 created_at timestamp with time zone DEFAULT now() NOT NULL,
+                                                 updated_at timestamp with time zone DEFAULT now() NOT NULL,
+                                                 station_id integer NOT NULL,
+                                                 group_id integer NOT NULL
 );
 CREATE SEQUENCE public.station_to_group_id_seq
     AS integer
@@ -155,14 +155,14 @@ CREATE SEQUENCE public.group_id_seq
 ALTER SEQUENCE public.group_id_seq OWNED BY public.station_groups.id;
 ALTER SEQUENCE public.station_to_group_id_seq OWNED BY public.station_to_station_group.id;
 CREATE TABLE public.stations_uptime (
-    id integer NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    "timestamp" timestamp with time zone NOT NULL,
-    station_id integer NOT NULL,
-    is_up boolean NOT NULL,
-    latency_ms integer NOT NULL,
-    raw_data jsonb NOT NULL
+                                        id integer NOT NULL,
+                                        created_at timestamp with time zone DEFAULT now() NOT NULL,
+                                        updated_at timestamp with time zone DEFAULT now() NOT NULL,
+                                        "timestamp" timestamp with time zone NOT NULL,
+                                        station_id integer NOT NULL,
+                                        is_up boolean NOT NULL,
+                                        latency_ms integer NOT NULL,
+                                        raw_data jsonb NOT NULL
 );
 CREATE SEQUENCE public.station_uptime_history_id_seq
     AS integer
@@ -242,3 +242,83 @@ ALTER TABLE ONLY public.stations
     ADD CONSTRAINT stations_latest_station_now_playing_id_fkey FOREIGN KEY (latest_station_now_playing_id) REFERENCES public.stations_now_playing(id) ON UPDATE SET NULL ON DELETE SET NULL;
 ALTER TABLE ONLY public.stations
     ADD CONSTRAINT stations_latest_station_uptime_id_fkey FOREIGN KEY (latest_station_uptime_id) REFERENCES public.stations_uptime(id) ON UPDATE SET NULL ON DELETE SET NULL;
+
+alter table "public"."station_to_station_group" add column "order" integer
+ null default '0';
+
+ALTER TABLE "public"."station_to_station_group" ALTER COLUMN "order" TYPE float8;
+
+alter table "public"."stations" add column "thumbnail" text
+ null;
+
+CREATE TABLE "public"."artists" ("id" serial NOT NULL, "created_at" timestamptz NOT NULL DEFAULT now(), "updated_at" timestamptz NOT NULL DEFAULT now(), "name" text NOT NULL, "thumbnail" text, "thumbnail_url" text, PRIMARY KEY ("id") );
+CREATE OR REPLACE FUNCTION "public"."set_current_timestamp_updated_at"()
+RETURNS TRIGGER AS $$
+DECLARE
+  _new record;
+BEGIN
+  _new := NEW;
+  _new."updated_at" = NOW();
+  RETURN _new;
+END;
+$$ LANGUAGE plpgsql;
+CREATE TRIGGER "set_public_artists_updated_at"
+BEFORE UPDATE ON "public"."artists"
+FOR EACH ROW
+EXECUTE PROCEDURE "public"."set_current_timestamp_updated_at"();
+COMMENT ON TRIGGER "set_public_artists_updated_at" ON "public"."artists" 
+IS 'trigger to set value of column "updated_at" to current timestamp on row update';
+
+CREATE TABLE "public"."song_to_artist" ("song_id" integer NOT NULL, "artist_id" integer NOT NULL, "created_at" timestamptz NOT NULL DEFAULT now(), "updated_at" timestamptz NOT NULL DEFAULT now(), "id" serial NOT NULL, PRIMARY KEY ("id") , FOREIGN KEY ("song_id") REFERENCES "public"."songs"("id") ON UPDATE cascade ON DELETE cascade, FOREIGN KEY ("artist_id") REFERENCES "public"."artists"("id") ON UPDATE cascade ON DELETE cascade);
+CREATE OR REPLACE FUNCTION "public"."set_current_timestamp_updated_at"()
+RETURNS TRIGGER AS $$
+DECLARE
+  _new record;
+BEGIN
+  _new := NEW;
+  _new."updated_at" = NOW();
+  RETURN _new;
+END;
+$$ LANGUAGE plpgsql;
+CREATE TRIGGER "set_public_song_to_artist_updated_at"
+BEFORE UPDATE ON "public"."song_to_artist"
+FOR EACH ROW
+EXECUTE PROCEDURE "public"."set_current_timestamp_updated_at"();
+COMMENT ON TRIGGER "set_public_song_to_artist_updated_at" ON "public"."song_to_artist" 
+IS 'trigger to set value of column "updated_at" to current timestamp on row update';
+
+DROP table "public"."song_to_artist";
+
+alter table "public"."songs" add column "artist_id" integer
+ null;
+
+alter table "public"."songs" drop constraint "song_name_artist_key";
+alter table "public"."songs" add constraint "songs_name_artist_id_key" unique ("name", "artist_id");
+
+alter table "public"."songs"
+  add constraint "songs_artist_id_fkey"
+  foreign key ("artist_id")
+  references "public"."artists"
+  ("id") on update cascade on delete cascade;
+
+alter table "public"."songs" drop column "artist" cascade;
+
+alter table "public"."artists" add constraint "artists_name_key" unique ("name");
+
+alter table "public"."stations_now_playing" drop constraint "station_now_playing_song_id_fkey",
+  add constraint "stations_now_playing_song_id_fkey"
+  foreign key ("song_id")
+  references "public"."songs"
+  ("id") on update set null on delete set null;
+
+alter table "public"."stations_now_playing" drop constraint "station_now_playing_station_id_fkey",
+  add constraint "stations_now_playing_station_id_fkey"
+  foreign key ("station_id")
+  references "public"."stations"
+  ("id") on update cascade on delete cascade;
+
+alter table "public"."songs" add column "thumbnail" text
+ null;
+
+alter table "public"."songs" add column "thumbnail_url" text
+ null;

@@ -1,15 +1,12 @@
 table:
   name: songs
   schema: public
-array_relationships:
-- name: station_now_playings
+object_relationships:
+- name: artist
   using:
-    foreign_key_constraint_on:
-      column: song_id
-      table:
-        name: stations_now_playing
-        schema: public
-- name: stations_now_playings
+    foreign_key_constraint_on: artist_id
+array_relationships:
+- name: played_songs
   using:
     foreign_key_constraint_on:
       column: song_id
@@ -19,9 +16,10 @@ array_relationships:
 select_permissions:
 - permission:
     columns:
-    - artist
+    - artist_id
     - id
     - name
+    - thumbnail_url
     filter: {}
     limit: 1000
   role: public

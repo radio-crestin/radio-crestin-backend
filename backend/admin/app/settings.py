@@ -32,7 +32,8 @@ DEBUG = os.environ.get('ADMIN_DEBUG', 'false').lower() == 'true'
 
 ALLOWED_HOSTS = os.environ.get('ADMIN_ALLOWED_HOSTS', '').split(',')
 ALLOWED_HOSTS += ['127.0.0.1', ]
-print('ALLOWED_HOSTS:', ALLOWED_HOSTS)
+if DEBUG:
+    print('ALLOWED_HOSTS:', ALLOWED_HOSTS)
 
 # Application definition
 
@@ -42,9 +43,12 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'collectfast',
     'django.contrib.staticfiles',
     'django_filters',
     'import_export',
+    'storages',
+    'django_dumpdata_one',
     'web',
 ]
 
@@ -226,3 +230,28 @@ DEFAULT_FORMATS.remove(CSV)
 DEFAULT_FORMATS.insert(0, NUMBERS_CSV)
 DEFAULT_FORMATS.insert(1, EXCEL_CSV)
 DEFAULT_FORMATS.insert(2, SIMPLE_COMMA_CSV)
+
+# AWS settings
+AWS_ACCESS_KEY_ID = os.environ.get('ADMIN_AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.environ.get('ADMIN_AWS_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = os.environ.get('ADMIN_AWS_STORAGE_BUCKET_NAME')
+
+AWS_S3_REGION_NAME = "eu-central-1"
+AWS_S3_CUSTOM_DOMAIN = os.environ.get('ADMIN_AWS_S3_CUSTOM_DOMAIN', 'cdn.radio-crestin.com')
+AWS_S3_OBJECT_PARAMETERS = {
+    'CacheControl': 'max-age=86400',
+}
+AWS_DEFAULT_ACL = 'public-read'
+AWS_QUERYSTRING_AUTH = False
+
+AWS_STATIC_LOCATION = 'media/static'
+STATICFILES_STORAGE = 'web.storage_backends.StaticStorage'
+COLLECTFAST_STRATEGY = "collectfast.strategies.boto3.Boto3Strategy"
+AWS_PRELOAD_METADATA = True
+STATIC_URL = 'https://%s/%s/' % (AWS_S3_CUSTOM_DOMAIN, AWS_STATIC_LOCATION)
+
+AWS_PUBLIC_MEDIA_LOCATION = 'media/public'
+DEFAULT_FILE_STORAGE = 'web.storage_backends.PublicMediaStorage'
+
+AWS_PRIVATE_MEDIA_LOCATION = 'media/private'
+PRIVATE_FILE_STORAGE = 'web.storage_backends.PrivateMediaStorage'

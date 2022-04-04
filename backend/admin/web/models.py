@@ -1,11 +1,38 @@
 from django.db import models
 
 
+class Artists(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    name = models.TextField()
+    thumbnail = models.ImageField(blank=True, null=True,)
+    thumbnail_url = models.URLField(blank=True, null=True,)
+
+    class Meta:
+        managed = False
+        verbose_name = "Artist"
+        verbose_name_plural = "Artists"
+        db_table = 'artists'
+        unique_together = (('name',),)
+        ordering = ('name',)
+
+    def __str__(self):
+        return self.name or f"no name - id: {self.id}"
+
+    def save(self, *args, **kwargs):
+        super(Artists, self).save(*args, **kwargs)
+        if self.thumbnail:
+            self.thumbnail_url = self.thumbnail.url
+        super(Artists, self).save(*args, **kwargs)
+
+
 class Songs(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     name = models.TextField()
-    artist = models.TextField(blank=True, null=True)
+    artist = models.ForeignKey(Artists, on_delete=models.CASCADE)
+    thumbnail = models.ImageField(blank=True, null=True,)
+    thumbnail_url = models.URLField(blank=True, null=True,)
 
     class Meta:
         managed = False
@@ -17,6 +44,12 @@ class Songs(models.Model):
 
     def __str__(self):
         return f"{self.name}-{self.artist}"
+
+    def save(self, *args, **kwargs):
+        super(Songs, self).save(*args, **kwargs)
+        if self.thumbnail:
+            self.thumbnail_url = self.thumbnail.url
+        super(Songs, self).save(*args, **kwargs)
 
 
 class StationGroups(models.Model):
@@ -77,7 +110,9 @@ class Stations(models.Model):
     website = models.TextField(blank=True, null=True, )
     email = models.TextField(blank=True, null=True, )
     stream_url = models.TextField()
-    thumbnail_url = models.TextField(blank=True, null=True, )
+    thumbnail = models.ImageField(blank=True, null=True,)
+    thumbnail_url = models.URLField(blank=True, null=True,)
+
     latest_station_uptime = models.ForeignKey('StationsUptime', models.DO_NOTHING, blank=True, null=True)
     latest_station_now_playing = models.ForeignKey('StationsNowPlaying', models.DO_NOTHING, blank=True, null=True)
 
@@ -96,6 +131,12 @@ class Stations(models.Model):
 
     def __str__(self):
         return f"{self.title}"
+
+    def save(self, *args, **kwargs):
+        super(Stations, self).save(*args, **kwargs)
+        if self.thumbnail:
+            self.thumbnail_url = self.thumbnail.url
+        super(Stations, self).save(*args, **kwargs)
 
 
 class StationsMetadataFetch(models.Model):
