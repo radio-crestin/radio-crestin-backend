@@ -1,17 +1,17 @@
-### radio-crestin.com website
+### radio-crestin.com - a directory of christian radio stations
 
-Feel free to contribute to this project or reach to us using iosif@mailo.dev
+Feel free to contribute to this project or get in touch with us at: contact@radio-crestin.com
 
-Obs. This project can be used only with christian stations!
+Obs. This project can be used only by christian organizations for non-comercial purposes.
 
 #### Production
 
 ```bash
- apt update
- apt install -y git
- ssh-keygen -t rsa
- git clone git@github.com:iosifnicolae2/radio-crestin.com.git
- cd radio-crestin.com/
+apt update
+apt install -y git
+ssh-keygen -t rsa
+git clone git@github.com:iosifnicolae2/radio-crestin.com.git
+cd radio-crestin.com/
   
 # Installing Docker
 apt update
@@ -24,5 +24,6 @@ apt install -y docker-ce docker-compose
 
 cd backend/
 cp .env.example .env
+# Update all the sensitive information from .env
 docker-compose up --build --force-recreate -d
 ```
