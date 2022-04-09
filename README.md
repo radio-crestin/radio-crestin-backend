@@ -17,7 +17,7 @@ make fresh-install
 
 ```bash
 apt update
-apt install -y git
+apt install -y git make
 ssh-keygen -t rsa
 git clone git@github.com:iosifnicolae2/radio-crestin.com.git
 cd radio-crestin.com/
@@ -30,13 +30,17 @@ add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu fo
 apt update
 apt install -y docker-ce docker-compose
 
-# Deploy
+# Configuration (make sure to update all the secrets)
 cp ./nginx/nginx.conf.example ./nginx/nginx.conf
 cp .env.example .env
-# Update all the sensitive information from .env
-docker-compose up --build --force-recreate -d
+
+make deploy;
+
+# Load Admin Fixtures
+make load-admin-fixtures;
 
 # Create a superuser
-docker-compose exec admin python manage.py createsuperuser
+make create-superuser-production;
+
 
 ```

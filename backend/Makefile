@@ -80,3 +80,5 @@ load-admin-fixtures:
 	docker exec -ti "$$(docker ps | grep backend_admin | cut -d " " -f1)" bash -c "python manage.py loaddata --format=yaml /src/fixtures/$$model.yaml"
 
 
+
+
