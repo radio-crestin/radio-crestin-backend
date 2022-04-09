@@ -11,6 +11,12 @@ cp ../env.example .env
 make start-dev
 sleep 10s
 make fresh-install
+
+cd frontend
+# Make sure to use local(dev) FRONTEND variables
+cp ../env.example .env
+npm i
+npm start-dev
 ```
 
 #### Production
