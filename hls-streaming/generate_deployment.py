@@ -30,7 +30,7 @@ def generate_deployment():
                 ],
                 "volumes": [
                     "./nginx/nginx.conf:/etc/nginx/nginx.conf",
-                    "/tmp/data:/data"
+                    "/tmp/data:/tmp/data"
                 ]
             },
         }
