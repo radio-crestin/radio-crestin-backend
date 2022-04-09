@@ -47,6 +47,15 @@ make load-admin-fixtures;
 
 # Create a superuser
 make create-superuser-production;
-
-
 ```
+- setup CI/CD:
+```bash
+ssh-keygen -b 2048 -t rsa 
+# Add the public key to ~/.ssh/authorized_keys
+# Add the following secrets on Github Repo > Settings > Secrets > Actions:
+# HOST
+# PORT
+# USERNAME
+# KEY
+```
+
