@@ -15,7 +15,7 @@ http {
   sendfile     on;
   tcp_nopush   on;
   server_names_hash_bucket_size 128; # this seems to be required for some vhosts
-  proxy_cache_path  /tmp/nginx/cache  levels=1:2    keys_zone=STATIC:10m inactive=24h  max_size=1g;
+  proxy_cache_path  /tmp/nginx-cache  levels=1:2    keys_zone=STATIC:10m inactive=24h  max_size=1g;
 
    server {
         listen 80 default_server;
