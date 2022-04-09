@@ -33,7 +33,7 @@ http {
         include       common.conf;
         location / {
             include     common_location.conf;
-            proxy_pass http://admin:8080/admin;
+            proxy_pass http://admin:8080/admin/;
         }
   }
 
