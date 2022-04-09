@@ -41,8 +41,11 @@ def generate_deployment():
             "build": {
                 "context": "."
             },
+            "volumes": [
+                "/tmp/data:/data"
+            ],
             "restart": "on-failure",
-            "command": f"ffmpeg -y -i '{station_stream}' -c:a:0 libfdk_aac -profile:a:0 aac_he_v2 -b:a:0 32k -c:a:1 libfdk_aac -profile:a:1 aac_he_v2 -b:a:1 64k -c:a:2 libfdk_aac -profile:a:2 aac_he_v2 -b:a:2 128k -c:a:3 libmp3lame -b:a:3 320k -async 1 -ac 2 -r 44100 -map 0:a:0 -map 0:a:0 -map 0:a:0 -map 0:a:0 -f hls -hls_init_time 2 -hls_time 6 -hls_list_size 2 -hls_delete_threshold 10 -master_pl_name index.m3u8 -var_stream_map 'a:0,name:very_low,agroup:very_low a:1,name:low,agroup:low,default:yes a:2,name:medium,agroup:medium a:3,name:high,agroup:high' -hls_flags delete_segments+omit_endlist -hls_start_number_source epoch -master_pl_publish_rate 5 -method PUT -http_seekable 1 -http_persistent 1 -ignore_io_errors 1 -sc_threshold 0 http://hls_nginx:80/hls/{station_slug}/%v/index.m3u8"
+            "command": f"ffmpeg -y -i '{station_stream}' -c:a:0 libfdk_aac -profile:a:0 aac_he_v2 -b:a:0 32k -c:a:1 libfdk_aac -profile:a:1 aac_he_v2 -b:a:1 64k -c:a:2 libfdk_aac -profile:a:2 aac_he_v2 -b:a:2 128k -c:a:3 libmp3lame -b:a:3 320k -async 1 -ac 2 -r 44100 -map 0:a:0 -map 0:a:0 -map 0:a:0 -map 0:a:0 -f hls -hls_init_time 2 -hls_time 6 -hls_list_size 2 -hls_delete_threshold 10 -master_pl_name index.m3u8 -var_stream_map 'a:0,name:very_low,agroup:very_low a:1,name:low,agroup:low,default:yes a:2,name:medium,agroup:medium a:3,name:high,agroup:high' -hls_flags delete_segments+omit_endlist -hls_start_number_source epoch -master_pl_publish_rate 5 -method PUT -http_seekable 1 -http_persistent 1 -ignore_io_errors 1 -sc_threshold 0 /data/{station_slug}/%v/index.m3u8"
         }
     return deployment
 
