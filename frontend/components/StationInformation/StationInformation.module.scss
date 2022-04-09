@@ -1,7 +1,62 @@
 @use 'styles/mixinHelper';
 
 .container{
-  @include mixinHelper.center-content;
+  display: flex;
+  justify-content: center;
   flex-direction: column;
   width: 50%;
+
+  @include mixinHelper.onTablet{
+    width: unset;
+  }
+
+  .station {
+
+    &_Name {
+      font-style: normal;
+      font-weight: 700;
+      font-size: 50px;
+    }
+
+    &_RatingContainer{
+      display: flex;
+      align-items: center;
+      gap: 0 7px;
+      margin-top: 10px;
+      margin-bottom: 10px;
+
+      .facebookIcon{
+        width: 22px
+      }
+
+      .rating{
+        font-size: 20px;
+      }
+    }
+    &_NumberOfListeners{
+      font-size: 20px;
+      line-height: 30px;
+      display: flex;
+      align-items: center;
+      margin-bottom: 35px;
+    }
+
+    &_Quote{
+      font-weight: 500;
+      font-size: 24px;
+      line-height: 36px;
+      margin-bottom: 35px;
+    }
+
+    &_ReadMore{
+      font-weight: 700;
+      font-size: 22px;
+      line-height: 33px;
+      align-items: center;
+      display: block;
+      &:hover{
+        text-decoration: underline;
+      }
+    }
+  }
 }

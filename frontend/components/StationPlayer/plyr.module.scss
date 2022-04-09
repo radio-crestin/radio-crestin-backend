@@ -1,27 +1,37 @@
+@use 'styles/mixinHelper';
+
 .plyr {
-  width: 400px !important;
+  width: unset !important;
   border-radius: 4px !important;
 
   .plyr__controls {
-    background: #f0f0f0 !important;
+    background: transparent !important;
     color: white !important;
     border-radius: inherit !important;
     padding: 0 !important;
 
     .plyr__controls__item.plyr__time {
-      color: black !important;
-      font-weight: 500;
-      margin-right: auto;
+      display: none;
     }
   }
 
   .plyr__volume {
-    max-width: 155px !important;
-    width: 40% !important;
-    min-width: 116px !important;
+    width: 100%;
+    max-width: unset !important;
 
     input[type=range] {
+      cursor: pointer;
       color: black !important;
+
+      &::-moz-range-thumb {
+        background: black;
+        cursor: pointer;
+      }
+
+      &::-webkit-slider-thumb {
+        background: black;
+        cursor: pointer;
+      }
     }
   }
 
@@ -39,20 +49,25 @@
     .plyr__controls__item:first-child {
       border-radius: 38px !important;
       background: black !important;
-      color: white !important;
-      padding: 7px 6px 7px 9px !important;
-      width: 33px;
-      height: 33px;
+      color: #FFB05A !important;
+      padding: 22px !important;
+      width: 68px;
+      height: 68px;
       transition-duration: 0s;
       margin-right: 0;
     }
 
     .plyr__controls__item:first-child[aria-label="Pause"] {
-      padding: 7px 6px 7px 7px !important;
+      padding: 22px !important;
 
       svg {
         width: 19px !important;
       }
+    }
+
+    svg{
+      width: 25px;
+      height: 25px;
     }
   }
 }

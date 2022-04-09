@@ -10,13 +10,8 @@ import { useLocalStorageState } from "../utils/state";
 import { getStationsMetadata } from "../services/stations";
 import { Station, StationGroup, StationsMetadata } from "../types";
 import StationHeader from "@/components/StationHeader/StationHeader";
-
-export const StationPlayer = dynamic(
-  () => import("components/RadioPlayer/RadioPlayer"),
-  {
-    ssr: true,
-  },
-);
+import StationCategories from "@/components/StationCategories/StationCategories";
+import Stations from "@/components/Stations/Stations";
 
 export default function Home(initialProps: {
   stationsMetadata: StationsMetadata;
@@ -61,8 +56,8 @@ export default function Home(initialProps: {
       <Body>
         <Container>
           <StationHeader />
-          {/*  TODO: Here must be the Favourite - Muzica - Predici - Populara... */}
-          {/*  TODO: Here must be all stations.*/}
+          <StationCategories />
+          <Stations />
         </Container>
       </Body>
       <Analytics />
