@@ -31,7 +31,7 @@ http {
         listen 80;
         server_name admin.radio-crestin.com;
         include       common.conf;
-        location = / {
+        location / {
             include     common_location.conf;
             proxy_pass http://admin:8080/admin;
         }
@@ -41,7 +41,7 @@ http {
         listen 80;
         server_name api.radio-crestin.com;
         include       common.conf;
-        location = / {
+        location / {
             include     common_location.conf;
             proxy_pass http://graphql-engine:8080;
         }

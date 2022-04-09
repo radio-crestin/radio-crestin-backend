@@ -26,7 +26,7 @@ services:
   graphql-engine:
     image: hasura/graphql-engine:v2.2.0
     depends_on:
-      - "postgres"
+      - postgres
     restart: always
     env_file:
       - .env
@@ -39,5 +39,8 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
       - ./nginx/common.conf:/etc/nginx/common.conf
       - ./nginx/common_location.conf:/etc/nginx/common_location.conf
+    depends_on:
+      - admin
+      - graphql-engine
 volumes:
   db_data:
