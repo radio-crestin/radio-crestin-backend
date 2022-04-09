@@ -21,9 +21,13 @@ add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu fo
 apt update
 apt install -y docker-ce docker-compose
 
-
+# Deploy
 cp ./nginx/nginx.conf.example ./nginx/nginx.conf
 cp .env.example .env
 # Update all the sensitive information from .env
 docker-compose up --build --force-recreate -d
+
+# Create a superuser
+docker-compose exec admin python manage.py createsuperuser
+
 ```

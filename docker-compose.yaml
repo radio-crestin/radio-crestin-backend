@@ -24,12 +24,15 @@ services:
     env_file:
       - .env
   graphql-engine:
-    image: hasura/graphql-engine:v2.2.0
+    image: hasura/graphql-engine:v2.2.0.cli-migrations-v3
     depends_on:
       - postgres
     restart: always
     env_file:
       - .env
+    volumes:
+      - ./backend/migrations :/hasura-migrations
+      - ./backend/metadata :/hasura-metadata
   nginx:
     image: nginx:1.21-alpine
     restart: on-failure
