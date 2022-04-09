@@ -21,6 +21,7 @@ export default function StationInformation(props: any) {
       <h1 className={styles.station_Name}>Aripi spre cer1</h1>
 
       <div className={styles.station_RatingContainer}>
+        {/*@ts-ignore*/}
         <Rating
           onChange={rating => onRatingChange(rating)}
           placeholderRating={StationRating}
