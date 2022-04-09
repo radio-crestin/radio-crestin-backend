@@ -31,8 +31,8 @@ services:
     env_file:
       - .env
     volumes:
-      - ./backend/migrations :/hasura-migrations
-      - ./backend/metadata :/hasura-metadata
+      - ./backend/migrations:/hasura-migrations/
+      - ./backend/metadata:/hasura-metadata/
   nginx:
     image: nginx:1.21-alpine
     restart: on-failure
