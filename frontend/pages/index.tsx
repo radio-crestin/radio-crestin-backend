@@ -71,6 +71,5 @@ export async function getServerSideProps() {
     props: {
       stationsMetadata,
     },
-    revalidate: 30,
   };
 }

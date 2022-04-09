@@ -1001,11 +1001,9 @@ query GetStations {
   // })
 
   return axios.request(options).then(function (response) {
-    console.log(response)
     if (!response.data?.data) {
       throw new Error(`Invalid response: ${JSON.stringify(response.data)}`);
     }
-    console.log(response.data)
 
     return {
       station_groups: response.data.data.station_groups,
