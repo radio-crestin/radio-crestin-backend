@@ -66,11 +66,11 @@ export default function Home(initialProps: {
 }
 
 export async function getServerSideProps() {
-  const stationsMetadata = await getStationsMetadata();
+  const stationsMetadata = await getStationsMetadata({serverSide: true});
   return {
     props: {
       stationsMetadata,
     },
-    // revalidate: 30,
+    revalidate: 30,
   };
 }

@@ -1,5 +1,5 @@
 start-dev:
-	npm run start:dev
+	yarn run start:dev
 
 install:
-	npm i
+	yarn install

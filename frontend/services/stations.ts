@@ -2,10 +2,10 @@ import axios, { AxiosRequestConfig } from "axios";
 import { StationsMetadata } from "../types";
 import { PROJECT_ENV } from "../utils/env";
 
-export const getStationsMetadata = (): Promise<StationsMetadata> => {
+export const getStationsMetadata = ({serverSide} = {serverSide: false}): Promise<StationsMetadata> => {
   const options: AxiosRequestConfig = {
     method: "POST",
-    url: PROJECT_ENV.FRONTEND_GRAPHQL_ENDPOINT_URI,
+    url: serverSide ? PROJECT_ENV.FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_URI : PROJECT_ENV.FRONTEND_GRAPHQL_ENDPOINT_URI,
     headers: {
       "content-type": "application/json",
     },
@@ -1001,9 +1001,11 @@ query GetStations {
   // })
 
   return axios.request(options).then(function (response) {
+    console.log(response)
     if (!response.data?.data) {
       throw new Error(`Invalid response: ${JSON.stringify(response.data)}`);
     }
+    console.log(response.data)
 
     return {
       station_groups: response.data.data.station_groups,
