@@ -39,7 +39,7 @@ http {
 
    server {
         listen 80;
-        server_name api.radio-crestin.com;
+        server_name graphql.radio-crestin.com;
         include       common.conf;
         location / {
             include     common_location.conf;
