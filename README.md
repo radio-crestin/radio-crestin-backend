@@ -59,3 +59,9 @@ ssh-keygen -b 2048 -t rsa
 # KEY
 ```
 
+#### HLS deployment
+- do all the steps from the `Production` section
+```bash
+cd hls-streaming
+make deploy;
+```
