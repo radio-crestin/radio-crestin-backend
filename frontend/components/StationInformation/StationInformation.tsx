@@ -28,6 +28,7 @@ export default function StationInformation(props: any) {
           placeholderSymbol={<img src={Star.src} alt={"placeholder symbol"} />}
           fullSymbol={<img src={StarRed.src} alt={"fullSymbol"} />}
         />
+        {/*@ts-ignore*/}
         {StationRating !== 0 && (
           <p className={styles.rating}>{StationRating}/5</p>
         )}
@@ -38,6 +39,7 @@ export default function StationInformation(props: any) {
         />
       </div>
 
+      {/*@ts-ignore*/}
       {NumberOfListeners !== 0 && (
         <p className={styles.station_NumberOfListeners}>
           {NumberOfListeners} de persoane ascultă împreună cu tine
