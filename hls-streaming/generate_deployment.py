@@ -29,7 +29,8 @@ def generate_deployment():
                     "80:80"
                 ],
                 "volumes": [
-                    "./nginx/nginx.conf:/etc/nginx/nginx.conf"
+                    "./nginx/nginx.conf:/etc/nginx/nginx.conf",
+                    "/tmp/data:/data"
                 ]
             },
         }
