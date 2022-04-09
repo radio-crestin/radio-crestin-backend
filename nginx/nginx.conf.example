@@ -47,6 +47,16 @@ http {
         }
   }
 
+   server {
+        listen 80;
+        server_name graphql-viewer.radio-crestin.com;
+        include       common.conf;
+        location / {
+            include     common_location.conf;
+            proxy_pass http://graphql-viewer:8080;
+        }
+  }
+
 
    server {
         listen 80;
