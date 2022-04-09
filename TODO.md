@@ -1,2 +1,2 @@
-- zero downtime docker deployment
+- zero downtime docker deployment using docker swarm
 - 
