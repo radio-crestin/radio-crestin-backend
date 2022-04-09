@@ -31,9 +31,9 @@ http {
         listen 80;
         server_name admin.radio-crestin.com;
         include       common.conf;
-        location /(.*) {
+        location / {
             include     common_location.conf;
-            proxy_pass http://admin:8080/admin/$1;
+            proxy_pass http://admin:8080/;
         }
   }
 
