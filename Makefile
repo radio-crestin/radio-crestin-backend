@@ -1,6 +1,12 @@
-deploy:
-	git pull origin master;
+deploy: git-pull
+	docker-compose --env-file .env  up --build -d
+
+force-deploy: git-pull
 	docker-compose --env-file .env  up --build --force-recreate -d
+
+
+git-pull:
+	git pull origin master;
 
 logs:
 	docker-compose logs -f

@@ -12,6 +12,8 @@ services:
       timeout: 45s
       interval: 10s
       retries: 10
+    networks:
+      - app_network
   app:
     build:
       context: backend/app
@@ -20,6 +22,8 @@ services:
     restart: always
     env_file:
       - .env
+    networks:
+      - app_network
   admin:
     build:
       context: backend/admin
@@ -34,6 +38,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    networks:
+      - app_network
   graphql-engine:
     image: hasura/graphql-engine:v2.2.0.cli-migrations-v3
     depends_on:
@@ -50,6 +56,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    networks:
+      - app_network
   graphql-viewer:
     image: ghcr.io/iosifnicolae2/graphql-viewer:latest
     restart: always
@@ -59,6 +67,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    networks:
+      - app_network
   frontend:
     build:
       context: frontend
@@ -72,6 +82,8 @@ services:
     environment:
       - FRONTEND_GRAPHQL_ENDPOINT_URI=${FRONTEND_GRAPHQL_ENDPOINT_URI}
       - FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_URI=${FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_URI}
+    networks:
+      - app_network
   nginx:
     image: nginx:1.21-alpine
     restart: on-failure
@@ -82,9 +94,11 @@ services:
       - ./nginx/common.conf:/etc/nginx/common.conf
       - ./nginx/common_location.conf:/etc/nginx/common_location.conf
       - ./nginx/common_caching.conf:/etc/nginx/common_caching.conf
-    depends_on:
-      - admin
-      - graphql-engine
-      - graphql-viewer
+    networks:
+      - app_network
 volumes:
   db_data:
+
+networks:
+  app_network:
+    name: app_network_webgateway
