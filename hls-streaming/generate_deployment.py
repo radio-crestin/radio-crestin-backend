@@ -26,7 +26,7 @@ def generate_deployment():
                 "image": "nginx:1.21-alpine",
                 "restart": "on-failure",
                 "ports": [
-                    "127.0.0.1:8432:80"
+                    "127.0.0.1:80:80"
                 ],
                 "volumes": [
                     "./nginx/nginx.conf:/etc/nginx/nginx.conf"
