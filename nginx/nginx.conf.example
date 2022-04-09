@@ -18,8 +18,11 @@ http {
 
    server {
         listen 80 default_server;
+        server_name _;
+        include       common.conf;
         location = / {
             add_header Content-Type text/plain;
+            include     common_location.conf;
             return 200 'it works!';
         }
   }
@@ -27,8 +30,9 @@ http {
    server {
         listen 80;
         server_name admin.radio-crestin.com;
+        include       common.conf;
         location = / {
-            include /etc/nginx/includes/proxy.conf;
+            include     common_location.conf;
             proxy_pass http://admin:8080/admin;
         }
   }
@@ -36,12 +40,13 @@ http {
    server {
         listen 80;
         server_name api.radio-crestin.com;
+        include       common.conf;
         location = / {
-            include /etc/nginx/includes/proxy.conf;
+            include     common_location.conf;
             proxy_pass http://graphql-engine:8080;
         }
   }
-    
+
 
    server {
         listen 80;

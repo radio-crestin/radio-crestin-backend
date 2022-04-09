@@ -22,6 +22,7 @@ apt update
 apt install -y docker-ce docker-compose
 
 
+cp ./nginx/nginx.conf.example ./nginx/nginx.conf
 cp .env.example .env
 # Update all the sensitive information from .env
 docker-compose up --build --force-recreate -d
