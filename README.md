@@ -4,6 +4,15 @@ Feel free to contribute to this project or get in touch with us at: contact@radi
 
 Obs. This project can be used only by christian organizations for non-comercial purposes.
 
+#### Development
+```bash
+cd backend
+cp ../env.example .env
+make start-dev
+sleep 10s
+make fresh-install
+```
+
 #### Production
 
 ```bash

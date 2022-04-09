@@ -23,6 +23,12 @@ services:
     restart: always
     env_file:
       - .env
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/admin" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
   graphql-engine:
     image: hasura/graphql-engine:v2.2.0.cli-migrations-v3
     depends_on:
@@ -33,6 +39,12 @@ services:
     volumes:
       - ./backend/migrations:/hasura-migrations/
       - ./backend/metadata:/hasura-metadata/
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/healthz" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
   nginx:
     image: nginx:1.21-alpine
     restart: on-failure
