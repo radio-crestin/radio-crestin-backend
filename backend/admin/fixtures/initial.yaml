@@ -1,0 +1,1364 @@
+
+- model: web.stationmetadatafetchcategories
+  pk: 1
+  fields:
+    created_at: 2022-04-02 07:37:08.292572+00:00
+    updated_at: 2022-04-03 17:06:00.739753+00:00
+    slug: shoutcast
+- model: web.stationmetadatafetchcategories
+  pk: 2
+  fields:
+    created_at: 2022-04-02 07:37:11.255456+00:00
+    updated_at: 2022-04-03 17:06:00.739753+00:00
+    slug: radio_co
+- model: web.stationmetadatafetchcategories
+  pk: 3
+  fields:
+    created_at: 2022-04-02 07:37:14.275764+00:00
+    updated_at: 2022-04-03 17:06:00.739753+00:00
+    slug: icecast
+- model: web.stationmetadatafetchcategories
+  pk: 4
+  fields:
+    created_at: 2022-04-02 07:37:18.755908+00:00
+    updated_at: 2022-04-03 17:06:00.739753+00:00
+    slug: shoutcast_xml
+- model: web.stationmetadatafetchcategories
+  pk: 5
+  fields:
+    created_at: 2022-04-02 07:37:22.007790+00:00
+    updated_at: 2022-04-03 17:06:00.739753+00:00
+    slug: old_icecast_html
+- model: web.stationmetadatafetchcategories
+  pk: 6
+  fields:
+    created_at: 2022-04-02 07:37:25.030252+00:00
+    updated_at: 2022-04-03 17:06:00.739753+00:00
+    slug: old_shoutcast_html
+- model: web.stations
+  pk: 0
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:11.997611+00:00
+    order: 0
+    title: Aripi Spre Cer
+    website: https://aripisprecer.ro
+    email: contact@aripisprecer.ro
+    stream_url: https://mobile.stream.aripisprecer.ro/radio.mp3;
+    thumbnail: aripisprecer_SDmYRwG.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/aripisprecer_SDmYRwG.jpg
+    latest_station_uptime: null
+    latest_station_now_playing: null
+- model: web.stations
+  pk: 1
+  fields:
+    created_at: 2022-04-02 07:37:35+00:00
+    updated_at: 2022-04-03 17:55:12.079254+00:00
+    order: 1
+    title: Aripi Spre Cer Predici
+    website: https://aripisprecer.ro
+    email: contact@aripisprecer.ro
+    stream_url: https://predici.stream.aripisprecer.ro/radio.mp3;
+    thumbnail: aripisprecer_61Mv959.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/aripisprecer_61Mv959.jpg
+- model: web.stations
+  pk: 2
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:12.185499+00:00
+    order: 2
+    title: Aripi Spre Cer Popular
+    website: https://aripisprecer.ro
+    email: contact@aripisprecer.ro
+    stream_url: https://popular.stream.aripisprecer.ro/radio.mp3;
+    thumbnail: aripisprecer_UTDHijf.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/aripisprecer_UTDHijf.jpg
+- model: web.stations
+  pk: 3
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:11.997611+00:00
+    order: 3
+    title: Aripi Spre Cer Worship
+    website: https://aripisprecer.ro
+    email: contact@aripisprecer.ro
+    stream_url: https://worship.stream.aripisprecer.ro/radio.mp3;
+    thumbnail: aripisprecer_6xoIlAY.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/aripisprecer_6xoIlAY.jpg
+- model: web.stations
+  pk: 4
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:12.474977+00:00
+    order: 4
+    title: Aripi Spre Cer International
+    website: https://aripisprecer.ro
+    email: contact@aripisprecer.ro
+    stream_url: https://international.stream.aripisprecer.ro/radio.mp3;
+    thumbnail: aripisprecer_Uab89Ic.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/aripisprecer_Uab89Ic.jpg
+- model: web.stations
+  pk: 5
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:12.335123+00:00
+    order: 5
+    title: Aripi Spre Cer Instrumental
+    website: https://aripisprecer.ro
+    email: contact@aripisprecer.ro
+    stream_url: https://instrumental.stream.aripisprecer.ro/radio.mp3;
+    thumbnail: aripisprecer_etOtJRb.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/aripisprecer_etOtJRb.jpg
+- model: web.stations
+  pk: 6
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:11.997611+00:00
+    order: 6
+    title: Radio ALT FM Arad
+    website: https://www.altfm.ro
+    email: office@altfm.ro
+    stream_url: http://asculta.radiocnm.ro:8002/live
+    thumbnail: alt_fm_arad_P8bQ2Dk.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/alt_fm_arad_P8bQ2Dk.jpg
+    latest_station_uptime: null
+    latest_station_now_playing: null
+- model: web.stations
+  pk: 7
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:12.256894+00:00
+    order: 7
+    title: Radio Armonia
+    website: https://www.radioarmonia.ro/
+    email: office@radioarmonia.ro
+    stream_url: http://video.bluespot.ro:8001/listen.mp3
+    thumbnail: armonia_xtYb62P.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/armonia_xtYb62P.jpg
+- model: web.stations
+  pk: 8
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:12.166329+00:00
+    order: 8
+    title: Radio Biblia Online
+    website: http://ascultabiblia.blogspot.com
+    email: ''
+    stream_url: http://209.95.50.189:8006/
+    thumbnail: Biblia_online_v0UjPLL.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/Biblia_online_v0UjPLL.jpg
+- model: web.stations
+  pk: 9
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:11.997611+00:00
+    order: 9
+    title: Radio Biruitor
+    website: https://biruitor.eu/
+    email: radio@biruitor.eu
+    stream_url: https://cast1.asurahosting.com/proxy/valer/stream
+    thumbnail: biruitor_IxDTLNv.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/biruitor_IxDTLNv.jpg
+- model: web.stations
+  pk: 10
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:12.251491+00:00
+    order: 10
+    title: Radio Ciresarii
+    website: https://ciresarii.ro/
+    email: head.office@ciresarii.ro
+    stream_url: https://s3.radio.co/s6c0a773ad/listen
+    thumbnail: ciresarii_PzIArhf.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/ciresarii_PzIArhf.jpg
+- model: web.stations
+  pk: 11
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:11.997611+00:00
+    order: 11
+    title: Radio de Cuvant
+    website: https://radiodecuvant.ro/
+    email: radiodecuvant@gmail.com
+    stream_url: https://streamer.radio.co/sb94ce6fe2/listen
+    thumbnail: radio_de_cuvant_9gWDZGl.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_de_cuvant_9gWDZGl.jpg
+    latest_station_uptime: null
+    latest_station_now_playing: null
+- model: web.stations
+  pk: 12
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:11.997611+00:00
+    order: 12
+    title: Radio Ekklesia
+    website: https://radioekklesia.com/
+    email: ''
+    stream_url: http://asculta.radioekklesia.com:8005/stream
+    thumbnail: radio_ekklesia_OQFrWGc.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_ekklesia_OQFrWGc.jpg
+    latest_station_uptime: null
+    latest_station_now_playing: null
+- model: web.stations
+  pk: 13
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:11.997611+00:00
+    order: 13
+    title: Radio Elim Air
+    website: https://www.radioelim.ro/
+    email: contact@radioelim.ro
+    stream_url: http://91.213.11.102:8011/stream
+    thumbnail: radio_elim_Lt8PkVQ.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_elim_Lt8PkVQ.jpg
+    latest_station_uptime: null
+    latest_station_now_playing: null
+- model: web.stations
+  pk: 15
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:11.997611+00:00
+    order: 15
+    title: Radio Elim Kids
+    website: https://www.radioelim.ro/
+    email: contact@radioelim.ro
+    stream_url: http://91.213.11.102:8007/stream
+    thumbnail: radio_elim_ihxn3tA.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_elim_ihxn3tA.jpg
+    latest_station_uptime: null
+    latest_station_now_playing: null
+- model: web.stations
+  pk: 16
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:11.997611+00:00
+    order: 16
+    title: Radio Elim Plus
+    website: https://www.radioelim.ro/
+    email: contact@radioelim.ro
+    stream_url: http://91.213.11.102:8003/stream
+    thumbnail: radio_elim_DNsugYG.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_elim_DNsugYG.jpg
+    latest_station_uptime: null
+    latest_station_now_playing: null
+- model: web.stations
+  pk: 17
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:11.997611+00:00
+    order: 17
+    title: Radio Filadelfia
+    website: https://www.radiofiladelfia.ro/
+    email: redactie@radiofiladelfia.ro
+    stream_url: https://asculta.radiofiladelfia.ro:8000/;
+    thumbnail: radio_filadelfia_DRcVtGn.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_filadelfia_DRcVtGn.jpg
+    latest_station_uptime: null
+    latest_station_now_playing: null
+- model: web.stations
+  pk: 18
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:11.997611+00:00
+    order: 18
+    title: Radio Gosen
+    website: https://filadelfia.md/
+    email: info@filadelfia.md
+    stream_url: https://sp.totalstreaming.net/8125/stream
+    thumbnail: radio_gosen_fa0Z3gL.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_gosen_fa0Z3gL.jpg
+    latest_station_uptime: null
+    latest_station_now_playing: null
+- model: web.stations
+  pk: 19
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:12.093159+00:00
+    order: 19
+    title: Radio Iubire Fara Margini
+    website: https://radioiubire.ucoz.net/
+    email: ''
+    stream_url: http://ssl.omegahost.ro:7043/stream
+    thumbnail: radio_iubire_fara_margini_ap8euxn.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_iubire_fara_margini_ap8euxn.jpg
+- model: web.stations
+  pk: 20
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:11.997611+00:00
+    order: 20
+    title: Radio Levi
+    website: https://radiolevi.ro/
+    email: radiolevionline@gmail.com
+    stream_url: https://audio-radioleviro.bisericilive.com/radioleviro.mp3
+    thumbnail: radio_levi_8tIBTm9.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_levi_8tIBTm9.jpg
+    latest_station_uptime: null
+    latest_station_now_playing: null
+- model: web.stations
+  pk: 21
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:12.177823+00:00
+    order: 21
+    title: Radio Micul Samaritean
+    website: https://www.miculsamaritean.com/
+    email: miculsamariteanmd@yahoo.com
+    stream_url: https://s5.radio.co/sfff7b7e97/listen
+    thumbnail: radio_micul_samaritean_eKxDx83.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_micul_samaritean_eKxDx83.jpg
+- model: web.stations
+  pk: 22
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:11.997611+00:00
+    order: 22
+    title: Radio Moody Chicago
+    website: https://www.moodyradio.org/stations/chicago/
+    email: wmbi@moody.edu
+    stream_url: https://primary.moodyradiostream.org/wrmb-high.aac
+    thumbnail: radio_moody_TAJuvOU.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_moody_TAJuvOU.jpg
+    latest_station_uptime: null
+    latest_station_now_playing: null
+- model: web.stations
+  pk: 23
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:12.165742+00:00
+    order: 23
+    title: Radio Old Christian Radio
+    website: https://www.oldchristianradio.com/
+    email: mcfaddenm99@yahoo.com
+    stream_url: https://stream.radio.co/sf2c714555/listen
+    thumbnail: old_christian_radio-1.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/old_christian_radio-1.jpg
+- model: web.stations
+  pk: 24
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:11.997611+00:00
+    order: 24
+    title: Radio O Noua Sansa
+    website: https://radioonouasansa.ro/radio/
+    email: ''
+    stream_url: https://securestreams5.autopo.st:1951/;?type=http&nocache=15
+    thumbnail: radio_o_noua_sansa_2V1FM62.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_o_noua_sansa_2V1FM62.jpg
+    latest_station_uptime: null
+    latest_station_now_playing: null
+- model: web.stations
+  pk: 25
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:11.997611+00:00
+    order: 25
+    title: Radio Philadelphia Mansuè
+    website: http://www.philadelphiamansue.it/radio-philadelphia/
+    email: ''
+    stream_url: http://94.130.106.91/radio/8000/radio.mp3
+    thumbnail: radio_philadelphia_mansue_ga3zRjs.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_philadelphia_mansue_ga3zRjs.jpg
+    latest_station_uptime: null
+    latest_station_now_playing: null
+- model: web.stations
+  pk: 26
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:11.997611+00:00
+    order: 26
+    title: Radio Vocea Evangheliei Bucuresti
+    website: https://rvebucuresti.ro/
+    email: contact@rvebucuresti.ro
+    stream_url: https://lb01.bpstream.com:8618/stream
+    thumbnail: rve_bucuresti_1kz4o8R.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/rve_bucuresti_1kz4o8R.jpg
+    latest_station_uptime: null
+    latest_station_now_playing: null
+- model: web.stations
+  pk: 27
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:11.997611+00:00
+    order: 27
+    title: Radio Vocea Evangheliei Cluj
+    website: https://rvecj.ro/
+    email: rvecluj@gmail.com
+    stream_url: https://s23.myradiostream.com/:18366/listen.mp3
+    thumbnail: rve_cluj_Fi2UCft.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/rve_cluj_Fi2UCft.jpg
+    latest_station_uptime: null
+    latest_station_now_playing: null
+- model: web.stations
+  pk: 28
+  fields:
+    created_at: 2022-04-02 07:44:02+00:00
+    updated_at: 2022-04-03 17:55:12.425394+00:00
+    order: 28
+    title: Radio Vocea Evangheliei Constanta
+    website: http://rvect.ro
+    email: contact@rvect.ro
+    stream_url: https://audio-rvectro.bisericilive.com/rvectro.mp3
+    thumbnail: rve_constanta_bYEnGof.jpg
+    thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/rve_constanta_bYEnGof.jpg
+- model: web.stationsuptime
+  pk: 32130
+  fields:
+    created_at: 2022-04-03 17:55:12.079254+00:00
+    updated_at: 2022-04-03 17:55:12.079254+00:00
+    timestamp: 2022-04-03 17:55:12.055000+00:00
+    station: 1
+    is_up: true
+    latency_ms: 259
+    raw_data: '{"responseHeaders":{"server":"openresty","date":"Sun, 03 Apr 2022 17:55:12
+      GMT","content-type":"audio/mpeg","transfer-encoding":"chunked","connection":"close","icy-notice1":"<BR>This
+      stream requires <a href=\"http://www.winamp.com\">Winamp</a><BR>","icy-notice2":"Shoutcast
+      DNAS/posix(linux x64) v2.6.1.777<BR>","accept-ranges":"none","access-control-allow-origin":"*","cache-control":"no-cache,no-store,must-revalidate,max-age=0","icy-name":"","icy-genre":"christian","icy-br":"128","icy-sr":"44100","icy-url":"https://www.aripisprecer.ro/predici/","icy-pub":"1","x-clacks-overhead":"GNU
+      Terry Pratchett","x-served-by":"predici.stream.aripisprecer.ro"},"responseStatus":200}'
+- model: web.stationsuptime
+  pk: 32131
+  fields:
+    created_at: 2022-04-03 17:55:12.093159+00:00
+    updated_at: 2022-04-03 17:55:12.093159+00:00
+    timestamp: 2022-04-03 17:55:12.091000+00:00
+    station: 19
+    is_up: true
+    latency_ms: 398
+    raw_data: '{"responseHeaders":{"icy-notice1":"<BR>This stream requires <a href=\"http://www.winamp.com\">Winamp</a><BR>","icy-notice2":"SHOUTcast
+      DNAS/posix(linux x64) v2.5.5.733<BR>","accept-ranges":"none","access-control-allow-origin":"*","cache-control":"no-cache,no-store,must-revalidate,max-age=0","connection":"close","icy-name":"AutoDJ
+      Stream","icy-genre":"Misc","icy-br":"128","icy-sr":"44100","icy-url":"clientradiourl.com","icy-pub":"1","content-type":"audio/mpeg","x-clacks-overhead":"GNU
+      Terry Pratchett"},"responseStatus":200}'
+- model: web.stationsuptime
+  pk: 32132
+  fields:
+    created_at: 2022-04-03 17:55:12.165742+00:00
+    updated_at: 2022-04-03 17:55:12.165742+00:00
+    timestamp: 2022-04-03 17:55:12.162000+00:00
+    station: 23
+    is_up: true
+    latency_ms: 211
+    raw_data: '{"responseHeaders":{"content-type":"audio/mpeg","date":"Sun, 03 Apr
+      2022 17:55:12 GMT","icy-br":"128, 128","ice-audio-info":"channels=2;samplerate=44100;bitrate=128","icy-name":"OLD
+      CHRISTIAN RADIO","icy-pub":"1","icy-url":"http://www.oldchristianradio.com","server":"stream-london2.radio.co","cache-control":"no-cache,
+      no-store","access-control-allow-origin":"*","access-control-allow-headers":"Origin,
+      Accept, X-Requested-With, Content-Type","access-control-allow-methods":"GET,
+      OPTIONS, HEAD","connection":"Close","expires":"Mon, 26 Jul 1997 05:00:00 GMT"},"responseStatus":200}'
+- model: web.stationsuptime
+  pk: 32133
+  fields:
+    created_at: 2022-04-03 17:55:12.166329+00:00
+    updated_at: 2022-04-03 17:55:12.166329+00:00
+    timestamp: 2022-04-03 17:55:12.162000+00:00
+    station: 8
+    is_up: false
+    latency_ms: -1
+    raw_data: '{"responseHeaders":{},"responseStatus":-1,"error":{"message":"Parse
+      Error: Expected HTTP/","name":"Error","stack":"Error: Parse Error: Expected
+      HTTP/\n    at HTTPParser.execute (<anonymous>)\n    at Socket.socketOnData (node:_http_client:494:22)\n    at
+      Socket.emit (node:events:527:28)\n    at Socket.emit (node:domain:475:12)\n    at
+      addChunk (node:internal/streams/readable:324:12)\n    at readableAddChunk (node:internal/streams/readable:297:9)\n    at
+      Socket.Readable.push (node:internal/streams/readable:234:10)\n    at TCP.onStreamRead
+      (node:internal/stream_base_commons:190:23)","config":{"transitional":{"silentJSONParsing":true,"forcedJSONParsing":true,"clarifyTimeoutError":false},"transformRequest":[null],"transformResponse":[null],"timeout":5000,"xsrfCookieName":"XSRF-TOKEN","xsrfHeaderName":"X-XSRF-TOKEN","maxContentLength":-1,"maxBodyLength":-1,"headers":{"Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9","accept-language":"en-US,en;q=0.9,ro;q=0.8","cache-control":"no-cache","pragma":"no-cache","sec-ch-ua":"\"
+      Not;A Brand\";v=\"99\", \"Google Chrome\";v=\"97\", \"Chromium\";v=\"97\"","sec-ch-ua-mobile":"?0","sec-ch-ua-platform":"\"Linux\"","sec-fetch-dest":"document","sec-fetch-mode":"navigate","sec-fetch-site":"cross-site","sec-fetch-user":"?1","upgrade-insecure-requests":"1","User-Agent":"axios/0.26.1"},"method":"get","url":"http://209.95.50.189:8006/","responseType":"stream"},"code":"HPE_INVALID_CONSTANT","status":null}}'
+- model: web.stationsuptime
+  pk: 32134
+  fields:
+    created_at: 2022-04-03 17:55:12.177823+00:00
+    updated_at: 2022-04-03 17:55:12.177823+00:00
+    timestamp: 2022-04-03 17:55:12.175000+00:00
+    station: 21
+    is_up: true
+    latency_ms: 244
+    raw_data: '{"responseHeaders":{"content-type":"audio/mpeg","date":"Sun, 03 Apr
+      2022 17:55:12 GMT","icy-br":"128, 128","ice-audio-info":"channels=2;samplerate=44100;bitrate=128","icy-name":"Radio
+      Micul Samaritean","icy-pub":"1","icy-url":"http://miculsamaritean.com","server":"s5-warsaw.radio.co","cache-control":"no-cache,
+      no-store","access-control-allow-origin":"*","access-control-allow-headers":"Origin,
+      Accept, X-Requested-With, Content-Type","access-control-allow-methods":"GET,
+      OPTIONS, HEAD","connection":"Close","expires":"Mon, 26 Jul 1997 05:00:00 GMT"},"responseStatus":200}'
+- model: web.stationsuptime
+  pk: 32135
+  fields:
+    created_at: 2022-04-03 17:55:12.185499+00:00
+    updated_at: 2022-04-03 17:55:12.185499+00:00
+    timestamp: 2022-04-03 17:55:12.184000+00:00
+    station: 2
+    is_up: true
+    latency_ms: 266
+    raw_data: '{"responseHeaders":{"server":"openresty","date":"Sun, 03 Apr 2022 17:55:12
+      GMT","content-type":"audio/mpeg","transfer-encoding":"chunked","connection":"close","icy-notice1":"<BR>This
+      stream requires <a href=\"http://www.winamp.com\">Winamp</a><BR>","icy-notice2":"Shoutcast
+      DNAS/posix(linux x64) v2.6.1.777<BR>","accept-ranges":"none","access-control-allow-origin":"*","cache-control":"no-cache,no-store,must-revalidate,max-age=0","icy-name":"","icy-genre":"christian","icy-br":"128","icy-sr":"44100","icy-url":"https://www.aripisprecer.ro/popular/","icy-pub":"1","x-clacks-overhead":"GNU
+      Terry Pratchett","x-served-by":"popular.stream.aripisprecer.ro"},"responseStatus":200}'
+- model: web.stationsuptime
+  pk: 32136
+  fields:
+    created_at: 2022-04-03 17:55:12.251491+00:00
+    updated_at: 2022-04-03 17:55:12.251491+00:00
+    timestamp: 2022-04-03 17:55:12.249000+00:00
+    station: 10
+    is_up: true
+    latency_ms: 167
+    raw_data: '{"responseHeaders":{"content-type":"audio/mpeg","date":"Sun, 03 Apr
+      2022 17:55:12 GMT","icy-br":"192, 192","ice-audio-info":"channels=2;samplerate=44100;bitrate=192","icy-name":"Radio
+      Ciresarii","icy-pub":"1","icy-url":"http://www.radiociresarii.ro","server":"s3-london.radio.co","cache-control":"no-cache,
+      no-store","access-control-allow-origin":"*","access-control-allow-headers":"Origin,
+      Accept, X-Requested-With, Content-Type","access-control-allow-methods":"GET,
+      OPTIONS, HEAD","connection":"Close","expires":"Mon, 26 Jul 1997 05:00:00 GMT"},"responseStatus":200}'
+- model: web.stationsuptime
+  pk: 32137
+  fields:
+    created_at: 2022-04-03 17:55:12.256894+00:00
+    updated_at: 2022-04-03 17:55:12.256894+00:00
+    timestamp: 2022-04-03 17:55:12.253000+00:00
+    station: 7
+    is_up: true
+    latency_ms: 242
+    raw_data: '{"responseHeaders":{"icy-notice1":"<BR>This stream requires <a href=\"http://www.winamp.com\">Winamp</a><BR>","icy-notice2":"Shoutcast
+      DNAS/posix(linux x64) v2.6.0.753<BR>","accept-ranges":"none","access-control-allow-origin":"*","cache-control":"no-cache,no-store,must-revalidate,max-age=0","connection":"close","icy-name":"Radio
+      Armonia","icy-genre":"Christian","icy-br":"128","icy-sr":"44100","icy-url":"http://www.radioarmonia.ro","icy-pub":"1","content-type":"audio/mpeg","x-clacks-overhead":"GNU
+      Terry Pratchett"},"responseStatus":200}'
+- model: web.stationsuptime
+  pk: 32138
+  fields:
+    created_at: 2022-04-03 17:55:12.335123+00:00
+    updated_at: 2022-04-03 17:55:12.335123+00:00
+    timestamp: 2022-04-03 17:55:12.332000+00:00
+    station: 5
+    is_up: true
+    latency_ms: 263
+    raw_data: '{"responseHeaders":{"server":"openresty","date":"Sun, 03 Apr 2022 17:55:12
+      GMT","content-type":"audio/mpeg","transfer-encoding":"chunked","connection":"close","icy-notice1":"<BR>This
+      stream requires <a href=\"http://www.winamp.com\">Winamp</a><BR>","icy-notice2":"Shoutcast
+      DNAS/posix(linux x64) v2.6.1.777<BR>","accept-ranges":"none","access-control-allow-origin":"*","cache-control":"no-cache,no-store,must-revalidate,max-age=0","icy-name":"","icy-genre":"christian","icy-br":"128","icy-sr":"44100","icy-url":"https://www.aripisprecer.ro/instrumental/","icy-pub":"1","x-clacks-overhead":"GNU
+      Terry Pratchett","x-served-by":"instrumental.stream.aripisprecer.ro"},"responseStatus":200}'
+- model: web.stationsuptime
+  pk: 32139
+  fields:
+    created_at: 2022-04-03 17:55:12.425394+00:00
+    updated_at: 2022-04-03 17:55:12.425394+00:00
+    timestamp: 2022-04-03 17:55:12.422000+00:00
+    station: 28
+    is_up: true
+    latency_ms: 192
+    raw_data: '{"responseHeaders":{"server":"Icecast 2.4.4","connection":"Close","date":"Sun,
+      03 Apr 2022 17:55:12 GMT","content-type":"audio/mpeg","cache-control":"no-cache,
+      no-store","expires":"Mon, 26 Jul 1997 05:00:00 GMT","pragma":"no-cache","access-control-allow-origin":"*","icy-br":"160","icy-description":"Un
+      radio de Cuvant","icy-genre":"Misc","icy-name":"Radio Vocea Evangheliei","icy-pub":"1","icy-url":"http://"},"responseStatus":200}'
+- model: web.stationsuptime
+  pk: 32140
+  fields:
+    created_at: 2022-04-03 17:55:12.474977+00:00
+    updated_at: 2022-04-03 17:55:12.474977+00:00
+    timestamp: 2022-04-03 17:55:12.470000+00:00
+    station: 4
+    is_up: true
+    latency_ms: 264
+    raw_data: '{"responseHeaders":{"server":"openresty","date":"Sun, 03 Apr 2022 17:55:12
+      GMT","content-type":"audio/mpeg","transfer-encoding":"chunked","connection":"close","icy-notice1":"<BR>This
+      stream requires <a href=\"http://www.winamp.com\">Winamp</a><BR>","icy-notice2":"Shoutcast
+      DNAS/posix(linux x64) v2.6.1.777<BR>","accept-ranges":"none","access-control-allow-origin":"*","cache-control":"no-cache,no-store,must-revalidate,max-age=0","icy-name":"","icy-genre":"christian","icy-br":"128","icy-sr":"44100","icy-url":"https://www.aripisprecer.ro/international/","icy-pub":"1","x-clacks-overhead":"GNU
+      Terry Pratchett","x-served-by":"international.stream.aripisprecer.ro"},"responseStatus":200}'
+
+
+- model: web.stationsmetadatafetch
+  pk: 1
+  fields:
+    created_at: 2022-04-02 07:37:52.931901+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 1
+    station_metadata_fetch_category: 1
+    url: https://predici.stream.aripisprecer.ro/stats?json=1
+- model: web.stationsmetadatafetch
+  pk: 2
+  fields:
+    created_at: 2022-04-02 07:45:19.035872+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 0
+    station_metadata_fetch_category: 1
+    url: https://mobile.stream.aripisprecer.ro/stats?json=1
+- model: web.stationsmetadatafetch
+  pk: 3
+  fields:
+    created_at: 2022-04-02 07:45:42.920828+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 2
+    station_metadata_fetch_category: 1
+    url: https://popular.stream.aripisprecer.ro/stats?json=1
+- model: web.stationsmetadatafetch
+  pk: 4
+  fields:
+    created_at: 2022-04-02 07:45:55.596914+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 3
+    station_metadata_fetch_category: 1
+    url: https://worship.stream.aripisprecer.ro/stats?json=1
+- model: web.stationsmetadatafetch
+  pk: 5
+  fields:
+    created_at: 2022-04-02 07:46:06.703825+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 4
+    station_metadata_fetch_category: 1
+    url: https://international.stream.aripisprecer.ro/stats?json=1
+- model: web.stationsmetadatafetch
+  pk: 6
+  fields:
+    created_at: 2022-04-02 07:46:21.196303+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 5
+    station_metadata_fetch_category: 1
+    url: https://instrumental.stream.aripisprecer.ro/stats?json=1
+- model: web.stationsmetadatafetch
+  pk: 7
+  fields:
+    created_at: 2022-04-02 07:46:51.320436+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 6
+    station_metadata_fetch_category: 5
+    url: http://asculta.radiocnm.ro:8002/
+- model: web.stationsmetadatafetch
+  pk: 8
+  fields:
+    created_at: 2022-04-02 07:47:05.973243+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 7
+    station_metadata_fetch_category: 1
+    url: http://video.bluespot.ro:8001/stats?json=1
+- model: web.stationsmetadatafetch
+  pk: 9
+  fields:
+    created_at: 2022-04-02 07:47:52.170301+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 8
+    station_metadata_fetch_category: 6
+    url: http://209.95.50.189:8006/index.html
+- model: web.stationsmetadatafetch
+  pk: 10
+  fields:
+    created_at: 2022-04-02 07:48:03.690214+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 9
+    station_metadata_fetch_category: 3
+    url: https://cast1.asurahosting.com/proxy/valer/status-json.xsl?listen_url=live
+- model: web.stationsmetadatafetch
+  pk: 11
+  fields:
+    created_at: 2022-04-02 07:48:13.515777+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 10
+    station_metadata_fetch_category: 2
+    url: https://public.radio.co/stations/s6c0a773ad/status
+- model: web.stationsmetadatafetch
+  pk: 12
+  fields:
+    created_at: 2022-04-02 07:48:24.977669+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 11
+    station_metadata_fetch_category: 2
+    url: https://public.radio.co/stations/sb94ce6fe2/status
+- model: web.stationsmetadatafetch
+  pk: 13
+  fields:
+    created_at: 2022-04-02 07:48:39.552280+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 12
+    station_metadata_fetch_category: 1
+    url: http://asculta.radioekklesia.com:8005/stats?json=1
+- model: web.stationsmetadatafetch
+  pk: 14
+  fields:
+    created_at: 2022-04-02 07:49:03.021367+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 13
+    station_metadata_fetch_category: 1
+    url: http://91.213.11.102:8011/stats?json=1
+- model: web.stationsmetadatafetch
+  pk: 16
+  fields:
+    created_at: 2022-04-02 07:49:25.623999+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 15
+    station_metadata_fetch_category: 1
+    url: http://91.213.11.102:8007/stats?json=1
+- model: web.stationsmetadatafetch
+  pk: 17
+  fields:
+    created_at: 2022-04-02 07:49:37.348972+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 16
+    station_metadata_fetch_category: 1
+    url: http://91.213.11.102:8003/stats?json=1
+- model: web.stationsmetadatafetch
+  pk: 18
+  fields:
+    created_at: 2022-04-02 07:50:01.061570+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 17
+    station_metadata_fetch_category: 1
+    url: http://asculta.radiofiladelfia.ro:8080/stats?json=1
+- model: web.stationsmetadatafetch
+  pk: 19
+  fields:
+    created_at: 2022-04-02 07:50:16.838421+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 18
+    station_metadata_fetch_category: 4
+    url: https://sp.totalstreaming.net/8125/stats
+- model: web.stationsmetadatafetch
+  pk: 20
+  fields:
+    created_at: 2022-04-02 07:50:35.661900+00:00
+    updated_at: 2022-04-03 17:29:11.603599+00:00
+    station: 19
+    station_metadata_fetch_category: 4
+    url: http://ssl.omegahost.ro:7043/stats
+- model: web.stationsmetadatafetch
+  pk: 21
+  fields:
+    created_at: 2022-04-02 07:50:45.644831+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 20
+    station_metadata_fetch_category: 3
+    url: https://audio-radioleviro.bisericilive.com/status-json.xsl?listen_url=radioleviro
+- model: web.stationsmetadatafetch
+  pk: 22
+  fields:
+    created_at: 2022-04-02 07:50:59.020864+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 21
+    station_metadata_fetch_category: 2
+    url: https://public.radio.co/stations/sfff7b7e97/status
+- model: web.stationsmetadatafetch
+  pk: 24
+  fields:
+    created_at: 2022-04-02 07:51:37.504412+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 23
+    station_metadata_fetch_category: 2
+    url: https://public.radio.co/stations/sf2c714555/status
+- model: web.stationsmetadatafetch
+  pk: 25
+  fields:
+    created_at: 2022-04-02 07:52:22.134917+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 24
+    station_metadata_fetch_category: 1
+    url: https://securestreams5.autopo.st:1951/stats?json=1
+- model: web.stationsmetadatafetch
+  pk: 26
+  fields:
+    created_at: 2022-04-02 07:52:37.594109+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 26
+    station_metadata_fetch_category: 1
+    url: https://lb01.bpstream.com:8618/stats?json=1
+- model: web.stationsmetadatafetch
+  pk: 27
+  fields:
+    created_at: 2022-04-02 07:52:52.077866+00:00
+    updated_at: 2022-04-03 17:22:54.837735+00:00
+    station: 27
+    station_metadata_fetch_category: 1
+    url: https://s23.myradiostream.com/:18366/stats?json=1
+- model: web.stationsmetadatafetch
+  pk: 28
+  fields:
+    created_at: 2022-04-02 07:53:05.694805+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 28
+    station_metadata_fetch_category: 3
+    url: https://audio-rvectro.bisericilive.com/status-json.xsl?listen_url=rvectro
+
+- model: sessions.session
+  pk: 4scsykgfml5vay98vucyav041e31esye
+  fields:
+    session_data: .eJxVjEsOwjAMBe-SNYrc1HYoS_acIbKbhBZQIvWzQtydVuoCtjPz3tsEWZchrHOawhjNxZA5_TKV_pnKLuJDyr3avpZlGtXuiT3sbG81ptf1aP8OBpmHbd15AIIo2BGxOsfKGZk8nRMmRmoVW2hYAbR3G8-CnrOAy9wANNl8vqq3NnU:1nYRhN:O6LVwa4_lJ72k24V15VaOaOQcQsDD9_rF5UUGyUcAiY
+    expire_date: 2022-04-10 12:08:45.311502+00:00
+- model: web.artists
+  pk: 8923
+  fields:
+    created_at: 2022-04-03 17:55:12.079254+00:00
+    updated_at: 2022-04-03 17:55:12.079254+00:00
+    name: Alin si Emima Timofte
+    thumbnail: ''
+    thumbnail_url: null
+- model: web.artists
+  pk: 8924
+  fields:
+    created_at: 2022-04-03 17:55:12.093159+00:00
+    updated_at: 2022-04-03 17:55:12.093159+00:00
+    name: Lidia Duduveica
+    thumbnail: ''
+    thumbnail_url: null
+- model: web.artists
+  pk: 8925
+  fields:
+    created_at: 2022-04-03 17:55:12.165742+00:00
+    updated_at: 2022-04-03 17:55:12.165742+00:00
+    name: Mac And Beth Lynch
+    thumbnail: ''
+    thumbnail_url: null
+- model: web.artists
+  pk: 8926
+  fields:
+    created_at: 2022-04-03 17:55:12.166329+00:00
+    updated_at: 2022-04-03 17:55:12.166329+00:00
+    name: undefined
+    thumbnail: ''
+    thumbnail_url: null
+- model: web.artists
+  pk: 8927
+  fields:
+    created_at: 2022-04-03 17:55:12.177823+00:00
+    updated_at: 2022-04-03 17:55:12.177823+00:00
+    name: ''
+    thumbnail: ''
+    thumbnail_url: null
+- model: web.artists
+  pk: 8928
+  fields:
+    created_at: 2022-04-03 17:55:12.185499+00:00
+    updated_at: 2022-04-03 17:55:12.185499+00:00
+    name: Marian Zamfir
+    thumbnail: ''
+    thumbnail_url: null
+- model: web.artists
+  pk: 8929
+  fields:
+    created_at: 2022-04-03 17:55:12.251491+00:00
+    updated_at: 2022-04-03 17:55:12.251491+00:00
+    name: Catalin si Ramona Lup
+    thumbnail: ''
+    thumbnail_url: null
+- model: web.artists
+  pk: 8930
+  fields:
+    created_at: 2022-04-03 17:55:12.256894+00:00
+    updated_at: 2022-04-03 17:55:12.256894+00:00
+    name: Relu si Tabita Niculai
+    thumbnail: ''
+    thumbnail_url: null
+- model: web.artists
+  pk: 8931
+  fields:
+    created_at: 2022-04-03 17:55:12.335123+00:00
+    updated_at: 2022-04-03 17:55:12.335123+00:00
+    name: Norman Söreng Wright & Charles S Kendall
+    thumbnail: ''
+    thumbnail_url: null
+- model: web.artists
+  pk: 8932
+  fields:
+    created_at: 2022-04-03 17:55:12.425394+00:00
+    updated_at: 2022-04-03 17:55:12.425394+00:00
+    name: Gaither Vocal Band
+    thumbnail: ''
+    thumbnail_url: null
+- model: web.artists
+  pk: 8933
+  fields:
+    created_at: 2022-04-03 17:55:12.474977+00:00
+    updated_at: 2022-04-03 17:55:12.474977+00:00
+    name: CityAlight Colin Buchanan
+    thumbnail: ''
+    thumbnail_url: null
+- model: web.stationgroups
+  pk: 1
+  fields:
+    created_at: 2022-04-02 07:55:16.074070+00:00
+    updated_at: 2022-04-03 17:06:00.739753+00:00
+    name: General
+    order: '1.0'
+- model: web.stationgroups
+  pk: 2
+  fields:
+    created_at: 2022-04-02 07:55:20.365557+00:00
+    updated_at: 2022-04-03 17:06:00.739753+00:00
+    name: Muzica
+    order: '2.0'
+- model: web.stationgroups
+  pk: 3
+  fields:
+    created_at: 2022-04-02 07:55:25.634020+00:00
+    updated_at: 2022-04-03 17:06:00.739753+00:00
+    name: Popular
+    order: '3.0'
+- model: web.stationgroups
+  pk: 4
+  fields:
+    created_at: 2022-04-02 07:55:31.011557+00:00
+    updated_at: 2022-04-03 17:06:00.739753+00:00
+    name: Predici
+    order: '4.0'
+- model: web.stationgroups
+  pk: 5
+  fields:
+    created_at: 2022-04-02 07:55:39.703678+00:00
+    updated_at: 2022-04-03 17:06:00.739753+00:00
+    name: Worship
+    order: '5.0'
+- model: web.stationgroups
+  pk: 6
+  fields:
+    created_at: 2022-04-02 07:55:48.711458+00:00
+    updated_at: 2022-04-03 17:06:00.739753+00:00
+    name: International
+    order: '6.0'
+- model: web.stationgroups
+  pk: 7
+  fields:
+    created_at: 2022-04-02 07:56:00.734657+00:00
+    updated_at: 2022-04-03 17:06:00.739753+00:00
+    name: Gospel
+    order: '7.0'
+- model: web.stationgroups
+  pk: 8
+  fields:
+    created_at: 2022-04-02 07:56:07.424406+00:00
+    updated_at: 2022-04-03 17:06:00.739753+00:00
+    name: Instrumental
+    order: '8.0'
+- model: web.stationgroups
+  pk: 9
+  fields:
+    created_at: 2022-04-02 07:56:17.259241+00:00
+    updated_at: 2022-04-03 17:06:00.739753+00:00
+    name: Emisiuni
+    order: '3.1'
+- model: web.stationgroups
+  pk: 10
+  fields:
+    created_at: 2022-04-02 08:02:36.106494+00:00
+    updated_at: 2022-04-03 17:06:00.739753+00:00
+    name: Biblia
+    order: '9.0'
+- model: web.stationgroups
+  pk: 11
+  fields:
+    created_at: 2022-04-02 08:06:06.399178+00:00
+    updated_at: 2022-04-03 17:06:00.739753+00:00
+    name: Copii
+    order: '9.0'
+- model: web.stationtostationgroup
+  pk: 1
+  fields:
+    created_at: 2022-04-02 07:59:36.727875+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 0
+    group: 1
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 2
+  fields:
+    created_at: 2022-04-02 07:59:36.732016+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 0
+    group: 2
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 3
+  fields:
+    created_at: 2022-04-02 07:59:49.462535+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 1
+    group: 4
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 4
+  fields:
+    created_at: 2022-04-02 08:00:20.976173+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 2
+    group: 3
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 5
+  fields:
+    created_at: 2022-04-02 08:00:28.315541+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 3
+    group: 5
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 6
+  fields:
+    created_at: 2022-04-02 08:00:35.211473+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 4
+    group: 6
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 7
+  fields:
+    created_at: 2022-04-02 08:00:43.144220+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 5
+    group: 8
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 8
+  fields:
+    created_at: 2022-04-02 08:01:42.592594+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 6
+    group: 1
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 9
+  fields:
+    created_at: 2022-04-02 08:01:42.593267+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 6
+    group: 2
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 10
+  fields:
+    created_at: 2022-04-02 08:01:42.593541+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 6
+    group: 9
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 11
+  fields:
+    created_at: 2022-04-02 08:02:24.332233+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 7
+    group: 1
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 12
+  fields:
+    created_at: 2022-04-02 08:02:24.333140+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 7
+    group: 9
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 13
+  fields:
+    created_at: 2022-04-02 08:02:24.333635+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 7
+    group: 2
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 14
+  fields:
+    created_at: 2022-04-02 08:02:38.443782+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 8
+    group: 10
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 15
+  fields:
+    created_at: 2022-04-02 08:03:15.656846+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 10
+    group: 5
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 16
+  fields:
+    created_at: 2022-04-02 08:03:15.657925+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 10
+    group: 2
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 17
+  fields:
+    created_at: 2022-04-02 08:03:28.714243+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 11
+    group: 1
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 18
+  fields:
+    created_at: 2022-04-02 08:03:28.715048+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 11
+    group: 9
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 19
+  fields:
+    created_at: 2022-04-02 08:03:28.715626+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 11
+    group: 2
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 20
+  fields:
+    created_at: 2022-04-02 08:05:14.444549+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 12
+    group: 2
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 21
+  fields:
+    created_at: 2022-04-02 08:05:33.174519+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 13
+    group: 2
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 23
+  fields:
+    created_at: 2022-04-02 08:06:08.243607+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 15
+    group: 11
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 24
+  fields:
+    created_at: 2022-04-02 08:06:28.492572+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 16
+    group: 5
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 25
+  fields:
+    created_at: 2022-04-02 08:06:56.120423+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 17
+    group: 2
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 26
+  fields:
+    created_at: 2022-04-02 08:06:56.121341+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 17
+    group: 5
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 27
+  fields:
+    created_at: 2022-04-02 08:07:09.056249+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 18
+    group: 2
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 28
+  fields:
+    created_at: 2022-04-02 08:07:09.056728+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 18
+    group: 3
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 29
+  fields:
+    created_at: 2022-04-02 08:07:19.180375+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 19
+    group: 2
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 30
+  fields:
+    created_at: 2022-04-02 08:07:19.181353+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 19
+    group: 3
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 31
+  fields:
+    created_at: 2022-04-02 08:07:28.071482+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 20
+    group: 2
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 32
+  fields:
+    created_at: 2022-04-02 08:07:28.072120+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 20
+    group: 5
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 33
+  fields:
+    created_at: 2022-04-02 08:07:44.346872+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 21
+    group: 1
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 34
+  fields:
+    created_at: 2022-04-02 08:07:44.347514+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 21
+    group: 2
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 35
+  fields:
+    created_at: 2022-04-02 08:07:44.347807+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 21
+    group: 9
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 36
+  fields:
+    created_at: 2022-04-02 08:07:44.348071+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 21
+    group: 3
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 37
+  fields:
+    created_at: 2022-04-02 08:08:18.143095+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 22
+    group: 6
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 38
+  fields:
+    created_at: 2022-04-02 08:08:28.259720+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 23
+    group: 7
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 39
+  fields:
+    created_at: 2022-04-02 08:08:28.260477+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 23
+    group: 6
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 40
+  fields:
+    created_at: 2022-04-02 08:09:04.841977+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 24
+    group: 2
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 41
+  fields:
+    created_at: 2022-04-02 08:09:04.842689+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 24
+    group: 3
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 42
+  fields:
+    created_at: 2022-04-02 08:09:44.563128+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 25
+    group: 1
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 43
+  fields:
+    created_at: 2022-04-02 08:09:44.564006+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 25
+    group: 4
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 44
+  fields:
+    created_at: 2022-04-02 08:09:44.564285+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 25
+    group: 2
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 45
+  fields:
+    created_at: 2022-04-02 08:09:57.878662+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 26
+    group: 1
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 46
+  fields:
+    created_at: 2022-04-02 08:09:57.879508+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 26
+    group: 9
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 47
+  fields:
+    created_at: 2022-04-02 08:09:57.880183+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 26
+    group: 2
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 48
+  fields:
+    created_at: 2022-04-02 08:10:06.519333+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 27
+    group: 1
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 49
+  fields:
+    created_at: 2022-04-02 08:10:06.520087+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 27
+    group: 2
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 50
+  fields:
+    created_at: 2022-04-02 08:10:15.836669+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 28
+    group: 1
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 51
+  fields:
+    created_at: 2022-04-02 08:10:15.837169+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 28
+    group: 2
+    order: 0.0
+- model: web.stationtostationgroup
+  pk: 52
+  fields:
+    created_at: 2022-04-02 08:18:36.776292+00:00
+    updated_at: 2022-04-02 11:07:56.751060+00:00
+    station: 9
+    group: 2
+    order: 0.0
+- model: auth.user
+  pk: 5
+  fields:
+    password: pbkdf2_sha256$320000$TswMiBhkUtdv9tkGsBmywV$sm2VpHecn03sKfPhSluBcNZkxb2ZDszXSxRbgUYgGkI=
+    last_login: 2022-03-27 12:08:45.309350+00:00
+    is_superuser: true
+    username: dev
+    first_name: ''
+    last_name: ''
+    email: dev@radio-crestin.com
+    is_staff: true
+    is_active: true
+    date_joined: 2022-03-27 12:08:39.384377+00:00
+    groups: []
+    user_permissions: []

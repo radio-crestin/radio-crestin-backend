@@ -1,0 +1,18 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="app - dev" type="js.build_tools.npm">
+    <package-json value="$PROJECT_DIR$/backend/app/package.json" />
+    <command value="run" />
+    <scripts>
+      <script value="dev" />
+    </scripts>
+    <node-interpreter value="project" />
+    <package-manager value="yarn" />
+    <envs>
+      <env name="APP_SERVER_PORT" value="8580" />
+      <env name="APP_GRAPHQL_ENDPOINT_URI" value="http://localhost:8080/v1/graphql" />
+      <env name="APP_GRAPHQL_ADMIN_SECRET" value="myadminsecretkey" />
+      <env name="APP_REFRESH_STATIONS_METADATA_CRON" value="" />
+    </envs>
+    <method v="2" />
+  </configuration>
+</component>

@@ -1,0 +1,55 @@
+table:
+  name: stations
+  schema: public
+object_relationships:
+- name: now_playing
+  using:
+    foreign_key_constraint_on: latest_station_now_playing_id
+- name: uptime
+  using:
+    foreign_key_constraint_on: latest_station_uptime_id
+array_relationships:
+- name: now_playing_history
+  using:
+    foreign_key_constraint_on:
+      column: station_id
+      table:
+        name: stations_now_playing
+        schema: public
+- name: station_metadata_fetches
+  using:
+    foreign_key_constraint_on:
+      column: station_id
+      table:
+        name: stations_metadata_fetch
+        schema: public
+- name: station_to_station_groups
+  using:
+    foreign_key_constraint_on:
+      column: station_id
+      table:
+        name: station_to_station_group
+        schema: public
+- name: uptime_history
+  using:
+    foreign_key_constraint_on:
+      column: station_id
+      table:
+        name: stations_uptime
+        schema: public
+select_permissions:
+- permission:
+    columns:
+    - created_at
+    - email
+    - id
+    - latest_station_now_playing_id
+    - latest_station_uptime_id
+    - order
+    - stream_url
+    - thumbnail_url
+    - title
+    - updated_at
+    - website
+    filter: {}
+  role: public

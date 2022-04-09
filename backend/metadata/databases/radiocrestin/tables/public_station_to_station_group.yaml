@@ -1,0 +1,18 @@
+table:
+  name: station_to_station_group
+  schema: public
+object_relationships:
+- name: group
+  using:
+    foreign_key_constraint_on: group_id
+- name: station
+  using:
+    foreign_key_constraint_on: station_id
+select_permissions:
+- permission:
+    columns:
+    - group_id
+    - id
+    - station_id
+    filter: {}
+  role: public

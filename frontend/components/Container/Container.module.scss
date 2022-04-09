@@ -1,0 +1,16 @@
+@use "components/RadioPlayer/plyr.module.scss";
+@use 'styles/mixinHelper';
+
+.container {
+  max-width: 65%;
+  margin: 0 auto;
+
+  @include mixinHelper.onDesktop {
+    max-width: 90%;
+  }
+
+  @include mixinHelper.onTablet {
+    max-width: 100%;
+    margin: 0;
+  }
+}
