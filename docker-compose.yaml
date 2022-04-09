@@ -7,6 +7,11 @@ services:
       - db_data:/var/lib/postgresql/data
     env_file:
       - .env
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-d", "postgres", "-U", "postgres" ]
+      timeout: 45s
+      interval: 10s
+      retries: 10
   app:
     build:
       context: backend/app
