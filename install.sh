@@ -5,8 +5,8 @@
 # apt install -y git
 # ssh-keygen -t rsa
 # Configure the created ssh public key as deploy key on Github
-# git clone git@github.com:iosifnicolae2/radio-crestin.ro.git
-# cd radio-crestin.ro/
+# git clone git@github.com:iosifnicolae2/radio-crestin.com.git
+# cd radio-crestin.com/
 # ./install.sh
 
 # Installing Docker
