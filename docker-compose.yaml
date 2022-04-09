@@ -87,6 +87,8 @@ services:
   nginx:
     image: nginx:1.21-alpine
     restart: on-failure
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "80:80"
     volumes:
