@@ -46,6 +46,7 @@ select_permissions:
     - latest_station_now_playing_id
     - latest_station_uptime_id
     - order
+    - slug
     - stream_url
     - thumbnail_url
     - title
