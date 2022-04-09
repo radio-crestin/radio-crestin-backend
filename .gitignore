@@ -385,3 +385,4 @@ dist
 data
 !data/.gitkeep
 nginx/nginx.conf
+/frontend/node_modules

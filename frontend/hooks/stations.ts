@@ -1,23 +1,23 @@
 import useSWR from "swr";
-import {StationsMetadata} from "../types";
+import { StationsMetadata } from "../types";
 
-const fetcher = (url: string) => fetch(url).then(r => r.json())
+const fetcher = (url: string) => fetch(url).then(r => r.json());
 
-export const useStations = (
-  {
-    refreshInterval,
-    initialStationsMetadata
-  }: {
-    refreshInterval: number,
-    initialStationsMetadata: StationsMetadata
-  }
-) => {
-  const {data, error} = useSWR("/api/v1/stations", fetcher, {
-    refreshInterval: refreshInterval
+export const useStations = ({
+  refreshInterval,
+  initialStationsMetadata,
+}: {
+  refreshInterval: number;
+  initialStationsMetadata: StationsMetadata;
+}) => {
+  const { data, error } = useSWR("/api/v1/stations", fetcher, {
+    refreshInterval: refreshInterval,
   });
 
   if (error) {
-    console.error("An error has occurred fetching stations metadata. Please try again later!");
+    console.error(
+      "An error has occurred fetching stations metadata. Please try again later!",
+    );
   }
 
   let stationsMetadata: StationsMetadata;
@@ -34,6 +34,6 @@ export const useStations = (
     stations: stationsMetadata.stations.sort(s => s.order),
     station_groups: stationsMetadata.station_groups.sort(s => s.order),
     isLoading: !error && !data,
-    isError: error
-  }
-}
+    isError: error,
+  };
+};

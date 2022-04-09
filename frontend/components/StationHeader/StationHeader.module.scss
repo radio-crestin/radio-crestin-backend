@@ -2,25 +2,45 @@
 
 .header {
   display: flex;
-  align-items: start;
-  justify-content: center;
   flex-direction: column;
   margin: 2rem auto;
-  max-width: 90%;
-  width: 1506px;
+  padding: 36px;
   height: 638px;
   background: #FFD9AF;
   border-radius: 25px;
-  box-shadow: 1px 2px 18px 0px #0000001A;
-  padding: 36px;
+  box-shadow: 1px 2px 18px 0 #0000001A;
+  position: relative;
+
+  @include mixinHelper.onTablet{
+    height: unset;
+    margin: 0;
+    border-radius: 0;
+  }
 
   .row {
     display: flex;
-    flex: 1;
     width: 100%;
     justify-content: space-between;
   }
 
-  @include mixinHelper.onTablet {
+  .currentStation {
+    height: 100%;
+    display: flex;
+    z-index: 0;
+
+    @include mixinHelper.onTablet{
+      flex-direction: column-reverse;
+    }
   }
 }
+
+.matrix{
+  width: 500px;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  z-index: -1;
+  border-bottom-left-radius: 25px;
+}
+
+

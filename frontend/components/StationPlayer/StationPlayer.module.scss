@@ -1,0 +1,49 @@
+@use 'styles/globalVariables';
+@use 'styles/mixinHelper';
+
+.containerPlayer {
+  display: flex;
+  color: black;
+  border-radius: 15px;
+  padding: 18px;
+  margin-right: 36px;
+  margin-bottom: 36px;
+  gap: 20px;
+  width: 50%;
+
+  @include mixinHelper.onTablet {
+    margin-right: 0;
+    padding: 18px 0;
+    width: unset;
+  }
+
+  .descriptionSong {
+    position: relative;
+    max-width: 240px;
+    display: flex;
+    flex-direction: column;
+    align-self: flex-end;
+
+    @include mixinHelper.onTablet{
+      flex-direction: row;
+    }
+
+    .songImage{
+      filter: drop-shadow(3px 3px 7px rgba(0, 0, 0, 0.25));
+    }
+
+    .songName {
+      margin: 15px 0 5px;
+      font-size: 1.3em;
+      font-weight: 800;
+    }
+
+    .artist {
+      font-weight: 500;
+    }
+
+    .containerPlyr {
+      margin-top: 45px;
+    }
+  }
+}
