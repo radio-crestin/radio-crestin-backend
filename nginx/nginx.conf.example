@@ -15,6 +15,7 @@ http {
   sendfile     on;
   tcp_nopush   on;
   server_names_hash_bucket_size 128; # this seems to be required for some vhosts
+  proxy_cache_path  /tmp/nginx/cache  levels=1:2    keys_zone=STATIC:10m inactive=24h  max_size=1g;
 
    server {
         listen 80 default_server;
@@ -24,6 +25,17 @@ http {
             add_header Content-Type text/plain;
             include     common_location.conf;
             return 200 'it works!';
+        }
+  }
+
+   server {
+        listen 80;
+        server_name beta.radio-crestin.com;
+        include       common.conf;
+        location / {
+            include     common_location.conf;
+            include     common_caching.conf;
+            proxy_pass http://frontend:8080;
         }
   }
 
@@ -43,6 +55,7 @@ http {
         include       common.conf;
         location / {
             include     common_location.conf;
+            include     common_caching.conf;
             proxy_pass http://graphql-engine:8080;
         }
   }
@@ -53,6 +66,7 @@ http {
         include       common.conf;
         location / {
             include     common_location.conf;
+            include     common_caching.conf;
             proxy_pass http://graphql-viewer:8080;
         }
   }
