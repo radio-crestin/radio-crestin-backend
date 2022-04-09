@@ -106,6 +106,7 @@ class Stations(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     order = models.FloatField()
+    slug = models.SlugField()
     title = models.TextField()
     website = models.TextField(blank=True, null=True, )
     email = models.TextField(blank=True, null=True, )
