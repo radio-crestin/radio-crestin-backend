@@ -1,0 +1,34 @@
+@use 'styles/mixinHelper';
+
+.container {
+  @include mixinHelper.center-content;
+  flex-direction: column;
+  flex-flow: wrap;
+  gap: 30px;
+  width: 100%;
+}
+
+.station {
+  width: 15%;
+  height: 100%;
+
+  &_Image {
+    position: relative;
+    width: 100%;
+    height: 250px;
+    border-radius: 41px;
+
+    @include mixinHelper.onDesktop{
+      height: 230px;
+
+    }
+  }
+
+  .is_Offline {
+    filter: saturate(0%);
+  }
+
+  &_Label {
+    text-align: center;
+  }
+}

@@ -1,4 +1,4 @@
-@use "components/RadioPlayer/plyr.module.scss";
+@use "../components/StationPlayer/plyr.module.scss";
 @use "./globalVariables";
 @use 'styles/mixinHelper';
 
@@ -24,6 +24,11 @@ time, mark, audio, video {
 article, aside, details, figcaption, figure,
 footer, header, hgroup, menu, nav, section {
   display: block;
+}
+
+a {
+  color: inherit;
+  text-decoration: inherit; /* no underline */
 }
 
 body {
