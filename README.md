@@ -22,6 +22,7 @@ apt update
 apt install -y docker-ce docker-compose
 
 
+cd backend/
 cp .env.example .env
-docker-compose is_up --build --force-recreate
+docker-compose up --build --force-recreate -d
 ```
