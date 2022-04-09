@@ -17,6 +17,10 @@ http {
   server_names_hash_bucket_size 128; # this seems to be required for some vhosts
   proxy_cache_path  /tmp/nginx-cache  levels=1:2    keys_zone=STATIC:10m inactive=24h  max_size=1g;
 
+    upstream host_service {
+       server host.docker.internal:8432;
+    }
+
    server {
         listen 80 default_server;
         server_name _;
@@ -68,6 +72,16 @@ http {
             include     common_location.conf;
             include     common_caching.conf;
             proxy_pass http://graphql-viewer:8080;
+        }
+  }
+
+   server {
+        listen 80;
+        server_name hls.radio-crestin.com;
+        include       common.conf;
+        location / {
+            include     common_location.conf;
+            proxy_pass http://host_service;
         }
   }
 

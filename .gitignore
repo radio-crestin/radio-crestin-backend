@@ -386,3 +386,4 @@ data
 !data/.gitkeep
 nginx/nginx.conf
 /frontend/node_modules
+hls-streaming/docker-compose.yml
