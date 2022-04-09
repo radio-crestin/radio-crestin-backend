@@ -26,6 +26,25 @@ http {
 
    server {
         listen 80;
+        server_name admin.radio-crestin.com;
+        location = / {
+            include /etc/nginx/includes/proxy.conf;
+            proxy_pass http://admin:8080/admin;
+        }
+  }
+
+   server {
+        listen 80;
+        server_name api.radio-crestin.com;
+        location = / {
+            include /etc/nginx/includes/proxy.conf;
+            proxy_pass http://graphql-engine:8080;
+        }
+  }
+    
+
+   server {
+        listen 80;
         server_name radio.radio-crestin.ro radio.radio-crestin.com;
         server_tokens off;
 

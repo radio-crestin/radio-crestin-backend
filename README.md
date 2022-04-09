@@ -22,7 +22,6 @@ apt update
 apt install -y docker-ce docker-compose
 
 
-cd backend/
 cp .env.example .env
 # Update all the sensitive information from .env
 docker-compose up --build --force-recreate -d
