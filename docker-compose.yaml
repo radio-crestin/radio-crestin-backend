@@ -69,6 +69,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    environment:
+      - FRONTEND_GRAPHQL_ENDPOINT_URI=${FRONTEND_GRAPHQL_ENDPOINT_URI}
+      - FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_URI=${FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_URI}
   nginx:
     image: nginx:1.21-alpine
     restart: on-failure
