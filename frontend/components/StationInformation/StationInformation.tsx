@@ -18,7 +18,7 @@ export default function StationInformation(props: any) {
 
   return (
     <div className={styles.container}>
-      <h1 className={styles.station_Name}>Aripi spre cer</h1>
+      <h1 className={styles.station_Name}>Aripi spre cer1</h1>
 
       <div className={styles.station_RatingContainer}>
         <Rating
