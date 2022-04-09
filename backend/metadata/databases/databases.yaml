@@ -1,7 +1,7 @@
-- name: radiocrestin
+- name: default
   kind: postgres
   configuration:
     connection_info:
       isolation_level: read-committed
       use_prepared_statements: false
-  tables: "!include radiocrestin/tables/tables.yaml"
+  tables: "!include default/tables/tables.yaml"
