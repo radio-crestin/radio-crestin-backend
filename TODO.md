@@ -1,2 +1,2 @@
 - zero downtime docker deployment using docker swarm
-- 
+- add audio normalization (http://ffmpeg.org/ffmpeg-all.html#loudnorm) or maybe something on the client side
