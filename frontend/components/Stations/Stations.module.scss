@@ -2,6 +2,7 @@
 
 .container {
   @include mixinHelper.center-content;
+  align-items: normal;
   flex-direction: column;
   flex-flow: wrap;
   gap: 30px;
@@ -9,26 +10,27 @@
 }
 
 .station {
-  width: 15%;
+  width: 250px;
   height: 100%;
+  cursor: pointer;
 
   &_Image {
-    position: relative;
-    width: 100%;
+    width: 250px;
     height: 250px;
     border-radius: 41px;
-
-    @include mixinHelper.onDesktop{
-      height: 230px;
-
-    }
+    filter: drop-shadow(2px 2px 5px rgba(0, 0, 0, 0.25));
   }
 
   .is_Offline {
     filter: saturate(0%);
+    cursor: default;
   }
 
   &_Label {
+    margin-top: 10px;
+    margin-bottom: 20px;
+    font-weight: 500;
+    font-size: 23px;
     text-align: center;
   }
 }

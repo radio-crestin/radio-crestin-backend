@@ -10,8 +10,38 @@
     border-radius: inherit !important;
     padding: 0 !important;
 
-    .plyr__controls__item.plyr__time {
+    .plyr__controls__item {
+      .icon--not-pressed {
+        padding-left: 3px;
+      }
+
+      &:first-child {
+        @include mixinHelper.center-content;
+        border-radius: 38px !important;
+        background: black !important;
+        color: #FFB05A !important;
+        width: 68px;
+        height: 68px;
+        transition-duration: 0s;
+        margin-right: 0;
+      }
+
+      &:first-child[aria-label="Pause"] {
+        padding: 22px !important;
+
+        svg {
+          width: 19px !important;
+        }
+      }
+    }
+
+    .plyr__time {
       display: none;
+    }
+
+    svg {
+      width: 25px;
+      height: 25px;
     }
   }
 
@@ -33,6 +63,12 @@
         cursor: pointer;
       }
     }
+
+    svg{
+      width: 40px;
+      height: 40px;
+      margin: 0 15px;
+    }
   }
 
   .plyr__volume .plyr__control {
@@ -43,31 +79,5 @@
 
   .plyr__control:hover, .plyr--audio .plyr__control[aria-expanded=true] {
     background: none !important;
-  }
-
-  .plyr__controls {
-    .plyr__controls__item:first-child {
-      border-radius: 38px !important;
-      background: black !important;
-      color: #FFB05A !important;
-      padding: 22px !important;
-      width: 68px;
-      height: 68px;
-      transition-duration: 0s;
-      margin-right: 0;
-    }
-
-    .plyr__controls__item:first-child[aria-label="Pause"] {
-      padding: 22px !important;
-
-      svg {
-        width: 19px !important;
-      }
-    }
-
-    svg{
-      width: 25px;
-      height: 25px;
-    }
   }
 }

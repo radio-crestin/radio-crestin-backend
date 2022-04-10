@@ -6,8 +6,10 @@
   margin-bottom: 57px;
 
   @include mixinHelper.onTablet{
-    overflow-y: scroll;
-    padding-bottom: 5px;
+    overflow-x: scroll;
+    justify-content: start;
+    padding-left: 30px;
+    padding-bottom: 20px;
   }
 
   .item_category{
@@ -18,6 +20,14 @@
     font-size: 22px;
     line-height: 33px;
     cursor: pointer;
+
+    @include mixinHelper.onDesktop{
+      padding: 5px 20px;
+    }
+
+    @include mixinHelper.onTablet{
+      padding: 5px 10px;
+    }
 
     &:first-child{
       background: #F9AC59;;

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 import InviteButton from "@/components/InviteButton/InviteButton";
 import RandomStationButton from "@/components/RandomStationButton/RandomStationButton";
@@ -6,9 +6,8 @@ import StationInformation from "@/components/StationInformation/StationInformati
 import styles from "./StationHeader.module.scss";
 import dynamic from "next/dynamic";
 import { useStations } from "../../hooks/stations";
-import { getStationsMetadata } from "../../services/stations";
-import { Station, StationGroup } from "../../types";
 import Circle_matrix_desktop from "@/public/circle_matrix_desktop.svg";
+import { Station } from "../../types";
 
 export const StationPlayer = dynamic(
   () => import("components/StationPlayer/StationPlayer"),
@@ -16,16 +15,19 @@ export const StationPlayer = dynamic(
     ssr: true,
   },
 );
-export default function StationHeader(props: any) {
-  const { stations, station_groups, isLoading, isError } = useStations({
-    refreshInterval: 10000,
-    initialStationsMetadata: {
-      station_groups: [],
-      stations: [],
-    },
-  });
-  const selectedStation = stations[0];
+
+export default function StationHeader(station: Station) {
+  const [showChild, setShowChild] = useState(false);
   const [started, setStarted] = useState(false);
+
+  useEffect(() => {
+    setShowChild(true);
+  }, []);
+
+  if (!showChild) {
+    return null;
+  }
+
   return (
     <div className={styles.header}>
       <div className={styles.row}>
@@ -34,12 +36,12 @@ export default function StationHeader(props: any) {
       </div>
       <div className={styles.currentStation}>
         <StationPlayer
-          key={selectedStation?.id}
-          station={selectedStation}
+          key={station?.id}
+          station={station}
           started={started}
           onStop={() => setStarted(false)}
         />
-        <StationInformation />
+        <StationInformation station={station} />
         <img
           className={styles.matrix}
           src={Circle_matrix_desktop.src}

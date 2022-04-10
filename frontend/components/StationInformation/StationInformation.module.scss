@@ -1,13 +1,13 @@
 @use 'styles/mixinHelper';
 
-.container{
+.container {
   display: flex;
-  justify-content: center;
   flex-direction: column;
-  width: 50%;
+  max-width: 60%;
 
-  @include mixinHelper.onTablet{
-    width: unset;
+  @include mixinHelper.onTablet {
+    max-width: unset;
+    padding-bottom: 50px;
   }
 
   .station {
@@ -18,22 +18,19 @@
       font-size: 50px;
     }
 
-    &_RatingContainer{
+    &_RatingContainer {
       display: flex;
       align-items: center;
       gap: 0 7px;
       margin-top: 10px;
       margin-bottom: 10px;
 
-      .facebookIcon{
-        width: 22px
-      }
-
-      .rating{
+      .rating {
         font-size: 20px;
       }
     }
-    &_NumberOfListeners{
+
+    &_NumberOfListeners {
       font-size: 20px;
       line-height: 30px;
       display: flex;
@@ -41,20 +38,21 @@
       margin-bottom: 35px;
     }
 
-    &_Quote{
+    &_Quote {
       font-weight: 500;
       font-size: 24px;
       line-height: 36px;
       margin-bottom: 35px;
     }
 
-    &_ReadMore{
+    &_ReadMore {
       font-weight: 700;
       font-size: 22px;
       line-height: 33px;
       align-items: center;
       display: block;
-      &:hover{
+
+      &:hover {
         text-decoration: underline;
       }
     }
