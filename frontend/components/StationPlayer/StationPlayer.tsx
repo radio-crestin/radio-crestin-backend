@@ -3,8 +3,7 @@ import PlyrJS from "plyr";
 import Plyr from "plyr-react";
 import styles from "./StationPlayer.module.scss";
 import { Station } from "../../types";
-import InviteButton from "@/components/InviteButton/InviteButton";
-import DefaultStationImage from "@/public/images/default-station-thumbnail.png";
+import Image from "next/image";
 
 export default function StationPlayer(props: {
   station?: Station;
@@ -12,12 +11,12 @@ export default function StationPlayer(props: {
   onStop: () => void;
 }) {
   // const startPlaying = props.startPlaying;
-  const imageSong = DefaultStationImage;
   if (typeof props.station === "undefined") {
     return <></>;
   }
   let remaining_retries = 5;
   let remaining_error_retries = 5;
+  const { station } = props;
 
   const playerRef = useRef();
   useEffect(() => {
@@ -93,10 +92,10 @@ export default function StationPlayer(props: {
 
   const playerSrc: PlyrJS.SourceInfo = {
     type: "audio",
-    title: "test",
+    title: props.station.title,
     sources: [
       {
-        src: "https://radio.radio-crestin.com/https://mobile.stream.aripisprecer.ro/radio.mp3;",
+        src: props.station.stream_url,
         type: "audio/mp3",
       },
     ],
@@ -106,23 +105,24 @@ export default function StationPlayer(props: {
   // Also, delay the updated by 500 ms, also optional we can add an animation when we update the listeners counter.. to emphasis it
   // TODO: make the player mobile responsive
   // TODO: normalize the sound volume (100% - 10db, 70% - 7db, etc)
+
+  console.log(station);
+
   return (
     <>
       <div className={styles.containerPlayer}>
         <div className={styles.descriptionSong}>
           <img
             className={styles.songImage}
-            src={DefaultStationImage.src}
+            src={station.thumbnail_url}
             alt="Image station"
           />
           <div>
             <h2 className={styles.songName}>
-              Pe dealul Golgotei
-              {/*{props.station.now_playing?.song?.name}*/}
+              {station.now_playing?.song?.name}
             </h2>
             <h3 className={styles.artist}>
-              Cornel Cuibus
-              {/*{props.station.now_playing?.song?.artist}*/}
+              {station.now_playing?.song?.artist.name}
             </h3>
             <div className={styles.containerPlyr}>
               {useMemo(() => {

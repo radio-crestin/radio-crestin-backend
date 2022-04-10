@@ -1,40 +1,40 @@
-import Image from "next/image";
-
 import styles from "./Stations.module.scss";
-import DefaultStationImage from "@/public/images/default-station-thumbnail.png";
 import React from "react";
+import { Station } from "types";
 
-const isOffline = false;
-
-const Station = () => {
+const Station = (station: Station) => {
   return (
     <div className={styles.station}>
-      <div
-        className={`${styles.station_Image} ${isOffline && styles.is_Offline}`}>
-        <Image
-          className={styles.songImage}
-          src={DefaultStationImage.src}
-          layout={"fill"}
-          objectFit={"contain"}
-          alt="Image station"
-        />
-      </div>
-      <div className={styles.station_Label}>Aripi Spre Cer General</div>
+      <img
+        className={`${styles.station_Image} ${
+          !station?.uptime?.is_up && styles.is_Offline
+        }`}
+        src={station.thumbnail_url}
+        alt="Image station"
+        loading={"lazy"}
+      />
+      <div className={styles.station_Label}>{station.title}</div>
     </div>
   );
 };
 
-export default function Stations() {
+interface IProps {
+  stations: Array<Station>;
+  onStationSelect: (station: Station) => void;
+}
+
+export default function Stations(props: IProps) {
+  const { stations } = props;
+  stations.sort((a, b) => (a.id > b.id ? -1 : 1));
+
   return (
     <>
       <div className={styles.container}>
-        <Station />
-        <Station />
-        <Station />
-        <Station />
-        <Station />
-        <Station />
-        <Station />
+        {Object.values(stations).map((station: Station): any => (
+          <div key={station.id} onClick={() => props.onStationSelect(station)}>
+            <Station {...station} />
+          </div>
+        ))}
       </div>
     </>
   );

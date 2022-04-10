@@ -15,6 +15,7 @@ export default function StationCategories() {
     <div className={styles.container}>
       {stationCategories.map((item: IStationCategory) => (
         <div
+          key={item.id}
           className={styles.item_category}
           onClick={() => handleClick(item.id)}>
           {item.name}

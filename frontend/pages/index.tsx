@@ -12,6 +12,7 @@ import { Station, StationGroup, StationsMetadata } from "../types";
 import StationHeader from "@/components/StationHeader/StationHeader";
 import StationCategories from "@/components/StationCategories/StationCategories";
 import Stations from "@/components/Stations/Stations";
+import Footer from "@/components/Footer/Footer";
 
 export default function Home(initialProps: {
   stationsMetadata: StationsMetadata;
@@ -49,15 +50,19 @@ export default function Home(initialProps: {
   // Decrease the height of the header
   // Make the Station title smaller
   // TODO: add an option to search stations (eventually typing directly on the keyboard..)
+
+  // console.log(stations);
+
   return (
     <>
       <PageHead />
 
       <Body>
         <Container>
-          <StationHeader />
+          {selectedStation && <StationHeader {...selectedStation} />}
           <StationCategories />
-          <Stations />
+          <Stations stations={stations} onStationSelect={onStationSelect} />
+          <Footer />
         </Container>
       </Body>
       <Analytics />
@@ -66,7 +71,7 @@ export default function Home(initialProps: {
 }
 
 export async function getServerSideProps() {
-  const stationsMetadata = await getStationsMetadata({serverSide: true});
+  const stationsMetadata = await getStationsMetadata({ serverSide: true });
   return {
     props: {
       stationsMetadata,
