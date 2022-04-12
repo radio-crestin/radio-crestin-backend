@@ -64,7 +64,7 @@ export default function StationInformation(props: any) {
       {/*@ts-ignore*/}
       {NumberOfListeners && (
         <p className={styles.station_NumberOfListeners}>
-          {NumberOfListeners} persoane ascultă împreună cu tine
+          {NumberOfListeners} persoane ascultă împreună cu tine această stație
         </p>
       )}
       <p className={styles.station_Quote}>
