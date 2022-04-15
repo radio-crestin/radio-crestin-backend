@@ -1,1 +1,408 @@
-[]
+- model: web.stationtostationgroup
+  pk: 1
+  fields:
+    created_at: 2022-04-02 07:59:36.727875+00:00
+    updated_at: 2022-04-15 18:54:24.268687+00:00
+    station: 0
+    group: 1
+    order: 1.0
+- model: web.stationtostationgroup
+  pk: 2
+  fields:
+    created_at: 2022-04-02 07:59:36.732016+00:00
+    updated_at: 2022-04-15 18:55:01.779179+00:00
+    station: 0
+    group: 2
+    order: 1.0
+- model: web.stationtostationgroup
+  pk: 3
+  fields:
+    created_at: 2022-04-02 07:59:49.462535+00:00
+    updated_at: 2022-04-15 18:55:22.082298+00:00
+    station: 1
+    group: 4
+    order: 1.0
+- model: web.stationtostationgroup
+  pk: 4
+  fields:
+    created_at: 2022-04-02 08:00:20.976173+00:00
+    updated_at: 2022-04-15 18:55:09.548461+00:00
+    station: 2
+    group: 3
+    order: 1.0
+- model: web.stationtostationgroup
+  pk: 5
+  fields:
+    created_at: 2022-04-02 08:00:28.315541+00:00
+    updated_at: 2022-04-15 18:55:30.095074+00:00
+    station: 3
+    group: 5
+    order: 1.0
+- model: web.stationtostationgroup
+  pk: 6
+  fields:
+    created_at: 2022-04-02 08:00:35.211473+00:00
+    updated_at: 2022-04-15 18:55:35.240527+00:00
+    station: 4
+    group: 6
+    order: 1.0
+- model: web.stationtostationgroup
+  pk: 7
+  fields:
+    created_at: 2022-04-02 08:00:43.144220+00:00
+    updated_at: 2022-04-15 18:55:41.608358+00:00
+    station: 5
+    group: 8
+    order: 1.0
+- model: web.stationtostationgroup
+  pk: 8
+  fields:
+    created_at: 2022-04-02 08:01:42.592594+00:00
+    updated_at: 2022-04-15 18:54:24.268687+00:00
+    station: 6
+    group: 1
+    order: 2.0
+- model: web.stationtostationgroup
+  pk: 9
+  fields:
+    created_at: 2022-04-02 08:01:42.593267+00:00
+    updated_at: 2022-04-15 18:55:01.779179+00:00
+    station: 6
+    group: 2
+    order: 2.0
+- model: web.stationtostationgroup
+  pk: 10
+  fields:
+    created_at: 2022-04-02 08:01:42.593541+00:00
+    updated_at: 2022-04-15 18:55:18.315414+00:00
+    station: 6
+    group: 9
+    order: 1.0
+- model: web.stationtostationgroup
+  pk: 11
+  fields:
+    created_at: 2022-04-02 08:02:24.332233+00:00
+    updated_at: 2022-04-15 18:54:24.268687+00:00
+    station: 7
+    group: 1
+    order: 3.0
+- model: web.stationtostationgroup
+  pk: 12
+  fields:
+    created_at: 2022-04-02 08:02:24.333140+00:00
+    updated_at: 2022-04-15 18:55:18.315414+00:00
+    station: 7
+    group: 9
+    order: 2.0
+- model: web.stationtostationgroup
+  pk: 13
+  fields:
+    created_at: 2022-04-02 08:02:24.333635+00:00
+    updated_at: 2022-04-15 18:55:01.779179+00:00
+    station: 7
+    group: 2
+    order: 3.0
+- model: web.stationtostationgroup
+  pk: 14
+  fields:
+    created_at: 2022-04-02 08:02:38.443782+00:00
+    updated_at: 2022-04-15 18:55:48.763204+00:00
+    station: 8
+    group: 10
+    order: 1.0
+- model: web.stationtostationgroup
+  pk: 15
+  fields:
+    created_at: 2022-04-02 08:03:15.656846+00:00
+    updated_at: 2022-04-15 18:55:30.095074+00:00
+    station: 10
+    group: 5
+    order: 2.0
+- model: web.stationtostationgroup
+  pk: 16
+  fields:
+    created_at: 2022-04-02 08:03:15.657925+00:00
+    updated_at: 2022-04-15 18:55:01.779179+00:00
+    station: 10
+    group: 2
+    order: 4.0
+- model: web.stationtostationgroup
+  pk: 17
+  fields:
+    created_at: 2022-04-02 08:03:28.714243+00:00
+    updated_at: 2022-04-15 18:54:24.268687+00:00
+    station: 11
+    group: 1
+    order: 4.0
+- model: web.stationtostationgroup
+  pk: 18
+  fields:
+    created_at: 2022-04-02 08:03:28.715048+00:00
+    updated_at: 2022-04-15 18:55:18.315414+00:00
+    station: 11
+    group: 9
+    order: 3.0
+- model: web.stationtostationgroup
+  pk: 19
+  fields:
+    created_at: 2022-04-02 08:03:28.715626+00:00
+    updated_at: 2022-04-15 18:55:01.779179+00:00
+    station: 11
+    group: 2
+    order: 5.0
+- model: web.stationtostationgroup
+  pk: 20
+  fields:
+    created_at: 2022-04-02 08:05:14.444549+00:00
+    updated_at: 2022-04-15 18:55:01.779179+00:00
+    station: 12
+    group: 2
+    order: 6.0
+- model: web.stationtostationgroup
+  pk: 21
+  fields:
+    created_at: 2022-04-02 08:05:33.174519+00:00
+    updated_at: 2022-04-15 18:55:01.779179+00:00
+    station: 13
+    group: 2
+    order: 7.0
+- model: web.stationtostationgroup
+  pk: 23
+  fields:
+    created_at: 2022-04-02 08:06:08.243607+00:00
+    updated_at: 2022-04-15 18:55:44.671507+00:00
+    station: 15
+    group: 11
+    order: 1.0
+- model: web.stationtostationgroup
+  pk: 24
+  fields:
+    created_at: 2022-04-02 08:06:28.492572+00:00
+    updated_at: 2022-04-15 18:55:30.095074+00:00
+    station: 16
+    group: 5
+    order: 3.0
+- model: web.stationtostationgroup
+  pk: 25
+  fields:
+    created_at: 2022-04-02 08:06:56.120423+00:00
+    updated_at: 2022-04-15 18:55:01.779179+00:00
+    station: 17
+    group: 2
+    order: 8.0
+- model: web.stationtostationgroup
+  pk: 26
+  fields:
+    created_at: 2022-04-02 08:06:56.121341+00:00
+    updated_at: 2022-04-15 18:55:30.095074+00:00
+    station: 17
+    group: 5
+    order: 4.0
+- model: web.stationtostationgroup
+  pk: 27
+  fields:
+    created_at: 2022-04-02 08:07:09.056249+00:00
+    updated_at: 2022-04-15 18:55:01.779179+00:00
+    station: 18
+    group: 2
+    order: 9.0
+- model: web.stationtostationgroup
+  pk: 28
+  fields:
+    created_at: 2022-04-02 08:07:09.056728+00:00
+    updated_at: 2022-04-15 18:55:09.548461+00:00
+    station: 18
+    group: 3
+    order: 2.0
+- model: web.stationtostationgroup
+  pk: 29
+  fields:
+    created_at: 2022-04-02 08:07:19.180375+00:00
+    updated_at: 2022-04-15 18:55:01.779179+00:00
+    station: 19
+    group: 2
+    order: 10.0
+- model: web.stationtostationgroup
+  pk: 30
+  fields:
+    created_at: 2022-04-02 08:07:19.181353+00:00
+    updated_at: 2022-04-15 18:55:09.548461+00:00
+    station: 19
+    group: 3
+    order: 3.0
+- model: web.stationtostationgroup
+  pk: 31
+  fields:
+    created_at: 2022-04-02 08:07:28.071482+00:00
+    updated_at: 2022-04-15 18:55:01.779179+00:00
+    station: 20
+    group: 2
+    order: 11.0
+- model: web.stationtostationgroup
+  pk: 32
+  fields:
+    created_at: 2022-04-02 08:07:28.072120+00:00
+    updated_at: 2022-04-15 18:55:30.095074+00:00
+    station: 20
+    group: 5
+    order: 5.0
+- model: web.stationtostationgroup
+  pk: 33
+  fields:
+    created_at: 2022-04-02 08:07:44.346872+00:00
+    updated_at: 2022-04-15 18:54:24.268687+00:00
+    station: 21
+    group: 1
+    order: 5.0
+- model: web.stationtostationgroup
+  pk: 34
+  fields:
+    created_at: 2022-04-02 08:07:44.347514+00:00
+    updated_at: 2022-04-15 18:55:01.779179+00:00
+    station: 21
+    group: 2
+    order: 12.0
+- model: web.stationtostationgroup
+  pk: 35
+  fields:
+    created_at: 2022-04-02 08:07:44.347807+00:00
+    updated_at: 2022-04-15 18:55:18.315414+00:00
+    station: 21
+    group: 9
+    order: 4.0
+- model: web.stationtostationgroup
+  pk: 36
+  fields:
+    created_at: 2022-04-02 08:07:44.348071+00:00
+    updated_at: 2022-04-15 18:55:09.548461+00:00
+    station: 21
+    group: 3
+    order: 4.0
+- model: web.stationtostationgroup
+  pk: 37
+  fields:
+    created_at: 2022-04-02 08:08:18.143095+00:00
+    updated_at: 2022-04-15 18:55:35.240527+00:00
+    station: 22
+    group: 6
+    order: 2.0
+- model: web.stationtostationgroup
+  pk: 38
+  fields:
+    created_at: 2022-04-02 08:08:28.259720+00:00
+    updated_at: 2022-04-15 18:55:38.533126+00:00
+    station: 23
+    group: 7
+    order: 1.0
+- model: web.stationtostationgroup
+  pk: 39
+  fields:
+    created_at: 2022-04-02 08:08:28.260477+00:00
+    updated_at: 2022-04-15 18:55:35.240527+00:00
+    station: 23
+    group: 6
+    order: 3.0
+- model: web.stationtostationgroup
+  pk: 40
+  fields:
+    created_at: 2022-04-02 08:09:04.841977+00:00
+    updated_at: 2022-04-15 18:55:01.779179+00:00
+    station: 24
+    group: 2
+    order: 13.0
+- model: web.stationtostationgroup
+  pk: 41
+  fields:
+    created_at: 2022-04-02 08:09:04.842689+00:00
+    updated_at: 2022-04-15 18:55:09.548461+00:00
+    station: 24
+    group: 3
+    order: 5.0
+- model: web.stationtostationgroup
+  pk: 42
+  fields:
+    created_at: 2022-04-02 08:09:44.563128+00:00
+    updated_at: 2022-04-15 18:54:24.268687+00:00
+    station: 25
+    group: 1
+    order: 6.0
+- model: web.stationtostationgroup
+  pk: 43
+  fields:
+    created_at: 2022-04-02 08:09:44.564006+00:00
+    updated_at: 2022-04-15 18:55:22.082298+00:00
+    station: 25
+    group: 4
+    order: 2.0
+- model: web.stationtostationgroup
+  pk: 44
+  fields:
+    created_at: 2022-04-02 08:09:44.564285+00:00
+    updated_at: 2022-04-15 18:55:01.779179+00:00
+    station: 25
+    group: 2
+    order: 14.0
+- model: web.stationtostationgroup
+  pk: 45
+  fields:
+    created_at: 2022-04-02 08:09:57.878662+00:00
+    updated_at: 2022-04-15 18:54:24.268687+00:00
+    station: 26
+    group: 1
+    order: 7.0
+- model: web.stationtostationgroup
+  pk: 46
+  fields:
+    created_at: 2022-04-02 08:09:57.879508+00:00
+    updated_at: 2022-04-15 18:55:18.315414+00:00
+    station: 26
+    group: 9
+    order: 5.0
+- model: web.stationtostationgroup
+  pk: 47
+  fields:
+    created_at: 2022-04-02 08:09:57.880183+00:00
+    updated_at: 2022-04-15 18:55:01.779179+00:00
+    station: 26
+    group: 2
+    order: 15.0
+- model: web.stationtostationgroup
+  pk: 48
+  fields:
+    created_at: 2022-04-02 08:10:06.519333+00:00
+    updated_at: 2022-04-15 18:54:24.268687+00:00
+    station: 27
+    group: 1
+    order: 8.0
+- model: web.stationtostationgroup
+  pk: 49
+  fields:
+    created_at: 2022-04-02 08:10:06.520087+00:00
+    updated_at: 2022-04-15 18:55:01.779179+00:00
+    station: 27
+    group: 2
+    order: 16.0
+- model: web.stationtostationgroup
+  pk: 50
+  fields:
+    created_at: 2022-04-02 08:10:15.836669+00:00
+    updated_at: 2022-04-15 18:54:24.268687+00:00
+    station: 28
+    group: 1
+    order: 9.0
+- model: web.stationtostationgroup
+  pk: 51
+  fields:
+    created_at: 2022-04-02 08:10:15.837169+00:00
+    updated_at: 2022-04-15 18:55:01.779179+00:00
+    station: 28
+    group: 2
+    order: 17.0
+- model: web.stationtostationgroup
+  pk: 52
+  fields:
+    created_at: 2022-04-02 08:18:36.776292+00:00
+    updated_at: 2022-04-15 18:55:01.779179+00:00
+    station: 9
+    group: 2
+    order: 18.0
