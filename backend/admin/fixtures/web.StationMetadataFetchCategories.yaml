@@ -2,35 +2,35 @@
   pk: 1
   fields:
     created_at: 2022-04-02 07:37:08.292572+00:00
-    updated_at: 2022-04-03 18:42:22.246554+00:00
+    updated_at: 2022-04-09 18:26:12.816721+00:00
     slug: shoutcast
 - model: web.stationmetadatafetchcategories
   pk: 2
   fields:
     created_at: 2022-04-02 07:37:11.255456+00:00
-    updated_at: 2022-04-03 18:42:22.246554+00:00
+    updated_at: 2022-04-09 18:26:12.816721+00:00
     slug: radio_co
 - model: web.stationmetadatafetchcategories
   pk: 3
   fields:
     created_at: 2022-04-02 07:37:14.275764+00:00
-    updated_at: 2022-04-03 18:42:22.246554+00:00
+    updated_at: 2022-04-09 18:26:12.816721+00:00
     slug: icecast
 - model: web.stationmetadatafetchcategories
   pk: 4
   fields:
     created_at: 2022-04-02 07:37:18.755908+00:00
-    updated_at: 2022-04-03 18:42:22.246554+00:00
+    updated_at: 2022-04-09 18:26:12.816721+00:00
     slug: shoutcast_xml
 - model: web.stationmetadatafetchcategories
   pk: 5
   fields:
     created_at: 2022-04-02 07:37:22.007790+00:00
-    updated_at: 2022-04-03 18:42:22.246554+00:00
+    updated_at: 2022-04-09 18:26:12.816721+00:00
     slug: old_icecast_html
 - model: web.stationmetadatafetchcategories
   pk: 6
   fields:
     created_at: 2022-04-02 07:37:25.030252+00:00
-    updated_at: 2022-04-03 18:42:22.246554+00:00
+    updated_at: 2022-04-09 18:26:12.816721+00:00
     slug: old_shoutcast_html

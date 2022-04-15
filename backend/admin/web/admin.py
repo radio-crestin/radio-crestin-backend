@@ -31,11 +31,26 @@ class StationsAdmin(ImportExportModelAdmin):
     ]
 
 
+class StationToStationGroupInline(admin.TabularInline):
+    model = StationToStationGroup
+    extra = 0
+    show_change_link = True
+    readonly_fields = ['created_at', 'updated_at', ]
+
+
 @admin.register(StationGroups)
 class StationGroupsAdmin(ImportExportModelAdmin):
     search_fields = ['name', ]
     list_display = ('name',)
     readonly_fields = ('created_at', 'updated_at',)
+    inlines = [StationToStationGroupInline]
+
+
+class StationsMetadataFetchInline(admin.TabularInline):
+    model = StationsMetadataFetch
+    extra = 0
+    show_change_link = True
+    readonly_fields = ['created_at', 'updated_at', ]
 
 
 @admin.register(StationMetadataFetchCategories)
@@ -43,6 +58,7 @@ class StationMetadataFetchCategoriesAdmin(ImportExportModelAdmin):
     search_fields = ['slug', ]
     list_display = ('slug',)
     readonly_fields = ('created_at', 'updated_at',)
+    inlines = [StationsMetadataFetchInline]
 
 
 @admin.register(StationToStationGroup)
