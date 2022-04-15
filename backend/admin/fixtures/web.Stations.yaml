@@ -1,4 +1,5 @@
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: contact@aripisprecer.ro
     order: 0
     slug: aripi-spre-cer
@@ -10,6 +11,7 @@
   model: web.Stations
   pk: 0
 - fields:
+    created_at: '2022-04-02T07:37:35Z'
     email: contact@aripisprecer.ro
     order: 1
     slug: aripi-spre-cer-predici
@@ -21,6 +23,7 @@
   model: web.Stations
   pk: 1
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: contact@aripisprecer.ro
     order: 2
     slug: aripi-spre-cer-popular
@@ -32,6 +35,7 @@
   model: web.Stations
   pk: 2
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: contact@aripisprecer.ro
     order: 3
     slug: aripi-spre-cer-worship
@@ -43,6 +47,7 @@
   model: web.Stations
   pk: 3
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: contact@aripisprecer.ro
     order: 4
     slug: aripi-spre-cer-international
@@ -54,6 +59,7 @@
   model: web.Stations
   pk: 4
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: contact@aripisprecer.ro
     order: 5
     slug: aripi-spre-cer-instrumental
@@ -65,6 +71,7 @@
   model: web.Stations
   pk: 5
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: office@altfm.ro
     order: 6
     slug: alt-fm
@@ -76,6 +83,7 @@
   model: web.Stations
   pk: 6
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: office@radioarmonia.ro
     order: 7
     slug: radio-armonia
@@ -87,6 +95,7 @@
   model: web.Stations
   pk: 7
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: ''
     order: 8
     slug: radio-biblia-online
@@ -98,6 +107,7 @@
   model: web.Stations
   pk: 8
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: radio@biruitor.eu
     order: 9
     slug: radio-biruitor
@@ -109,6 +119,7 @@
   model: web.Stations
   pk: 9
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: head.office@ciresarii.ro
     order: 10
     slug: ciresarii
@@ -120,6 +131,7 @@
   model: web.Stations
   pk: 10
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: radiodecuvant@gmail.com
     order: 11
     slug: radio-de-cuvant
@@ -131,6 +143,7 @@
   model: web.Stations
   pk: 11
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: ''
     order: 12
     slug: radio-ekklesia
@@ -142,6 +155,7 @@
   model: web.Stations
   pk: 12
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: contact@radioelim.ro
     order: 13
     slug: radio-elim
@@ -153,6 +167,7 @@
   model: web.Stations
   pk: 13
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: contact@radioelim.ro
     order: 15
     slug: radio-elim-kids
@@ -164,6 +179,7 @@
   model: web.Stations
   pk: 15
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: contact@radioelim.ro
     order: 16
     slug: radio-elim-plus
@@ -175,6 +191,7 @@
   model: web.Stations
   pk: 16
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: redactie@radiofiladelfia.ro
     order: 17
     slug: radio-filadelfia
@@ -186,6 +203,7 @@
   model: web.Stations
   pk: 17
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: info@filadelfia.md
     order: 18
     slug: radio-gosen
@@ -197,6 +215,7 @@
   model: web.Stations
   pk: 18
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: ''
     order: 19
     slug: radio-iubire-fara-margini
@@ -208,6 +227,7 @@
   model: web.Stations
   pk: 19
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: radiolevionline@gmail.com
     order: 20
     slug: radio-levi
@@ -219,6 +239,7 @@
   model: web.Stations
   pk: 20
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: miculsamariteanmd@yahoo.com
     order: 21
     slug: radio-micul-samaritean
@@ -230,6 +251,7 @@
   model: web.Stations
   pk: 21
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: wmbi@moody.edu
     order: 22
     slug: radio-moody-chicago
@@ -241,6 +263,7 @@
   model: web.Stations
   pk: 22
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: mcfaddenm99@yahoo.com
     order: 23
     slug: radio-old-christian-radio
@@ -252,6 +275,7 @@
   model: web.Stations
   pk: 23
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: ''
     order: 24
     slug: radio-o-noua-sansa
@@ -263,6 +287,7 @@
   model: web.Stations
   pk: 24
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: ''
     order: 25
     slug: radio-philadelphia
@@ -274,6 +299,7 @@
   model: web.Stations
   pk: 25
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: contact@rvebucuresti.ro
     order: 26
     slug: rve-bucuresti
@@ -285,6 +311,7 @@
   model: web.Stations
   pk: 26
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: rvecluj@gmail.com
     order: 27
     slug: rve-cluj
@@ -296,6 +323,7 @@
   model: web.Stations
   pk: 27
 - fields:
+    created_at: '2022-04-02T07:44:02Z'
     email: contact@rvect.ro
     order: 28
     slug: rve-constanta
