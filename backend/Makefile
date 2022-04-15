@@ -43,7 +43,7 @@ reload-hasura-metadata:
 	hasura metadata reload --endpo
 	
 create-default-admin-superuser:
-	docker exec -ti "$$(docker ps | grep backend_admin | cut -d " " -f1)" bash -c "echo \"from django.contrib.auth import get_user_model; User = get_user_model(); User.objects.create_superuser('dev', 'dev@radio-crestin.com', 'dev-password')\"|python manage.py shell"
+	docker exec -ti "$$(docker ps | grep -E "radio.+_admin" | cut -d " " -f1)" bash -c "echo \"from django.contrib.auth import get_user_model; User = get_user_model(); User.objects.create_superuser('dev', 'dev@radio-crestin.com', 'dev-password')\"|python manage.py shell"
 
 create-admin-fixtures:
 	docker exec -ti "$$(docker ps | grep -E "radio.+_admin" | cut -d " " -f1)"  bash -c "echo -e \"from web.models import *;\n\
@@ -61,7 +61,7 @@ StationsUptime.objects.all().delete() \n\
 	docker exec -ti "$$(docker ps | grep -E "radio.+_admin" | cut -d " " -f1)" bash -c "python manage.py dumpdata $$model --format=yaml -o /tmp/fixtures.yaml >/dev/null 2>&1  && cat /tmp/fixtures.yaml" > admin/fixtures/$$model.yaml; \
 
 	model="web.Stations"; \
-	docker exec -ti "$$(docker ps | grep -E "radio.+_admin" | cut -d " " -f1)" bash -c "export ADMIN_DEBUG=false && python manage.py dumpdata_one $$model --fields=created_at,updated_at,order,title,website,email,stream_url,thumbnail,thumbnail_url" | python3 -c 'import sys, yaml, json; print(yaml.dump(json.loads(sys.stdin.read())))' > admin/fixtures/$$model.yaml; \
+	docker exec -ti "$$(docker ps | grep -E "radio.+_admin" | cut -d " " -f1)" bash -c "export ADMIN_DEBUG=false && python manage.py dumpdata_one $$model --fields=slug,order,title,website,email,stream_url,thumbnail,thumbnail_url" | python3 -c 'import sys, yaml, json; print(yaml.dump(json.loads(sys.stdin.read())))' > admin/fixtures/$$model.yaml; \
 
 	model="web.StationToStationGroup"; \
 	docker exec -ti "$$(docker ps | grep -E "radio.+_admin" | cut -d " " -f1)" bash -c "python manage.py dumpdata $$model --format=yaml -o /tmp/fixtures.yaml >/dev/null 2>&1  && cat /tmp/fixtures.yaml" > admin/fixtures/$$model.yaml; \

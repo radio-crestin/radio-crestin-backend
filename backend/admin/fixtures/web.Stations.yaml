@@ -1,336 +1,308 @@
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: contact@aripisprecer.ro
     order: 0
+    slug: aripi-spre-cer
     stream_url: https://mobile.stream.aripisprecer.ro/radio.mp3;
     thumbnail: aripisprecer_SDmYRwG.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/aripisprecer_SDmYRwG.jpg
     title: Aripi Spre Cer
-    updated_at: '2022-04-15T19:07:27.767Z'
     website: https://aripisprecer.ro
   model: web.Stations
   pk: 0
 - fields:
-    created_at: '2022-04-02T07:37:35Z'
     email: contact@aripisprecer.ro
     order: 1
+    slug: aripi-spre-cer-predici
     stream_url: https://predici.stream.aripisprecer.ro/radio.mp3;
     thumbnail: aripisprecer_61Mv959.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/aripisprecer_61Mv959.jpg
     title: Aripi Spre Cer Predici
-    updated_at: '2022-04-15T19:07:30.149Z'
     website: https://aripisprecer.ro
   model: web.Stations
   pk: 1
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: contact@aripisprecer.ro
     order: 2
+    slug: aripi-spre-cer-popular
     stream_url: https://popular.stream.aripisprecer.ro/radio.mp3;
     thumbnail: aripisprecer_UTDHijf.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/aripisprecer_UTDHijf.jpg
     title: Aripi Spre Cer Popular
-    updated_at: '2022-04-15T19:07:27.767Z'
     website: https://aripisprecer.ro
   model: web.Stations
   pk: 2
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: contact@aripisprecer.ro
     order: 3
+    slug: aripi-spre-cer-worship
     stream_url: https://worship.stream.aripisprecer.ro/radio.mp3;
     thumbnail: aripisprecer_6xoIlAY.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/aripisprecer_6xoIlAY.jpg
     title: Aripi Spre Cer Worship
-    updated_at: '2022-04-15T19:07:30.148Z'
     website: https://aripisprecer.ro
   model: web.Stations
   pk: 3
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: contact@aripisprecer.ro
     order: 4
+    slug: aripi-spre-cer-international
     stream_url: https://international.stream.aripisprecer.ro/radio.mp3;
     thumbnail: aripisprecer_Uab89Ic.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/aripisprecer_Uab89Ic.jpg
     title: Aripi Spre Cer International
-    updated_at: '2022-04-15T19:07:30.144Z'
     website: https://aripisprecer.ro
   model: web.Stations
   pk: 4
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: contact@aripisprecer.ro
     order: 5
+    slug: aripi-spre-cer-instrumental
     stream_url: https://instrumental.stream.aripisprecer.ro/radio.mp3;
     thumbnail: aripisprecer_etOtJRb.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/aripisprecer_etOtJRb.jpg
     title: Aripi Spre Cer Instrumental
-    updated_at: '2022-04-15T19:07:27.767Z'
     website: https://aripisprecer.ro
   model: web.Stations
   pk: 5
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: office@altfm.ro
     order: 6
+    slug: alt-fm
     stream_url: http://asculta.radiocnm.ro:8002/live
     thumbnail: alt_fm_arad_P8bQ2Dk.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/alt_fm_arad_P8bQ2Dk.jpg
     title: Radio ALT FM Arad
-    updated_at: '2022-04-15T19:07:33.104Z'
     website: https://www.altfm.ro
   model: web.Stations
   pk: 6
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: office@radioarmonia.ro
     order: 7
+    slug: radio-armonia
     stream_url: http://video.bluespot.ro:8001/listen.mp3
     thumbnail: armonia_xtYb62P.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/armonia_xtYb62P.jpg
     title: Radio Armonia
-    updated_at: '2022-04-15T19:07:31.994Z'
     website: https://www.radioarmonia.ro/
   model: web.Stations
   pk: 7
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: ''
     order: 8
+    slug: radio-biblia-online
     stream_url: http://209.95.50.189:8006/
     thumbnail: Biblia_online_v0UjPLL.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/Biblia_online_v0UjPLL.jpg
     title: Radio Biblia Online
-    updated_at: '2022-04-15T19:07:32.239Z'
     website: http://ascultabiblia.blogspot.com
   model: web.Stations
   pk: 8
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: radio@biruitor.eu
     order: 9
+    slug: radio-biruitor
     stream_url: https://cast1.asurahosting.com/proxy/valer/stream
     thumbnail: biruitor_IxDTLNv.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/biruitor_IxDTLNv.jpg
     title: Radio Biruitor
-    updated_at: '2022-04-15T19:07:32.322Z'
     website: https://biruitor.eu/
   model: web.Stations
   pk: 9
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: head.office@ciresarii.ro
     order: 10
+    slug: ciresarii
     stream_url: https://s3.radio.co/s6c0a773ad/listen
     thumbnail: ciresarii_PzIArhf.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/ciresarii_PzIArhf.jpg
     title: Radio Ciresarii
-    updated_at: '2022-04-15T19:07:31.611Z'
     website: https://ciresarii.ro/
   model: web.Stations
   pk: 10
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: radiodecuvant@gmail.com
     order: 11
+    slug: radio-de-cuvant
     stream_url: https://streamer.radio.co/sb94ce6fe2/listen
     thumbnail: radio_de_cuvant_9gWDZGl.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_de_cuvant_9gWDZGl.jpg
     title: Radio de Cuvant
-    updated_at: '2022-04-15T19:07:27.767Z'
     website: https://radiodecuvant.ro/
   model: web.Stations
   pk: 11
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: ''
     order: 12
+    slug: radio-ekklesia
     stream_url: http://asculta.radioekklesia.com:8005/stream
     thumbnail: radio_ekklesia_OQFrWGc.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_ekklesia_OQFrWGc.jpg
     title: Radio Ekklesia
-    updated_at: '2022-04-15T19:07:33.056Z'
     website: https://radioekklesia.com/
   model: web.Stations
   pk: 12
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: contact@radioelim.ro
     order: 13
+    slug: radio-elim
     stream_url: http://91.213.11.102:8011/stream
     thumbnail: radio_elim_Lt8PkVQ.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_elim_Lt8PkVQ.jpg
     title: Radio Elim Air
-    updated_at: '2022-04-15T19:07:32.393Z'
     website: https://www.radioelim.ro/
   model: web.Stations
   pk: 13
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: contact@radioelim.ro
     order: 15
+    slug: radio-elim-kids
     stream_url: http://91.213.11.102:8007/stream
     thumbnail: radio_elim_ihxn3tA.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_elim_ihxn3tA.jpg
     title: Radio Elim Kids
-    updated_at: '2022-04-15T19:07:32.312Z'
     website: https://www.radioelim.ro/
   model: web.Stations
   pk: 15
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: contact@radioelim.ro
     order: 16
+    slug: radio-elim-plus
     stream_url: http://91.213.11.102:8003/stream
     thumbnail: radio_elim_DNsugYG.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_elim_DNsugYG.jpg
     title: Radio Elim Plus
-    updated_at: '2022-04-15T19:07:32.464Z'
     website: https://www.radioelim.ro/
   model: web.Stations
   pk: 16
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: redactie@radiofiladelfia.ro
     order: 17
+    slug: radio-filadelfia
     stream_url: https://asculta.radiofiladelfia.ro:8000/;
     thumbnail: radio_filadelfia_DRcVtGn.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_filadelfia_DRcVtGn.jpg
     title: Radio Filadelfia
-    updated_at: '2022-04-15T19:07:31.850Z'
     website: https://www.radiofiladelfia.ro/
   model: web.Stations
   pk: 17
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: info@filadelfia.md
     order: 18
+    slug: radio-gosen
     stream_url: https://sp.totalstreaming.net/8125/stream
     thumbnail: radio_gosen_fa0Z3gL.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_gosen_fa0Z3gL.jpg
     title: Radio Gosen
-    updated_at: '2022-04-15T19:07:32.631Z'
     website: https://filadelfia.md/
   model: web.Stations
   pk: 18
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: ''
     order: 19
+    slug: radio-iubire-fara-margini
     stream_url: http://ssl.omegahost.ro:7043/stream
     thumbnail: radio_iubire_fara_margini_ap8euxn.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_iubire_fara_margini_ap8euxn.jpg
     title: Radio Iubire Fara Margini
-    updated_at: '2022-04-15T19:07:30.062Z'
     website: https://radioiubire.ucoz.net/
   model: web.Stations
   pk: 19
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: radiolevionline@gmail.com
     order: 20
+    slug: radio-levi
     stream_url: https://audio-radioleviro.bisericilive.com/radioleviro.mp3
     thumbnail: radio_levi_8tIBTm9.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_levi_8tIBTm9.jpg
     title: Radio Levi
-    updated_at: '2022-04-15T19:07:32.765Z'
     website: https://radiolevi.ro/
   model: web.Stations
   pk: 20
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: miculsamariteanmd@yahoo.com
     order: 21
+    slug: radio-micul-samaritean
     stream_url: https://s5.radio.co/sfff7b7e97/listen
     thumbnail: radio_micul_samaritean_eKxDx83.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_micul_samaritean_eKxDx83.jpg
     title: Radio Micul Samaritean
-    updated_at: '2022-04-15T19:07:31.599Z'
     website: https://www.miculsamaritean.com/
   model: web.Stations
   pk: 21
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: wmbi@moody.edu
     order: 22
+    slug: radio-moody-chicago
     stream_url: https://primary.moodyradiostream.org/wrmb-high.aac
     thumbnail: radio_moody_TAJuvOU.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_moody_TAJuvOU.jpg
     title: Radio Moody Chicago
-    updated_at: '2022-04-15T19:07:31.621Z'
     website: https://www.moodyradio.org/stations/chicago/
   model: web.Stations
   pk: 22
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: mcfaddenm99@yahoo.com
     order: 23
+    slug: radio-old-christian-radio
     stream_url: https://stream.radio.co/sf2c714555/listen
     thumbnail: old_christian_radio-1.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/old_christian_radio-1.jpg
     title: Radio Old Christian Radio
-    updated_at: '2022-04-15T19:07:31.767Z'
     website: https://www.oldchristianradio.com/
   model: web.Stations
   pk: 23
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: ''
     order: 24
+    slug: radio-o-noua-sansa
     stream_url: https://securestreams5.autopo.st:1951/;?type=http&nocache=15
     thumbnail: radio_o_noua_sansa_2V1FM62.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_o_noua_sansa_2V1FM62.jpg
     title: Radio O Noua Sansa
-    updated_at: '2022-04-15T19:07:32.366Z'
     website: https://radioonouasansa.ro/radio/
   model: web.Stations
   pk: 24
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: ''
     order: 25
+    slug: radio-philadelphia
     stream_url: http://94.130.106.91/radio/8000/radio.mp3
     thumbnail: radio_philadelphia_mansue_ga3zRjs.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_philadelphia_mansue_ga3zRjs.jpg
     title: "Radio Philadelphia Mansu\xE8"
-    updated_at: '2022-04-15T19:07:31.436Z'
     website: http://www.philadelphiamansue.it/radio-philadelphia/
   model: web.Stations
   pk: 25
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: contact@rvebucuresti.ro
     order: 26
+    slug: rve-bucuresti
     stream_url: https://lb01.bpstream.com:8618/stream
     thumbnail: rve_bucuresti_1kz4o8R.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/rve_bucuresti_1kz4o8R.jpg
     title: Radio Vocea Evangheliei Bucuresti
-    updated_at: '2022-04-15T19:07:30.814Z'
     website: https://rvebucuresti.ro/
   model: web.Stations
   pk: 26
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: rvecluj@gmail.com
     order: 27
+    slug: rve-cluj
     stream_url: https://s23.myradiostream.com/:18366/listen.mp3
     thumbnail: rve_cluj_Fi2UCft.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/rve_cluj_Fi2UCft.jpg
     title: Radio Vocea Evangheliei Cluj
-    updated_at: '2022-04-15T19:07:31.301Z'
     website: https://rvecj.ro/
   model: web.Stations
   pk: 27
 - fields:
-    created_at: '2022-04-02T07:44:02Z'
     email: contact@rvect.ro
     order: 28
+    slug: rve-constanta
     stream_url: https://audio-rvectro.bisericilive.com/rvectro.mp3
     thumbnail: rve_constanta_bYEnGof.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/rve_constanta_bYEnGof.jpg
     title: Radio Vocea Evangheliei Constanta
-    updated_at: '2022-04-15T19:07:31.888Z'
     website: http://rvect.ro
   model: web.Stations
   pk: 28
