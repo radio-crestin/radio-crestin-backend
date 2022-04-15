@@ -1,25 +1,25 @@
 table:
-  name: songs
   schema: public
+  name: songs
 object_relationships:
-- name: artist
-  using:
-    foreign_key_constraint_on: artist_id
+  - name: artist
+    using:
+      foreign_key_constraint_on: artist_id
 array_relationships:
-- name: played_songs
-  using:
-    foreign_key_constraint_on:
-      column: song_id
-      table:
-        name: stations_now_playing
-        schema: public
+  - name: played_songs
+    using:
+      foreign_key_constraint_on:
+        column: song_id
+        table:
+          schema: public
+          name: stations_now_playing
 select_permissions:
-- permission:
-    columns:
-    - artist_id
-    - id
-    - name
-    - thumbnail_url
-    filter: {}
-    limit: 1000
-  role: public
+  - role: public
+    permission:
+      columns:
+        - artist_id
+        - id
+        - name
+        - thumbnail_url
+      filter: {}
+      limit: 1000

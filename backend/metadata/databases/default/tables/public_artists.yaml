@@ -1,11 +1,11 @@
 table:
-  name: artists
   schema: public
+  name: artists
 select_permissions:
-- permission:
-    columns:
-    - id
-    - name
-    - thumbnail_url
-    filter: {}
-  role: public
+  - role: public
+    permission:
+      columns:
+        - id
+        - name
+        - thumbnail_url
+      filter: {}

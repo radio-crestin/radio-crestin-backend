@@ -1,19 +1,19 @@
 table:
-  name: station_groups
   schema: public
+  name: station_groups
 array_relationships:
-- name: station_to_station_groups
-  using:
-    foreign_key_constraint_on:
-      column: group_id
-      table:
-        name: station_to_station_group
-        schema: public
+  - name: station_to_station_groups
+    using:
+      foreign_key_constraint_on:
+        column: group_id
+        table:
+          schema: public
+          name: station_to_station_group
 select_permissions:
-- permission:
-    columns:
-    - id
-    - name
-    - order
-    filter: {}
-  role: public
+  - role: public
+    permission:
+      columns:
+        - id
+        - name
+        - order
+      filter: {}
