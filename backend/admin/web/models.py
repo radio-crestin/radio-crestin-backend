@@ -113,6 +113,9 @@ class Stations(models.Model):
     stream_url = models.TextField()
     thumbnail = models.ImageField(blank=True, null=True,)
     thumbnail_url = models.URLField(blank=True, null=True,)
+    description = models.TextField(blank=True, null=True,)
+    description_action_title = models.TextField(blank=True, null=True,)
+    description_link = models.URLField(blank=True, null=True,)
 
     latest_station_uptime = models.ForeignKey('StationsUptime', models.DO_NOTHING, blank=True, null=True)
     latest_station_now_playing = models.ForeignKey('StationsNowPlaying', models.DO_NOTHING, blank=True, null=True)

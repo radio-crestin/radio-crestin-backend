@@ -72,15 +72,15 @@ StationsUptime.objects.all().delete() \n\
 
 load-admin-fixtures:
 	model="web.StationMetadataFetchCategories"; \
-	docker exec -ti "$$(docker ps | grep -E "radio.+_admin" | cut -d " " -f1)" bash -c "python manage.py loaddata --format=yaml /src/fixtures/$$model.yaml"
+	cat admin/fixtures/$$model.yaml | docker exec -i "$$(docker ps | grep -E "radio.+_admin" | cut -d " " -f1)" bash -c "python manage.py loaddata --format=yaml -"
 	model="web.StationGroups"; \
-	docker exec -ti "$$(docker ps | grep -E "radio.+_admin" | cut -d " " -f1)" bash -c "python manage.py loaddata --format=yaml /src/fixtures/$$model.yaml"
+	cat admin/fixtures/$$model.yaml | docker exec -i "$$(docker ps | grep -E "radio.+_admin" | cut -d " " -f1)" bash -c "python manage.py loaddata --format=yaml -"
 	model="web.Stations"; \
-	docker exec -ti "$$(docker ps | grep -E "radio.+_admin" | cut -d " " -f1)" bash -c "python manage.py loaddata --format=yaml /src/fixtures/$$model.yaml"
+	cat admin/fixtures/$$model.yaml | docker exec -i "$$(docker ps | grep -E "radio.+_admin" | cut -d " " -f1)" bash -c "python manage.py loaddata --format=yaml -"
 	model="web.StationToStationGroup"; \
-	docker exec -ti "$$(docker ps | grep -E "radio.+_admin" | cut -d " " -f1)" bash -c "python manage.py loaddata --format=yaml /src/fixtures/$$model.yaml"
+	cat admin/fixtures/$$model.yaml | docker exec -i "$$(docker ps | grep -E "radio.+_admin" | cut -d " " -f1)" bash -c "python manage.py loaddata --format=yaml -"
 	model="web.StationsMetadataFetch"; \
-	docker exec -ti "$$(docker ps | grep -E "radio.+_admin" | cut -d " " -f1)" bash -c "python manage.py loaddata --format=yaml /src/fixtures/$$model.yaml"
+	cat admin/fixtures/$$model.yaml | docker exec -i "$$(docker ps | grep -E "radio.+_admin" | cut -d " " -f1)" bash -c "python manage.py loaddata --format=yaml -"
 
 
 

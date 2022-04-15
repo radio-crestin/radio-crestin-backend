@@ -42,6 +42,9 @@ select_permissions:
     permission:
       columns:
         - created_at
+        - description
+        - description_action_title
+        - description_link
         - email
         - id
         - latest_station_now_playing_id

@@ -7,7 +7,7 @@
     thumbnail: aripisprecer_SDmYRwG.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/aripisprecer_SDmYRwG.jpg
     title: Aripi Spre Cer
-    updated_at: '2022-04-15T19:37:48.039Z'
+    updated_at: '2022-04-15T19:50:00.262Z'
     website: https://aripisprecer.ro
   model: web.Stations
   pk: 0
@@ -20,7 +20,7 @@
     thumbnail: aripisprecer_61Mv959.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/aripisprecer_61Mv959.jpg
     title: Aripi Spre Cer Predici
-    updated_at: '2022-04-15T19:37:48.039Z'
+    updated_at: '2022-04-15T19:50:00.262Z'
     website: https://aripisprecer.ro
   model: web.Stations
   pk: 1
@@ -33,7 +33,7 @@
     thumbnail: aripisprecer_UTDHijf.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/aripisprecer_UTDHijf.jpg
     title: Aripi Spre Cer Popular
-    updated_at: '2022-04-15T19:37:48.039Z'
+    updated_at: '2022-04-15T19:50:00.262Z'
     website: https://aripisprecer.ro
   model: web.Stations
   pk: 2
@@ -46,7 +46,7 @@
     thumbnail: aripisprecer_6xoIlAY.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/aripisprecer_6xoIlAY.jpg
     title: Aripi Spre Cer Worship
-    updated_at: '2022-04-15T19:37:48.039Z'
+    updated_at: '2022-04-15T19:50:00.262Z'
     website: https://aripisprecer.ro
   model: web.Stations
   pk: 3
@@ -59,7 +59,7 @@
     thumbnail: aripisprecer_Uab89Ic.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/aripisprecer_Uab89Ic.jpg
     title: Aripi Spre Cer International
-    updated_at: '2022-04-15T19:37:48.039Z'
+    updated_at: '2022-04-15T19:50:00.262Z'
     website: https://aripisprecer.ro
   model: web.Stations
   pk: 4
@@ -72,7 +72,7 @@
     thumbnail: aripisprecer_etOtJRb.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/aripisprecer_etOtJRb.jpg
     title: Aripi Spre Cer Instrumental
-    updated_at: '2022-04-15T19:37:48.039Z'
+    updated_at: '2022-04-15T19:50:00.262Z'
     website: https://aripisprecer.ro
   model: web.Stations
   pk: 5
@@ -85,7 +85,7 @@
     thumbnail: alt_fm_arad_P8bQ2Dk.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/alt_fm_arad_P8bQ2Dk.jpg
     title: Radio ALT FM Arad
-    updated_at: '2022-04-15T19:37:48.835Z'
+    updated_at: '2022-04-15T19:50:00.262Z'
     website: https://www.altfm.ro
   model: web.Stations
   pk: 6
@@ -98,7 +98,7 @@
     thumbnail: armonia_xtYb62P.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/armonia_xtYb62P.jpg
     title: Radio Armonia
-    updated_at: '2022-04-15T19:37:49.218Z'
+    updated_at: '2022-04-15T19:50:00.711Z'
     website: https://www.radioarmonia.ro/
   model: web.Stations
   pk: 7
@@ -111,7 +111,7 @@
     thumbnail: Biblia_online_v0UjPLL.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/Biblia_online_v0UjPLL.jpg
     title: Radio Biblia Online
-    updated_at: '2022-04-15T19:37:49.099Z'
+    updated_at: '2022-04-15T19:50:00.262Z'
     website: http://ascultabiblia.blogspot.com
   model: web.Stations
   pk: 8
@@ -124,7 +124,7 @@
     thumbnail: biruitor_IxDTLNv.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/biruitor_IxDTLNv.jpg
     title: Radio Biruitor
-    updated_at: '2022-04-15T19:37:48.039Z'
+    updated_at: '2022-04-15T19:50:02.109Z'
     website: https://biruitor.eu/
   model: web.Stations
   pk: 9
@@ -137,7 +137,7 @@
     thumbnail: ciresarii_PzIArhf.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/ciresarii_PzIArhf.jpg
     title: Radio Ciresarii
-    updated_at: '2022-04-15T19:37:49.313Z'
+    updated_at: '2022-04-15T19:50:00.262Z'
     website: https://ciresarii.ro/
   model: web.Stations
   pk: 10
@@ -150,7 +150,7 @@
     thumbnail: radio_de_cuvant_9gWDZGl.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_de_cuvant_9gWDZGl.jpg
     title: Radio de Cuvant
-    updated_at: '2022-04-15T19:37:48.148Z'
+    updated_at: '2022-04-15T19:50:02.822Z'
     website: https://radiodecuvant.ro/
   model: web.Stations
   pk: 11
@@ -163,7 +163,7 @@
     thumbnail: radio_ekklesia_OQFrWGc.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_ekklesia_OQFrWGc.jpg
     title: Radio Ekklesia
-    updated_at: '2022-04-15T19:37:49.600Z'
+    updated_at: '2022-04-15T19:50:00.262Z'
     website: https://radioekklesia.com/
   model: web.Stations
   pk: 12
@@ -176,7 +176,7 @@
     thumbnail: radio_elim_Lt8PkVQ.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_elim_Lt8PkVQ.jpg
     title: Radio Elim Air
-    updated_at: '2022-04-15T19:37:49.171Z'
+    updated_at: '2022-04-15T19:50:00.392Z'
     website: https://www.radioelim.ro/
   model: web.Stations
   pk: 13
@@ -189,7 +189,7 @@
     thumbnail: radio_elim_ihxn3tA.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_elim_ihxn3tA.jpg
     title: Radio Elim Kids
-    updated_at: '2022-04-15T19:37:48.039Z'
+    updated_at: '2022-04-15T19:50:00.262Z'
     website: https://www.radioelim.ro/
   model: web.Stations
   pk: 15
@@ -202,7 +202,7 @@
     thumbnail: radio_elim_DNsugYG.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_elim_DNsugYG.jpg
     title: Radio Elim Plus
-    updated_at: '2022-04-15T19:37:48.039Z'
+    updated_at: '2022-04-15T19:50:02.058Z'
     website: https://www.radioelim.ro/
   model: web.Stations
   pk: 16
@@ -215,7 +215,7 @@
     thumbnail: radio_filadelfia_DRcVtGn.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_filadelfia_DRcVtGn.jpg
     title: Radio Filadelfia
-    updated_at: '2022-04-15T19:37:48.039Z'
+    updated_at: '2022-04-15T19:50:00.619Z'
     website: https://www.radiofiladelfia.ro/
   model: web.Stations
   pk: 17
@@ -228,7 +228,7 @@
     thumbnail: radio_gosen_fa0Z3gL.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_gosen_fa0Z3gL.jpg
     title: Radio Gosen
-    updated_at: '2022-04-15T19:37:48.318Z'
+    updated_at: '2022-04-15T19:50:02.790Z'
     website: https://filadelfia.md/
   model: web.Stations
   pk: 18
@@ -241,7 +241,7 @@
     thumbnail: radio_iubire_fara_margini_ap8euxn.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_iubire_fara_margini_ap8euxn.jpg
     title: Radio Iubire Fara Margini
-    updated_at: '2022-04-15T19:37:48.039Z'
+    updated_at: '2022-04-15T19:50:00.262Z'
     website: https://radioiubire.ucoz.net/
   model: web.Stations
   pk: 19
@@ -254,7 +254,7 @@
     thumbnail: radio_levi_8tIBTm9.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_levi_8tIBTm9.jpg
     title: Radio Levi
-    updated_at: '2022-04-15T19:37:48.039Z'
+    updated_at: '2022-04-15T19:50:00.746Z'
     website: https://radiolevi.ro/
   model: web.Stations
   pk: 20
@@ -267,7 +267,7 @@
     thumbnail: radio_micul_samaritean_eKxDx83.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_micul_samaritean_eKxDx83.jpg
     title: Radio Micul Samaritean
-    updated_at: '2022-04-15T19:37:48.039Z'
+    updated_at: '2022-04-15T19:50:01.737Z'
     website: https://www.miculsamaritean.com/
   model: web.Stations
   pk: 21
@@ -280,7 +280,7 @@
     thumbnail: radio_moody_TAJuvOU.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_moody_TAJuvOU.jpg
     title: Radio Moody Chicago
-    updated_at: '2022-04-15T19:37:48.039Z'
+    updated_at: '2022-04-15T19:50:01.665Z'
     website: https://www.moodyradio.org/stations/chicago/
   model: web.Stations
   pk: 22
@@ -293,7 +293,7 @@
     thumbnail: old_christian_radio-1.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/old_christian_radio-1.jpg
     title: Radio Old Christian Radio
-    updated_at: '2022-04-15T19:37:49.453Z'
+    updated_at: '2022-04-15T19:50:01.871Z'
     website: https://www.oldchristianradio.com/
   model: web.Stations
   pk: 23
@@ -306,7 +306,7 @@
     thumbnail: radio_o_noua_sansa_2V1FM62.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_o_noua_sansa_2V1FM62.jpg
     title: Radio O Noua Sansa
-    updated_at: '2022-04-15T19:37:48.039Z'
+    updated_at: '2022-04-15T19:50:01.660Z'
     website: https://radioonouasansa.ro/radio/
   model: web.Stations
   pk: 24
@@ -319,7 +319,7 @@
     thumbnail: radio_philadelphia_mansue_ga3zRjs.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_philadelphia_mansue_ga3zRjs.jpg
     title: "Radio Philadelphia Mansu\xE8"
-    updated_at: '2022-04-15T19:37:48.039Z'
+    updated_at: '2022-04-15T19:50:01.985Z'
     website: http://www.philadelphiamansue.it/radio-philadelphia/
   model: web.Stations
   pk: 25
@@ -332,7 +332,7 @@
     thumbnail: rve_bucuresti_1kz4o8R.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/rve_bucuresti_1kz4o8R.jpg
     title: Radio Vocea Evangheliei Bucuresti
-    updated_at: '2022-04-15T19:37:48.039Z'
+    updated_at: '2022-04-15T19:50:01.851Z'
     website: https://rvebucuresti.ro/
   model: web.Stations
   pk: 26
@@ -345,7 +345,7 @@
     thumbnail: rve_cluj_Fi2UCft.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/rve_cluj_Fi2UCft.jpg
     title: Radio Vocea Evangheliei Cluj
-    updated_at: '2022-04-15T19:37:48.039Z'
+    updated_at: '2022-04-15T19:50:00.262Z'
     website: https://rvecj.ro/
   model: web.Stations
   pk: 27
@@ -358,7 +358,7 @@
     thumbnail: rve_constanta_bYEnGof.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/rve_constanta_bYEnGof.jpg
     title: Radio Vocea Evangheliei Constanta
-    updated_at: '2022-04-15T19:37:48.622Z'
+    updated_at: '2022-04-15T19:50:02.502Z'
     website: http://rvect.ro
   model: web.Stations
   pk: 28
