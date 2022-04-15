@@ -11,6 +11,7 @@ object_relationships:
 select_permissions:
 - permission:
     columns:
+    - order
     - group_id
     - id
     - station_id

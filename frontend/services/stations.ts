@@ -19,6 +19,7 @@ query GetStations {
     order
     station_to_station_groups {
       station_id
+      order
     }
   }
   stations {
