@@ -546,8 +546,6 @@ const updateStationMetadata = async ({
   }
 }
 `;
-    console.log(stationNowPlaying);
-    console.log(query);
 
     const options: AxiosRequestConfig = {
         method: "POST",

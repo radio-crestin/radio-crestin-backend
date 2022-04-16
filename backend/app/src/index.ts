@@ -26,7 +26,6 @@ app.get("/refreshStationsMetadata", (request: Request, response: Response, next:
 
 app.get("/refreshStationsRssFeed", (request: Request, response: Response, next: NextFunction) => {
     refreshStationsRssFeed().then(result => {
-        console.log("da");
         response.status(200).json({result});
     }).catch(error => {
         logger.error(error.toString());
