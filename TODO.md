@@ -1,2 +1,51 @@
-- zero downtime docker deployment using docker swarm
+Frontend:
+- make the play button & volume icon a bit smaller && make the volume slider width constant
+- implement random station functionality
+- when selecting a station, the player should start automatically
+- implement add to favorite functionality
+- 
+- add current played song as head meta (maybe Google will pick them and display in search results)
+- create a page for each station (and simulate a page redirect when clicking on a station)
+- create a sitemap with all the stations
+- create a subdomain for each station (just the player + the latest articles)
+- allow the user to add a shortcut on desktop for the app
+- create am embeddable player
+- add SEO meta for all the reviews
+- make the website mobile responsive
+- refresh the station metadata every 5 seconds
+- implement add to favorite each station
+- optimize the website for maximum performance on web.dev
+- implement HLS player on website
+- populate station description from API
+- allow the user to leave a review
+- create a pop-up so that the user can share Radio Crestin with their friends
+- enable server side rendering and push the website to a very fast CDN
+- link each station to the correct Facebook page by using the link from API
+- improve the website audio player to allow the user to select which stream should be played for that station (hls/proxy/original)
+  - when a stream is failing, fall-back to the next stream automatically
+- when a station is playing, send this signal to backend (send station_id every 15 seconds)
+
+
+Backend:
+- extract station rating from Facebook
+- add Facebook pages for each station
+- create the API to upload a review
+- create an API for measuring the number of listeners on radio-crestin.com (station + ping every 15 seconds)
+- create an integration to fetch the latest articles for each station (from RSS feed)
+- add default description for all stations
+- extract songs cover arts for Aripi Spre Cer
 - add audio normalization (http://ffmpeg.org/ffmpeg-all.html#loudnorm) or maybe something on the client side
+- upload hls to edge CDNs
+- incorporate multiple audio sources for each station (hls, proxy, original stream)
+- for "radio biruitor" the metadata are not fetched correctly (swap artist with song_title)
+- update the links from the footer
+- fix unpleasant stations thumbnails
+- add more stations
+- start station when clicking on the thumbnail
+- make sure that we're not abusing the shoutcast endpoints
+- cache all graphql requests for 1 second
+- limit the maximum number of requests to graphql to 5 per second
+- when the metadata fields are undefined, set them to null (keep the API consistent)
+- whitelist all of our servers IPs on Aripi Spre Cer
+- implement a system to suggest what to listen next based on the amount of time the station was listened by users
+- zero downtime docker deployment using docker swarm
