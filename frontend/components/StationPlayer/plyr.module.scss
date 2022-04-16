@@ -46,8 +46,9 @@
   }
 
   .plyr__volume {
-    width: 100%;
+    width: 60%;
     max-width: unset !important;
+    margin-right: auto;
 
     input[type=range] {
       cursor: pointer;

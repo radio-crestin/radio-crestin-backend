@@ -119,12 +119,16 @@ export default function StationPlayer(props: {
             alt="Image station"
           />
           <div>
-            <h2 className={styles.songName}>
-              {station.now_playing?.song?.name}
-            </h2>
-            <h3 className={styles.artist}>
-              {station.now_playing?.song?.artist.name}
-            </h3>
+            {station.now_playing?.song?.name !== "undefined" && (
+              <h2 className={styles.songName}>
+                {station.now_playing?.song?.name}
+              </h2>
+            )}
+            {station.now_playing?.song?.artist.name !== "undefined" && (
+              <h3 className={styles.artist}>
+                {station.now_playing?.song?.artist.name}
+              </h3>
+            )}
             <div className={styles.containerPlyr}>
               {useMemo(() => {
                 return (

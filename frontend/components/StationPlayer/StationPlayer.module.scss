@@ -1,6 +1,13 @@
 @use 'styles/globalVariables';
 @use 'styles/mixinHelper';
 
+@mixin truncateText() {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 425px;
+}
+
 .containerPlayer {
   display: flex;
   color: black;
@@ -40,12 +47,14 @@
     }
 
     .songName {
+      @include truncateText;
       margin: 15px 0 5px;
       font-size: 2.3em;
       font-weight: 800;
     }
 
     .artist {
+      @include truncateText;
       font-size: 1.5em;
       font-weight: 300;
       margin-top: 10px;

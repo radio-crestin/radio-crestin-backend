@@ -5,7 +5,6 @@ import RandomStationButton from "@/components/RandomStationButton/RandomStationB
 import StationInformation from "@/components/StationInformation/StationInformation";
 import styles from "./StationHeader.module.scss";
 import dynamic from "next/dynamic";
-import { useStations } from "../../hooks/stations";
 import Circle_matrix_desktop from "@/public/circle_matrix_desktop.svg";
 import { Station } from "../../types";
 
