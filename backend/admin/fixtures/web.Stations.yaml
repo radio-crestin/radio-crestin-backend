@@ -1,5 +1,20 @@
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: "Radio Crestin Aripi Spre Cer este un post de radio crestin online\
+      \ care a luat fiin\u021B\u0103 \xEEn anul 2008 sub numele de Radio Wings2Heaven\
+      \ \u0219i a func\u021Bionat sub acest nume pana \xEEn 2010, c\xE2nd am luat\
+      \ decizia s\u0103 continu\u0103m sub un alt nume, astfel a luat fiin\u021B\u0103\
+      \ proiectul Radio Cre\u0219tin Aripi Spre Cer.\n\nTransmitem muzica crestin\u0103\
+      \ contemporan\u0103, clasic\u0103, worship, gen popular, predici, marturii,\
+      \ interviuri, poezii crestine c\xE2t \u0219i interviuri, concursuri sau emisiuni\
+      \ \xEEn care ascult\u0103torii pot intra \xEEn direct, dezbatem subiecte diverse,\
+      \ \xEEntreb\u0103ri referitoare la diferite subiect biblice.\n\nO func\u021B\
+      ionalitate deosebit\u0103 este aceea prin care ascult\u0103torii au posibilitatea\
+      \ s\u0103 aleag\u0103 melodii din playlist-ul nostru \u0219i s\u0103 le solicite\
+      \ pentru a fi redate pe canalul de radio sau le pot dedica celor dragi ca \u0219\
+      i un dar."
+    description_action_title: ''
+    description_link: ''
     email: contact@aripisprecer.ro
     facebook_page_id: aripisprecer.ro
     feature_latest_post: true
@@ -10,12 +25,18 @@
     thumbnail: aripisprecer_SDmYRwG.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/aripisprecer_SDmYRwG.jpg
     title: Aripi Spre Cer
-    updated_at: '2022-04-16T12:42:27.052Z'
+    updated_at: '2022-04-16T13:28:43.622Z'
     website: https://aripisprecer.ro
   model: web.Stations
   pk: 0
 - fields:
     created_at: '2022-04-02T07:37:35Z'
+    description: "Radio Cre\u0219tin Aripi Spre Cer Predici este un canal de radio\
+      \ care v\u0103 ofer\u0103 posibilitatea de a asculta zilnic Cuv\xE2ntul Domnului,\
+      \ vestit de diferi\u021Bi predicatori din mediul evanghelic. Biblia este citit\u0103\
+      \ \u0219i predicat\u0103 \xEEn fiecare zi pe acest canal de predici."
+    description_action_title: Program Aripi Spre Cer Predici
+    description_link: https://www.aripisprecer.ro/predici/
     email: contact@aripisprecer.ro
     facebook_page_id: aripisprecer.ro
     feature_latest_post: true
@@ -26,12 +47,20 @@
     thumbnail: aripisprecer_61Mv959.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/aripisprecer_61Mv959.jpg
     title: Aripi Spre Cer Predici
-    updated_at: '2022-04-16T12:42:27.052Z'
-    website: https://aripisprecer.ro
+    updated_at: '2022-04-16T13:28:43.622Z'
+    website: https://www.aripisprecer.ro/predici/
   model: web.Stations
   pk: 1
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: "Acest canal se adreseaz\u0103 \xEEn special celor care \xEEndr\u0103\
+      gesc muzica cre\u0219tina mai veche \u0219i a tuturor iubitorilor genului popular.\
+      \ \xCEncercam sa punem la dispozi\u021Bie un num\u0103r c\xE2t mai mare de c\xE2\
+      nt\u0103ri cre\u0219tine populare, doine, c\xE2nt\u0103ri transmise prin viu\
+      \ grai de la \xEEnainta\u0219ii no\u0219tri, imnuri \u0219i totodat\u0103 v\u0103\
+      \ oferim posibilitatea de a alege direct din playlist-ul nostru."
+    description_action_title: ''
+    description_link: ''
     email: contact@aripisprecer.ro
     facebook_page_id: aripisprecer.ro
     feature_latest_post: true
@@ -42,12 +71,24 @@
     thumbnail: aripisprecer_UTDHijf.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/aripisprecer_UTDHijf.jpg
     title: Aripi Spre Cer Popular
-    updated_at: '2022-04-16T12:42:27.052Z'
-    website: https://aripisprecer.ro
+    updated_at: '2022-04-16T13:28:43.622Z'
+    website: https://www.aripisprecer.ro/popular/
   model: web.Stations
   pk: 2
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: "Canalul worship se adreseaz\u0103 \xEEn special tinerilor, dar \u0219\
+      i tuturor celor care iubesc muzica de laud\u0103 \u0219i \xEEnchinare. \xCE\
+      ncercam sa punem la dispozi\u021Bie un num\u0103r c\xE2t mai mare de c\xE2ntece\
+      \ de laud\u0103 \u0219i \xEEnchinare \u0219i totodat\u0103 va oferim posibilitatea\
+      \ de a le alege c\xE2ntece direct din playlist-ul nostru.\nDintre interpre\u021B\
+      ii prezen\u021Bi \xEEn playlist-ul nostru \xEEi amintim pe: Decean, Not an idol,\
+      \ BBSO, Born Again, Cristocentric. Cristian Ungur, Ekklesia, Nihil sine Deo,\
+      \ Pur \u0219i Simplu, Paul Oni\u021Biu, Vitamina C, Trei doi unu (321), Sunny\
+      \ Tranc\u0103, Semnall, Levi\u021Bii, Adonai, 4Motion, Alin Timofte, Andrei\
+      \ Gherman, Bethany Praise Band, Chris \u0219i mul\u021Bi al\u021Bii."
+    description_action_title: ''
+    description_link: ''
     email: contact@aripisprecer.ro
     facebook_page_id: aripisprecer.ro
     feature_latest_post: true
@@ -58,12 +99,21 @@
     thumbnail: aripisprecer_6xoIlAY.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/aripisprecer_6xoIlAY.jpg
     title: Aripi Spre Cer Worship
-    updated_at: '2022-04-16T12:42:27.052Z'
-    website: https://aripisprecer.ro
+    updated_at: '2022-04-16T13:28:43.622Z'
+    website: https://www.aripisprecer.ro/worship/
   model: web.Stations
   pk: 3
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: "Radio Crestin Aripi Spre Cer / Radio Wings2Heaven international\
+      \ este un canal ce se adreseaz\u0103 \xEEn special tinerilor, dar \u0219i tuturor\
+      \ celor care iubesc muzica de laud\u0103 \u0219i \xEEnchinare \xEEn limba englez\u0103\
+      \ sau alte limbi de circula\u021Bie interna\u021Bional\u0103. \xCEncercam sa\
+      \ punem la dispozi\u021Bie un num\u0103r c\xE2t mai mare de c\xE2ntece de laud\u0103\
+      \ \u0219i \xEEnchinare \u0219i totodat\u0103 va oferim posibilitatea de a le\
+      \ alege c\xE2ntece direct din playlist-ul nostru."
+    description_action_title: ''
+    description_link: ''
     email: contact@aripisprecer.ro
     facebook_page_id: aripisprecer.ro
     feature_latest_post: true
@@ -74,12 +124,20 @@
     thumbnail: aripisprecer_Uab89Ic.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/aripisprecer_Uab89Ic.jpg
     title: Aripi Spre Cer International
-    updated_at: '2022-04-16T12:42:27.052Z'
-    website: https://aripisprecer.ro
+    updated_at: '2022-04-16T13:28:43.622Z'
+    website: https://www.aripisprecer.ro/international/
   model: web.Stations
   pk: 4
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: "Radio Crestin Aripi Spre Cer instrumental se adreseaz\u0103 \xEE\
+      n special iubitorilor de muzica clasica sau instrumentala. Este locul potrivit\
+      \ pentru cei insetati, care cauta o oaza de pace si liniste si speranta pentru\
+      \ trup, suflet si minte. \xCEncercam sa punem la dispozi\u021Bie un num\u0103\
+      r c\xE2t mai mare de c\xE2ntece clasice si instrumentale \u0219i totodat\u0103\
+      \ va oferim posibilitatea de a le alege c\xE2ntece direct din playlist-ul nostru."
+    description_action_title: ''
+    description_link: ''
     email: contact@aripisprecer.ro
     facebook_page_id: aripisprecer.ro
     feature_latest_post: true
@@ -90,28 +148,61 @@
     thumbnail: aripisprecer_etOtJRb.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/aripisprecer_etOtJRb.jpg
     title: Aripi Spre Cer Instrumental
-    updated_at: '2022-04-16T12:42:27.052Z'
-    website: https://aripisprecer.ro
+    updated_at: '2022-04-16T13:28:43.622Z'
+    website: https://www.aripisprecer.ro/instrumental/
   model: web.Stations
   pk: 5
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: "Misiunea noastra este s\u0103 spunem oamenilor despre dragostea\
+      \ lui Dumnezeu ar\u0103tat\u0103 prin Domnul Isus Hristos \u0219i s\u0103-i\
+      \ invit\u0103m s\u0103 experimenteze o tr\u0103ire personal\u0103 cu Tat\u0103\
+      l Ceresc.\n\nSuntem prin\u0219i cu to\u021Bii \xEEn activit\u0103\u021Bile lumii\
+      \ \xEEn care tr\u0103im. Familie, copii, cas\u0103, profesie, prieteni, vecini,\
+      \ cump\u0103r\u0103turi, biseric\u0103... Le \xEEntelegem pe toate. De aceea,\
+      \ ne str\u0103duim s\u0103 g\u0103sim \xEEmpreun\u0103 cu ascult\u0103torii\
+      \ no\u0219tri, echilibrul \xEEn toate, s\u0103 stabilim priorit\u0103\u021B\
+      i \u0219i s\u0103 ne asigur\u0103m c\u0103 Dumnezeu va ocupa \xEEntotdeauna\
+      \ locul \xEEnt\xE2i.\n\nPentru c\u0103, nu-i a\u0219a, \u201Dce ar folosi unui\
+      \ om s\u0103 c\xE2\u0219tige toat\u0103 lumea, dac\u0103 \u0219i-ar pierde sufletul?\u201D\
+      ...\nA\u0219tept\u0103m cu ner\u0103bdare evenimentul glorios c\xE2nd Domnul\
+      \ Isus va reveni pe norii cerului pentru a-\u0218i lua la El pe cei care L-au\
+      \ iubit \u0219i au urmat calea trasat\u0103 de El.\nVino Doamne Isuse! Amin!"
+    description_action_title: ''
+    description_link: ''
     email: office@altfm.ro
     facebook_page_id: altfmofficial
     feature_latest_post: true
     order: 6
-    rss_feed: null
+    rss_feed: ''
     slug: alt-fm
     stream_url: http://asculta.radiocnm.ro:8002/live
     thumbnail: alt_fm_arad_P8bQ2Dk.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/alt_fm_arad_P8bQ2Dk.jpg
     title: Radio ALT FM Arad
-    updated_at: '2022-04-16T12:42:27.052Z'
+    updated_at: '2022-04-16T13:28:43.622Z'
     website: https://www.altfm.ro
   model: web.Stations
   pk: 6
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: "Misiunea Studioului \u201CRadio Armonia\u201D din Iasi, Romania,\
+      \ este ca prin intermediul undelor radio si, mai nou, al internetului sa vesteasca\
+      \ Evanghelia tuturor celor ce nu L-au cunoscut si nu au intrat intr-o relatie\
+      \ personala cu Acela care este Domnul si Mantuitorul intregii omeniri, si anume,\
+      \ Domnul Isus Cristos.\n\nAparut in anul 1992 ca un raspuns la rugaciunile multor\
+      \ crestini, dornici de a asculta si a se hrani cu Cuvintul Sfint prin intermediul\
+      \ undelor radio, Studioul \u201CRadio Armonia\u201D, a incercat, in cei 20 ani\
+      \ de activitate prin intermediul undelor scurte, sa promovoze valorile crestine,\
+      \ prezentate in Sfanta Scriptura, in comunitatile romanesti din estul si vestul\
+      \ Europei si in mod deosebit pe teritoriul Romaniei, incercind sa atinga toate\
+      \ categoriile sociale si de virsta, o importanta deosebita acordindu-se generatiei\
+      \ tinere, macinata de framintari si incertitudini.\n\nIn incercarea noastra\
+      \ de a implini aceasta misiune cu maxima eficacitate, incercam sa ne adresam\
+      \ si sa avem un dialog deschis cu toate bisericile si confesiunile, existente\
+      \ in tara si in comunitatile romanesti din strainatate."
+    description_action_title: ''
+    description_link: ''
     email: office@radioarmonia.ro
     facebook_page_id: RadioArmonia
     feature_latest_post: true
@@ -122,12 +213,21 @@
     thumbnail: armonia_xtYb62P.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/armonia_xtYb62P.jpg
     title: Radio Armonia
-    updated_at: '2022-04-16T12:42:27.052Z'
+    updated_at: '2022-04-16T13:28:43.622Z'
     website: https://www.radioarmonia.ro/
   model: web.Stations
   pk: 7
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: 'Incepand de Sambata, 4 Aprilie 2009, aceasta pagina este disponibila
+      pentru toti credinciosii. Puteti asculta Biblia in orice imprejurare, nu aveti
+      nevoie decat de o conexiune la Internet. Radioul emite 24 de ore din 24.
+
+
+      Radioul emite "Noul Testament si Psalmii". Ascultati Cuvantul lui Dumnezeu oricand
+      aveti nevoie.'
+    description_action_title: ''
+    description_link: ''
     email: ''
     facebook_page_id: ''
     feature_latest_post: true
@@ -138,12 +238,22 @@
     thumbnail: Biblia_online_v0UjPLL.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/Biblia_online_v0UjPLL.jpg
     title: Radio Biblia Online
-    updated_at: '2022-04-16T12:42:27.052Z'
+    updated_at: '2022-04-16T13:28:43.622Z'
     website: http://ascultabiblia.blogspot.com
   model: web.Stations
   pk: 8
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: "Radio Crestin Biruitor.eu Oradea va ofera muzica crestina inaltatoare,\
+      \ cantari crestine prin care ducem mai departe si propovaduim Cuvantul Lui Dumnezeu.\n\
+      \nSloganul radioului nostru este : Pot totul in Cristos care ma intareste.\n\
+      \nAm lansat Radioul in data de 15 Aprilie 2021 in Oradea si ne dezvoltam in\
+      \ fiecare zi.\n\nRadio Crestin Biruitor.eu este un  radio care se concentreaz\u0103\
+      \ pe transmiterea mesajului cre\u0219tin prin muzica crestina si cantari crestine.\n\
+      Pentru sugestii si alte comunicari va rugam sa ne scrieti pe adresa de email\
+      \ si formularul de contact."
+    description_action_title: ''
+    description_link: ''
     email: radio@biruitor.eu
     facebook_page_id: ''
     feature_latest_post: true
@@ -154,12 +264,25 @@
     thumbnail: biruitor_IxDTLNv.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/biruitor_IxDTLNv.jpg
     title: Radio Biruitor
-    updated_at: '2022-04-16T12:42:27.052Z'
+    updated_at: '2022-04-16T13:28:43.622Z'
     website: https://biruitor.eu/
   model: web.Stations
   pk: 9
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: "\xCEmpreun\u0103 cu ascult\u0103torii no\u0219tri, cu to\u021Bi\
+      \ cei care ne urm\u0103resc, vrem s\u0103 \xEEnv\u0103\u021B\u0103m s\u0103\
+      \ tr\u0103im pe frecven\u021Be \xEEnalte.\n\u2014 Ne dorim s\u0103 facem vizibil\u0103\
+      \ diferen\u021Ba dintre a fi cu Hristos \u0219i \"a-l cunoa\u0219te\" ca Dumnezeu,\
+      \ undeva departe de noi.\nCe s\u0103 a\u0219tep\u021Bi de la noi?\n\u2014 o\
+      \ abordare autentic\u0103 a cre\u0219tinismului\n\u2014 un \xEEndemn permanent\
+      \ de a-L l\u0103sa s\u0103 tr\u0103iasc\u0103 \xEEn noi\n\u2014 muzic\u0103\
+      \ contemporan\u0103, emisiuni LIVE, devo\u021Bionale, predici, transmisii live\
+      \ Cire\u0219arii, mesaje biblice(predici), Cuv\xE2nt\n\u2014 \xEEncurajare,\
+      \ z\xE2mbet, echilibru, bucurie\u2026\n\u2014 ajutor pentru a dep\u0103\u0219\
+      i situa\u021Biile \u201Eimposibile\u201D din via\u021Ba ta."
+    description_action_title: ''
+    description_link: ''
     email: head.office@ciresarii.ro
     facebook_page_id: ''
     feature_latest_post: true
@@ -170,28 +293,36 @@
     thumbnail: ciresarii_PzIArhf.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/ciresarii_PzIArhf.jpg
     title: Radio Ciresarii
-    updated_at: '2022-04-16T12:42:27.052Z'
+    updated_at: '2022-04-16T13:28:43.622Z'
     website: https://ciresarii.ro/
   model: web.Stations
   pk: 10
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: "Radio de Cuv\xE2nt emite online din februarie 2008. Cuv\xE2ntul\
+      \ este al Scripturii. Iar radioul e al dumneavoastr\u0103."
+    description_action_title: ''
+    description_link: ''
     email: radiodecuvant@gmail.com
     facebook_page_id: RadiodeCuvant-155560736576
     feature_latest_post: true
     order: 11
-    rss_feed: null
+    rss_feed: ''
     slug: radio-de-cuvant
     stream_url: https://streamer.radio.co/sb94ce6fe2/listen
     thumbnail: radio_de_cuvant_9gWDZGl.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_de_cuvant_9gWDZGl.jpg
     title: Radio de Cuvant
-    updated_at: '2022-04-16T12:42:27.052Z'
+    updated_at: '2022-04-16T13:28:43.622Z'
     website: https://radiodecuvant.ro/
   model: web.Stations
   pk: 11
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: Radio Ekklesia , un radio pentru Sufletul tau! www.RadioEkklesia.com
+      ... un nou program de ascultare, va asteptam!
+    description_action_title: ''
+    description_link: ''
     email: ''
     facebook_page_id: RadioEkklesiaRO
     feature_latest_post: true
@@ -202,12 +333,15 @@
     thumbnail: radio_ekklesia_OQFrWGc.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_ekklesia_OQFrWGc.jpg
     title: Radio Ekklesia
-    updated_at: '2022-04-16T12:42:27.052Z'
+    updated_at: '2022-04-16T13:28:43.622Z'
     website: https://radioekklesia.com/
   model: web.Stations
   pk: 12
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: Radio Elim Air - Pentru atunci cand tinzi dupa un moment de relaxare
+    description_action_title: ''
+    description_link: ''
     email: contact@radioelim.ro
     facebook_page_id: radioelim
     feature_latest_post: true
@@ -218,12 +352,15 @@
     thumbnail: radio_elim_Lt8PkVQ.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_elim_Lt8PkVQ.jpg
     title: Radio Elim Air
-    updated_at: '2022-04-16T12:42:27.052Z'
+    updated_at: '2022-04-16T13:28:43.622Z'
     website: https://www.radioelim.ro/
   model: web.Stations
   pk: 13
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: Radio Elim Kids - Te incantam cu o selectie pe gustul celor mici
+    description_action_title: ''
+    description_link: ''
     email: contact@radioelim.ro
     facebook_page_id: radioelim
     feature_latest_post: true
@@ -234,12 +371,15 @@
     thumbnail: radio_elim_ihxn3tA.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_elim_ihxn3tA.jpg
     title: Radio Elim Kids
-    updated_at: '2022-04-16T12:42:27.052Z'
+    updated_at: '2022-04-16T13:28:43.622Z'
     website: https://www.radioelim.ro/
   model: web.Stations
   pk: 15
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: Radio Elim Plus - Rezonezi pe versuri predominant in limba engleza
+    description_action_title: ''
+    description_link: ''
     email: contact@radioelim.ro
     facebook_page_id: radioelim
     feature_latest_post: true
@@ -250,14 +390,20 @@
     thumbnail: radio_elim_DNsugYG.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_elim_DNsugYG.jpg
     title: Radio Elim Plus
-    updated_at: '2022-04-16T12:42:27.052Z'
+    updated_at: '2022-04-16T13:28:43.622Z'
     website: https://www.radioelim.ro/
   model: web.Stations
   pk: 16
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: "Radio Filadelfia s-a n\u0103scut pe 1 decembrie 2008. Este unda\
+      \ celor ce au urechi s\u0103 asculte! Muzica \u015Fi mesajul care te duc la\
+      \ Cruce!\n\u201E\u021Ai-am pus \xEEnainte o u\u0219\u0103 deschis\u0103, pe\
+      \ care nimeni n-o poate \xEEnchide!\u201D (Apocalipsa 3:8)"
+    description_action_title: ''
+    description_link: ''
     email: redactie@radiofiladelfia.ro
-    facebook_page_id: ''
+    facebook_page_id: RadioFiladelfiaRomania
     feature_latest_post: true
     order: 17
     rss_feed: https://www.radiofiladelfia.ro/feed
@@ -266,44 +412,59 @@
     thumbnail: radio_filadelfia_DRcVtGn.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_filadelfia_DRcVtGn.jpg
     title: Radio Filadelfia
-    updated_at: '2022-04-16T12:42:27.052Z'
+    updated_at: '2022-04-16T13:28:43.622Z'
     website: https://www.radiofiladelfia.ro/
   model: web.Stations
   pk: 17
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: Radio Gosen este un radio crestin care emite online non-stop muzica
+      cresina.
+    description_action_title: ''
+    description_link: ''
     email: radiogosen@yahoo.com
     facebook_page_id: radiogosen
     feature_latest_post: true
     order: 18
-    rss_feed: null
+    rss_feed: ''
     slug: radio-gosen
     stream_url: https://sp.totalstreaming.net/8125/stream
     thumbnail: radio_gosen_fa0Z3gL.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_gosen_fa0Z3gL.jpg
     title: Radio Gosen
-    updated_at: '2022-04-16T12:42:27.052Z'
+    updated_at: '2022-04-16T13:28:43.622Z'
     website: https://www.radiogosen.com/
   model: web.Stations
   pk: 18
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: '"Radio Iubire Fara Margini" alaturi de voi 24 de ore din 24.
+
+      Va dorim auditie placuta!'
+    description_action_title: ''
+    description_link: ''
     email: ''
     facebook_page_id: RadioIubireFaraMarginiMovileni
     feature_latest_post: true
     order: 19
-    rss_feed: null
+    rss_feed: ''
     slug: radio-iubire-fara-margini
     stream_url: http://ssl.omegahost.ro:7043/stream
     thumbnail: radio_iubire_fara_margini_ap8euxn.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_iubire_fara_margini_ap8euxn.jpg
     title: Radio Iubire Fara Margini
-    updated_at: '2022-04-16T12:42:27.052Z'
+    updated_at: '2022-04-16T13:28:43.622Z'
     website: https://radioiubire.ucoz.net/
   model: web.Stations
   pk: 19
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: "In data de  4 decembrie 2013, la 2 ani de la inaugurarea Bisericii\
+      \ Izvorul Vietii din Resita, cu ajutorul lui Dumnezeu RADIO LEVI este online.\
+      \ Este cadoul pe care ni l-am facut ca si comunitate in acel moment aniversar\u2026\
+      \ de ce nu, cadoul nostru pt voi."
+    description_action_title: ''
+    description_link: ''
     email: radiolevionline@gmail.com
     facebook_page_id: radiolevi
     feature_latest_post: true
@@ -314,76 +475,118 @@
     thumbnail: radio_levi_8tIBTm9.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_levi_8tIBTm9.jpg
     title: Radio Levi
-    updated_at: '2022-04-16T12:42:27.052Z'
+    updated_at: '2022-04-16T13:28:43.622Z'
     website: https://radiolevi.ro/
   model: web.Stations
   pk: 20
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: "La 11 iunie 1994, Misiunea Micul Samaritean a deschis primul post\
+      \ de radio din Chi\u0219in\u0103u, Republica Moldova, difuzat 24 de ore pe zi,\
+      \ 7 zile pe s\u0103pt\u0103m\xE2n\u0103. Mai multe sta\u021Bii au fost ad\u0103\
+      ugate \xEEn Moldova \u0219i conectate la satelit, cre\xE2nd o re\u021Bea de\
+      \ 11 statii care acoper\u0103 \xEEntreaga \u021Bar\u0103 din Moldova \u0219\
+      i chiar p\u0103r\u021Bi din Ucraina \u0219i din Rom\xE2nia de Est. Radio Micul\
+      \ Samaritean difuzeaz\u0103 \u0219i pe internet pentru ascult\u0103tori din\
+      \ \xEEntreaga lume.\n\nPrin programele radio aducem speran\u021Ba cu Vestea\
+      \ Bun\u0103 al lui Isus Hristos \xEEn case, automobile \u0219i institu\u021B\
+      ii. \xCEn anii trecu\u021Bi am instalat sistem de recep\u021Bie \u0219i amplificare\
+      \ \xEEn \xEEnchisori, spitale, orfelinate \u0219i chiar \u0219coli."
+    description_action_title: ''
+    description_link: ''
     email: miculsamariteanmd@yahoo.com
     facebook_page_id: RadioMiculSamaritean
     feature_latest_post: true
     order: 21
-    rss_feed: null
+    rss_feed: ''
     slug: radio-micul-samaritean
     stream_url: https://s5.radio.co/sfff7b7e97/listen
     thumbnail: radio_micul_samaritean_eKxDx83.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_micul_samaritean_eKxDx83.jpg
     title: Radio Micul Samaritean
-    updated_at: '2022-04-16T12:42:27.052Z'
+    updated_at: '2022-04-16T13:28:43.622Z'
     website: https://www.miculsamaritean.com/
   model: web.Stations
   pk: 21
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: "Moody Radio is you\u2014and more than a million other listeners\
+      \ each day. Moody Radio helps you take the next step in your journey with Jesus\
+      \ Christ by creating and delivering practical and life-changing content. We\
+      \ proclaim the Word to all cultures and generations by addressing today's issues\
+      \ from a biblical worldview.\n\nMoody Radio gives you programming in multiple\
+      \ ways\u2014broadcasts, digital apps, streaming Internet stations. Wherever\
+      \ life takes you, Moody Radio is your trusted voice and friend as we journey\
+      \ together."
+    description_action_title: ''
+    description_link: ''
     email: wmbi@moody.edu
     facebook_page_id: MoodyRadioChicago
     feature_latest_post: true
     order: 22
-    rss_feed: null
+    rss_feed: ''
     slug: radio-moody-chicago
     stream_url: https://primary.moodyradiostream.org/wrmb-high.aac
     thumbnail: radio_moody_TAJuvOU.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_moody_TAJuvOU.jpg
     title: Radio Moody Chicago
-    updated_at: '2022-04-16T12:42:27.052Z'
+    updated_at: '2022-04-16T13:28:43.622Z'
     website: https://www.moodyradio.org/stations/chicago/
   model: web.Stations
   pk: 22
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: 'Old Christian Radio is a station that plays great conservative Christian
+      music with NO "Christian Rock".
+
+      The main mission for this station''s existence is to be a blessing to the Christian
+      community by playing Godly Christian music that doesn''t sound like the devil''s
+      music.'
+    description_action_title: ''
+    description_link: ''
     email: mcfaddenm99@yahoo.com
     facebook_page_id: oldchristianradio
     feature_latest_post: true
     order: 23
-    rss_feed: null
+    rss_feed: ''
     slug: radio-old-christian-radio
     stream_url: https://stream.radio.co/sf2c714555/listen
     thumbnail: old_christian_radio-1.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/old_christian_radio-1.jpg
     title: Radio Old Christian Radio
-    updated_at: '2022-04-16T12:42:27.052Z'
+    updated_at: '2022-04-16T13:28:43.622Z'
     website: https://www.oldchristianradio.com/
   model: web.Stations
   pk: 23
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: ''
+    description_action_title: ''
+    description_link: ''
     email: ''
-    facebook_page_id: null
+    facebook_page_id: ''
     feature_latest_post: true
     order: 24
-    rss_feed: null
+    rss_feed: ''
     slug: radio-o-noua-sansa
     stream_url: https://securestreams5.autopo.st:1951/;?type=http&nocache=15
     thumbnail: radio_o_noua_sansa_2V1FM62.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_o_noua_sansa_2V1FM62.jpg
     title: Radio O Noua Sansa
-    updated_at: '2022-04-16T12:42:27.052Z'
+    updated_at: '2022-04-16T13:28:43.622Z'
     website: https://radioonouasansa.ro/radio/
   model: web.Stations
   pk: 24
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: "La \xEEnceput era Cuv\xE2ntul, \u015Fi Cuv\xE2ntul era cu Dumnezeu,\
+      \ \u015Fi Cuv\xE2ntul era Dumnezeu. Ioan 1:1\n\u015Ei s\u0103-L cunosc pe El\
+      \ \u015Fi puterea \xEEnvierii Lui \u015Fi p\u0103rt\u0103\u015Fia suferin\u0163\
+      elor Lui, \u015Fi s\u0103 m\u0103 fac asemenea cu moartea Lui; ca s\u0103 ajung\
+      \ cu orice chip, dac\u0103 voi putea, la \xEEnvierea din mor\u0163i. Filipeni\
+      \ 3:10-11"
+    description_action_title: ''
+    description_link: ''
     email: ''
     facebook_page_id: bisericaphiladelphia.mansue
     feature_latest_post: true
@@ -394,12 +597,23 @@
     thumbnail: radio_philadelphia_mansue_ga3zRjs.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/radio_philadelphia_mansue_ga3zRjs.jpg
     title: "Radio Philadelphia Mansu\xE8"
-    updated_at: '2022-04-16T12:42:27.052Z'
+    updated_at: '2022-04-16T13:28:43.622Z'
     website: http://www.philadelphiamansue.it/radio-philadelphia/
   model: web.Stations
   pk: 25
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: "Radio Vocea Evangheliei Bucure\u0219ti este un post de radio cre\u0219\
+      tin care emite pe frecven\u021Ba de 94.2 FM din 17 aprilie 1994, la \xEEnceput\
+      \ doar dou\u0103 ore \xEEn fiecare zi, iar din 16 iunie 1997 \u015Fi p\xE2n\u0103\
+      \ \xEEn prezent, RVE Bucure\u015Fti emite \u015Fase ore pe zi, de la 13:00 la\
+      \ 19:00 \u0219i non-stop pe internet.\n\nRVE Bucure\u0219ti face parte dintr-o\
+      \ re\u021Bea care cuprinde zece sta\u021Bii locale care emit in FM: Bucure\u0219\
+      ti (94.2 Mhz), Bra\u0219ov (94.6Mhz.), Cluj (88.3Mhz), Constan\u021Ba (104.4),\
+      \ Hunedoara (98.00 Mhz), Oradea (92.1Mhz), Sibiu (89.4 Mhz), Suceava (102.7Mhz),\
+      \ Timi\u0219oara (92,2Mhz), Moldova Nou\u0103 (106.6Mhz)."
+    description_action_title: ''
+    description_link: ''
     email: contact@rvebucuresti.ro
     facebook_page_id: rvebucuresti.ro
     feature_latest_post: true
@@ -410,12 +624,25 @@
     thumbnail: rve_bucuresti_1kz4o8R.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/rve_bucuresti_1kz4o8R.jpg
     title: Radio Vocea Evangheliei Bucuresti
-    updated_at: '2022-04-16T12:42:27.052Z'
+    updated_at: '2022-04-16T13:28:43.622Z'
     website: https://rvebucuresti.ro/
   model: web.Stations
   pk: 26
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: "Radio Vocea Evangheliei Cluj este un post de radio cre\u0219tin\
+      \ care dore\u0219te s\u0103 aduc\u0103 vestea bun\u0103 a \xEEmp\u0103c\u0103\
+      rii omului cu Dumnezeu prin credin\u0163a \xEEn jertfa salvatoare a lui Isus\
+      \ Hristos, Fiul lui Dumnezeu. Aceast\u0103 credin\u0163\u0103 are ca rezultat\
+      \ na\u015Fterea din nou, sfin\u0163irea, tr\u0103irea prin c\u0103l\u0103uzirea\
+      \ Duhului Sf\xE2nt \u015Fi n\u0103dejdea vie\u0163ii ve\u015Fnice. Radio Vocea\
+      \ Evangheliei \u015Fi-a propus s\u0103 contribuie la transformarea spiritual\u0103\
+      , moral\u0103 \u015Fi cultural\u0103 a societ\u0103\u0163ii prin promovarea\
+      \ valorilor eterne ale Bibliei, care este Cuv\xE2ntul lui Dumnezeu.\n\nNe adres\u0103\
+      m celor care Il caut\u0103 pe Dumnezeu, indiferent dac\u0103 L-au gasit deja\
+      \ sau nu \u015Fi indiferent de confesiunea din care fac parte."
+    description_action_title: ''
+    description_link: ''
     email: rvecluj@gmail.com
     facebook_page_id: radiovoceaevangheliei
     feature_latest_post: true
@@ -426,23 +653,29 @@
     thumbnail: rve_cluj_Fi2UCft.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/rve_cluj_Fi2UCft.jpg
     title: Radio Vocea Evangheliei Cluj
-    updated_at: '2022-04-16T12:42:27.052Z'
+    updated_at: '2022-04-16T13:28:43.622Z'
     website: https://rvecj.ro/
   model: web.Stations
   pk: 27
 - fields:
     created_at: '2022-04-02T07:44:02Z'
+    description: "V\u0103 invit\u0103m s\u0103 ne urm\u0103ri\u021Bi in fiecare Miercuri\
+      \ de la orele 18.00 si sambata de la 18:00 (in reluare) pe 104,4 fm/rvect.ro\
+      \ pentru a cunoa\u0219te lucr\u0103ri \u0219i lucr\u0103tori deosebi\u021Bi\
+      \ din c\xE2mpul Evangheliei!"
+    description_action_title: ''
+    description_link: ''
     email: contact@rvect.ro
     facebook_page_id: RadioVoceaEvanghelieiConstanta
     feature_latest_post: true
     order: 28
-    rss_feed: null
+    rss_feed: ''
     slug: rve-constanta
     stream_url: https://audio-rvectro.bisericilive.com/rvectro.mp3
     thumbnail: rve_constanta_bYEnGof.jpg
     thumbnail_url: https://radio-crestin.s3.amazonaws.com/media/public/rve_constanta_bYEnGof.jpg
     title: Radio Vocea Evangheliei Constanta
-    updated_at: '2022-04-16T12:42:27.052Z'
+    updated_at: '2022-04-16T13:28:43.622Z'
     website: http://rvect.ro
   model: web.Stations
   pk: 28
