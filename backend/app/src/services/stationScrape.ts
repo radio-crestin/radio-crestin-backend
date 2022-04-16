@@ -490,6 +490,7 @@ const getStationNowPlaying = async ({station}: { station: Station }): Promise<St
 
         if (stationMetadataFetcher.station_metadata_fetch_category.slug === "aripisprecer_api") {
             stats =  await extractAripiSpreCerNowPlaying({aripisprecer_url: stationMetadataFetcher.url});
+            console.log("aripisprecer_api: ", stats);
         }
 
         Object.keys(stats).forEach((key) => {
@@ -530,7 +531,7 @@ const updateStationMetadata = async ({
                     update_columns: name
                 }
             }
-            ${!stationNowPlaying?.current_song?.thumbnail_url ? "": "thumbnail_url: \"" + stationNowPlaying.current_song.thumbnail_url + "\""}
+            thumbnail_url: ${!stationNowPlaying?.current_song?.thumbnail_url ? null: "\"" + stationNowPlaying.current_song.thumbnail_url + "\""}
         } 
         on_conflict: {
           constraint: songs_name_artist_id_key
