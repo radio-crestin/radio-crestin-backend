@@ -23,6 +23,13 @@ array_relationships:
         table:
           schema: public
           name: stations_now_playing
+  - name: posts
+    using:
+      foreign_key_constraint_on:
+        column: station_id
+        table:
+          schema: public
+          name: posts
   - name: reviews
     using:
       foreign_key_constraint_on:
@@ -67,10 +74,12 @@ select_permissions:
         - description_link
         - email
         - facebook_page_id
+        - feature_latest_post
         - id
         - latest_station_now_playing_id
         - latest_station_uptime_id
         - order
+        - rss_feed
         - slug
         - stream_url
         - thumbnail

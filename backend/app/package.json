@@ -21,6 +21,7 @@
     "eslint-plugin-jest": "^26.1.0",
     "eslint-watch": "^8.0.0",
     "express": "^4.17.3",
+    "feed-reader": "^5.0.0",
     "node-abort-controller": "^3.0.1",
     "node-cron": "^3.0.0",
     "node-musickit-api": "^2.1.1",
@@ -33,11 +34,11 @@
     "@typescript-eslint/eslint-plugin": "^5.13.0",
     "@typescript-eslint/parser": "^5.17.0",
     "nodemon": "^2.0.15",
-    "tsc-alias": "^1.4.0",
-    "typescript": "^4.5.5",
-    "ttypescript": "^1.5.12",
-    "tsconfig-paths": "^3.11.0",
     "ts-node": "^10.4.0",
+    "tsc-alias": "^1.4.0",
+    "tsconfig-paths": "^3.11.0",
+    "ttypescript": "^1.5.12",
+    "typescript": "^4.5.5",
     "typescript-transform-paths": "^3.3.1"
   }
 }

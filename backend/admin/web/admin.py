@@ -2,7 +2,22 @@ from django.contrib import admin
 from import_export.admin import ImportExportModelAdmin
 
 from .models import Songs, StationGroups, StationMetadataFetchCategories, StationToStationGroup, Stations, \
-    StationsMetadataFetch, StationsNowPlaying, StationsUptime, Artists
+    StationsMetadataFetch, StationsNowPlaying, StationsUptime, Artists, Posts
+
+
+@admin.register(Posts)
+class PostsAdmin(ImportExportModelAdmin):
+    search_fields = ['title', 'link', 'description',]
+    list_filter = ('station', 'published', )
+    list_display = ('title', 'station')
+    readonly_fields = ('created_at', 'updated_at',)
+
+
+class PostsInline(admin.TabularInline):
+    model = Posts
+    extra = 0
+    show_change_link = True
+    readonly_fields = ['created_at', 'updated_at', ]
 
 
 class StationGroupsInline(admin.TabularInline):
@@ -28,6 +43,7 @@ class StationsAdmin(ImportExportModelAdmin):
     inlines = [
         StationGroupsInline,
         StationsMetadataFetchInline,
+        PostsInline,
     ]
 
 

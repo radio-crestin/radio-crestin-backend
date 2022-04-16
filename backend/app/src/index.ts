@@ -3,6 +3,7 @@ import {refreshStationsMetadata} from "./services/stationScrape";
 import {Logger} from "tslog";
 import {PROJECT_ENV} from "./env";
 import * as cron from "node-cron";
+import {refreshStationsRssFeed} from "./services/stationRssFeedScrape";
 
 const app = express();
 
@@ -23,6 +24,16 @@ app.get("/refreshStationsMetadata", (request: Request, response: Response, next:
     });
 });
 
+app.get("/refreshStationsRssFeed", (request: Request, response: Response, next: NextFunction) => {
+    refreshStationsRssFeed().then(result => {
+        console.log("da");
+        response.status(200).json({result});
+    }).catch(error => {
+        logger.error(error.toString());
+        response.status(500).json({error});
+    });
+});
+
 if(PROJECT_ENV.APP_REFRESH_STATIONS_METADATA_CRON !== "") {
     cron.schedule(PROJECT_ENV.APP_REFRESH_STATIONS_METADATA_CRON, () => {
         logger.info("Starting to refresh stations metadata..");
@@ -36,6 +47,19 @@ if(PROJECT_ENV.APP_REFRESH_STATIONS_METADATA_CRON !== "") {
     });
 }
 
+if(PROJECT_ENV.APP_REFRESH_STATIONS_RSS_FEED_CRON !== "") {
+    cron.schedule(PROJECT_ENV.APP_REFRESH_STATIONS_RSS_FEED_CRON, () => {
+        logger.info("Starting to refresh stations rss feed..");
+
+        refreshStationsRssFeed().then(result => {
+            logger.info("Stations rss feed have been refreshed.", result);
+        }).catch(error => {
+            logger.info("Stations rss feed refresh has encountered an error:");
+            logger.error(error.toString());
+        });
+    });
+}
+
 app.listen(port, () => {
-    console.log(`Server is running on port ${port}.`);
+    logger.info(`Server is running on port ${port}.`);
 });

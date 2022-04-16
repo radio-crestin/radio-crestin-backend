@@ -31,6 +31,14 @@ query GetStations {
     stream_url
     thumbnail_url
     radio_crestin_listeners
+    feature_latest_post
+    posts(limit: 1, order_by: {published: desc}) {
+      id
+      title
+      description
+      link
+      published
+    }
     uptime {
       is_up
       latency_ms
@@ -58,6 +66,7 @@ query GetStations {
     }
   }
 }
+
     `,
       variables: {},
     },

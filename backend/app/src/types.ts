@@ -31,5 +31,15 @@ export interface Station {
     id: number
     title: string
     stream_url: string
+    rss_feed?: string
     station_metadata_fetches: StationMetadataFetcher[]
+}
+
+export interface StationRssFeed {
+    posts?: {
+        title: string
+        link: string
+        description: string
+        published: string
+    }[]
 }

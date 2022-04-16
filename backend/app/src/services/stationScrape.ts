@@ -1,8 +1,9 @@
 import {Promise as BluebirdPromise} from "bluebird";
-import {Station, StationNowPlaying, StationUptime} from "@/types";
+import {Station, StationNowPlaying, StationRssFeed, StationUptime} from "@/types";
 import axios, {AxiosRequestConfig} from "axios";
 import {PROJECT_ENV} from "@/env";
 import {Logger} from "tslog";
+import {getStations} from "@/services/getStations";
 
 const logger: Logger = new Logger({name: "stationScrape"});
 
@@ -409,43 +410,6 @@ const getStationUptime = ({station}: { station: Station }): Promise<StationUptim
 
 };
 
-const getStations = (): Promise<Station[]> => {
-    const options: AxiosRequestConfig = {
-        method: "POST",
-        url: PROJECT_ENV.APP_GRAPHQL_ENDPOINT_URI,
-        headers: {
-            "content-type": "application/json",
-            "x-hasura-admin-secret": PROJECT_ENV.APP_GRAPHQL_ADMIN_SECRET,
-        },
-        data: {
-            operationName: "GetStations",
-            query: `query GetStations {
-  stations {
-    id
-    title
-    stream_url
-    station_metadata_fetches {
-      station_metadata_fetch_category {
-        slug
-      }
-      url
-    }
-  }
-}`,
-            variables: {},
-        },
-    };
-
-    return axios.request(options).then(function (response) {
-        if (!response.data?.data) {
-            throw new Error(`Invalid response: ${JSON.stringify(response.data)}`);
-        }
-
-        return response.data.data.stations as Station[];
-
-    });
-};
-
 const getStationNowPlaying = async ({station}: { station: Station }): Promise<StationNowPlaying> => {
     // TODO: in the future we might need to combine the output from multiple sources..
 
@@ -571,7 +535,7 @@ const updateStationMetadata = async ({
 export const refreshStationsMetadata = async () => {
     const stations: Station[] = await getStations();
 
-    return BluebirdPromise.map(stations, async (station: Station) => {
+    return BluebirdPromise.map(stations.sort( () => .5 - Math.random() ), async (station: Station) => {
         const stationNowPlaying: StationNowPlaying = await getStationNowPlaying({station});
 
         const stationUptime = await getStationUptime({station});

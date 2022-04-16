@@ -116,6 +116,8 @@ class Stations(models.Model):
     description = models.TextField(blank=True, null=True,)
     description_action_title = models.TextField(blank=True, null=True,)
     description_link = models.URLField(blank=True, null=True,)
+    rss_feed = models.URLField(blank=True, null=True,)
+    feature_latest_post = models.BooleanField(default=True, blank=True, null=True,)
     facebook_page_id = models.TextField(blank=True, null=True,)
 
     latest_station_uptime = models.ForeignKey('StationsUptime', models.DO_NOTHING, blank=True, null=True)
@@ -160,6 +162,26 @@ class StationsMetadataFetch(models.Model):
 
     def __str__(self):
         return f"{self.station}-{self.url}"
+
+
+class Posts(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    title = models.TextField()
+    link = models.TextField()
+    description = models.TextField()
+    published = models.DateTimeField()
+    station = models.ForeignKey('Stations', models.CASCADE)
+
+    class Meta:
+        managed = False
+        verbose_name = "Post"
+        verbose_name_plural = "Posts"
+        db_table = 'posts'
+        ordering = ('-published',)
+
+    def __str__(self):
+        return f"{self.station}-{self.title}"
 
 
 class StationsNowPlaying(models.Model):
