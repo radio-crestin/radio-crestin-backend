@@ -13,7 +13,8 @@ FROM node:16-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ENV FRONTEND_CDN_PREFIX test
+ARG FRONTEND_CDN_PREFIX
+ENV FRONTEND_CDN_PREFIX=$FRONTEND_CDN_PREFIX
 RUN yarn build
 
 # Production image, copy all the files and run next
