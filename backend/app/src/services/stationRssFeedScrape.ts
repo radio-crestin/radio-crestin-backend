@@ -9,7 +9,7 @@ import {Logger} from "tslog";
 const logger: Logger = new Logger({name: "stationRssFeedScrape"});
 
 const getStationRssFeed = ({station}: { station: Station }): Promise<StationRssFeed> => {
-    if(typeof station.rss_feed === "string") {
+    if(typeof station.rss_feed === "string" && !!station.rss_feed) {
         return rssReader(station.rss_feed).then(feed => {
             return {
                 posts: feed.entries.map((e: any) => {
