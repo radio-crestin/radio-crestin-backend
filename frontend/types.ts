@@ -22,7 +22,7 @@ export interface StationUptime {
   statusMessage?: string;
   rawData?: any;
 }
-
+// TODO: update the below types with the added fields
 export interface Station {
   id: string;
   order: number;
