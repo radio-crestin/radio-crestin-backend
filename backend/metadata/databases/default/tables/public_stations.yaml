@@ -9,6 +9,13 @@ object_relationships:
     using:
       foreign_key_constraint_on: latest_station_uptime_id
 array_relationships:
+  - name: listening_events
+    using:
+      foreign_key_constraint_on:
+        column: station_id
+        table:
+          schema: public
+          name: listening_events
   - name: now_playing_history
     using:
       foreign_key_constraint_on:
@@ -44,6 +51,12 @@ array_relationships:
         table:
           schema: public
           name: stations_uptime
+computed_fields:
+  - name: radio_crestin_listeners
+    definition:
+      function:
+        schema: public
+        name: radio_crestion_listeners
 select_permissions:
   - role: public
     permission:
@@ -65,4 +78,6 @@ select_permissions:
         - title
         - updated_at
         - website
+      computed_fields:
+        - radio_crestin_listeners
       filter: {}

@@ -50,3 +50,20 @@ export interface StationsMetadata {
   station_groups: StationGroup[];
   stations: Station[];
 }
+
+export interface Review {
+  user_name: String,
+  ip_address: String,
+  session_id: String,
+  station_id: bigint,
+  stars: bigint,
+  message: String,
+}
+
+export interface ListeningEvent {
+  ip_address: String,
+  session_id: String,
+  station_id: bigint,
+  info: any,
+}
+

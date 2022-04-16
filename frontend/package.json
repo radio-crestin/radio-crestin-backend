@@ -4,14 +4,16 @@
   "private": true,
   "scripts": {
     "build": "cross-env NODE_OPTIONS='--inspect' && next build",
-    "start:dev": "node server.js",
-    "start": "cross-env NODE_ENV=production && node server.js"
+    "start:dev": "ts-node server.ts",
+    "start": "cross-env NODE_ENV=production && ts-node server.ts"
   },
   "dependencies": {
     "@typegoose/typegoose": "^9.7.1",
     "@types/bluebird": "^3.5.36",
+    "@types/cookie-session": "^2.0.44",
     "axios": "^0.26.1",
     "bluebird": "^3.7.2",
+    "cookie-session": "^2.0.0",
     "cross-env": "^7.0.3",
     "glob": "^7.2.0",
     "next": "12.1.4",
@@ -27,7 +29,8 @@
     "react-rating": "^2.0.5",
     "sass": "^1.50.0",
     "swr": "^1.2.2",
-    "tslog": "^3.3.3"
+    "tslog": "^3.3.3",
+    "uuid": "^8.3.2"
   },
   "devDependencies": {
     "@styled-jsx/plugin-sass": "^4.0.2",

@@ -45,4 +45,4 @@ ENV PORT 8080
 # Uncomment the following line in case you want to disable telemetry.
 # ENV NEXT_TELEMETRY_DISABLED 1
 
-CMD ["node", "server.js"]
+CMD ["node", "server.ts"]

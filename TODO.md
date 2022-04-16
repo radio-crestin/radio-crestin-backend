@@ -19,7 +19,7 @@ Frontend:
 - optimize the website for maximum performance on web.dev
 - implement HLS player on website
 - populate station description from API
-- allow the user to leave a review
+- allow the user to leave a review (/api/v1/review)
 - create a pop-up so that the user can share Radio Crestin with their friends
 - enable server side rendering and push the website to a very fast CDN
 - link each station to the correct Facebook page by using the link from API
@@ -27,11 +27,11 @@ Frontend:
   - when a stream is failing, fall-back to the next stream automatically
 - when a station is playing, send this signal to backend (send station_id every 15 seconds)
 - add facebook page as SEO meta field
+- SEO meta field - current playing
+- send the listened station every 1 minute (/api/v1/listen)
+- sum up to station listeners the radio_crestin_listeners value when the user is listening using the HLS or proxy
 
 Backend:
-- extract station rating from Facebook - we will do this
-- create the API to upload a review
-- create an API for measuring the number of listeners on radio-crestin.com (station + ping every 15 seconds)
 - create an integration to fetch the latest articles for each station (from RSS feed)
 - add default description for all stations
 - extract songs cover arts for Aripi Spre Cer
@@ -50,3 +50,4 @@ Backend:
 - whitelist all of our servers IPs on Aripi Spre Cer
 - implement a system to suggest what to listen next based on the amount of time the station was listened by users
 - zero downtime docker deployment using docker swarm
+- "aggregate" listeners events & clean up them

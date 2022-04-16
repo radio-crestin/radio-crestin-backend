@@ -71,7 +71,7 @@ export default function Home(initialProps: {
 }
 
 export async function getServerSideProps() {
-  const stationsMetadata = await getStationsMetadata({ serverSide: true });
+  const stationsMetadata = await getStationsMetadata();
   return {
     props: {
       stationsMetadata,

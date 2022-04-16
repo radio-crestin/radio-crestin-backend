@@ -1,4 +1,5 @@
 - "!include public_artists.yaml"
+- "!include public_listening_events.yaml"
 - "!include public_reviews.yaml"
 - "!include public_songs.yaml"
 - "!include public_station_groups.yaml"

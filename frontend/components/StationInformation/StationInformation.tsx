@@ -12,7 +12,7 @@ import Link from "@/public/link.svg";
 export default function StationInformation(props: any) {
   const { station } = props;
   const StationRating = 4.5;
-  const NumberOfListeners = station.now_playing.listeners;
+  const NumberOfListeners = station.now_playing?.listeners || null;
   const ReadMoreLink = "https://www.facebook.com/";
 
   const onRatingChange = (rating: number) => {
