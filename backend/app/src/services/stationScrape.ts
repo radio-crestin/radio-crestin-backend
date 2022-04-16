@@ -458,8 +458,10 @@ const getStationNowPlaying = async ({station}: { station: Station }): Promise<St
         error: null,
     };
 
-    for (let i = 0; i < station.station_metadata_fetches.length; i++) {
-        const stationMetadataFetcher = station.station_metadata_fetches[i];
+    const station_metadata_fetches = station.station_metadata_fetches.sort((a, b) => a.order > b.order ? 1 : -1);
+
+    for (let i = 0; i < station_metadata_fetches.length; i++) {
+        const stationMetadataFetcher = station_metadata_fetches[i];
         let stats: any = {};
 
         if (stationMetadataFetcher.station_metadata_fetch_category.slug === "shoutcast") {

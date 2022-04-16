@@ -22,6 +22,7 @@ export const getStations = (): Promise<Station[]> => {
       station_metadata_fetch_category {
         slug
       }
+      order
       url
     }
   }

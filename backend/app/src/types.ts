@@ -3,6 +3,7 @@ export interface StationMetadataFetcherCategory {
 }
 
 export interface StationMetadataFetcher {
+    order: number
     url: string
     station_metadata_fetch_category: StationMetadataFetcherCategory
 }

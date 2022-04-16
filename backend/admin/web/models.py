@@ -151,6 +151,7 @@ class StationsMetadataFetch(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     station = models.ForeignKey(Stations, models.DO_NOTHING, blank=True, null=True)
     station_metadata_fetch_category = models.ForeignKey(StationMetadataFetchCategories, models.DO_NOTHING)
+    order = models.IntegerField()
     url = models.TextField()
 
     class Meta:
