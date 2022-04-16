@@ -3,7 +3,9 @@ Frontend:
 - implement random station functionality
 - when selecting a station, the player should start automatically
 - implement add to favorite functionality
-- 
+- implement stations groups
+- sort all stations to left
+- make the stations thumbnail a bit smaller
 - add current played song as head meta (maybe Google will pick them and display in search results)
 - create a page for each station (and simulate a page redirect when clicking on a station)
 - create a sitemap with all the stations
