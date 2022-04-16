@@ -1,5 +1,3 @@
-import {PROJECT_ENV} from "./utils/env";
-
 const {parse} = require('url')
 const express = require('express')
 const next = require('next')
@@ -18,18 +16,18 @@ app.prepare().then(() => {
 
   server.use(cookieSession({
     name: 'session.sid',
-    keys: [PROJECT_ENV.FRONTEND_COOKIE_SECRET],
+    keys: [process.env.FRONTEND_COOKIE_SECRET],
 
     // Cookie Options
     maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
   }))
 
-  server.all('*', (req: Request, res: Response) => {
+  server.all('*', (req, res) => {
     const parsedUrl = parse(req.url, true)
     return handle(req, res, parsedUrl)
   })
 
-  server.listen(port, (err: Error) => {
+  server.listen(port, (err) => {
     if (err) throw err
     logger.info(`> Ready on http://localhost:${port}`)
   })

@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "build": "cross-env NODE_OPTIONS='--inspect' && next build",
-    "start:dev": "ts-node server.ts",
-    "start": "cross-env NODE_ENV=production && ts-node server.ts"
+    "start:dev": "node server.js",
+    "start": "cross-env NODE_ENV=production && node server.js"
   },
   "dependencies": {
     "@typegoose/typegoose": "^9.7.1",
