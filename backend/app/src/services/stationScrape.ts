@@ -450,19 +450,24 @@ const getStationUptime = ({station}: { station: Station }): Promise<StationUptim
 };
 
 const mergeStats = (a: any, b: any) => {
-    a = JSON.parse(JSON.stringify(a));
-    b = JSON.parse(JSON.stringify(b));
+    try {
+        a = JSON.parse(JSON.stringify(a));
+        b = JSON.parse(JSON.stringify(b));
 
-    Object.keys(b).forEach((key) => {
-        if(typeof b[key] === "object") {
-            a[key] = mergeStats(a[key] || {}, b[key]);
-            return;
-        }
+        Object.keys(b).forEach((key) => {
+            if(b[key]) {
+                if(typeof b[key] === "object") {
+                    a[key] = mergeStats(a[key] || {}, b[key]);
+                    return;
+                }
 
-        if(b[key] !== null) {
-            a[key] = b[key];
-        }
-    });
+                a[key] = b[key];
+            }
+        });
+    } catch(e) {
+        logger.info(a, b, e);
+        throw e;
+    }
     return a;
 };
 
