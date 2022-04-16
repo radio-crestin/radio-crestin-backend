@@ -569,6 +569,10 @@ const updateStationMetadata = async ({
 }
 `;
 
+    if(station.stream_url.includes("aripisprecer")) {
+        console.log(query);
+    }
+
     const options: AxiosRequestConfig = {
         method: "POST",
         url: PROJECT_ENV.APP_GRAPHQL_ENDPOINT_URI,
