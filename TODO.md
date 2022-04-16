@@ -32,7 +32,6 @@ Frontend:
 - sum up to station listeners the radio_crestin_listeners value when the user is listening using the HLS or proxy
 
 Backend:
-- create an integration to fetch the latest articles for each station (from RSS feed)
 - add default description for all stations
 - extract songs cover arts for Aripi Spre Cer
 - add audio normalization (http://ffmpeg.org/ffmpeg-all.html#loudnorm) or maybe something on the client side
