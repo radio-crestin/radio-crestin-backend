@@ -24,10 +24,9 @@ export default function Home(initialProps: {
   });
 
   const [selectedStationId, selectStationId] = useLocalStorageState(
-    -1,
+    3,
     "SELECTED_STATION_ID",
   );
-  const [started, setStarted] = useState(false);
   const selectedStation = stations.find(s => s.id === selectedStationId);
 
   const onStationSelect = (station: Station) => {
@@ -36,7 +35,6 @@ export default function Home(initialProps: {
       station,
       selectedStationId !== station.id,
     );
-    setStarted(selectedStationId !== station.id ? true : !started);
     selectStationId(station.id);
   };
 

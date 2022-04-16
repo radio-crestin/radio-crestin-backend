@@ -1,9 +1,16 @@
 @use 'styles/mixinHelper';
 
+@mixin truncateText {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .container {
   display: flex;
   flex-direction: column;
-  max-width: 60%;
+  justify-content: center;
+  max-width: 45%;
 
   @include mixinHelper.onTablet {
     max-width: unset;
@@ -13,9 +20,14 @@
   .station {
 
     &_Name {
+      @include truncateText;
       font-style: normal;
       font-weight: 700;
       font-size: 50px;
+
+      @include mixinHelper.onMobile{
+        font-size: 30px;
+      }
     }
 
     &_RatingContainer {

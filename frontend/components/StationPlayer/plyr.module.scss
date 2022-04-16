@@ -20,14 +20,14 @@
         border-radius: 38px !important;
         background: black !important;
         color: #FFB05A !important;
-        width: 68px;
-        height: 68px;
+        width: 55px;
+        height: 55px;
         transition-duration: 0s;
         margin-right: 0;
       }
 
       &:first-child[aria-label="Pause"] {
-        padding: 22px !important;
+        padding: 17px !important;
 
         svg {
           width: 19px !important;
@@ -40,18 +40,21 @@
     }
 
     svg {
-      width: 25px;
-      height: 25px;
+      width: 20px;
+      height: 20px;
+      margin-left: 2px;
     }
   }
 
   .plyr__volume {
-    width: 100%;
+    width: 60%;
     max-width: unset !important;
+    margin-right: auto;
 
     input[type=range] {
       cursor: pointer;
       color: black !important;
+      width: 150px;
 
       &::-moz-range-thumb {
         background: black;
@@ -65,8 +68,8 @@
     }
 
     svg{
-      width: 40px;
-      height: 40px;
+      width: 34px;
+      height: 34px;
       margin: 0 15px;
     }
   }

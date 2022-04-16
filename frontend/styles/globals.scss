@@ -18,7 +18,9 @@ time, mark, audio, video {
   margin: 0;
   padding: 0;
   border: 0;
+  box-sizing: border-box;
   vertical-align: baseline;
+  line-height: initial;
 }
 
 article, aside, details, figcaption, figure,
