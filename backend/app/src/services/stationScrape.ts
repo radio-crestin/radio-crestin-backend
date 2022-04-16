@@ -60,6 +60,8 @@ const extractNowPlaying = async ({
     headers,
     statsExtractor,
 }: { url: string, headers?: any, statsExtractor: (data: any) => StationNowPlaying }): Promise<StationNowPlaying> => {
+    logger.info("Extracting now playing: ", url);
+
     const options: AxiosRequestConfig = {
         method: "GET",
         url,
