@@ -8,6 +8,8 @@ import {getStations} from "@/services/getStations";
 const logger: Logger = new Logger({name: "stationScrape"});
 
 const statsFormatter = (stats: StationNowPlaying) => {
+    stats = JSON.parse(JSON.stringify(stats));
+
     if (stats.current_song !== null) {
         const allowedCharacters = /[^a-zA-ZÀ-žaâăáeéèiîoóöőøsșşșştțţțţ\-\s?'&]/g;
 
@@ -45,9 +47,7 @@ const statsFormatter = (stats: StationNowPlaying) => {
             stats.current_song.artist = null;
         }
 
-        if(!!stats.current_song.thumbnail_url && stats.current_song.thumbnail_url !== "undefined" && stats.current_song?.thumbnail_url?.length > 2) {
-            // do nothing
-        } else {
+        if(!stats.current_song.thumbnail_url || stats.current_song.thumbnail_url === "undefined" || stats.current_song?.thumbnail_url?.length < 2) {
             stats.current_song.thumbnail_url = null;
         }
     }
@@ -510,10 +510,6 @@ const getStationNowPlaying = async ({station}: { station: Station }): Promise<St
         }
 
         mergedStats = mergeStats(mergedStats, stats);
-
-        if(stationMetadataFetcher.station_metadata_fetch_category.slug.includes("aripisprecer")) {
-            console.log({url: stationMetadataFetcher.url, slug: stationMetadataFetcher.station_metadata_fetch_category.slug, stats, mergedStats});
-        }
 
     }
     return JSON.parse(JSON.stringify(mergedStats));
