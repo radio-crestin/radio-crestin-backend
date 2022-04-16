@@ -490,8 +490,9 @@ const getStationNowPlaying = async ({station}: { station: Station }): Promise<St
 
         if (stationMetadataFetcher.station_metadata_fetch_category.slug === "aripisprecer_api") {
             stats =  await extractAripiSpreCerNowPlaying({aripisprecer_url: stationMetadataFetcher.url});
-            console.log("aripisprecer_api: ", stats);
         }
+
+        console.log("stats: ", stats);
 
         Object.keys(stats).forEach((key) => {
             if(stats[key] !== null) {
@@ -499,9 +500,7 @@ const getStationNowPlaying = async ({station}: { station: Station }): Promise<St
             }
         });
 
-        if (stationMetadataFetcher.station_metadata_fetch_category.slug === "aripisprecer_api") {
-            console.log("aripisprecer_api-mergedStats: ", mergedStats);
-        }
+        console.log("aripisprecer_api-mergedStats: ", mergedStats);
 
     }
     return JSON.parse(JSON.stringify(mergedStats));
