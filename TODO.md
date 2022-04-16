@@ -1,7 +1,7 @@
 Frontend:
 - [X] make the play button & volume icon a bit smaller && make the volume slider width constant
 - [ ] implement random station functionality
-- [ ] when selecting a station, the player should start automatically
+- [X] when selecting a station, the player should start automatically
 - [ ] implement add to favorite functionality
 - [ ] implement stations groups
 - [ ] sort all stations to left

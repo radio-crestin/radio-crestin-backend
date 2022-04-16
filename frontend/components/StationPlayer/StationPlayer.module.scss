@@ -1,20 +1,20 @@
 @use 'styles/globalVariables';
 @use 'styles/mixinHelper';
 
-@mixin truncateText() {
+@mixin truncateText {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   max-width: 425px;
 }
 
-.containerPlayer {
-  display: flex;
+.contentHeaderLeft {
   color: black;
   border-radius: 15px;
   margin-left: 50px;
   margin-right: auto;
-  min-width: 450px;
+  max-width: 450px;
+  width: 100%;
   gap: 20px;
 
   @include mixinHelper.onSmallDesktop{
@@ -28,13 +28,13 @@
     width: unset;
   }
 
-  .descriptionSong {
+  .container {
     position: relative;
     display: flex;
     flex-direction: column;
     align-self: flex-end;
     height: 100%;
-    justify-content: space-between;
+    justify-content: end;
 
     @include mixinHelper.onTablet {
       flex-direction: row;
@@ -48,24 +48,29 @@
       filter: drop-shadow(2px 2px 5px rgba(0, 0, 0, 0.25));
     }
 
-    .songName {
-      @include truncateText;
-      line-height: 47px;
-      margin: 15px 0 5px;
-      font-size: 2.3em;
-      font-weight: 800;
-    }
+    .descriptionSong {
+      display: flex;
+      flex-direction: column;
 
-    .artist {
-      @include truncateText;
-      line-height: 30px;
-      font-size: 1.5em;
-      font-weight: 300;
-      margin-top: 10px;
-    }
+      height: 205px;
 
-    .containerPlyr {
-      margin-top: 45px;
+      .songName {
+        @include truncateText;
+        height: 50px;
+        margin: 15px 0 5px;
+        font-size: 2.3em;
+        font-weight: 800;
+      }
+
+      .artist {
+        @include truncateText;
+        font-size: 1.5em;
+        font-weight: 300;
+      }
+
+      .containerPlyr {
+        margin-top: auto;
+      }
     }
   }
 }

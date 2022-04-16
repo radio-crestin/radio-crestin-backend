@@ -109,14 +109,14 @@ export default function StationPlayer(props: {
 
   return (
     <>
-      <div className={styles.containerPlayer}>
-        <div className={styles.descriptionSong}>
+      <div className={styles.contentHeaderLeft}>
+        <div className={styles.container}>
           <img
             className={styles.songImage}
             src={station.thumbnail_url || CONSTANTS.DEFAULT_COVER}
             alt="Image station"
           />
-          <div>
+          <div className={styles.descriptionSong}>
             {station.now_playing?.song?.name !== "undefined" && (
               <h2 className={styles.songName}>
                 {station.now_playing?.song?.name}
