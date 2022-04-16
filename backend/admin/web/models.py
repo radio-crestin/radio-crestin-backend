@@ -116,6 +116,7 @@ class Stations(models.Model):
     description = models.TextField(blank=True, null=True,)
     description_action_title = models.TextField(blank=True, null=True,)
     description_link = models.URLField(blank=True, null=True,)
+    facebook_page_id = models.TextField(blank=True, null=True,)
 
     latest_station_uptime = models.ForeignKey('StationsUptime', models.DO_NOTHING, blank=True, null=True)
     latest_station_now_playing = models.ForeignKey('StationsNowPlaying', models.DO_NOTHING, blank=True, null=True)

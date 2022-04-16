@@ -1,6 +1,14 @@
 table:
   schema: public
   name: artists
+array_relationships:
+  - name: songs
+    using:
+      foreign_key_constraint_on:
+        column: artist_id
+        table:
+          schema: public
+          name: songs
 select_permissions:
   - role: public
     permission:

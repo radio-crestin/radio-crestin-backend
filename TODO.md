@@ -26,11 +26,10 @@ Frontend:
 - improve the website audio player to allow the user to select which stream should be played for that station (hls/proxy/original)
   - when a stream is failing, fall-back to the next stream automatically
 - when a station is playing, send this signal to backend (send station_id every 15 seconds)
-
+- add facebook page as SEO meta field
 
 Backend:
-- extract station rating from Facebook
-- add Facebook pages for each station
+- extract station rating from Facebook - we will do this
 - create the API to upload a review
 - create an API for measuring the number of listeners on radio-crestin.com (station + ping every 15 seconds)
 - create an integration to fetch the latest articles for each station (from RSS feed)
