@@ -27,6 +27,8 @@ services:
   admin:
     build:
       context: backend/admin
+      args:
+        - FRONTEND_CDN_PREFIX=$FRONTEND_CDN_PREFIX
     depends_on:
       - postgres
     restart: always
