@@ -8,41 +8,50 @@ import {getStations} from "@/services/getStations";
 const logger: Logger = new Logger({name: "stationScrape"});
 
 const statsFormatter = (stats: StationNowPlaying) => {
-    if (stats.current_song) {
+    if (stats.current_song !== null) {
         const allowedCharacters = /[^a-zA-ZÀ-žaâăáeéèiîoóöőøsșşșştțţțţ\-\s?'&]/g;
 
         // TODO: if name has fewer than 3 characters set it to empty
         // Decode Unicode special chars
-        stats.current_song = {
-            name: stats.current_song.name
+        if(!!stats.current_song.name && stats.current_song.name !== "undefined" && stats.current_song?.name?.length > 2) {
+            stats.current_song.name = stats.current_song.name
                 .replace(/&#(\d+);/g, function (match, dec) {
                     return String.fromCharCode(dec);
                 })
                 .replace("_", " ")
                 .replace("  ", " ")
                 .replace(allowedCharacters, "")
+                .replace("undefined", "")
                 .replace(/^[a-z]/, function (m) {
                     return m.toUpperCase();
-                }),
+                });
+        } else {
+            stats.current_song.name = null;
+        }
 
-            artist: stats.current_song.artist
+        if(!!stats.current_song.artist && stats.current_song.artist !== "undefined" && stats.current_song?.artist?.length > 2) {
+            stats.current_song.artist = stats.current_song.artist
                 .replace(/&#(\d+);/g, function (match, dec) {
                     return String.fromCharCode(dec);
                 })
                 .replace("_", " ")
                 .replace("  ", " ")
                 .replace(allowedCharacters, "")
+                .replace("undefined", "")
                 .replace(/^[a-z]/, function (m) {
                     return m.toUpperCase();
-                }),
-        };
-    }
+                });
+        } else {
+            stats.current_song.artist = null;
+        }
 
-    if (stats.current_song?.name?.length && stats.current_song?.name?.length < 3) {
-        if (stats.current_song) {
-            stats.current_song.name = "";
+        if(!!stats.current_song.thumbnail_url && stats.current_song.thumbnail_url !== "undefined" && stats.current_song?.thumbnail_url?.length > 2) {
+            // do nothing
+        } else {
+            stats.current_song.thumbnail_url = null;
         }
     }
+
     return stats;
 };
 
@@ -50,7 +59,7 @@ const extractNowPlaying = async ({
     url,
     headers,
     statsExtractor,
-}: { url: string, headers?: any, statsExtractor: (data: any) => StationNowPlaying, decodeJson: boolean }): Promise<StationNowPlaying> => {
+}: { url: string, headers?: any, statsExtractor: (data: any) => StationNowPlaying }): Promise<StationNowPlaying> => {
     const options: AxiosRequestConfig = {
         method: "GET",
         url,
@@ -85,7 +94,6 @@ const extractShoutcastNowPlaying = async ({shoutcast_stats_url}: { shoutcast_sta
         headers: {
             "content-type": "application/json;charset=UTF-8",
         },
-        decodeJson: true,
         statsExtractor: (data) => {
             const [firstPart, lastPart] = data["songtitle"]?.split(" - ") || ["", ""];
             let songName, artist;
@@ -102,6 +110,7 @@ const extractShoutcastNowPlaying = async ({shoutcast_stats_url}: { shoutcast_sta
                 current_song: {
                     name: songName?.trim(),
                     artist: artist?.trim(),
+                    thumbnail_url: null,
                 } || null,
                 listeners: data["currentlisteners"] || null,
             };
@@ -115,7 +124,6 @@ const extractRadioCoNowPlaying = async ({radio_co_stats_url}: { radio_co_stats_u
         headers: {
             "content-type": "application/json;charset=UTF-8",
         },
-        decodeJson: true,
         statsExtractor: (data) => {
             const [firstPart, lastPart] = data?.current_track?.title?.split(" - ") || ["", ""];
             let songName, artist;
@@ -132,6 +140,7 @@ const extractRadioCoNowPlaying = async ({radio_co_stats_url}: { radio_co_stats_u
                 current_song: {
                     name: songName?.trim(),
                     artist: artist?.trim(),
+                    thumbnail_url: null,
                 } || null,
                 listeners: data["currentlisteners"] || null,
             };
@@ -145,7 +154,6 @@ const extractIcecastNowPlaying = async ({icecast_stats_url}: { icecast_stats_url
         headers: {
             "content-type": "application/json;charset=UTF-8",
         },
-        decodeJson: true,
         statsExtractor: (data) => {
             const listenurl = /listen_url=(?<listen_url>.+)/gmi.exec(icecast_stats_url)?.groups?.listen_url || "";
 
@@ -166,6 +174,7 @@ const extractIcecastNowPlaying = async ({icecast_stats_url}: { icecast_stats_url
                 current_song: {
                     name: songName?.trim(),
                     artist: artist?.trim(),
+                    thumbnail_url: null,
                 } || null,
                 listeners: source["listeners"] || null,
             };
@@ -187,7 +196,6 @@ const extractShoutcastXmlNowPlaying = async ({shoutcast_xml_stats_url}: { shoutc
             "sec-gpc": "1",
             "upgrade-insecure-requests": "1",
         },
-        decodeJson: false,
         statsExtractor: (xml_page) => {
             const regex = /<(?<param_data>[a-zA-Z\s]+)>(?<value>(.*?))<\//mg;
 
@@ -221,6 +229,7 @@ const extractShoutcastXmlNowPlaying = async ({shoutcast_xml_stats_url}: { shoutc
                 current_song: {
                     name: songName?.trim(),
                     artist: artist?.trim(),
+                    thumbnail_url: null,
                 } || null,
                 listeners: data["CURRENTLISTENERS"] || null,
             };
@@ -242,7 +251,6 @@ const extractOldIcecastHtmlNowPlaying = async ({old_icecast_html_stats_url}: { o
             "sec-gpc": "1",
             "upgrade-insecure-requests": "1",
         },
-        decodeJson: false,
         statsExtractor: (html_page) => {
             const regex = /<td>(?<param_data>[a-zA-Z\s]+):<\/td>\n<td class="streamdata">(?<value>.*)<\/td>/gm;
 
@@ -275,6 +283,7 @@ const extractOldIcecastHtmlNowPlaying = async ({old_icecast_html_stats_url}: { o
                 current_song: {
                     name: songName?.trim(),
                     artist: artist?.trim(),
+                    thumbnail_url: null,
                 } || null,
                 listeners: data["Current Listeners"] || null,
             };
@@ -296,7 +305,6 @@ const extractOldShoutcastHtmlNowPlaying = async ({old_shoutcast_stats_html_url}:
             "sec-gpc": "1",
             "upgrade-insecure-requests": "1",
         },
-        decodeJson: false,
         statsExtractor: (html_page) => {
             const regex = /<tr><td width=100 nowrap><font class=default>(?<param_data>[a-zA-Z\s]+): <\/font><\/td><td><font class=default><b>(?<param_value>(.*?))<\/b><\/td><\/tr>/gmi;
 
@@ -329,8 +337,37 @@ const extractOldShoutcastHtmlNowPlaying = async ({old_shoutcast_stats_html_url}:
                 current_song: {
                     name: songName?.trim(),
                     artist: artist?.trim(),
+                    thumbnail_url: null,
                 } || null,
                 listeners: data["Current Listeners"] || null,
+            };
+        },
+    });
+};
+
+const extractAripiSpreCerNowPlaying = async ({aripisprecer_url}: { aripisprecer_url: string }): Promise<StationNowPlaying> => {
+    return extractNowPlaying({
+        url: aripisprecer_url,
+        headers: {
+            "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+            "accept-language": "en-GB,en-US;q=0.9,en;q=0.8",
+            "cache-control": "max-age=0",
+            "sec-fetch-dest": "document",
+            "sec-fetch-mode": "navigate",
+            "sec-fetch-site": "none",
+            "sec-fetch-user": "?1",
+            "sec-gpc": "1",
+            "upgrade-insecure-requests": "1",
+        },
+        statsExtractor: (json_response) => {
+            return {
+                timestamp: (new Date()).toISOString(),
+                current_song: {
+                    name: json_response.title,
+                    artist: json_response.artist,
+                    thumbnail_url: json_response.picture !== ""? json_response.picture : null,
+                } || null,
+                listeners: null,
             };
         },
     });
@@ -439,6 +476,10 @@ const getStationNowPlaying = async ({station}: { station: Station }): Promise<St
         if (stationMetadataFetcher.station_metadata_fetch_category.slug === "old_shoutcast_html") {
             return extractOldShoutcastHtmlNowPlaying({old_shoutcast_stats_html_url: stationMetadataFetcher.url});
         }
+
+        if (stationMetadataFetcher.station_metadata_fetch_category.slug === "aripisprecer_api") {
+            return extractAripiSpreCerNowPlaying({aripisprecer_url: stationMetadataFetcher.url});
+        }
     }
 
     return {
@@ -461,27 +502,18 @@ const updateStationMetadata = async ({
 
     const escapedStationUptimeRawData = JSON.stringify(JSON.stringify(stationUptime.raw_data));
 
-    const options: AxiosRequestConfig = {
-        method: "POST",
-        url: PROJECT_ENV.APP_GRAPHQL_ENDPOINT_URI,
-        headers: {
-            "content-type": "application/json",
-            "x-hasura-admin-secret": PROJECT_ENV.APP_GRAPHQL_ADMIN_SECRET,
-        },
-        timeout: 5000,
-        data: {
-            operationName: "UpdateStationMetadata",
-            query: `mutation UpdateStationMetadata {
+    const query = `mutation UpdateStationMetadata {
   insert_stations_now_playing_one(
     object: {
       station_id: ${station.id}
       timestamp: "${stationNowPlaying.timestamp}"
       song: { 
         data: { 
-            name: "${stationNowPlaying.current_song?.name}", 
+            name: ${!stationNowPlaying?.current_song?.name ? null: "\"" + stationNowPlaying.current_song.name + "\""}
+            ${!stationNowPlaying?.current_song?.thumbnail_url ? "": "thumbnail_url: \"" + stationNowPlaying.current_song.thumbnail_url + "\""}
             artist: {
                 data: {
-                    name: "${stationNowPlaying.current_song?.artist}"
+                    name: ${!stationNowPlaying?.current_song?.artist ? null: "\"" + stationNowPlaying.current_song.artist + "\""}
                 }, 
                 on_conflict: {
                     constraint: artists_name_key, 
@@ -494,9 +526,9 @@ const updateStationMetadata = async ({
           update_columns: updated_at
         }
       }
-      listeners: ${stationNowPlaying.listeners}
-      raw_data: ${escapedStationNowPlayingRawData}
-      error: ${escapedStationNowPlayingError}
+      listeners: ${!stationNowPlaying?.listeners ? null: "\"" + stationNowPlaying.listeners + "\""}
+      raw_data: ${escapedStationNowPlayingRawData || null}
+      error: ${escapedStationNowPlayingError || null}
     }
   ) {
     id
@@ -513,18 +545,28 @@ const updateStationMetadata = async ({
     id
   }
 }
-`,
+`;
+    console.log(stationNowPlaying);
+    console.log(query);
+
+    const options: AxiosRequestConfig = {
+        method: "POST",
+        url: PROJECT_ENV.APP_GRAPHQL_ENDPOINT_URI,
+        headers: {
+            "content-type": "application/json",
+            "x-hasura-admin-secret": PROJECT_ENV.APP_GRAPHQL_ADMIN_SECRET,
+        },
+        timeout: 5000,
+        data: {
+            operationName: "UpdateStationMetadata",
+            query: query,
             variables: {},
         },
     };
 
     return axios.request(options).then(function (response) {
-        if (!response.data) {
-            throw new Error(`Invalid response ${response.status}: ${JSON.stringify(response.data)}`);
-        }
-
-        if (response.data.errors) {
-            throw new Error(`Invalid response ${response.status}: ${JSON.stringify(response.data)}`);
+        if (!response.data || response.data.errors) {
+            throw new Error(`Invalid response ${response.status}: ${JSON.stringify(response.data)}, query: ${query}`);
         }
 
         return typeof response.data?.data?.insert_stations_now_playing_one?.id !== "undefined" && typeof response.data?.data?.insert_stations_uptime_one?.id !== "undefined";

@@ -1,12 +1,14 @@
 export interface Song {
   id: number;
-  name: string;
+  name: string | null;
+  thumbnail_url: string | null;
   artist: Artist;
 }
 
 export interface Artist {
   id: number;
-  name: string;
+  name: string | null;
+  thumbnail_url: string | null;
 }
 
 export interface StationNowPlaying {
@@ -22,19 +24,40 @@ export interface StationUptime {
   statusMessage?: string;
   rawData?: any;
 }
+
+export interface Post {
+  id: number
+  title: string
+  description: string
+  link: string
+  published: string
+}
+
+export interface StationReview {
+  id: number;
+  stars: number;
+  message: string | null;
+}
+
 // TODO: update the below types with the added fields
 export interface Station {
   id: string;
   order: number;
   title: string;
-  website: string;
-  email: string;
+  website: string | null
+  email: string | null
   stream_url: string;
-  thumbnail_url: string;
-  station_to_station_groups: { group_id: number }[];
+  thumbnail_url: string | null
+  radio_crestin_listeners: number
+  description: string | null
+  description_action_title: string | null
+  description_link: string | null
+  feature_latest_post: boolean
 
+  posts: Post[]
   uptime?: StationUptime;
   now_playing?: StationNowPlaying;
+  reviews: StationReview[]
 }
 
 export interface StationGroup {
@@ -52,16 +75,16 @@ export interface StationsMetadata {
 }
 
 export interface Review {
-  user_name: String,
+  user_name: String | null
   ip_address: String,
   session_id: String,
   station_id: bigint,
   stars: bigint,
-  message: String,
+  message: String | null
 }
 
 export interface ListeningEvent {
-  ip_address: String,
+  ip_address: String | null
   session_id: String,
   station_id: bigint,
   info: any,

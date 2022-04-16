@@ -8,13 +8,14 @@ export interface StationMetadataFetcher {
 }
 
 export interface Song {
-    name: string
-    artist: string
+    name: string | null
+    artist: string | null
+    thumbnail_url: string | null
 }
 
 export interface StationNowPlaying {
     timestamp?: string
-    current_song?: Song | null
+    current_song: Song | null
     listeners?: number | null
     raw_data?: any
     error?: any | null

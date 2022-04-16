@@ -2,7 +2,7 @@
   pk: 1
   fields:
     created_at: 2022-04-02 07:37:52.931901+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 1
     station_metadata_fetch_category: 1
     url: https://predici.stream.aripisprecer.ro/stats?json=1
@@ -10,7 +10,7 @@
   pk: 2
   fields:
     created_at: 2022-04-02 07:45:19.035872+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 0
     station_metadata_fetch_category: 1
     url: https://mobile.stream.aripisprecer.ro/stats?json=1
@@ -18,7 +18,7 @@
   pk: 3
   fields:
     created_at: 2022-04-02 07:45:42.920828+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 2
     station_metadata_fetch_category: 1
     url: https://popular.stream.aripisprecer.ro/stats?json=1
@@ -26,7 +26,7 @@
   pk: 4
   fields:
     created_at: 2022-04-02 07:45:55.596914+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 3
     station_metadata_fetch_category: 1
     url: https://worship.stream.aripisprecer.ro/stats?json=1
@@ -34,7 +34,7 @@
   pk: 5
   fields:
     created_at: 2022-04-02 07:46:06.703825+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 4
     station_metadata_fetch_category: 1
     url: https://international.stream.aripisprecer.ro/stats?json=1
@@ -42,7 +42,7 @@
   pk: 6
   fields:
     created_at: 2022-04-02 07:46:21.196303+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 5
     station_metadata_fetch_category: 1
     url: https://instrumental.stream.aripisprecer.ro/stats?json=1
@@ -50,7 +50,7 @@
   pk: 7
   fields:
     created_at: 2022-04-02 07:46:51.320436+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 6
     station_metadata_fetch_category: 5
     url: http://asculta.radiocnm.ro:8002/
@@ -58,7 +58,7 @@
   pk: 8
   fields:
     created_at: 2022-04-02 07:47:05.973243+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 7
     station_metadata_fetch_category: 1
     url: http://video.bluespot.ro:8001/stats?json=1
@@ -66,7 +66,7 @@
   pk: 9
   fields:
     created_at: 2022-04-02 07:47:52.170301+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 8
     station_metadata_fetch_category: 6
     url: http://209.95.50.189:8006/index.html
@@ -74,7 +74,7 @@
   pk: 10
   fields:
     created_at: 2022-04-02 07:48:03.690214+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 9
     station_metadata_fetch_category: 3
     url: https://cast1.asurahosting.com/proxy/valer/status-json.xsl?listen_url=live
@@ -82,7 +82,7 @@
   pk: 11
   fields:
     created_at: 2022-04-02 07:48:13.515777+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 10
     station_metadata_fetch_category: 2
     url: https://public.radio.co/stations/s6c0a773ad/status
@@ -90,7 +90,7 @@
   pk: 12
   fields:
     created_at: 2022-04-02 07:48:24.977669+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 11
     station_metadata_fetch_category: 2
     url: https://public.radio.co/stations/sb94ce6fe2/status
@@ -98,7 +98,7 @@
   pk: 13
   fields:
     created_at: 2022-04-02 07:48:39.552280+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 12
     station_metadata_fetch_category: 1
     url: http://asculta.radioekklesia.com:8005/stats?json=1
@@ -106,7 +106,7 @@
   pk: 14
   fields:
     created_at: 2022-04-02 07:49:03.021367+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 13
     station_metadata_fetch_category: 1
     url: http://91.213.11.102:8011/stats?json=1
@@ -114,7 +114,7 @@
   pk: 16
   fields:
     created_at: 2022-04-02 07:49:25.623999+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 15
     station_metadata_fetch_category: 1
     url: http://91.213.11.102:8007/stats?json=1
@@ -122,7 +122,7 @@
   pk: 17
   fields:
     created_at: 2022-04-02 07:49:37.348972+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 16
     station_metadata_fetch_category: 1
     url: http://91.213.11.102:8003/stats?json=1
@@ -130,7 +130,7 @@
   pk: 18
   fields:
     created_at: 2022-04-02 07:50:01.061570+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 17
     station_metadata_fetch_category: 1
     url: http://asculta.radiofiladelfia.ro:8080/stats?json=1
@@ -138,7 +138,7 @@
   pk: 19
   fields:
     created_at: 2022-04-02 07:50:16.838421+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 18
     station_metadata_fetch_category: 4
     url: https://sp.totalstreaming.net/8125/stats
@@ -146,7 +146,7 @@
   pk: 20
   fields:
     created_at: 2022-04-02 07:50:35.661900+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 19
     station_metadata_fetch_category: 4
     url: http://ssl.omegahost.ro:7043/stats
@@ -154,7 +154,7 @@
   pk: 21
   fields:
     created_at: 2022-04-02 07:50:45.644831+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 20
     station_metadata_fetch_category: 3
     url: https://audio-radioleviro.bisericilive.com/status-json.xsl?listen_url=radioleviro
@@ -162,7 +162,7 @@
   pk: 22
   fields:
     created_at: 2022-04-02 07:50:59.020864+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 21
     station_metadata_fetch_category: 2
     url: https://public.radio.co/stations/sfff7b7e97/status
@@ -170,7 +170,7 @@
   pk: 24
   fields:
     created_at: 2022-04-02 07:51:37.504412+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 23
     station_metadata_fetch_category: 2
     url: https://public.radio.co/stations/sf2c714555/status
@@ -178,7 +178,7 @@
   pk: 25
   fields:
     created_at: 2022-04-02 07:52:22.134917+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 24
     station_metadata_fetch_category: 1
     url: https://securestreams5.autopo.st:1951/stats?json=1
@@ -186,7 +186,7 @@
   pk: 26
   fields:
     created_at: 2022-04-02 07:52:37.594109+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 26
     station_metadata_fetch_category: 1
     url: https://lb01.bpstream.com:8618/stats?json=1
@@ -194,7 +194,7 @@
   pk: 27
   fields:
     created_at: 2022-04-02 07:52:52.077866+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 27
     station_metadata_fetch_category: 1
     url: https://s23.myradiostream.com/:18366/stats?json=1
@@ -202,7 +202,55 @@
   pk: 28
   fields:
     created_at: 2022-04-02 07:53:05.694805+00:00
-    updated_at: 2022-04-15 19:53:54.600212+00:00
+    updated_at: 2022-04-16 15:04:06.201468+00:00
     station: 28
     station_metadata_fetch_category: 3
     url: https://audio-rvectro.bisericilive.com/status-json.xsl?listen_url=rvectro
+- model: web.stationsmetadatafetch
+  pk: 29
+  fields:
+    created_at: 2022-04-16 15:05:18.745218+00:00
+    updated_at: 2022-04-16 15:05:18.745226+00:00
+    station: 0
+    station_metadata_fetch_category: 7
+    url: https://api.aripisprecer.ro/v1/general/current-song
+- model: web.stationsmetadatafetch
+  pk: 30
+  fields:
+    created_at: 2022-04-16 15:35:54.392510+00:00
+    updated_at: 2022-04-16 15:35:54.392521+00:00
+    station: 1
+    station_metadata_fetch_category: 7
+    url: https://api.aripisprecer.ro/v1/sermons/current-song
+- model: web.stationsmetadatafetch
+  pk: 31
+  fields:
+    created_at: 2022-04-16 15:36:29.615341+00:00
+    updated_at: 2022-04-16 15:36:29.615370+00:00
+    station: 2
+    station_metadata_fetch_category: 7
+    url: https://api.aripisprecer.ro/v1/folk/current-song
+- model: web.stationsmetadatafetch
+  pk: 32
+  fields:
+    created_at: 2022-04-16 15:37:01.886115+00:00
+    updated_at: 2022-04-16 15:37:01.886122+00:00
+    station: 3
+    station_metadata_fetch_category: 7
+    url: https://api.aripisprecer.ro/v1/worship/current-song
+- model: web.stationsmetadatafetch
+  pk: 33
+  fields:
+    created_at: 2022-04-16 15:37:18.096709+00:00
+    updated_at: 2022-04-16 15:37:18.096717+00:00
+    station: 4
+    station_metadata_fetch_category: 7
+    url: https://api.aripisprecer.ro/v1/international/current-song
+- model: web.stationsmetadatafetch
+  pk: 34
+  fields:
+    created_at: 2022-04-16 15:37:30.920717+00:00
+    updated_at: 2022-04-16 15:37:30.920727+00:00
+    station: 5
+    station_metadata_fetch_category: 7
+    url: https://api.aripisprecer.ro/v1/instrumental/current-song
