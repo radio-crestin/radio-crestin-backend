@@ -450,47 +450,52 @@ const getStationUptime = ({station}: { station: Station }): Promise<StationUptim
 };
 
 const getStationNowPlaying = async ({station}: { station: Station }): Promise<StationNowPlaying> => {
-    // TODO: in the future we might need to combine the output from multiple sources..
-
-    for (let i = 0; i < station.station_metadata_fetches.length; i++) {
-        const stationMetadataFetcher = station.station_metadata_fetches[i];
-
-        if (stationMetadataFetcher.station_metadata_fetch_category.slug === "shoutcast") {
-            return extractShoutcastNowPlaying({shoutcast_stats_url: stationMetadataFetcher.url});
-        }
-
-        if (stationMetadataFetcher.station_metadata_fetch_category.slug === "radio_co") {
-            return extractRadioCoNowPlaying({radio_co_stats_url: stationMetadataFetcher.url});
-        }
-
-        if (stationMetadataFetcher.station_metadata_fetch_category.slug === "icecast") {
-            return extractIcecastNowPlaying({icecast_stats_url: stationMetadataFetcher.url});
-        }
-
-        if (stationMetadataFetcher.station_metadata_fetch_category.slug === "shoutcast_xml") {
-            return extractShoutcastXmlNowPlaying({shoutcast_xml_stats_url: stationMetadataFetcher.url});
-        }
-
-        if (stationMetadataFetcher.station_metadata_fetch_category.slug === "old_icecast_html") {
-            return extractOldIcecastHtmlNowPlaying({old_icecast_html_stats_url: stationMetadataFetcher.url});
-        }
-
-        if (stationMetadataFetcher.station_metadata_fetch_category.slug === "old_shoutcast_html") {
-            return extractOldShoutcastHtmlNowPlaying({old_shoutcast_stats_html_url: stationMetadataFetcher.url});
-        }
-
-        if (stationMetadataFetcher.station_metadata_fetch_category.slug === "aripisprecer_api") {
-            return extractAripiSpreCerNowPlaying({aripisprecer_url: stationMetadataFetcher.url});
-        }
-    }
-
-    return {
+    const mergedStats: any = {
         timestamp: (new Date()).toISOString(),
         current_song: null,
         listeners: null,
         raw_data: {},
         error: null,
     };
+
+    for (let i = 0; i < station.station_metadata_fetches.length; i++) {
+        const stationMetadataFetcher = station.station_metadata_fetches[i];
+
+        let stats: any = {};
+
+        if (stationMetadataFetcher.station_metadata_fetch_category.slug === "shoutcast") {
+            stats = await extractShoutcastNowPlaying({shoutcast_stats_url: stationMetadataFetcher.url});
+        }
+
+        if (stationMetadataFetcher.station_metadata_fetch_category.slug === "radio_co") {
+            stats =  await extractRadioCoNowPlaying({radio_co_stats_url: stationMetadataFetcher.url});
+        }
+
+        if (stationMetadataFetcher.station_metadata_fetch_category.slug === "icecast") {
+            stats =  await extractIcecastNowPlaying({icecast_stats_url: stationMetadataFetcher.url});
+        }
+
+        if (stationMetadataFetcher.station_metadata_fetch_category.slug === "shoutcast_xml") {
+            stats =  await extractShoutcastXmlNowPlaying({shoutcast_xml_stats_url: stationMetadataFetcher.url});
+        }
+
+        if (stationMetadataFetcher.station_metadata_fetch_category.slug === "old_icecast_html") {
+            stats =  await extractOldIcecastHtmlNowPlaying({old_icecast_html_stats_url: stationMetadataFetcher.url});
+        }
+
+        if (stationMetadataFetcher.station_metadata_fetch_category.slug === "old_shoutcast_html") {
+            stats =  await extractOldShoutcastHtmlNowPlaying({old_shoutcast_stats_html_url: stationMetadataFetcher.url});
+        }
+
+        if (stationMetadataFetcher.station_metadata_fetch_category.slug === "aripisprecer_api") {
+            stats =  await extractAripiSpreCerNowPlaying({aripisprecer_url: stationMetadataFetcher.url});
+        }
+
+        Object.keys(stats).forEach((key) => mergedStats[key] = stats[key] ? stats[key] : mergedStats[key]);
+
+    }
+
+    return mergedStats;
 };
 
 const updateStationMetadata = async ({
@@ -512,7 +517,6 @@ const updateStationMetadata = async ({
       song: { 
         data: { 
             name: ${!stationNowPlaying?.current_song?.name ? null: "\"" + stationNowPlaying.current_song.name + "\""}
-            ${!stationNowPlaying?.current_song?.thumbnail_url ? "": "thumbnail_url: \"" + stationNowPlaying.current_song.thumbnail_url + "\""}
             artist: {
                 data: {
                     name: ${!stationNowPlaying?.current_song?.artist ? null: "\"" + stationNowPlaying.current_song.artist + "\""}
@@ -522,6 +526,7 @@ const updateStationMetadata = async ({
                     update_columns: name
                 }
             }
+            ${!stationNowPlaying?.current_song?.thumbnail_url ? "": "thumbnail_url: \"" + stationNowPlaying.current_song.thumbnail_url + "\""}
         } 
         on_conflict: {
           constraint: songs_name_artist_id_key
