@@ -449,8 +449,25 @@ const getStationUptime = ({station}: { station: Station }): Promise<StationUptim
 
 };
 
+const mergeStats = (a: any, b: any) => {
+    a = JSON.parse(JSON.stringify(a));
+    b = JSON.parse(JSON.stringify(b));
+
+    Object.keys(b).forEach((key) => {
+        if(typeof b[key] === "object") {
+            a[key] = mergeStats(a[key] || {}, b[key]);
+            return;
+        }
+
+        if(b[key] !== null) {
+            a[key] = b[key];
+        }
+    });
+    return a;
+};
+
 const getStationNowPlaying = async ({station}: { station: Station }): Promise<StationNowPlaying> => {
-    const mergedStats: any = {
+    let mergedStats: any = {
         timestamp: (new Date()).toISOString(),
         current_song: null,
         listeners: null,
@@ -492,15 +509,7 @@ const getStationNowPlaying = async ({station}: { station: Station }): Promise<St
             stats =  await extractAripiSpreCerNowPlaying({aripisprecer_url: stationMetadataFetcher.url});
         }
 
-        console.log("stats: ", stats);
-
-        Object.keys(stats).forEach((key) => {
-            if(stats[key] !== null) {
-                mergedStats[key] = stats[key];
-            }
-        });
-
-        console.log("aripisprecer_api-mergedStats: ", mergedStats);
+        mergedStats = mergeStats(mergedStats, stats);
 
     }
     return JSON.parse(JSON.stringify(mergedStats));
