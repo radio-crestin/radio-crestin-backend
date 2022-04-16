@@ -6,9 +6,11 @@
   width: 90%;
   margin: 0 auto;
 
-
   @include mixinHelper.onTablet {
     width: 100%;
     margin: 0;
+  }
+  @include mixinHelper.onMobile{
+    background: #ffd8af;
   }
 }

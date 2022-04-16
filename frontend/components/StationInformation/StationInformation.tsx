@@ -61,12 +61,11 @@ export default function StationInformation(props: any) {
         />
       </div>
 
-      {/*@ts-ignore*/}
-      {NumberOfListeners && (
-        <p className={styles.station_NumberOfListeners}>
-          {NumberOfListeners} persoane ascultă împreună cu tine acest radio
-        </p>
-      )}
+      <p
+        className={styles.station_NumberOfListeners}
+        style={{ opacity: NumberOfListeners ? 1 : 0 }}>
+        {NumberOfListeners} persoane ascultă împreună cu tine acest radio
+      </p>
       <p className={styles.station_Quote}>
         ”Nu numai că trebuie să ne ferim să producem dezbinare, ci trebuie să
         devenim agenți ai păcii, străduindu-ne să reconciliem părțile aflate în

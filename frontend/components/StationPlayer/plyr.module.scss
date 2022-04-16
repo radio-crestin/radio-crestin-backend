@@ -54,6 +54,7 @@
     input[type=range] {
       cursor: pointer;
       color: black !important;
+      width: 150px;
 
       &::-moz-range-thumb {
         background: black;

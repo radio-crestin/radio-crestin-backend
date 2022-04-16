@@ -1,7 +1,6 @@
 @use 'styles/mixinHelper';
 
 @mixin truncateText {
-  width: 560px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -11,7 +10,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  max-width: 60%;
+  max-width: 45%;
 
   @include mixinHelper.onTablet {
     max-width: unset;
@@ -25,6 +24,10 @@
       font-style: normal;
       font-weight: 700;
       font-size: 50px;
+
+      @include mixinHelper.onMobile{
+        font-size: 30px;
+      }
     }
 
     &_RatingContainer {

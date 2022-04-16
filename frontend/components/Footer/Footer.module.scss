@@ -7,14 +7,12 @@
   font-weight: 500;
   font-size: 18px;
   color: #646464;
-  margin-top: 150px;
-  margin-bottom: 82px;
+  padding-top: 150px;
+  padding-bottom: 82px;
   flex-wrap: wrap;
 
   @include mixinHelper.onMobile{
-    margin-top: 50px;
-    margin-bottom: 30px;
-    padding: 0 30px;
+    padding: 50px 30px 30px;
     gap: 10px 20px;
   }
 }

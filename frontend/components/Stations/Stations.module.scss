@@ -7,18 +7,33 @@
   flex-flow: wrap;
   gap: 30px;
   width: 100%;
+
+  @include mixinHelper.onMobile{
+    gap: 15px;
+    padding: 0 20px;
+  }
 }
 
 .station {
-  width: 250px;
+  width: 200px;
   height: 100%;
   cursor: pointer;
 
+  @include mixinHelper.onMobile{
+    width: 150px;
+  }
+
   &_Image {
-    width: 250px;
-    height: 250px;
+    width: 200px;
+    height: 200px;
     border-radius: 41px;
+    background: linear-gradient(180.37deg, rgba(0, 0, 0, 0) 11.16%, rgba(0, 0, 0, 0.7138) 91.38%);
     filter: drop-shadow(2px 2px 5px rgba(0, 0, 0, 0.25));
+
+    @include mixinHelper.onMobile{
+      width: 150px;
+      height: 150px;
+    }
   }
 
   .is_Offline {
@@ -32,5 +47,9 @@
     font-weight: 500;
     font-size: 23px;
     text-align: center;
+
+    @include mixinHelper.onMobile{
+      font-size: 18px;
+    }
   }
 }

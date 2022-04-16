@@ -5,7 +5,6 @@
   flex-direction: column;
   margin: 2rem auto;
   padding: 36px;
-  height: 550px;
   background: #FFD9AF;
   border-radius: 25px;
   box-shadow: 1px 2px 18px 0 #0000001A;
@@ -17,6 +16,10 @@
     border-radius: 0;
   }
 
+  @include mixinHelper.onMobile{
+    box-shadow: none;
+  }
+
   .row {
     display: flex;
     width: 100%;
@@ -25,12 +28,15 @@
 
   .currentStation {
     display: flex;
-    gap: 0 50px;
     height: 100%;
     z-index: 0;
+    gap: 50px;
+    padding: 0 50px;
 
     @include mixinHelper.onTablet{
       flex-direction: column-reverse;
+      padding: 0;
+      gap: 0;
     }
   }
 }
@@ -42,6 +48,10 @@
   left: 0;
   z-index: -1;
   border-bottom-left-radius: 25px;
+
+  @include mixinHelper.onMobile{
+    width: 340px;
+  }
 }
 
 
