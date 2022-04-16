@@ -1,4 +1,5 @@
 Frontend:
+- [ ] header-ul trebuie sa fie rendered server-side
 - [X] make the play button & volume icon a bit smaller && make the volume slider width constant
 - [ ] implement random station functionality
 - [X] when selecting a station, the player should start automatically
