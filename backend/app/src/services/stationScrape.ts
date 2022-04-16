@@ -47,9 +47,9 @@ const statsFormatter = (stats: StationNowPlaying) => {
             stats.current_song.artist = null;
         }
 
-        if(!stats.current_song.thumbnail_url || stats.current_song.thumbnail_url === "undefined" || stats.current_song?.thumbnail_url?.length < 2) {
-            stats.current_song.thumbnail_url = null;
-        }
+        // if(!stats.current_song.thumbnail_url || stats.current_song.thumbnail_url === "undefined" || stats.current_song?.thumbnail_url?.length < 2) {
+        //     stats.current_song.thumbnail_url = null;
+        // }
     }
 
     return stats;
