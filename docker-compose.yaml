@@ -72,6 +72,8 @@ services:
   frontend:
     build:
       context: frontend
+      args:
+        - FRONTEND_CDN_PREFIX=${FRONTEND_CDN_PREFIX}
     restart: always
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/" ]
