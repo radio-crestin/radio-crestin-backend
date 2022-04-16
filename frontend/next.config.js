@@ -13,3 +13,4 @@ module.exports = withConfig({
   // Use the CDN in production and localhost for development.
   assetPrefix: process.env.FRONTEND_CDN_PREFIX !== "" ?  process.env.FRONTEND_CDN_PREFIX : '',
 });
+console.log("process.env.FRONTEND_CDN_PREFIX", process.env.FRONTEND_CDN_PREFIX);
