@@ -41,7 +41,7 @@ if(PROJECT_ENV.APP_REFRESH_STATIONS_METADATA_CRON !== "") {
             logger.info("Stations metadata have been refreshed.", result);
         }).catch(error => {
             logger.info("Stations metadata refresh has encountered an error:");
-            logger.prettyError(error);
+            logger.error(error.toString());
         });
     });
 }

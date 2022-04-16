@@ -13,7 +13,7 @@ cd /src
 echo "Collecting static assets.."
 rm -rf /data/static
 mkdir -p /data/static
-python3 manage.py collectstatic --clear --noinput
+python3 manage.py collectstatic --clear --noinput &
 
 echo "Running migrations.."
 python3 manage.py migrate
