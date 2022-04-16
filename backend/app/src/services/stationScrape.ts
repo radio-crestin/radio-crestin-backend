@@ -460,7 +460,6 @@ const getStationNowPlaying = async ({station}: { station: Station }): Promise<St
 
     for (let i = 0; i < station.station_metadata_fetches.length; i++) {
         const stationMetadataFetcher = station.station_metadata_fetches[i];
-
         let stats: any = {};
 
         if (stationMetadataFetcher.station_metadata_fetch_category.slug === "shoutcast") {
@@ -491,10 +490,13 @@ const getStationNowPlaying = async ({station}: { station: Station }): Promise<St
             stats =  await extractAripiSpreCerNowPlaying({aripisprecer_url: stationMetadataFetcher.url});
         }
 
-        Object.keys(stats).forEach((key) => mergedStats[key] = stats[key] ? stats[key] : mergedStats[key]);
+        Object.keys(stats).forEach((key) => {
+            if(stats[key] !== null) {
+                mergedStats[key] = stats[key];
+            }
+        });
 
     }
-
     return mergedStats;
 };
 
