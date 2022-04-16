@@ -107,8 +107,6 @@ export default function StationPlayer(props: {
   // TODO: make the player mobile responsive
   // TODO: normalize the sound volume (100% - 10db, 70% - 7db, etc)
 
-  console.log(station);
-
   return (
     <>
       <div className={styles.containerPlayer}>
