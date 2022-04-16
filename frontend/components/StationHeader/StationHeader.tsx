@@ -17,7 +17,7 @@ export const StationPlayer = dynamic(
 
 export default function StationHeader(station: Station) {
   const [showChild, setShowChild] = useState(false);
-  const [started, setStarted] = useState(false);
+  const [started, setStarted] = useState(true);
 
   useEffect(() => {
     setShowChild(true);
