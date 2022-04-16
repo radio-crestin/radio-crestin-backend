@@ -1,5 +1,4 @@
 const nextRuntimeDotenv = require("next-runtime-dotenv");
-const {PROJECT_ENV} = require("./utils/env");
 
 const withConfig = nextRuntimeDotenv({
   path: ".env",
@@ -12,5 +11,5 @@ module.exports = withConfig({
     outputStandalone: true,
   },
   // Use the CDN in production and localhost for development.
-  assetPrefix: PROJECT_ENV.FRONTEND_CDN_PREFIX !== "" ?  PROJECT_ENV.FRONTEND_CDN_PREFIX : '',
+  assetPrefix: process.env.FRONTEND_CDN_PREFIX !== "" ?  process.env.FRONTEND_CDN_PREFIX : '',
 });
