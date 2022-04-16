@@ -545,7 +545,7 @@ const updateStationMetadata = async ({
         } 
         on_conflict: {
           constraint: songs_name_artist_id_key
-          update_columns: updated_at
+          update_columns: [thumbnail_url]
         }
       }
       listeners: ${!stationNowPlaying?.listeners ? null: "\"" + stationNowPlaying.listeners + "\""}
@@ -568,10 +568,6 @@ const updateStationMetadata = async ({
   }
 }
 `;
-
-    if(station.stream_url.includes("aripisprecer")) {
-        console.log(query);
-    }
 
     const options: AxiosRequestConfig = {
         method: "POST",
