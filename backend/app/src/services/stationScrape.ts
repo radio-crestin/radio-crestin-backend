@@ -483,6 +483,7 @@ const getStationNowPlaying = async ({station}: { station: Station }): Promise<St
 
         if (stationMetadataFetcher.station_metadata_fetch_category.slug === "shoutcast") {
             stats = await extractShoutcastNowPlaying({shoutcast_stats_url: stationMetadataFetcher.url});
+            console.log("shoutcast:", stats);
         }
 
         if (stationMetadataFetcher.station_metadata_fetch_category.slug === "radio_co") {
@@ -507,9 +508,11 @@ const getStationNowPlaying = async ({station}: { station: Station }): Promise<St
 
         if (stationMetadataFetcher.station_metadata_fetch_category.slug === "aripisprecer_api") {
             stats =  await extractAripiSpreCerNowPlaying({aripisprecer_url: stationMetadataFetcher.url});
+            console.log("aripi:", stats);
         }
 
         mergedStats = mergeStats(mergedStats, stats);
+        console.log("aripi:", mergedStats);
 
     }
     return JSON.parse(JSON.stringify(mergedStats));
