@@ -8,8 +8,6 @@ import {getStations} from "@/services/getStations";
 const logger: Logger = new Logger({name: "stationScrape"});
 
 const statsFormatter = (stats: StationNowPlaying) => {
-    stats = JSON.parse(JSON.stringify(stats));
-
     if (stats.current_song !== null) {
         const allowedCharacters = /[^a-zA-ZÀ-žaâăáeéèiîoóöőøsșşșştțţțţ\-\s?'&]/g;
 
@@ -47,9 +45,9 @@ const statsFormatter = (stats: StationNowPlaying) => {
             stats.current_song.artist = null;
         }
 
-        // if(!stats.current_song.thumbnail_url || stats.current_song.thumbnail_url === "undefined" || stats.current_song?.thumbnail_url?.length < 2) {
-        //     stats.current_song.thumbnail_url = null;
-        // }
+        if(!stats.current_song.thumbnail_url || stats.current_song.thumbnail_url === "undefined" || stats.current_song?.thumbnail_url?.length < 2) {
+            stats.current_song.thumbnail_url = null;
+        }
     }
 
     return stats;
@@ -463,7 +461,7 @@ const mergeStats = (a: any, b: any) => {
             a[key] = b[key];
         }
     });
-    return a;
+    return JSON.parse(JSON.stringify(a));
 };
 
 const getStationNowPlaying = async ({station}: { station: Station }): Promise<StationNowPlaying> => {
