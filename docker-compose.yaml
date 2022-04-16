@@ -72,8 +72,6 @@ services:
   frontend:
     build:
       context: frontend
-      args:
-        - FRONTEND_CDN_PREFIX=${FRONTEND_CDN_PREFIX}
     restart: always
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/" ]
@@ -84,6 +82,7 @@ services:
     environment:
       - FRONTEND_GRAPHQL_ENDPOINT_URI=${FRONTEND_GRAPHQL_ENDPOINT_URI}
       - FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_URI=${FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_URI}
+      - FRONTEND_CDN_PREFIX=${FRONTEND_CDN_PREFIX}
     networks:
       - app_network
   nginx:
