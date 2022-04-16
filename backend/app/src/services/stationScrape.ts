@@ -510,7 +510,10 @@ const getStationNowPlaying = async ({station}: { station: Station }): Promise<St
         }
 
         mergedStats = mergeStats(mergedStats, stats);
-        console.log({url: stationMetadataFetcher.url, slug: stationMetadataFetcher.station_metadata_fetch_category.slug});
+
+        if(stationMetadataFetcher.station_metadata_fetch_category.slug.includes("aripisprecer")) {
+            console.log({url: stationMetadataFetcher.url, slug: stationMetadataFetcher.station_metadata_fetch_category.slug, stats, mergedStats});
+        }
 
     }
     return JSON.parse(JSON.stringify(mergedStats));
