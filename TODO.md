@@ -1,35 +1,35 @@
 Frontend:
-- make the play button & volume icon a bit smaller && make the volume slider width constant
-- implement random station functionality
-- when selecting a station, the player should start automatically
-- implement add to favorite functionality
-- implement stations groups
-- sort all stations to left
-- make the stations thumbnail a bit smaller
-- add current played song as head meta (maybe Google will pick them and display in search results)
-- create a page for each station (and simulate a page redirect when clicking on a station)
-- create a sitemap with all the stations
-- create a subdomain for each station (just the player + the latest articles)
-- allow the user to add a shortcut on desktop for the app
-- create am embeddable player
-- add SEO meta for all the reviews
-- make the website mobile responsive
-- refresh the station metadata every 5 seconds
-- implement add to favorite each station
-- optimize the website for maximum performance on web.dev
-- implement HLS player on website
-- populate station description from API
-- allow the user to leave a review (/api/v1/review)
-- create a pop-up so that the user can share Radio Crestin with their friends
-- enable server side rendering and push the website to a very fast CDN
-- link each station to the correct Facebook page by using the link from API
-- improve the website audio player to allow the user to select which stream should be played for that station (hls/proxy/original)
-  - when a stream is failing, fall-back to the next stream automatically
-- when a station is playing, send this signal to backend (send station_id every 15 seconds)
-- add facebook page as SEO meta field
-- SEO meta field - current playing
-- send the listened station every 1 minute (/api/v1/listen)
-- sum up to station listeners the radio_crestin_listeners value when the user is listening using the HLS or proxy
+- [X] make the play button & volume icon a bit smaller && make the volume slider width constant
+- [ ] implement random station functionality
+- [ ] when selecting a station, the player should start automatically
+- [ ] implement add to favorite functionality
+- [ ] implement stations groups
+- [ ] sort all stations to left
+- [ ] make the stations thumbnail a bit smaller
+- [ ] add current played song as head meta (maybe Google will pick them and display in search results)
+- [ ] create a page for each station (and simulate a page redirect when clicking on a station)
+- [ ] create a sitemap with all the stations
+- [ ] create a subdomain for each station (just the player + the latest articles)
+- [ ] allow the user to add a shortcut on desktop for the app
+- [ ] create am embeddable player
+- [ ] add SEO meta for all the reviews
+- [ ] make the website mobile responsive
+- [ ] refresh the station metadata every 5 seconds
+- [ ] implement add to favorite each station
+- [ ] optimize the website for maximum performance on web.dev
+- [ ] implement HLS player on website
+- [ ] populate station description from API
+- [ ] allow the user to leave a review (/api/v1/review)
+- [ ] create a pop-up so that the user can share Radio Crestin with their friends
+- [ ] enable server side rendering and push the website to a very fast CDN
+- [ ] link each station to the correct Facebook page by using the link from API
+- [ ] improve the website audio player to allow the user to select which stream should be played for that station (hls/proxy/original)
+- [ ] when a stream is failing, fall-back to the next stream automatically
+- [ ] when a station is playing, send this signal to backend (send station_id every 15 seconds)
+- [ ] add facebook page as SEO meta field
+- [ ] SEO meta field - current playing
+- [ ] send the listened station every 1 minute (/api/v1/listen)
+- [ ] sum up to station listeners the radio_crestin_listeners value when the user is listening using the HLS or proxy
 
 Backend:
 - incorporate multiple audio sources for each station (hls, proxy, original stream)
