@@ -32,9 +32,6 @@ Frontend:
 - sum up to station listeners the radio_crestin_listeners value when the user is listening using the HLS or proxy
 
 Backend:
-- extract songs cover arts for Aripi Spre Cer
-- add audio normalization (http://ffmpeg.org/ffmpeg-all.html#loudnorm) or maybe something on the client side
-- upload hls to edge CDNs
 - incorporate multiple audio sources for each station (hls, proxy, original stream)
 - for "radio biruitor" the metadata are not fetched correctly (swap artist with song_title)
 - update the links from the footer
@@ -50,3 +47,5 @@ Backend:
 - zero downtime docker deployment using docker swarm
 - "aggregate" listeners events & clean up them
 - enable gzip compression also for api responses
+- add audio normalization (http://ffmpeg.org/ffmpeg-all.html#loudnorm) or maybe something on the client side
+- upload hls to edge CDNs (for now we will Bunny pull mode, later on we might want to sync the files directly to Bunny..)
