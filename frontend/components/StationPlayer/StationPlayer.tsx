@@ -4,6 +4,7 @@ import Plyr from "plyr-react";
 import styles from "./StationPlayer.module.scss";
 import { Station } from "../../types";
 import Image from "next/image";
+import {CONSTANTS} from "../../lib/constants";
 
 export default function StationPlayer(props: {
   station?: Station;
@@ -114,7 +115,7 @@ export default function StationPlayer(props: {
         <div className={styles.descriptionSong}>
           <img
             className={styles.songImage}
-            src={station.thumbnail_url}
+            src={station.thumbnail_url || CONSTANTS.DEFAULT_COVER}
             alt="Image station"
           />
           <div>

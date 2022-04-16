@@ -1,6 +1,7 @@
 import styles from "./Stations.module.scss";
 import React from "react";
 import { Station } from "types";
+import {CONSTANTS} from "../../lib/constants";
 
 const Station = (station: Station) => {
   return (
@@ -9,7 +10,7 @@ const Station = (station: Station) => {
         className={`${styles.station_Image} ${
           !station?.uptime?.is_up && styles.is_Offline
         }`}
-        src={station.thumbnail_url}
+        src={station.thumbnail_url || CONSTANTS.DEFAULT_COVER}
         alt="Image station"
         loading={"lazy"}
       />
