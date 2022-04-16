@@ -49,3 +49,4 @@ Backend:
 - implement a system to suggest what to listen next based on the amount of time the station was listened by users
 - zero downtime docker deployment using docker swarm
 - "aggregate" listeners events & clean up them
+- enable gzip compression also for api responses

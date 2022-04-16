@@ -13,15 +13,6 @@ export const getStationsMetadata = (): Promise<StationsMetadata> => {
       operationName: "GetStations",
       query: `
 query GetStations {
-  station_groups {
-    id
-    name
-    order
-    station_to_station_groups {
-      station_id
-      order
-    }
-  }
   stations {
     id
     order
@@ -31,6 +22,9 @@ query GetStations {
     stream_url
     thumbnail_url
     radio_crestin_listeners
+    description
+    description_action_title
+    description_link
     feature_latest_post
     posts(limit: 1, order_by: {published: desc}) {
       id
@@ -63,6 +57,15 @@ query GetStations {
       id
       stars
       message
+    }
+  }
+  station_groups {
+    id
+    name
+    order
+    station_to_station_groups {
+      station_id
+      order
     }
   }
 }
