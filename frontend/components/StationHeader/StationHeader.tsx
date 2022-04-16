@@ -45,10 +45,10 @@ export default function StationHeader(station: Station) {
         />
         <picture>
           <source
-            media="(max-width: 767px)"
+            media="(max-width: 1023px)"
             srcSet={Circle_matrix_mobile.src}></source>
           <source
-            media="(min-width: 768px)"
+            media="(min-width: 1024px)"
             srcSet={Circle_matrix_desktop.src}></source>
           <img
             src={Circle_matrix_desktop.src}

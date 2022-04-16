@@ -49,6 +49,10 @@
   z-index: -1;
   border-bottom-left-radius: 25px;
 
+  @include mixinHelper.onTablet{
+    width: 700px;
+  }
+
   @include mixinHelper.onMobile{
     width: 340px;
   }
