@@ -160,7 +160,7 @@ export default function StationPlayer(props: {
                       }}
                     />
                   );
-                }, [station.id, station_url, playing, volume])}
+                }, [station_url, playing, volume])}
 
             </div>
           </div>
