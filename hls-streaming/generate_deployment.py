@@ -46,7 +46,7 @@ def generate_deployment():
                 f"/tmp/data/hls/{station_slug}:/data"
             ],
             "restart": "always",
-            "command": f"ffmpeg -y -i '{station_stream}' -c:a:0 libfdk_aac -profile:a:0 aac_he_v2 -b:a:0 64k -c:a:1 aac_he_v2 -async 1 -ac 2 -r 44100 -af loudnorm=I=-16:dual_mono=true:TP=-1.5:LRA=11:print_format=summary -map 0:a:0 -map 0:a:0 -f hls -hls_init_time 2 -hls_time 6 -hls_list_size 5 -hls_delete_threshold 10 -master_pl_name index.m3u8 -var_stream_map 'a:0,name:normal,default:yes a:1,name:high' -hls_flags delete_segments+omit_endlist -hls_start_number_source epoch -master_pl_publish_rate 2 -sc_threshold 0 /data/%v/index.m3u8"
+            "command": f"ffmpeg -y -i '{station_stream}' -c:a:0 libfdk_aac -profile:a:0 aac_he_v2 -b:a:0 64k -c:a:1 libfdk_aac -async 1 -ac 2 -r 44100 -af loudnorm=I=-16:dual_mono=true:TP=-1.5:LRA=11:print_format=summary -map 0:a:0 -map 0:a:0 -f hls -hls_init_time 2 -hls_time 6 -hls_list_size 5 -hls_delete_threshold 10 -master_pl_name index.m3u8 -var_stream_map 'a:0,name:normal,default:yes a:1,name:high' -hls_flags delete_segments+omit_endlist -hls_start_number_source epoch -master_pl_publish_rate 2 -sc_threshold 0 /data/%v/index.m3u8"
         }
     return deployment
 
