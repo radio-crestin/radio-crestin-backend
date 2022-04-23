@@ -98,5 +98,7 @@ select_permissions:
         - updated_at
         - website
       computed_fields:
+        - hls_stream_url
+        - proxy_stream_url
         - radio_crestin_listeners
       filter: {}
