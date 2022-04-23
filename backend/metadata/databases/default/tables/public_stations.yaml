@@ -59,6 +59,16 @@ array_relationships:
           schema: public
           name: stations_uptime
 computed_fields:
+  - name: hls_stream_url
+    definition:
+      function:
+        schema: public
+        name: hls_stream_url
+  - name: proxy_stream_url
+    definition:
+      function:
+        schema: public
+        name: proxy_stream_url
   - name: radio_crestin_listeners
     definition:
       function:
