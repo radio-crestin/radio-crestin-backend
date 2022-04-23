@@ -81,6 +81,8 @@ http {
         include       common.conf;
         location / {
             include     common_location.conf;
+            expires 5s;
+            add_header Cache-Control "public, max-age=5";
             proxy_pass http://host_service;
         }
   }
