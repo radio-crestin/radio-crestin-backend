@@ -31,10 +31,8 @@ Frontend:
 - [ ] SEO meta field - current playing
 - [ ] send the listened station every 1 minute (/api/v1/listen)
 - [ ] sum up to station listeners the radio_crestin_listeners value when the user is listening using the HLS or proxy
-
+- [ ] allow the user to report a problem (also, send current timestamp, his IP and all the console logs)
 Backend:
-- generate hls streams using a reliable application
-- incorporate multiple audio sources for each station (hls, proxy, original stream)
 - for "radio biruitor" the metadata are not fetched correctly (swap artist with song_title)
 - update the links from the footer
 - fix unpleasant stations thumbnails
