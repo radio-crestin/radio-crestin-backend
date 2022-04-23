@@ -47,6 +47,8 @@ export interface Station {
   website: string | null
   email: string | null
   stream_url: string;
+  proxy_stream_url: string;
+  hls_stream_url: string;
   thumbnail_url: string | null
   radio_crestin_listeners: number
   description: string | null

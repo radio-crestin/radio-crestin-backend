@@ -1,120 +1,43 @@
-import React, { useEffect, useMemo, useRef } from "react";
-import PlyrJS from "plyr";
-import Plyr from "plyr-react";
+import React, {useMemo, useState} from "react";
 import styles from "./StationPlayer.module.scss";
 import { Station } from "../../types";
-import Image from "next/image";
 import {CONSTANTS} from "../../lib/constants";
+import ReactPlayer from "react-player";
+import InputRange from "react-input-range";
+
+import 'react-input-range/lib/css/index.css'
+
+let firstStart = true;
 
 export default function StationPlayer(props: {
   station?: Station;
-  started: boolean;
-  onStop: () => void;
 }) {
-  // const startPlaying = props.startPlaying;
-  if (typeof props.station === "undefined") {
+  const { station } = props;
+  if (typeof station === "undefined") {
     return <></>;
   }
-  let remaining_retries = 5;
-  let remaining_error_retries = 5;
-  const { station } = props;
 
-  const playerRef = useRef();
-  useEffect(() => {
-    // @ts-ignore
-    if (typeof playerRef?.current?.plyr?.id === "undefined") {
-      console.log("Player is undefined");
-      return;
-    }
+  const [playing, setPlaying] = useState(!firstStart);
+  firstStart = false;
 
-    // @ts-ignore
-    const player = playerRef.current.plyr;
-    let stoppedByError = false;
+  // TODO: we might need to populate these from local storage
+  const [volume, setVolume] = useState(60);
 
-    if (props.station && props.started) {
-      console.log("Starting the player..");
-      player.play();
-      stoppedByError = false;
-    } else {
-      console.log("Stoping the player..");
-      player.stop();
-    }
-    player.on("pause", function () {
-      if (!stoppedByError) {
-        props.onStop();
-      }
-    });
-    player.on("loadeddata", function () {
-      // player.elements.display.currentStation.textContent = player.config.title;
-    });
-    player.on("waiting", function () {
-      // TODO: display this somewhere..
-      // player.elements.display.currentStation.textContent = 'Se incarca..';
-    });
-    player.on("stalled", function () {
-      // alert('A aparut o problema neasteptata. Va rugam incercati mai tarziu!')
-      stoppedByError = true;
-      console.log("Pausing the player..");
-      player.pause();
-      console.trace("stalled", event);
-      if (props.station && remaining_retries > 0) {
-        setTimeout(
-          function () {
-            console.log("Retrying to play..");
-            // player.source = lastPlayerSource;
-            player.play();
-            remaining_retries--;
-          },
-          remaining_retries === 5 ? 0 : 1000,
-        );
-      }
-    });
-    player.on("error", function (event: any) {
-      stoppedByError = true;
-      console.trace("error", event);
-      if (
-        !player.media.paused &&
-        event.detail.plyr.media.error &&
-        event.detail.plyr.failed &&
-        remaining_error_retries > 0
-      ) {
-        setTimeout(
-          function () {
-            console.log("Retrying to play..");
-            // player.source = lastPlayerSource;
-            player.play();
-            remaining_error_retries--;
-          },
-          remaining_error_retries === 5 ? 0 : 1000,
-        );
-      }
-    });
-  }, [props.station.id]);
 
-  const playerSrc: PlyrJS.SourceInfo = {
-    type: "audio",
-    title: props.station.title,
-    sources: [
-      {
-        src: props.station.stream_url,
-        type: "audio/mp3",
-      },
-    ],
-  };
+  // TODO: add a retry mechanism
+
   // TODO: make the volume slider wider
-  // TODO: when the user click play, increase the number of listeners by 1 so that he can see that
+  // TODO: when the user click olaying, increase the number of listeners by 1 so that he can see that
   // Also, delay the updated by 500 ms, also optional we can add an animation when we update the listeners counter.. to emphasis it
   // TODO: make the player mobile responsive
-  // TODO: normalize the sound volume (100% - 10db, 70% - 7db, etc)
 
   return (
-    <>
       <div className={styles.contentHeaderLeft}>
         <div className={styles.container}>
           <img
             className={styles.songImage}
             src={station.thumbnail_url || CONSTANTS.DEFAULT_COVER}
-            alt="Image station"
+            alt={station.title}
           />
           <div className={styles.descriptionSong}>
             <h2 className={styles.songName}>
@@ -123,37 +46,58 @@ export default function StationPlayer(props: {
             <h3 className={styles.artist}>
               {station.now_playing?.song?.artist.name}
             </h3>
-            <div className={styles.containerPlyr}>
-              {useMemo(() => {
-                return (
-                  <Plyr
-                    // @ts-ignore
-                    ref={playerRef}
-                    source={playerSrc}
-                    options={{
-                      debug: false,
-                      settings: ["quality"],
-                      autoplay: props.started,
-                      volume: 0.8,
-                      resetOnEnd: true,
-                      invertTime: false,
-                      controls: [
-                        "play",
-                        "current-station1",
-                        "current-time",
-                        "mute",
-                        "volume",
-                        "pip",
-                        "airplay",
-                      ],
-                    }}
-                  />
-                );
-              }, [props.station.id])}
+            <div className={styles.playerContainer}>
+              <button onClick={() => {
+                setPlaying(!playing);
+              }}>{playing? 'Stop': 'Start'}</button>
+
+              {/* TODO: we might replace this with a more intuitive component.. */}
+              <InputRange
+                step={5}
+                maxValue={100}
+                minValue={0}
+                value={volume}
+                formatLabel={value => ''}
+                onChange={value => {
+                  setVolume(value as number)
+                }} />
+              <div className={styles.playerContainer}>
+                {useMemo(() => {
+                  return (
+                    <ReactPlayer
+                      url={playing? station?.stream_url: ''}
+                      playing={playing}
+                      // controls={true}
+                      volume={volume/100}
+                      onPause={() => {
+                        console.log("pause")
+                      }}
+                      onReady={(r) => {
+                        console.log("ready")
+                      }}
+                      onEnded={() => {
+                        console.log("onEnded")
+                      }}
+                      onError={(e, p) => {
+                        console.error(e, p);
+                        setPlaying(false);
+                      }}
+                      config={{
+                        file: {
+                          attributes: {
+                            autoPlay: false
+                          },
+                          forceAudio: true
+                        }
+                      }}
+                    />
+                  );
+                }, [station.id, playing])}
+
             </div>
           </div>
         </div>
       </div>
-    </>
+      </div>
   );
 }

@@ -19,7 +19,6 @@ export const StationPlayer = dynamic(
 
 export default function StationHeader(station: Station) {
   const [showChild, setShowChild] = useState(false);
-  const [started, setStarted] = useState(true);
   const window = useWindowSize();
 
   useEffect(() => {
@@ -40,8 +39,6 @@ export default function StationHeader(station: Station) {
         <StationPlayer
           key={station?.id}
           station={station}
-          started={started}
-          onStop={() => setStarted(false)}
         />
         <picture>
           <source

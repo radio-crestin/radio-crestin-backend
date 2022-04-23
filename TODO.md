@@ -33,20 +33,20 @@ Frontend:
 - [ ] sum up to station listeners the radio_crestin_listeners value when the user is listening using the HLS or proxy
 
 Backend:
+- generate hls streams using a reliable application
 - incorporate multiple audio sources for each station (hls, proxy, original stream)
 - for "radio biruitor" the metadata are not fetched correctly (swap artist with song_title)
 - update the links from the footer
 - fix unpleasant stations thumbnails
-- add more stations
 - start station when clicking on the thumbnail
 - make sure that we're not abusing the shoutcast endpoints
-- cache all graphql requests for 1 second
 - limit the maximum number of requests to graphql to 5 per second
-- when the metadata fields are undefined, set them to null (keep the API consistent)
 - whitelist all of our servers IPs on Aripi Spre Cer
 - implement a system to suggest what to listen next based on the amount of time the station was listened by users
 - zero downtime docker deployment using docker swarm
 - "aggregate" listeners events & clean up them
 - enable gzip compression also for api responses
 - add audio normalization (http://ffmpeg.org/ffmpeg-all.html#loudnorm) or maybe something on the client side
-- upload hls to edge CDNs (for now we will Bunny pull mode, later on we might want to sync the files directly to Bunny..)
+- add more stations
+- upload hls to edge CDNs (for now we will let Bunny to pull the data, later on we might want to sync the files directly to Bunny..)
+- add aripi spre cer monitoring based on shoutcast metadata

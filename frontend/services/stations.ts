@@ -20,6 +20,8 @@ query GetStations {
     website
     email
     stream_url
+    proxy_stream_url
+    hls_stream_url
     thumbnail_url
     radio_crestin_listeners
     description

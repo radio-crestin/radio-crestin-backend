@@ -1,6 +1,4 @@
-import "plyr-react/dist/plyr.css";
-import React, { useState } from "react";
-import dynamic from "next/dynamic";
+import React from "react";
 import Container from "@/components/Container/Container";
 import Analytics from "@/components/Analytics/Analytics";
 import PageHead from "@/components/PageHead/PageHead";
@@ -27,6 +25,7 @@ export default function Home(initialProps: {
     3,
     "SELECTED_STATION_ID",
   );
+
   const selectedStation = stations.find(s => s.id === selectedStationId);
 
   const onStationSelect = (station: Station) => {
