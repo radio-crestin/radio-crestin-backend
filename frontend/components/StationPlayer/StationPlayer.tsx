@@ -53,25 +53,22 @@ export default function StationPlayer(props: {
     setRetries(retries - 1);
     console.debug("remaining retries: ", retries);
     if(retries > 0) {
+      setSelectedStreamType("");
+      await new Promise(r => setTimeout(r, 200));
+      
       if(selectedStreamType === "HLS") {
-        setSelectedStreamType("");
-        await new Promise(r => setTimeout(r, 100));
         setSelectedStreamType("PROXY");
         console.debug("waiting 1s")
         await new Promise(r => setTimeout(r, 1000));
         return true;
       }
       if(selectedStreamType === "PROXY") {
-        setSelectedStreamType("");
-        await new Promise(r => setTimeout(r, 100));
         setSelectedStreamType("ORIGINAL");
         console.debug("waiting 1s")
         await new Promise(r => setTimeout(r, 1000));
         return true;
       }
       if(selectedStreamType === "ORIGINAL") {
-        setSelectedStreamType("");
-        await new Promise(r => setTimeout(r, 100));
         setSelectedStreamType("HLS");
         console.debug("waiting 1s")
         await new Promise(r => setTimeout(r, 1000));
