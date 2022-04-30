@@ -50,21 +50,31 @@ export default function StationPlayer(props: {
 
   const retryMechanism = async () => {
     console.debug("retryMechanism called")
-    console.debug("waiting 1s")
-    await new Promise(r => setTimeout(r, 1000));
     setRetries(retries - 1);
     console.debug("remaining retries: ", retries);
     if(retries > 0) {
       if(selectedStreamType === "HLS") {
-        setSelectedStreamType("PROXY")
+        setSelectedStreamType("");
+        await new Promise(r => setTimeout(r, 100));
+        setSelectedStreamType("PROXY");
+        console.debug("waiting 1s")
+        await new Promise(r => setTimeout(r, 1000));
         return true;
       }
       if(selectedStreamType === "PROXY") {
-        setSelectedStreamType("ORIGINAL")
+        setSelectedStreamType("");
+        await new Promise(r => setTimeout(r, 100));
+        setSelectedStreamType("ORIGINAL");
+        console.debug("waiting 1s")
+        await new Promise(r => setTimeout(r, 1000));
         return true;
       }
       if(selectedStreamType === "ORIGINAL") {
-        setSelectedStreamType("HLS")
+        setSelectedStreamType("");
+        await new Promise(r => setTimeout(r, 100));
+        setSelectedStreamType("HLS");
+        console.debug("waiting 1s")
+        await new Promise(r => setTimeout(r, 1000));
         return true;
       }
     }
@@ -72,7 +82,7 @@ export default function StationPlayer(props: {
   }
 
   // @ts-ignore
-  const station_url = station[STREAM_TYPE_INFO[selectedStreamType as string].field];
+  const station_url = selectedStreamType !== "" ? station[STREAM_TYPE_INFO[selectedStreamType as string].field] : "";
 
   console.debug("station_url:", station_url)
 
