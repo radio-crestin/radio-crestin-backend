@@ -8,6 +8,9 @@
     "start": "cross-env NODE_ENV=production && node server.js"
   },
   "dependencies": {
+    "@chakra-ui/react": "^1.8.8",
+    "@emotion/react": "^11",
+    "@emotion/styled": "^11",
     "@typegoose/typegoose": "^9.7.1",
     "@types/bluebird": "^3.5.36",
     "@types/cookie-session": "^2.0.44",
@@ -16,6 +19,7 @@
     "bluebird": "^3.7.2",
     "cookie-session": "^2.0.0",
     "cross-env": "^7.0.3",
+    "framer-motion": "^6",
     "glob": "^7.2.0",
     "next": "12.1.4",
     "next-absolute-url": "^1.2.2",
