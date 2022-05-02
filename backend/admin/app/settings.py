@@ -134,7 +134,7 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
 
 # Database
-CONN_MAX_AGE = 0 
+CONN_MAX_AGE = 0
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # https://docs.djangoproject.com/en/2.2/ref/settings/#databases
