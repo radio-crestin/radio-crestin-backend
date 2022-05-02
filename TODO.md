@@ -33,7 +33,6 @@ Frontend:
 - [ ] sum up to station listeners the radio_crestin_listeners value when the user is listening using the HLS or proxy
 - [ ] allow the user to report a problem (also, send current timestamp, his IP and all the console logs)
 Backend:
-- fix unpleasant stations thumbnails
 - start station when clicking on the thumbnail
 - make sure that we're not abusing the shoutcast endpoints
 - limit the maximum number of requests to graphql to 5 per second

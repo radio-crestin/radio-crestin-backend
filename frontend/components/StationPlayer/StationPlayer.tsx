@@ -55,7 +55,7 @@ export default function StationPlayer(props: {
     if(retries > 0) {
       setSelectedStreamType("");
       await new Promise(r => setTimeout(r, 200));
-      
+
       if(selectedStreamType === "HLS") {
         setSelectedStreamType("PROXY");
         console.debug("waiting 1s")
