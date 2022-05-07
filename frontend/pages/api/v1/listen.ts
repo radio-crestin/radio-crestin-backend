@@ -5,7 +5,9 @@ import {trackListen} from "../../../backendServices/listen";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<{ done: boolean }>) {
   // @ts-ignore
-  req.session.ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress
+  req.session.ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+  // @ts-ignore
+  console.log("ip: ", req?.session?.ip, req.headers, req.socket.remoteAddress)
   // @ts-ignore
   if(!req.session.id) {
     // @ts-ignore
