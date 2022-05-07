@@ -1,7 +1,7 @@
 import {NextApiRequest, NextApiResponse} from "next";
 import {ListeningEvent} from "../../../types";
 import { v4 as uuidv4 } from 'uuid';
-import {trackListen} from "../../../services/listen";
+import {trackListen} from "../../../backendServices/listen";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<{ done: boolean }>) {
   // @ts-ignore

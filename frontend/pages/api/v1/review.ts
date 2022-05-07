@@ -1,6 +1,6 @@
 import {NextApiRequest, NextApiResponse} from "next";
 import {Review} from "../../../types";
-import {postReview} from "../../../services/review";
+import {postReview} from "../../../backendServices/review";
 import { v4 as uuidv4 } from 'uuid';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<{ done: boolean }>) {

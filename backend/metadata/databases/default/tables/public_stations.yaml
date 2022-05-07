@@ -73,7 +73,7 @@ computed_fields:
     definition:
       function:
         schema: public
-        name: radio_crestion_listeners
+        name: radio_crestin_listeners
 select_permissions:
   - role: public
     permission:

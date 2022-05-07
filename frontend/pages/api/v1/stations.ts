@@ -1,4 +1,4 @@
-import {getStationsMetadata} from "../../../services/stations";
+import {getStationsMetadata} from "../../../backendServices/stations";
 import {NextApiRequest, NextApiResponse} from "next";
 import {StationsMetadata} from "../../../types";
 

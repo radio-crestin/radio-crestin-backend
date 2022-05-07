@@ -1,8 +1,8 @@
-import React, {useMemo, useState} from "react";
-import styles from "./StationPlayer.module.scss";
+import React, {useEffect, useMemo, useState} from "react";
 import { Station } from "../../types";
 import {CONSTANTS} from "../../lib/constants";
 import ReactPlayer from "react-player";
+import {Flex, Text, Image, Spacer} from "@chakra-ui/react"
 
 import {useLocalStorageState} from "../../utils/state";
 import {
@@ -10,8 +10,9 @@ import {
   Slider,
   SliderFilledTrack,
   SliderThumb,
-  SliderTrack, Tooltip
+  SliderTrack
 } from "@chakra-ui/react";
+import {trackListenClientSide} from "../../frontendServices/listen";
 
 let firstStart = true;
 const STREAM_TYPE_INFO: any = {
@@ -42,7 +43,6 @@ export default function StationPlayer(props: {
   }
 
   const [retries, setRetries] = useState(MAX_MEDIA_RETRIES);
-  const [showTooltip, setShowTooltip] = useState(false)
 
   const [playing, setPlaying] = useState(!firstStart);
   firstStart = false;
@@ -103,88 +103,154 @@ export default function StationPlayer(props: {
     }
   }
 
-  // TODO: add a retry mechanism
-
-  // TODO: make the volume slider wider
   // TODO: when the user click play, increase the number of listeners by 1
   // Also, delay the updated by 500 ms, also optional we can add an animation when we update the listeners counter.. to emphasis it
   // TODO: make the player mobile responsive
 
+  const floatingPlayer = true;
+
+
+  useEffect(() => {
+    if(playing) {
+      trackListenClientSide({
+        station_id: station.id as unknown as bigint,
+        info: {},
+      })
+    }
+    const timer = setInterval(() => {
+      if(playing) {
+        trackListenClientSide({
+          station_id: station.id as unknown as bigint,
+          info: {},
+        })
+      }
+    }, 5000)
+    return () => clearInterval(timer)
+  })
+
   return (
-      <div className={styles.contentHeaderLeft}>
-        <div className={styles.container}>
-          <img
-            className={styles.songImage}
-            src={station.thumbnail_url || CONSTANTS.DEFAULT_COVER}
-            alt={station.title}
-          />
-          <div className={styles.descriptionSong}>
-            <h2 className={styles.songName}>
+    <Box
+      w={{base:'fit-content', lg: '26%'}}
+      h={{base:'auto', lg: '370px'}}
+      minW={{base:'auto', lg: '250px'}}
+      maxW={'100%'}
+      pl={{base:0, lg: 4}}
+      position={{base: 'fixed', lg: 'relative'}}
+      bottom={{base: '0', lg: 'auto'}}
+      left={{base: '0', lg: 'auto'}}
+      right={{base: '0', lg: 'auto'}}
+      zIndex={9}
+    >
+      <Box
+        bg={{base: 'blue.500', lg: 'transparent'}}
+        borderRadius={15}
+        m={{base:3, lg: 0}}
+        p={{base:2, lg: 0}}
+        display={{base:'flex', lg: 'block'}}
+        alignItems={{base:'center', lg: 'auto'}}
+      >
+        <Image
+          src={station.thumbnail_url || CONSTANTS.DEFAULT_COVER}
+          alt={station.title}
+          boxSize={{base:'70px', lg: '220px'}}
+          borderRadius={{base:'12px', lg: '30px'}}
+          style={{"filter":"drop-shadow(2px 2px 5px rgba(0, 0, 0, 0.25))"}}
+          loading={'eager'}
+        />
+        <Flex
+          mt={{base: 0, lg: 3}}
+          ml={{base: 4, lg: 0}}
+          flexDirection={{base: 'row', lg: 'column'}}
+        >
+          <Box>
+            <Text as='h2'
+                  fontSize={{base: 'xl', lg: '3xl'}}
+                  color={{base: 'white', lg: 'gray.800'}}
+                  noOfLines={1}
+                  fontWeight='700'
+                  minH={'18px'}
+            >
               {station.now_playing?.song?.name}
-            </h2>
-            <h3 className={styles.artist}>
+            </Text>
+            <Text as='h3'
+                  fontSize={{base: 'sm', lg: 'lg'}}
+                  color={{base: 'white', lg: 'gray.800'}}
+                  noOfLines={1}
+            >
               {station.now_playing?.song?.artist.name}
-            </h3>
-            <Box w={'100%'} h={'72px'} mt={'auto'} display='flex' alignItems='center'>
-              <button onClick={() => {
-                setPlaying(!playing);
-              }}>
+            </Text>
+          </Box>
+          <Flex
+            w={{base: 'fit-content', lg: '100%'}}
+            mt={{base: 0, lg: 4}}
+            ml={{base: 6, lg: 0}}
+            mr={{base: 5, lg: 0}}
+            alignItems='center'>
+            <button onClick={() => {
+              setPlaying(!playing);
+            }}>
+              <Box fill={{base: 'white', lg: 'gray.900'}}>
                 <svg width="50px" height="50px" focusable="false" aria-hidden="true" viewBox="0 0 24 24">
                   {playing? <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"></path>: <path
                     d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM9.5 16.5v-9l7 4.5-7 4.5z"></path>}
                 </svg>
-              </button>
-              <Box ml={'10px'} display='flex' alignItems='center'>
-                <Slider w={'200px'} aria-label='Volume' defaultValue={volume} onChange={value => {
-                  setVolume(value as number)
-                }}
-                        onMouseEnter={() => setShowTooltip(true)}
-                        onMouseLeave={() => setShowTooltip(false)}>
-                  <SliderTrack bg='gray.200'>
-                    <SliderFilledTrack bg='black' />
-                  </SliderTrack>
-                  <SliderThumb boxSize={6}/>
-                </Slider>
               </Box>
-              <div className={styles.playerContainer}>
-                {useMemo(() => {
-                  return (
-                    <ReactPlayer
-                      url={playing? station_url: ''}
-                      playing={playing}
-                      // controls={true}
-                      volume={volume/100}
-                      onPause={() => {
-                        console.log("pause")
-                      }}
-                      onReady={(r) => {
-                        console.log("ready")
-                      }}
-                      onEnded={() => {
-                        console.log("onEnded")
-                      }}
-                      onError={(e) => {
-                        console.error(e);
-                       if(!retryMechanism()) {
-                         setPlaying(false);
-                       }
-                      }}
-                      config={{
-                        file: {
-                          attributes: {
-                            autoPlay: false
-                          },
-                          forceAudio: true
-                        }
-                      }}
-                    />
-                  );
-                }, [station_url, playing, volume])}
-
-            </div>
+            </button>
+            <Box ml={{base: 4, lg: 5}} display='flex' alignItems='center'>
+              <Slider
+                w={{base: '120px', lg: '175px'}}
+                aria-label='Volume'
+                defaultValue={volume}
+                onChange={value => {
+                  setVolume(value as number)
+                }}>
+                <SliderTrack bg={{base: 'gray.400', lg: 'gray.200'}}>
+                  <SliderFilledTrack bg={{base: 'white', lg: 'gray.900'}} />
+                </SliderTrack>
+                <SliderThumb boxSize={6}/>
+              </Slider>
             </Box>
-        </div>
-      </div>
-      </div>
+            <Box>
+              {useMemo(() => {
+                return (
+                  <ReactPlayer
+                    url={playing? station_url: ''}
+                    width={0}
+                    height={0}
+                    playing={playing}
+                    // controls={true}
+                    volume={volume/100}
+                    onPause={() => {
+                      console.log("pause")
+                    }}
+                    onReady={(r) => {
+                      console.log("ready")
+                    }}
+                    onEnded={() => {
+                      console.log("onEnded")
+                    }}
+                    onError={(e) => {
+                      console.error(e);
+                      if(!retryMechanism()) {
+                        setPlaying(false);
+                      }
+                    }}
+                    config={{
+                      file: {
+                        attributes: {
+                          autoPlay: false
+                        },
+                        forceAudio: true
+                      }
+                    }}
+                  />
+                );
+              }, [station_url, playing, volume])}
+
+            </Box>
+          </Flex>
+        </Flex>
+      </Box>
+    </Box>
   );
 }

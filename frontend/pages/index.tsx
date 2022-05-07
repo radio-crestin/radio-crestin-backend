@@ -1,16 +1,15 @@
 import React from "react";
-import Container from "@/components/Container/Container";
 import Analytics from "@/components/Analytics/Analytics";
-import PageHead from "@/components/PageHead/PageHead";
 import { useStations } from "../hooks/stations";
 import Body from "@/components/Body/Body";
 import { useLocalStorageState } from "../utils/state";
-import { getStationsMetadata } from "../services/stations";
-import { Station, StationGroup, StationsMetadata } from "../types";
-import StationHeader from "@/components/StationHeader/StationHeader";
-import StationCategories from "@/components/StationCategories/StationCategories";
-import Stations from "@/components/Stations/Stations";
-import Footer from "@/components/Footer/Footer";
+import { getStationsMetadata } from "../backendServices/stations";
+import { Station, StationsMetadata } from "../types";
+import StationHomepageHeader from "@/components/StationHeader/StationHeader";
+import StationGroups from "@/components/StationGroups/StationGroups";
+import StationList from "@/components/Stations/StationList";
+import {Box, Container} from "@chakra-ui/react";
+import HeaderMenu from "@/components/HeaderMenu/HeaderMenu";
 
 export default function Home(initialProps: {
   stationsMetadata: StationsMetadata;
@@ -22,25 +21,26 @@ export default function Home(initialProps: {
   });
 
   const [selectedStationId, selectStationId] = useLocalStorageState(
-    3,
+    0,
     "SELECTED_STATION_ID",
   );
 
-  const selectedStation = stations.find(s => s.id === selectedStationId);
+  const [selectedStationGroupId, selectStationGroupId] = useLocalStorageState(
+    0,
+    "SELECTED_STATION_GROUP_ID",
+  );
 
-  const onStationSelect = (station: Station) => {
-    console.log(
-      "Station selected: ",
-      station,
-      selectedStationId !== station.id,
-    );
-    selectStationId(station.id);
-  };
+  const selectedStation = stations.find(s => s.id === selectedStationId);
 
   const stationById = stations.reduce(function (previousValue, currentValue) {
     previousValue[currentValue.id] = currentValue;
     return previousValue;
   }, Object.create(null));
+
+  const displayedStations = station_groups[selectedStationGroupId].station_to_station_groups.map((item) => {
+     return stationById[item.station_id];
+  })
+
 
   // TODO
   // Align welcome message to the bottom left corner
@@ -52,14 +52,15 @@ export default function Home(initialProps: {
 
   return (
     <>
-      <PageHead />
-
       <Body>
-        <Container>
-          {selectedStation && <StationHeader {...selectedStation} />}
-          <StationCategories />
-          <Stations stations={stations} onStationSelect={onStationSelect} />
-          <Footer />
+        <Container maxW={'8xl'}>
+          <HeaderMenu/>
+          {selectedStation && <StationHomepageHeader {...selectedStation} />}
+          <StationGroups stationGroups={station_groups} selectedStationGroupId={selectedStationGroupId} selectStationGroupId={selectStationGroupId}/>
+          <StationList stations={displayedStations} onStationSelect={(station: Station) => {
+            selectStationId(station.id);
+          }} />
+          <Box mb={{base: 40, lg: 20}}/>
         </Container>
       </Body>
       <Analytics />

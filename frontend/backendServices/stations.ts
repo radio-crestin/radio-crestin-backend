@@ -28,6 +28,7 @@ query GetStations {
     description_action_title
     description_link
     feature_latest_post
+    facebook_page_id
     posts(limit: 1, order_by: {published: desc}) {
       id
       title

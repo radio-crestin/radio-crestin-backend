@@ -24,7 +24,7 @@ export const trackListen = (listeningEvent: ListeningEvent): Promise<{ done: boo
         data: { session_id: $session_id, ip_address: $ip_address }
         on_conflict: {
           constraint: users_session_id_key
-          update_columns: ip_address
+          update_columns: [ip_address, station_id, info]
         }
       }
       station_id: $station_id

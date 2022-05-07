@@ -3,12 +3,13 @@ import React, { useEffect, useState } from "react";
 import InviteButton from "@/components/InviteButton/InviteButton";
 import RandomStationButton from "@/components/RandomStationButton/RandomStationButton";
 import StationInformation from "@/components/StationInformation/StationInformation";
-import styles from "./StationHeader.module.scss";
 import dynamic from "next/dynamic";
-import Circle_matrix_desktop from "@/public/circle_matrix_desktop.svg";
-import Circle_matrix_mobile from "@/public/circle_matrix_mobile.svg";
 import { Station } from "../../types";
-import useWindowSize from "../../hooks/useWindowSize";
+import {
+  Box,
+  Flex,
+  Spacer
+} from "@chakra-ui/react";
 
 export const StationPlayer = dynamic(
   () => import("components/StationPlayer/StationPlayer"),
@@ -19,7 +20,6 @@ export const StationPlayer = dynamic(
 
 export default function StationHeader(station: Station) {
   const [showChild, setShowChild] = useState(false);
-  const window = useWindowSize();
 
   useEffect(() => {
     setShowChild(true);
@@ -30,31 +30,29 @@ export default function StationHeader(station: Station) {
   }
 
   return (
-    <div className={styles.header}>
-      <div className={styles.row}>
+    <Flex
+      mt={4}
+      mb={4}
+      px={{base: 4, lg:14}}
+      pt={{base: 4, lg:10}}
+      pb={{base: 6, lg:12}}
+      bg={'brand.600'}
+      flexDirection={'column'}
+    >
+      <Flex w='100%'>
         <InviteButton />
-        {window.width > 767 && <RandomStationButton />}
-      </div>
-      <div className={styles.currentStation}>
+        <Spacer />
+        <RandomStationButton />
+      </Flex>
+      <Flex mt={{base: 1, lg: 12}} mb={2}>
         <StationPlayer
           key={station?.id}
           station={station}
         />
-        <picture>
-          <source
-            media="(max-width: 1023px)"
-            srcSet={Circle_matrix_mobile.src}></source>
-          <source
-            media="(min-width: 1024px)"
-            srcSet={Circle_matrix_desktop.src}></source>
-          <img
-            src={Circle_matrix_desktop.src}
-            className={styles.matrix}
-            alt="fullSymbol"
-          />
-        </picture>
-        <StationInformation station={station} />
-      </div>
-    </div>
+        <Box w={{base: '100%', lg: '74%'}} minW={{base: 'auto', lg: '400px'}}  pl={{base: 1, lg: 4}}>
+          <StationInformation station={station} />
+        </Box>
+      </Flex>
+    </Flex>
   );
 }

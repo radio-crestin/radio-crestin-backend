@@ -1,84 +1,191 @@
-import React from "react";
-import Rating from "react-rating";
+import React, {RefObject, useState} from "react";
 
-import styles from "./StationInformation.module.scss";
-
-import Star from "@/public/Star.svg";
-import StarRed from "@/public/Star_red.svg";
-import StarGray from "@/public/Star_gray.svg";
 import FacebookIcon from "@/public/facebook.svg";
-import Link from "@/public/link.svg";
+import {
+  Text,
+  Link,
+  Flex,
+  Image,
+  useToast,
+  useDisclosure, FormControl, FormLabel, Input, Button, Textarea
+} from "@chakra-ui/react";
+import { ExternalLinkIcon } from '@chakra-ui/icons'
+// @ts-ignore
+import ReactStars from "react-rating-stars-component";
+import {postReviewClientSide} from "../../frontendServices/review";
+
+import {
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalFooter,
+  ModalBody,
+  ModalCloseButton,
+} from '@chakra-ui/react'
+import {FocusableElement} from "@chakra-ui/utils";
 
 export default function StationInformation(props: any) {
   const { station } = props;
-  const StationRating = 4.5;
+  const average = (arr: any[]) => arr.reduce((a,b) => a + b, 0) / arr.length;
+  const StationRating = average(station.reviews.map((i: any)=>i.stars)) || 0;
   const NumberOfListeners = station.now_playing?.listeners || null;
-  const ReadMoreLink = "https://www.facebook.com/";
+  const latestPost = station.posts[0];
+  const toast = useToast();
 
-  const onRatingChange = (rating: number) => {
-    console.log("rating = ", rating);
+  const [userReviewStars, setUserReviewStars] = useState(5)
+  const [userReviewMessage, setUserReviewMessage] = useState("")
+  const { isOpen, onOpen, onClose } = useDisclosure()
+
+  // @ts-ignore
+  const initialRef: RefObject<FocusableElement> = React.useRef();
+
+  const submitReviewMessage = async () => {
+    onClose();
+    const {done} = await postReviewClientSide({
+      user_name: null,
+      station_id: station.id,
+      stars:  userReviewStars,
+      message: userReviewMessage
+    });
+    if(done) {
+      toast({
+        title: 'Review-ul a fost încărcat cu success.',
+        description: "Vă mulțumim frumos!",
+        status: 'success',
+        position: 'bottom-left',
+        duration: 9000,
+        isClosable: true,
+      })
+    } else {
+      toast({
+        title: 'A apărut o eroare neașteptată.',
+        description: "Vă rugăm să încercați mai târziu!",
+        status: 'error',
+        position: 'bottom-left',
+        duration: 9000,
+        isClosable: true,
+      })
+    }
+  }
+  const onRatingChange = async (stars: number) => {
+    const {done} = await postReviewClientSide({
+      user_name: null,
+      station_id: station.id,
+      stars:  userReviewStars,
+      message: null
+    });
+    if(done) {
+      setUserReviewStars(stars);
+      setUserReviewMessage("");
+      onOpen();
+    } else {
+      toast({
+        title: 'A apărut o eroare neașteptată.',
+        description: "Vă rugăm să încercați mai târziu!",
+        status: 'error',
+        position: 'bottom-left',
+        duration: 9000,
+        isClosable: true,
+      })
+    }
   };
 
   return (
-    <div className={styles.container}>
-      <h1 className={styles.station_Name}>{station.title}</h1>
+    <Flex direction={'column'} pl={{base: 0, lg: 4}}>
+      <Text as='h1' fontSize='5xl' noOfLines={1} fontWeight='bold'>
+        {station.title}
+      </Text>
 
-      <div className={styles.station_RatingContainer}>
-        {/*@ts-ignore*/}
-        <Rating
-          onChange={rating => onRatingChange(rating)}
-          placeholderRating={StationRating}
-          emptySymbol={
-            <img
-              src={StarGray.src}
-              height={22}
-              width={22}
-              alt={"empty symbol"}
-            />
-          }
-          placeholderSymbol={
-            <img
-              src={Star.src}
-              height={22}
-              width={22}
-              alt={"placeholder symbol"}
-            />
-          }
-          fullSymbol={
-            <img src={StarRed.src} height={22} width={22} alt={"fullSymbol"} />
-          }
+      <Flex>
+        <ReactStars
+          count={5}
+          onChange={(rating: any) => onRatingChange(rating)}
+          size={20}
+          value={StationRating}
+          activeColor="#fe7f38"
         />
-        {/*@ts-ignore*/}
+        {/* @ts-ignore */}
         {StationRating !== 0 && (
-          <p className={styles.rating}>{StationRating}/5</p>
+          <Text fontSize={'md'} lineHeight={'30px'} ml={1}>{StationRating}/5</Text>
         )}
-        <img
-          src={FacebookIcon.src}
-          className={styles.facebookIcon}
-          alt={"facebook icon"}
-          height={22}
-          width={22}
-        />
-      </div>
+        {station.facebook_page_id && <Link href={'https://facebook.com/' + station.facebook_page_id} isExternal>
+          <Image
+            src={FacebookIcon.src}
+            alt={"facebook icon"}
+            height={22}
+            width={22}
+            m={'4px'}
+            ml={1.5}
+          />
+        </Link>}
 
-      <p
-        className={styles.station_NumberOfListeners}
-        style={{ opacity: NumberOfListeners ? 1 : 0 }}>
+      </Flex>
+
+      {NumberOfListeners && <Text
+        fontSize='md'>
         {NumberOfListeners} persoane ascultă împreună cu tine acest radio
-      </p>
-      <p className={styles.station_Quote}>
-        ”Nu numai că trebuie să ne ferim să producem dezbinare, ci trebuie să
-        devenim agenți ai păcii, străduindu-ne să reconciliem părțile aflate în
-        conflict.” – Deborah Smith Pegues
-      </p>
-      <a
-        type="button"
-        className={styles.station_ReadMore}
-        href={ReadMoreLink}
-        target={"_blank"}>
-        Continuă citirea articolului “Limba care dezbină”
-        <img src={Link.src} alt={"link symbol"} height={22} width={22} />
-      </a>
-    </div>
+      </Text>}
+
+      {latestPost ? (
+        <>
+          <Text as='h2' fontSize='xl' mt='6' maxW={'80%'} noOfLines={1} fontWeight='bold'>
+            {latestPost.title}
+          </Text>
+          <Text fontSize='xl' mt='1' noOfLines={3} maxW={'90%'}>
+            {latestPost.description}
+          </Text>
+          <Link href={latestPost.link} mt='3' isExternal>
+            Continuă citirea articolului <ExternalLinkIcon mx='2px' />
+          </Link>
+        </>
+      ): (
+        <>
+          <Text as='h2' fontSize='xl' mt='6' maxW={'80%'} noOfLines={1} fontWeight='bold'>
+            {station.title}
+          </Text>
+          <Text fontSize='xl' mt='1' noOfLines={3} maxW={'90%'}>
+            {station.description}
+          </Text>
+          {station.website && <Link href={station.website} mt='3' w={'fit-content'}isExternal>
+            Vizitează site-ul web <ExternalLinkIcon mx='2px' />
+          </Link>}
+        </>
+      )}
+
+      <Modal
+        initialFocusRef={initialRef}
+        isOpen={isOpen}
+        onClose={onClose}
+      >
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Adauga un mesaj recenziei</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={6}>
+            <FormControl>
+              <FormLabel>Mesajul dumneavoastra</FormLabel>
+              <Textarea
+                ref={initialRef}
+                placeholder='Introduceți mesajul dumneavoastră aici..'
+                onChange={(e) => {
+                  setUserReviewMessage(e.target.value);
+                }}
+                size='sm'
+                resize={'none'}
+              />
+            </FormControl>
+
+          </ModalBody>
+
+          <ModalFooter>
+            <Button colorScheme='blue' mr={3} onClick={submitReviewMessage}>
+              Trimite
+            </Button>
+            <Button onClick={submitReviewMessage}>Închide</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    </Flex>
   );
 }

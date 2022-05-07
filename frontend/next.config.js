@@ -3,12 +3,12 @@ const nextRuntimeDotenv = require("next-runtime-dotenv");
 const withConfig = nextRuntimeDotenv({
   path: ".env",
   public: [],
-  server: [],
+  server: []
 });
 
 module.exports = withConfig({
   experimental: {
-    outputStandalone: true,
+    outputStandalone: true
   },
   // Use the CDN in production and localhost for development.
   assetPrefix: process.env.FRONTEND_CDN_PREFIX !== "" ?  process.env.FRONTEND_CDN_PREFIX : '',

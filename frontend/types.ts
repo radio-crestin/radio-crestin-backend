@@ -55,6 +55,7 @@ export interface Station {
   description_action_title: string | null
   description_link: string | null
   feature_latest_post: boolean
+  facebook_page_id: string | null
 
   posts: Post[]
   uptime?: StationUptime;
@@ -81,13 +82,25 @@ export interface Review {
   ip_address: String,
   session_id: String,
   station_id: bigint,
-  stars: bigint,
+  stars: number,
+  message: String | null
+}
+
+export interface ClientSideReview {
+  user_name: String | null
+  station_id: bigint,
+  stars: number,
   message: String | null
 }
 
 export interface ListeningEvent {
   ip_address: String | null
   session_id: String,
+  station_id: bigint,
+  info: any,
+}
+
+export interface ClientSideListeningEvent {
   station_id: bigint,
   info: any,
 }
