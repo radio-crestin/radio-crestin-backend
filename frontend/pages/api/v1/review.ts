@@ -3,17 +3,15 @@ import {Review} from "../../../types";
 import {postReview} from "../../../backendServices/review";
 import { v4 as uuidv4 } from 'uuid';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse<{ done: boolean }>) {
-  // @ts-ignore
-  if(!req.session) {
-    Object.defineProperty(req, 'session', {});
-  }
-  // @ts-ignore
-  req.session.ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress
-  // @ts-ignore
-  if(!req.session.id) {
-    // @ts-ignore
-    req.session.id = uuidv4();
+export default async function handler(req: NextApiRequest & {session: any}, res: NextApiResponse<{ done: boolean }>) {
+  if(typeof req.session === "undefined") {
+    Object.defineProperty(req, 'session', {
+      value: {
+        ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || '',
+        id: uuidv4()
+      },
+      writable: true
+    });
   }
   // TODO: we might need to implement a protection mechanism here..
 
