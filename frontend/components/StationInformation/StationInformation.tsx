@@ -37,8 +37,7 @@ export default function StationInformation(props: any) {
   const [userReviewMessage, setUserReviewMessage] = useState("")
   const { isOpen, onOpen, onClose } = useDisclosure()
 
-  // @ts-ignore
-  const initialRef: RefObject<FocusableElement> = React.useRef();
+  const initialRef = React.useRef<HTMLTextAreaElement>(null);
 
   const submitReviewMessage = async () => {
     onClose();
