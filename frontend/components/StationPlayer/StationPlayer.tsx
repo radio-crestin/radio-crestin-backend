@@ -3,10 +3,15 @@ import styles from "./StationPlayer.module.scss";
 import { Station } from "../../types";
 import {CONSTANTS} from "../../lib/constants";
 import ReactPlayer from "react-player";
-import InputRange from "react-input-range";
 
-import 'react-input-range/lib/css/index.css'
 import {useLocalStorageState} from "../../utils/state";
+import {
+  Box,
+  Slider,
+  SliderFilledTrack,
+  SliderThumb,
+  SliderTrack, Tooltip
+} from "@chakra-ui/react";
 
 let firstStart = true;
 const STREAM_TYPE_INFO: any = {
@@ -37,6 +42,7 @@ export default function StationPlayer(props: {
   }
 
   const [retries, setRetries] = useState(MAX_MEDIA_RETRIES);
+  const [showTooltip, setShowTooltip] = useState(false)
 
   const [playing, setPlaying] = useState(!firstStart);
   firstStart = false;
@@ -119,21 +125,27 @@ export default function StationPlayer(props: {
             <h3 className={styles.artist}>
               {station.now_playing?.song?.artist.name}
             </h3>
-            <div className={styles.playerContainer}>
+            <Box w={'100%'} h={'72px'} mt={'auto'} display='flex' alignItems='center'>
               <button onClick={() => {
                 setPlaying(!playing);
-              }}>{playing? 'Stop': 'Start'}</button>
-
-              {/* TODO: we might replace this with a more intuitive component.. */}
-              <InputRange
-                step={1}
-                maxValue={100}
-                minValue={0}
-                value={volume}
-                formatLabel={value => ''}
-                onChange={value => {
+              }}>
+                <svg width="50px" height="50px" focusable="false" aria-hidden="true" viewBox="0 0 24 24">
+                  {playing? <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"></path>: <path
+                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM9.5 16.5v-9l7 4.5-7 4.5z"></path>}
+                </svg>
+              </button>
+              <Box ml={'10px'} display='flex' alignItems='center'>
+                <Slider w={'200px'} aria-label='Volume' defaultValue={volume} onChange={value => {
                   setVolume(value as number)
-                }} />
+                }}
+                        onMouseEnter={() => setShowTooltip(true)}
+                        onMouseLeave={() => setShowTooltip(false)}>
+                  <SliderTrack bg='gray.200'>
+                    <SliderFilledTrack bg='black' />
+                  </SliderTrack>
+                  <SliderThumb boxSize={6}/>
+                </Slider>
+              </Box>
               <div className={styles.playerContainer}>
                 {useMemo(() => {
                   return (
@@ -170,7 +182,7 @@ export default function StationPlayer(props: {
                 }, [station_url, playing, volume])}
 
             </div>
-          </div>
+            </Box>
         </div>
       </div>
       </div>

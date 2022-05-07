@@ -53,6 +53,8 @@
       width: 200px;
       height: 200px;
       border-radius: 30px;
+      margin-left: -6px;
+      margin-bottom: 10px;
       filter: drop-shadow(2px 2px 5px rgba(0, 0, 0, 0.25));
 
       @include mixinHelper.onMobile{
@@ -63,7 +65,8 @@
     .descriptionSong {
       display: flex;
       flex-direction: column;
-      height: 205px;
+      height: 185px;
+      margin-bottom: -2px;
 
       @include mixinHelper.onMobile{
         height: 250px;
@@ -81,11 +84,6 @@
         @include truncateText;
         font-size: 1.5em;
         font-weight: 300;
-      }
-
-      .playerContainer {
-        margin-top: auto;
-        height: 72px;
       }
     }
   }
