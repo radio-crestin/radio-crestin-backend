@@ -7,6 +7,7 @@ const withConfig = nextRuntimeDotenv({
 });
 
 module.exports = withConfig({
+  reactStrictMode: false,
   experimental: {
     outputStandalone: true
   },

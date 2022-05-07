@@ -9,9 +9,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     Object.defineProperty(req, 'session', {});
   }
   // @ts-ignore
-  req.session.ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-  // @ts-ignore
   console.log("ip: ", req?.session?.ip, req.headers, req.socket.remoteAddress)
+  // @ts-ignore
+  req.session.ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
   // @ts-ignore
   if(!req.session.id) {
     // @ts-ignore
