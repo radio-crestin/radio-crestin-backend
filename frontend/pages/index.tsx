@@ -11,6 +11,7 @@ import StationList from "@/components/Stations/StationList";
 import {Box, Container} from "@chakra-ui/react";
 import HeaderMenu from "@/components/HeaderMenu/HeaderMenu";
 
+
 export default function Home(initialProps: {
   stationsMetadata: StationsMetadata;
 }) {
@@ -20,13 +21,15 @@ export default function Home(initialProps: {
     initialStationsMetadata: initialProps.stationsMetadata,
   });
 
+  const random = (a: any[]) => a.find((_, i, ar) => Math.random() < 1 / (ar.length - i))
+
   const [selectedStationId, selectStationId] = useLocalStorageState(
-    0,
+    random(stations).id,
     "SELECTED_STATION_ID",
   );
 
   const [selectedStationGroupId, selectStationGroupId] = useLocalStorageState(
-    0,
+    station_groups[0].id,
     "SELECTED_STATION_GROUP_ID",
   );
 

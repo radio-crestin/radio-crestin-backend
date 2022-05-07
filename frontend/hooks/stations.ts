@@ -31,8 +31,8 @@ export const useStations = ({
   // TODO: invalidate now_playing if timestamp is older than 5 minutes
 
   return {
-    stations: stationsMetadata.stations.sort(s => s.order),
-    station_groups: stationsMetadata.station_groups.sort(s => s.order),
+    stations: stationsMetadata.stations.sort((a,b) => a.order > b.order?1:-1),
+    station_groups: stationsMetadata.station_groups.sort((a,b) => a.order > b.order?1:-1),
     isLoading: !error && !data,
     isError: error,
   };

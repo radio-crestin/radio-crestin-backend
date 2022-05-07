@@ -124,7 +124,7 @@ export default function StationPlayer(props: {
           info: {},
         })
       }
-    }, 5000)
+    }, 1 * 1000)
     return () => clearInterval(timer)
   })
 

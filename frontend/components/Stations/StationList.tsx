@@ -9,6 +9,8 @@ const StationItem = (station: Station) => {
       <Image
         src={station.thumbnail_url || CONSTANTS.DEFAULT_COVER}
         alt={station.title}
+        htmlHeight={250}
+        htmlWidth={250}
         borderRadius={{base: '20px', lg: '41px'}}
         style={{
           "background":"linear-gradient(180.37deg, rgba(0, 0, 0, 0) 11.16%, rgba(0, 0, 0, 0.7138) 91.38%)",
@@ -32,7 +34,7 @@ export default function StationList(props: IProps) {
   const { stations } = props;
   return (
     <Grid w='100%' templateColumns={{base: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)', lg: 'repeat(5, 1fr)', xl: 'repeat(6, 1fr)'}} gap={9} >
-      {Object.values(stations).sort((a,b) => a.order > b.order?1:-1).map((station: Station): any => (
+      {Object.values(stations).map((station: Station): any => (
         <GridItem as='button' key={station.id} onClick={() => props.onStationSelect(station)} style={{"cursor": "pointer"}}>
           <StationItem {...station} />
         </GridItem>

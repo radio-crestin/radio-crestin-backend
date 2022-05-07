@@ -27,7 +27,7 @@ RUN apk add gcc g++ libxslt-dev libxml2
 RUN apk add python3-dev musl-dev jpeg-dev
 
 # Install PostgreSQL libraries
-#RUN apk add postgresql-dev && apk add postgresql-client --repository=http://dl-cdn.alpinelinux.org/alpine/v3.10/main
+RUN apk add postgresql-dev && apk add postgresql-client --repository=http://dl-cdn.alpinelinux.org/alpine/v3.10/main
 
 # Delete cache files used by apk
 RUN rm -rf /var/cache/apk/*

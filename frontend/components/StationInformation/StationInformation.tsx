@@ -53,7 +53,7 @@ export default function StationInformation(props: any) {
         description: "Vă mulțumim frumos!",
         status: 'success',
         position: 'bottom-left',
-        duration: 9000,
+        duration: 3000,
         isClosable: true,
       })
     } else {
@@ -156,6 +156,7 @@ export default function StationInformation(props: any) {
         initialFocusRef={initialRef}
         isOpen={isOpen}
         onClose={onClose}
+        preserveScrollBarGap={true}
       >
         <ModalOverlay />
         <ModalContent>
