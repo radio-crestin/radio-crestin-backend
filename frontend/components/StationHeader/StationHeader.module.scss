@@ -24,6 +24,7 @@
     display: flex;
     width: 100%;
     justify-content: space-between;
+    margin-bottom: 40px;
   }
 
   .currentStation {
@@ -32,6 +33,7 @@
     z-index: 0;
     gap: 50px;
     padding: 0 50px;
+    margin-bottom: 40px;
 
     @include mixinHelper.onTablet{
       flex-direction: column-reverse;
