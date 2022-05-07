@@ -5,6 +5,10 @@ import { v4 as uuidv4 } from 'uuid';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<{ done: boolean }>) {
   // @ts-ignore
+  if(!req.session) {
+    Object.defineProperty(req, 'session', {});
+  }
+  // @ts-ignore
   req.session.ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress
   // @ts-ignore
   if(!req.session.id) {
