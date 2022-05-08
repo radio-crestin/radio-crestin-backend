@@ -16,4 +16,5 @@ select_permissions:
         - id
         - name
         - order
+        - slug
       filter: {}

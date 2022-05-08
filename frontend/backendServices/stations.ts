@@ -65,6 +65,7 @@ query GetStations {
   }
   station_groups {
     id
+    slug
     name
     order
     station_to_station_groups {
