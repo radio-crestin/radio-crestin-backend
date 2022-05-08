@@ -1,7 +1,8 @@
 import React from "react";
-import { Station } from "types";
+import {Station, StationGroup} from "types";
 import {CONSTANTS} from "../../lib/constants";
 import {Box, Center, Grid, GridItem, Image, Text} from "@chakra-ui/react";
+import Link from "next/link";
 
 const StationItem = (station: Station) => {
   return (
@@ -25,19 +26,16 @@ const StationItem = (station: Station) => {
   );
 };
 
-interface IProps {
-  stations: Array<Station>;
-  onStationSelect: (station: Station) => void;
-}
 
-export default function StationList(props: IProps) {
-  const { stations } = props;
+export default function StationList({station_group, stations}: {station_group: StationGroup, stations: Station[]}) {
   return (
     <Grid w='100%' templateColumns={{base: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)', lg: 'repeat(5, 1fr)', xl: 'repeat(6, 1fr)'}} gap={9} >
       {Object.values(stations).length > 0 ? Object.values(stations).map((station: Station): any => (
-        <GridItem as='button' key={station.id} onClick={() => props.onStationSelect(station)} style={{"cursor": "pointer"}}>
-          <StationItem {...station} />
-        </GridItem>
+          <GridItem as='button' key={station.id}>
+            <Link href={`/${encodeURIComponent(station_group?.slug)}/${encodeURIComponent(station.slug)}`} scroll={false} passHref>
+              <a><StationItem {...station} /></a>
+            </Link>
+          </GridItem>
       )): <GridItem as='div' colSpan={5}>
         <Text w={'100%'}>Nu există nici o stație în această categorie.</Text>
       </GridItem>}

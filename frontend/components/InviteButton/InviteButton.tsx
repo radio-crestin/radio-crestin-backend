@@ -1,4 +1,4 @@
-import React from "react";
+import React, {useEffect} from "react";
 
 import {
   Button,
@@ -23,12 +23,15 @@ import {
   WhatsappIcon,
   WhatsappShareButton,
 } from "react-share";
-import {useRouter, withRouter} from "next/router";
+import {withRouter} from "next/router";
 
 function InviteButton() {
   const { isOpen, onOpen, onClose } = useDisclosure()
   const shareTitle = "Asculta si tu acest radio"
-  const shareUrl = window.location.href;
+  let shareUrl = "";
+  // useEffect(() => {
+  //   shareUrl = window.location.href
+  // }, [])
 
   return  (
     <>

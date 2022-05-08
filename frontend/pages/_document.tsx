@@ -7,8 +7,6 @@ export default class Document extends NextDocument {
     return (
       <Html>
         <Head>
-          <title>Radio Crestin</title>
-          <meta name="viewport" content="initial-scale=1.0, width=device-width" />
           <meta name="description"
                 content="Lista de radiouri crestine · Radio Crestin Live"/>
           <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"/>

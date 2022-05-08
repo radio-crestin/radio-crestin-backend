@@ -1,7 +1,6 @@
 import React, {useEffect, useMemo, useState} from "react";
 import { Station } from "../../types";
 import {CONSTANTS} from "../../lib/constants";
-import ReactPlayer from "react-player";
 import {Flex, Text, Image, Spacer} from "@chakra-ui/react"
 
 import {useLocalStorageState} from "../../utils/state";
@@ -13,6 +12,7 @@ import {
   SliderTrack
 } from "@chakra-ui/react";
 import {trackListenClientSide} from "../../frontendServices/listen";
+import dynamic from "next/dynamic";
 
 let firstStart = true;
 const STREAM_TYPE_INFO: any = {
@@ -31,16 +31,14 @@ const STREAM_TYPE_INFO: any = {
 }
 const MAX_MEDIA_RETRIES = 20;
 
+const DynamicReactPlayer = dynamic(() => import('react-player'),
+  { ssr: false }
+)
+
 export default function StationPlayer(props: {
-  station?: Station;
+  station: Station;
 }) {
   const { station } = props;
-
-  console.debug("station:", station)
-
-  if (typeof station === "undefined") {
-    return <></>;
-  }
 
   const [retries, setRetries] = useState(MAX_MEDIA_RETRIES);
 
@@ -87,21 +85,21 @@ export default function StationPlayer(props: {
   // @ts-ignore
   const station_url = selectedStreamType !== "" ? station[STREAM_TYPE_INFO[selectedStreamType as string].field] : "";
 
-  console.debug("station_url:", station_url)
-
-  if ('mediaSession' in navigator){
-    if(playing) {
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: station.now_playing?.song?.name || station.title,
-        artist: station.now_playing?.song?.artist.name || '',
-        artwork: [
-          { src: station.thumbnail_url || CONSTANTS.DEFAULT_COVER, sizes: '512x512', type: 'image/png' },
-        ]
-      });
-    } else {
-      navigator.mediaSession.metadata = new MediaMetadata({});
+  useEffect(() => {
+    if ('mediaSession' in navigator){
+      if(playing) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: station.now_playing?.song?.name || station.title,
+          artist: station.now_playing?.song?.artist.name || '',
+          artwork: [
+            { src: station.thumbnail_url || CONSTANTS.DEFAULT_COVER, sizes: '512x512', type: 'image/png' },
+          ]
+        });
+      } else {
+        navigator.mediaSession.metadata = new MediaMetadata({});
+      }
     }
-  }
+  }, [station])
 
   // TODO: when the user click play, increase the number of listeners by 1
   // Also, delay the updated by 500 ms, also optional we can add an animation when we update the listeners counter.. to emphasis it
@@ -213,7 +211,7 @@ export default function StationPlayer(props: {
             <Box>
               {useMemo(() => {
                 return (
-                  <ReactPlayer
+                  <DynamicReactPlayer
                     url={playing? station_url: ''}
                     width={0}
                     height={0}

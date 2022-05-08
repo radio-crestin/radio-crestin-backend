@@ -4,7 +4,7 @@ import {postReview} from "../../../backendServices/review";
 import { v4 as uuidv4 } from 'uuid';
 
 export default async function handler(req: NextApiRequest & {session: any}, res: NextApiResponse<{ done: boolean }>) {
-  if(typeof req.session === "undefined") {
+  if(typeof req.session === "undefined" || typeof req.session.ip === "undefined" || typeof req.session.id === "undefined") {
     Object.defineProperty(req, 'session', {
       value: {
         ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || '',
@@ -18,9 +18,7 @@ export default async function handler(req: NextApiRequest & {session: any}, res:
 
   const review: Review = {
     user_name: req.query.user_name || req.body.user_name,
-    // @ts-ignore
     ip_address: req.session.ip,
-    // @ts-ignore
     session_id: req.session.id,
     station_id: req.query.station_id || req.body.station_id,
     stars: req.query.stars || req.body.stars,

@@ -12,17 +12,7 @@ import StationPlayer from "@/components/StationPlayer/StationPlayer";
 import {Station} from "../../types";
 
 
-export default function StationHeader({selectedStation, pickARandomStation}: { selectedStation: Station, pickARandomStation: any }) {
-  const [showChild, setShowChild] = useState(false);
-
-  useEffect(() => {
-    setShowChild(true);
-  }, []);
-
-  if (!showChild) {
-    return null;
-  }
-
+export default function StationHomepageHeader({selectedStation, pickARandomStation}: { selectedStation: Station, pickARandomStation: any }) {
   return (
     <Flex
       mt={4}
