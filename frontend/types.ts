@@ -42,6 +42,7 @@ export interface StationReview {
 // TODO: update the below types with the added fields
 export interface Station {
   id: string;
+  slug: string;
   order: number;
   title: string;
   website: string | null
@@ -65,6 +66,7 @@ export interface Station {
 
 export interface StationGroup {
   id: number;
+  slug: string;
   name: string;
   order: number;
   station_to_station_groups: {

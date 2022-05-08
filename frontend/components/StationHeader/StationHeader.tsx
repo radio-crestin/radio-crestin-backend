@@ -3,22 +3,16 @@ import React, { useEffect, useState } from "react";
 import InviteButton from "@/components/InviteButton/InviteButton";
 import RandomStationButton from "@/components/RandomStationButton/RandomStationButton";
 import StationInformation from "@/components/StationInformation/StationInformation";
-import dynamic from "next/dynamic";
-import { Station } from "../../types";
 import {
   Box,
   Flex,
   Spacer
 } from "@chakra-ui/react";
+import StationPlayer from "@/components/StationPlayer/StationPlayer";
+import {Station} from "../../types";
 
-export const StationPlayer = dynamic(
-  () => import("components/StationPlayer/StationPlayer"),
-  {
-    ssr: true,
-  },
-);
 
-export default function StationHeader(station: Station) {
+export default function StationHeader({selectedStation, pickARandomStation}: { selectedStation: Station, pickARandomStation: any }) {
   const [showChild, setShowChild] = useState(false);
 
   useEffect(() => {
@@ -42,15 +36,15 @@ export default function StationHeader(station: Station) {
       <Flex w='100%'>
         <InviteButton />
         <Spacer />
-        <RandomStationButton />
+        <RandomStationButton pickARandomStation={pickARandomStation}/>
       </Flex>
       <Flex mt={{base: 1, lg: 12}} mb={2}>
         <StationPlayer
-          key={station?.id}
-          station={station}
+          key={selectedStation?.id}
+          station={selectedStation}
         />
         <Box w={{base: '100%', lg: '74%'}} minW={{base: 'auto', lg: '400px'}}  pl={{base: 1, lg: 4}}>
-          <StationInformation station={station} />
+          <StationInformation station={selectedStation} />
         </Box>
       </Flex>
     </Flex>

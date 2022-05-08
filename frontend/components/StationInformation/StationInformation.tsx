@@ -28,8 +28,8 @@ import {FocusableElement} from "@chakra-ui/utils";
 export default function StationInformation(props: any) {
   const { station } = props;
   const average = (arr: any[]) => arr.reduce((a,b) => a + b, 0) / arr.length;
-  const StationRating = average(station.reviews.map((i: any)=>i.stars)) || 0;
-  const NumberOfListeners = station.now_playing?.listeners || null;
+  const StationRating = average(station?.reviews?.map((i: any)=>i.stars) || []) || 0;
+  const NumberOfListeners = station?.now_playing?.listeners || null;
   const latestPost = station.posts[0];
   const toast = useToast();
 

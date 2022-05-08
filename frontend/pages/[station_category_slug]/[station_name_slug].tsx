@@ -1,15 +1,16 @@
-import React from "react";
+import React, {useEffect} from "react";
 import Analytics from "@/components/Analytics/Analytics";
-import { useStations } from "../hooks/stations";
+import { useStations } from "../../hooks/stations";
 import Body from "@/components/Body/Body";
-import { useLocalStorageState } from "../utils/state";
-import { getStationsMetadata } from "../backendServices/stations";
-import { Station, StationsMetadata } from "../types";
+import { useLocalStorageState } from "../../utils/state";
+import { getStationsMetadata } from "../../backendServices/stations";
+import { Station, StationsMetadata } from "../../types";
 import StationHomepageHeader from "@/components/StationHeader/StationHeader";
 import StationGroups from "@/components/StationGroups/StationGroups";
 import StationList from "@/components/StationList/StationList";
 import {Box, Container} from "@chakra-ui/react";
 import HeaderMenu from "@/components/HeaderMenu/HeaderMenu";
+import {useRouter} from "next/router";
 
 const groupBy = function(xs: any[], key: string) {
   return xs.reduce(function(rv, x) {
@@ -18,9 +19,12 @@ const groupBy = function(xs: any[], key: string) {
   }, {});
 };
 
-export default function Home(initialProps: {
+export default function StationPage(initialProps: {
   stationsMetadata: StationsMetadata;
 }) {
+  const router = useRouter()
+  const { station_category_slug, station_name_slug } = router.query
+
   // TODO: Add a message when isLoading/isError are true
   const { stations, station_groups, isLoading, isError } = useStations({
     refreshInterval: 10000,
@@ -43,21 +47,32 @@ export default function Home(initialProps: {
 
   const stationById = groupBy(stations, 'id');
 
-  const displayedStations = station_groups.find(s => s.id === selectedStationGroupId)?.station_to_station_groups?.map((item) => {
-     return stationById[item.station_id];
+  const selectedStationGroup = station_groups.find(s => s.id === selectedStationGroupId);
+
+  const displayedStations = selectedStationGroup?.station_to_station_groups?.map((item) => {
+    return stationById[item.station_id];
   }) || [];
 
   const pickARandomStation = () => {
     selectStationId(random(stations).id)
   }
 
-  // TODO
-  // Align welcome message to the bottom left corner
-  // Decrease the height of the header
-  // Make the Station title smaller
-  // TODO: add an option to search stations (eventually typing directly on the keyboard..)
+  useEffect(() => {
+    router.push(
+      {
+        pathname: `/[station_category_slug]/[station_name_slug]`,
+        query: {
+          station_category_slug: selectedStationGroup?.slug,
+          station_name_slug: selectedStation?.slug
+        }
+      },
+      `/${selectedStationGroup?.slug}/${selectedStation?.slug}`,
+      {shallow: true}
+    );
+  }, [selectedStationGroup, selectedStation])
 
-  // console.log(stations);
+  // TODO
+  // TODO: add an option to search stations (eventually typing directly on the keyboard..)
 
   return (
     <>

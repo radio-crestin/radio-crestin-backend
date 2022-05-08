@@ -34,11 +34,13 @@ export default function StationList(props: IProps) {
   const { stations } = props;
   return (
     <Grid w='100%' templateColumns={{base: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)', lg: 'repeat(5, 1fr)', xl: 'repeat(6, 1fr)'}} gap={9} >
-      {Object.values(stations).map((station: Station): any => (
+      {Object.values(stations).length > 0 ? Object.values(stations).map((station: Station): any => (
         <GridItem as='button' key={station.id} onClick={() => props.onStationSelect(station)} style={{"cursor": "pointer"}}>
           <StationItem {...station} />
         </GridItem>
-      ))}
+      )): <GridItem as='div' colSpan={5}>
+        <Text w={'100%'}>Nu există nici o stație în această categorie.</Text>
+      </GridItem>}
     </Grid>
   );
 }

@@ -55,6 +55,7 @@ class Songs(models.Model):
 class StationGroups(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    slug = models.SlugField()
     name = models.TextField(unique=True)
     order = models.FloatField(default=0)
 

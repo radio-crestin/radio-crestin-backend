@@ -15,6 +15,7 @@ export const getStationsMetadata = (): Promise<StationsMetadata> => {
 query GetStations {
   stations {
     id
+    slug
     order
     title
     website

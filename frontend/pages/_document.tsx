@@ -22,7 +22,7 @@ export default class Document extends NextDocument {
                 crossOrigin="anonymous"/>
         </Head>
 
-        <body>
+        <body style={{"height": "120vh"}}>
         {/* Make Color mode to persists when you refresh the page. */}
         <ColorModeScript />
         <Main />
