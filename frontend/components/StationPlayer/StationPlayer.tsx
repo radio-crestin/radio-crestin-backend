@@ -13,6 +13,7 @@ import {
 } from "@chakra-ui/react";
 import {trackListenClientSide} from "../../frontendServices/listen";
 import dynamic from "next/dynamic";
+import {cdnImageLoader} from "../../utils/cdnImageLoader";
 
 let firstStart = true;
 const STREAM_TYPE_INFO: any = {
@@ -148,7 +149,11 @@ export default function StationPlayer(props: {
         alignItems={{base:'center', lg: 'auto'}}
       >
         <Image
-          src={station.thumbnail_url || CONSTANTS.DEFAULT_COVER}
+          src={cdnImageLoader({
+            src: station.thumbnail_url || CONSTANTS.DEFAULT_COVER,
+            width: 384,
+            quality: 80
+          })}
           alt={station.title}
           boxSize={{base:'70px', lg: '220px'}}
           borderRadius={{base:'12px', lg: '30px'}}

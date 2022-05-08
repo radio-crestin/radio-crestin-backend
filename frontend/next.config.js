@@ -11,7 +11,7 @@ module.exports = withConfig({
   images: {
     formats: ['image/avif', 'image/webp'],
     domains: ['radio-crestin.s3.amazonaws.com'],
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840]
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384, 480, 640]
   },
   env: {
     cdnPrefix: process.env.FRONTEND_CDN_PREFIX !== "" ?  process.env.FRONTEND_CDN_PREFIX : ''
