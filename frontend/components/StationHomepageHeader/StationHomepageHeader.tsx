@@ -23,7 +23,7 @@ export default function StationHomepageHeader({selectedStation, pickARandomStati
       bg={'brand.600'}
       flexDirection={'column'}
     >
-      <Flex w='100%'>
+      <Flex w='100%' alignItems={'center'}>
         <InviteButton />
         <Spacer />
         <RandomStationButton pickARandomStation={pickARandomStation}/>

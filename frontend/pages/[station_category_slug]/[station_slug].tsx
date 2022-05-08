@@ -10,6 +10,7 @@ import StationGroups from "@/components/StationGroups/StationGroups";
 import StationList from "@/components/StationList/StationList";
 import {Box, Container} from "@chakra-ui/react";
 import HeaderMenu from "@/components/HeaderMenu/HeaderMenu";
+import Head from "next/head";
 import {useRouter} from "next/router";
 
 const groupBy = function(xs: any[], key: string) {
@@ -23,11 +24,14 @@ export default function StationPage({
                                       stations_metadata,
                                       station_category_slug,
                                       station_slug,
+  default_station = false
                                     }: {
   stations_metadata: StationsMetadata,
   station_category_slug: string,
   station_slug: string
+  default_station: boolean
 }) {
+  const router = useRouter()
   // TODO: Add a message when isLoading/isError are true
   const { stations, station_groups, isLoading, isError } = useStations({
     refreshInterval: 10000,
@@ -45,6 +49,12 @@ export default function StationPage({
     station_groups[0].slug,
     "SELECTED_STATION_GROUP_SLUG",
   );
+  useEffect(() => {
+    if(default_station) {
+      router.push(`/${selectedStationGroupSlug}/${selectedStationSlug}`)
+      return;
+    }
+  }, [])
 
 
   // @ts-ignore
@@ -63,17 +73,16 @@ export default function StationPage({
     selectStationSlug(random(stations).slug)
   }
 
-  useEffect(() => {
-    selectStationSlug(station_slug)
-    selectStationGroupSlug(station_category_slug)
-  }, [])
-
-
   // TODO
   // TODO: add an option to search stations (eventually typing directly on the keyboard..)
 
+  const PageTitle = `Radiouri Crestine ${selectedStation && '- ' + selectedStation.title}`
   return (
     <>
+      <Head>
+        <title>{PageTitle}</title>
+        <meta name="viewport" content="initial-scale=1.0, width=device-width" />
+      </Head>
       <Body>
         <Container maxW={'8xl'}>
           <HeaderMenu />

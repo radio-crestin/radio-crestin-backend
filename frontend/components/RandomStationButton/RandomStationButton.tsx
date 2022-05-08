@@ -14,7 +14,7 @@ export default function RandomStationButton({pickARandomStation}: any) {
         damping: 20
       }}
     >
-      <Button w={{base: '40px', lg: '50px'}} h={{base: '40px', lg: '50px'}} p={'13px'} colorScheme='blue' borderRadius={'40px'} onClick={pickARandomStation}>
+      <Button name="Selecteaza o statie random" w={{base: '45px', lg: '50px'}} h={{base: '45px', lg: '50px'}} p={'13px'} colorScheme='blue' borderRadius={'40px'} onClick={pickARandomStation}>
         <svg
           width="50" height="50"
           focusable="false" aria-hidden="true" viewBox="0 0 24 24"

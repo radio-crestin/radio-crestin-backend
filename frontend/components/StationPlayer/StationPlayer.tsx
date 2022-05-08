@@ -189,7 +189,7 @@ export default function StationPlayer(props: {
             ml={{base: 6, lg: 0}}
             mr={{base: 5, lg: 0}}
             alignItems='center'>
-            <button onClick={() => {
+            <button name="Start/Stop" onClick={() => {
               setPlaying(!playing);
             }}>
               <Box fill={{base: 'white', lg: 'gray.900'}}>
@@ -199,7 +199,7 @@ export default function StationPlayer(props: {
                 </svg>
               </Box>
             </button>
-            <Box ml={{base: 4, lg: 5}} display='flex' alignItems='center'>
+            <Box ml={{base: 4, lg: 5}} display={{base: 'none', lg: 'flex'}} alignItems='center'>
               <Slider
                 w={{base: '120px', lg: '175px'}}
                 aria-label='Volume'
