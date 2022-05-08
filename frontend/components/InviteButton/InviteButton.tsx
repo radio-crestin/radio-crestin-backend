@@ -1,4 +1,4 @@
-import React, {useEffect} from "react";
+import React, {useEffect, useState} from "react";
 
 import {
   Button,
@@ -27,16 +27,28 @@ import {withRouter} from "next/router";
 
 function InviteButton() {
   const { isOpen, onOpen, onClose } = useDisclosure()
-  const shareTitle = "Asculta si tu acest radio"
-  let shareUrl = "";
-  // useEffect(() => {
-  //   shareUrl = window.location.href
-  // }, [])
+  const shareTitle = "Te invit să asculți acest radio: "
+  const [shareUrl, setShareUrl] = useState("")
+  useEffect(() => {
+    setShareUrl(window.location.href)
+  }, [])
 
   return  (
     <>
-      <Button colorScheme='blue' borderRadius={{base: '10px', lg: '30px'}} onClick={onOpen}>
-        Recomandă unui prieten
+      <Button
+        name="Invita un prieten"
+        w={{base: '45px', lg: '50px'}}
+        h={{base: '45px', lg: '50px'}}
+        p={'13px'}
+        bg={'#1e77f2'}
+        _hover={{ bg: '#2e7cfc' }}
+        borderRadius={'40px'}
+        onClick={onOpen}>
+        <svg
+          width="50" height="50"
+          focusable="false" aria-hidden="true" viewBox="0 0 24 24">
+          <path fill="white" d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"></path>
+        </svg>
       </Button>
 
       <Modal isOpen={isOpen} onClose={onClose} size={'lg'} preserveScrollBarGap={true}>

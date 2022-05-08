@@ -70,7 +70,8 @@ export default function StationPage({
   }) || [];
 
   const pickARandomStation = () => {
-    selectStationSlug(random(stations).slug)
+    selectStationSlug(random(stations).slug);
+    router.push(`/${selectedStationGroupSlug}/${selectedStationSlug}`)
   }
 
   // TODO
@@ -85,8 +86,8 @@ export default function StationPage({
       </Head>
       <Body>
         <Container maxW={'8xl'}>
-          <HeaderMenu />
-          {selectedStation && <StationHomepageHeader selectedStation={selectedStation} pickARandomStation={pickARandomStation}/> }
+          <HeaderMenu pickARandomStation={pickARandomStation}/>
+          {selectedStation && <StationHomepageHeader selectedStation={selectedStation} /> }
           <StationGroups
             stationGroups={station_groups}
             selectedStation={selectedStation}

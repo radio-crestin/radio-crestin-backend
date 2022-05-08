@@ -1,4 +1,4 @@
-import React, {RefObject, useState} from "react";
+import React, {useState} from "react";
 
 import FacebookIcon from "@/public/facebook.svg";
 import {
@@ -7,7 +7,7 @@ import {
   Flex,
   Image,
   useToast,
-  useDisclosure, FormControl, FormLabel, Input, Button, Textarea
+  useDisclosure, FormControl, FormLabel, Button, Textarea
 } from "@chakra-ui/react";
 import { ExternalLinkIcon } from '@chakra-ui/icons'
 // @ts-ignore
@@ -23,7 +23,6 @@ import {
   ModalBody,
   ModalCloseButton,
 } from '@chakra-ui/react'
-import {FocusableElement} from "@chakra-ui/utils";
 
 export default function StationInformation(props: any) {
   const { station } = props;
@@ -92,7 +91,7 @@ export default function StationInformation(props: any) {
 
   return (
     <Flex direction={'column'} pl={{base: 0, lg: 4}}>
-      <Text as='h1' fontSize='5xl' noOfLines={1} fontWeight='bold'>
+      <Text as='h1' fontSize={{base: '2xl', lg: '5xl'}} mt={{base: 1, lg: 0}} noOfLines={1} fontWeight='bold'>
         {station.title}
       </Text>
 
@@ -114,6 +113,8 @@ export default function StationInformation(props: any) {
             alt={"facebook icon"}
             height={22}
             width={22}
+            htmlHeight={22}
+            htmlWidth={22}
             m={'4px'}
             ml={1.5}
           />
@@ -122,35 +123,21 @@ export default function StationInformation(props: any) {
       </Flex>
 
       {NumberOfListeners && <Text
-        fontSize='md'>
+        fontSize={{base: 'sm', lg: 'md'}}>
         {NumberOfListeners} persoane ascultă împreună cu tine acest radio
       </Text>}
 
-      {latestPost ? (
-        <>
-          <Text as='h2' fontSize='xl' mt='6' maxW={'80%'} noOfLines={1} fontWeight='bold'>
-            {latestPost.title}
-          </Text>
-          <Text fontSize='xl' mt='1' noOfLines={3} maxW={'90%'}>
-            {latestPost.description}
-          </Text>
-          <Link href={latestPost.link} mt='3' isExternal>
-            Continuă citirea articolului <ExternalLinkIcon mx='2px' />
-          </Link>
-        </>
-      ): (
-        <>
-          <Text as='h2' fontSize='xl' mt='6' maxW={'80%'} noOfLines={1} fontWeight='bold'>
-            {station.title}
-          </Text>
-          <Text fontSize='xl' mt='1' noOfLines={3} maxW={'90%'}>
-            {station.description}
-          </Text>
-          {station.website && <Link href={station.website} mt='3' w={'fit-content'}isExternal>
-            Vizitează site-ul web <ExternalLinkIcon mx='2px' />
-          </Link>}
-        </>
-      )}
+      <>
+        <Text as='h2' fontSize={{base: 'md', lg:'xl'}} mt={{base: 4, lg: 6}} maxW={{base: '100%', lg: '80%'}} noOfLines={1} fontWeight='bold'>
+          {latestPost ? latestPost.title : station.title}
+        </Text>
+        <Text fontSize={{base: 'md', lg:'xl'}} mt='1' noOfLines={{base: 5, lg: 3}} maxW={{base: '100%', lg: '90%'}}>
+          {latestPost ? latestPost.description : station.description}
+        </Text>
+        <Link href={latestPost ? latestPost.link : station.website} mt={{base: 2, lg: 3}} fontSize={'md'} isExternal>
+          {latestPost && latestPost.link ? 'Continuă citirea articolului': 'Vizitează site-ul web'} <ExternalLinkIcon mx='2px' />
+        </Link>
+      </>
 
       <Modal
         initialFocusRef={initialRef}

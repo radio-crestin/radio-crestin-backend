@@ -129,8 +129,8 @@ export default function StationPlayer(props: {
 
   return (
     <Box
-      w={{base:'fit-content', lg: '26%'}}
-      h={{base:'auto', lg: '370px'}}
+      w={{base:'100%', lg: '29%'}}
+      h={{base:'auto', lg: '430px'}}
       minW={{base:'auto', lg: '250px'}}
       maxW={'100%'}
       pl={{base:0, lg: 4}}
@@ -156,24 +156,28 @@ export default function StationPlayer(props: {
           })}
           alt={station.title}
           boxSize={{base:'70px', lg: '220px'}}
+          htmlHeight={250}
+          htmlWidth={250}
           borderRadius={{base:'12px', lg: '30px'}}
           style={{"filter":"drop-shadow(2px 2px 5px rgba(0, 0, 0, 0.25))"}}
           loading={'eager'}
         />
         <Flex
+          w={'100%'}
           mt={{base: 0, lg: 3}}
           ml={{base: 4, lg: 0}}
           flexDirection={{base: 'row', lg: 'column'}}
         >
           <Box>
             <Text as='h2'
-                  fontSize={{base: 'xl', lg: '3xl'}}
+                  fontSize={{base: 'sm', lg: '2xl'}}
+                  mt={{base: 0, lg: 2}}
+                  lineHeight={1.3}
                   color={{base: 'white', lg: 'gray.800'}}
-                  noOfLines={1}
+                  noOfLines={2}
                   fontWeight='700'
-                  minH={'18px'}
             >
-              {station.now_playing?.song?.name}
+              {station.now_playing?.song?.name || <Box display={{base: "block", lg: "none"}}>{station.title}</Box>}
             </Text>
             <Text as='h3'
                   fontSize={{base: 'sm', lg: 'lg'}}
@@ -183,6 +187,7 @@ export default function StationPlayer(props: {
               {station.now_playing?.song?.artist.name}
             </Text>
           </Box>
+          <Spacer/>
           <Flex
             w={{base: 'fit-content', lg: '100%'}}
             mt={{base: 0, lg: 4}}

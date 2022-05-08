@@ -10,7 +10,7 @@ export default function StationGroups({stationGroups, selectedStationGroup, sele
   selectedStation: Station
 }) {
   return (
-    <Flex ml={2} mt={6} mb={9} alignItems='center' gap='2' style={{"overflow": "auto"}} pr={{base: 2, lg: 0}} pb={{base: 3, lg: 0}}>
+    <Flex ml={2} mt={6} mb={9} mx={{base: -4, lg: 0}}  alignItems='center' gap='2' style={{"overflow": "auto"}} px={{base: 2, lg: 0}} pb={{base: 3, lg: 0}}>
       {stationGroups.map((stationGroup) => (
         <Box key={stationGroup.slug}>
 
