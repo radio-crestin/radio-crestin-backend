@@ -1,8 +1,10 @@
 import React from "react";
 import {Station, StationGroup} from "types";
 import {CONSTANTS} from "../../lib/constants";
-import {Box, Center, Grid, GridItem, Image, Text} from "@chakra-ui/react";
+import {Box, Center, Grid, GridItem,  Text} from "@chakra-ui/react";
 import Link from "next/link";
+import Image from 'next/image'
+import {cdnImageLoader} from "../../utils/cdnImageLoader";
 
 const StationItem = (station: Station) => {
   return (
@@ -10,9 +12,12 @@ const StationItem = (station: Station) => {
       <Image
         src={station.thumbnail_url || CONSTANTS.DEFAULT_COVER}
         alt={station.title}
-        htmlHeight={250}
-        htmlWidth={250}
-        borderRadius={{base: '20px', lg: '41px'}}
+        loader={cdnImageLoader}
+        width={250}
+        height={250}
+        // htmlHeight={250}
+        // htmlWidth={250}
+        // borderRadius={{base: '20px', lg: '41px'}}
         style={{
           "background":"linear-gradient(180.37deg, rgba(0, 0, 0, 0) 11.16%, rgba(0, 0, 0, 0.7138) 91.38%)",
           "filter": station?.uptime?.is_up ? "drop-shadow(2px 2px 5px rgba(0, 0, 0, 0.25))": "saturate(0%)",
@@ -20,7 +25,7 @@ const StationItem = (station: Station) => {
         loading={"lazy"}
       />
       <Center mt={1}>
-        <Text fontSize='lg' fontWeight='500'>{station.title}</Text>
+        <Text fontSize='lg' fontWeight='500' height={55}>{station.title}</Text>
       </Center>
     </Box>
   );

@@ -16,7 +16,7 @@ export default function StationGroups({stationGroups, selectedStationGroup, sele
 
           <Link href={`/${encodeURIComponent(stationGroup?.slug)}/${encodeURIComponent(selectedStation?.slug)}`} scroll={false}>
             <a>
-              <Button key={stationGroup.slug} isActive={stationGroup.slug === selectedStationGroup.slug} >
+              <Button key={stationGroup.slug} isActive={stationGroup.slug === selectedStationGroup.slug} style={{"margin": "3px"}} >
                 {stationGroup.name}
               </Button>
             </a>

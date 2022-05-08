@@ -8,6 +8,13 @@ const withConfig = nextRuntimeDotenv({
 
 module.exports = withConfig({
   reactStrictMode: false,
+  images: {
+    formats: ['image/avif', 'image/webp'],
+    domains: ['radio-crestin.s3.amazonaws.com']
+  },
+  env: {
+    cdnPrefix: process.env.FRONTEND_CDN_PREFIX !== "" ?  process.env.FRONTEND_CDN_PREFIX : ''
+  },
   experimental: {
     outputStandalone: true
   },
