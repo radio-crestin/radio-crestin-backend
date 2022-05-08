@@ -15,6 +15,7 @@ const StationItem = (station: Station) => {
         loader={cdnImageLoader}
         width={250}
         height={250}
+        layout={'responsive'}
         // htmlHeight={250}
         // htmlWidth={250}
         // borderRadius={{base: '20px', lg: '41px'}}
