@@ -12,6 +12,7 @@ import {Box, Container} from "@chakra-ui/react";
 import HeaderMenu from "@/components/HeaderMenu/HeaderMenu";
 import Head from "next/head";
 import {useRouter} from "next/router";
+import Footer from "@/components/Footer/Footer";
 
 const groupBy = function(xs: any[], key: string) {
   return xs.reduce(function(rv, x) {
@@ -93,6 +94,7 @@ export default function StationPage({
             selectedStation={selectedStation}
             selectedStationGroup={selectedStationGroup} />
           <StationList station_group={selectedStationGroup} stations={displayedStations} />
+          <Footer/>
           <Box mb={{base: 40, lg: 20}}/>
         </Container>
       </Body>

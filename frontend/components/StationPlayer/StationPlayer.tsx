@@ -136,7 +136,7 @@ export default function StationPlayer(props: {
   return (
     <Box
       w={{base:'100%', lg: '29%'}}
-      h={{base:'auto', lg: '430px'}}
+      h={{base:'auto', lg: '360px'}}
       minW={{base:'auto', lg: '250px'}}
       maxW={'100%'}
       pl={{base:0, lg: 4}}
@@ -160,6 +160,7 @@ export default function StationPlayer(props: {
             width: 384,
             quality: 80
           })}
+          fallbackSrc={station.thumbnail_url || CONSTANTS.DEFAULT_COVER}
           alt={station.title}
           boxSize={{base:'70px', lg: '220px'}}
           htmlHeight={250}
