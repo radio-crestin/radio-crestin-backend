@@ -1,29 +1,71 @@
 import React from "react";
 import {Station, StationGroup} from "types";
 import {CONSTANTS} from "../../lib/constants";
-import {Box, Center, Grid, GridItem, Image, Text} from "@chakra-ui/react";
+import {
+  AspectRatio,
+  Box,
+  Center,
+  Grid,
+  GridItem,
+  Image,
+  Text
+} from "@chakra-ui/react";
 import Link from "next/link";
 import {cdnImageLoader} from "../../utils/cdnImageLoader";
 
 const StationItem = (station: Station) => {
   return (
-    <Box>
-      <Image
-        src={cdnImageLoader({
-          src: station.thumbnail_url || CONSTANTS.DEFAULT_COVER,
-          width: 384,
-          quality: 80
-        })}
-        alt={station.title}
-        htmlHeight={250}
-        htmlWidth={250}
-        borderRadius={{base: '20px', lg: '41px'}}
-        style={{
-          "background":"linear-gradient(180.37deg, rgba(0, 0, 0, 0) 11.16%, rgba(0, 0, 0, 0.7138) 91.38%)",
-          "filter": station?.uptime?.is_up ? "drop-shadow(2px 2px 5px rgba(0, 0, 0, 0.25))": "saturate(0%)",
-      }}
-        loading={"lazy"}
-      />
+    <Box position={'relative'}>
+      <AspectRatio
+        position={'relative'}
+        ratio={1}
+      >
+        <Box
+          borderRadius={{base: '20px', lg: '41px'}}>
+          <Image
+            src={cdnImageLoader({
+              src: station.now_playing?.song?.thumbnail_url || station.thumbnail_url || CONSTANTS.DEFAULT_COVER,
+              width: 384,
+              quality: 80
+            })}
+            alt={station.title + " - " + station.now_playing?.song?.name + " de " + station.now_playing?.song?.artist.name}
+            boxSize='100%'
+            objectFit='cover'
+            htmlHeight={250}
+            htmlWidth={250}
+            style={{
+               "filter": station?.uptime?.is_up ? "": "grayscale(1)"
+            }}
+          />
+          { station.now_playing?.song?.name && <Box
+            position={'absolute'}
+            h={'100%'}
+            w={'100%'}
+            bgGradient={"linear-gradient(180.37deg, rgb(255 255 255 / 0%) 11.16%, rgb(19 19 19 / 60%) 116.38%)"}/>}
+        </Box>
+      </AspectRatio>
+      <Text
+        as={'h4'}
+        position={'absolute'}
+        bottom={'100px'}
+        fontSize='md'
+        px={3}
+        color={'white'}
+        align={'left'}
+        fontWeight={'600'}
+        noOfLines={1}
+      >{station.now_playing?.song?.name}</Text>
+      <Text
+        as={'h5'}
+        position={'absolute'}
+        bottom={'85px'}
+        fontSize='0.73rem'
+        px={3}
+        color={'white'}
+        align={'left'}
+        fontWeight={'400'}
+        noOfLines={1}
+      >{station.now_playing?.song?.artist.name}</Text>
       <Center mt={1}>
         <Text fontSize='lg' fontWeight='500' height={55}>{station.title}</Text>
       </Center>

@@ -11,6 +11,7 @@ import {
   SliderThumb,
   SliderTrack
 } from "@chakra-ui/react";
+import NoSSR from 'react-no-ssr';
 import {trackListenClientSide} from "../../frontendServices/listen";
 import dynamic from "next/dynamic";
 import {cdnImageLoader} from "../../utils/cdnImageLoader";
@@ -43,7 +44,12 @@ export default function StationPlayer(props: {
 
   const [retries, setRetries] = useState(MAX_MEDIA_RETRIES);
 
-  const [playing, setPlaying] = useState(!firstStart);
+  const [playing, setPlayingOriginalMethod] = useLocalStorageState(false, "IS_PLAYING");
+  const [frontendPlaying, setFrontendPlaying] = useState(false);
+  const setPlaying = (newPlayingState: boolean) => {
+    setPlayingOriginalMethod(newPlayingState);
+    setFrontendPlaying(newPlayingState)
+  }
   firstStart = false;
 
   // TODO: we might need to populate these from local storage
@@ -199,7 +205,7 @@ export default function StationPlayer(props: {
             }}>
               <Box fill={{base: 'white', lg: 'gray.900'}}>
                 <svg width="50px" height="50px" focusable="false" aria-hidden="true" viewBox="0 0 24 24">
-                  {playing? <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"></path>: <path
+                  {frontendPlaying? <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"></path>: <path
                     d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM9.5 16.5v-9l7 4.5-7 4.5z"></path>}
                 </svg>
               </Box>
@@ -213,7 +219,9 @@ export default function StationPlayer(props: {
                   setVolume(value as number)
                 }}>
                 <SliderTrack bg={{base: 'gray.400', lg: 'gray.200'}}>
-                  <SliderFilledTrack bg={{base: 'white', lg: 'gray.900'}} />
+                  <NoSSR>
+                    <SliderFilledTrack bg={{base: 'white', lg: 'gray.900'}} />
+                  </NoSSR>
                 </SliderTrack>
                 <SliderThumb boxSize={6}/>
               </Slider>
@@ -228,14 +236,19 @@ export default function StationPlayer(props: {
                     playing={playing}
                     // controls={true}
                     volume={volume/100}
+                    onPlay={() => {
+                      console.debug("onPlay");
+                      setFrontendPlaying(true);
+                    }}
                     onPause={() => {
-                      console.log("pause")
+                      console.debug("pause");
+                      setFrontendPlaying(false);
                     }}
                     onReady={(r) => {
-                      console.log("ready")
+                      console.debug("ready")
                     }}
                     onEnded={() => {
-                      console.log("onEnded")
+                      console.debug("onEnded")
                     }}
                     onError={(e) => {
                       console.error(e);
