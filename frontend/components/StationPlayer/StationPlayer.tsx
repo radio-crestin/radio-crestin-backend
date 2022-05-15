@@ -156,7 +156,7 @@ export default function StationPlayer(props: {
       >
         <Image
           src={cdnImageLoader({
-            src: station.thumbnail_url || CONSTANTS.DEFAULT_COVER,
+            src: station.now_playing?.song?.thumbnail_url || station.thumbnail_url || CONSTANTS.DEFAULT_COVER,
             width: 384,
             quality: 80
           })}
