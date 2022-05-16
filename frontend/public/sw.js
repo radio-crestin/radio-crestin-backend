@@ -12,7 +12,7 @@ const fetchRequestAndCache = (cache, request, importance ) => {
 
 self.addEventListener('fetch', (event) => {
   event.respondWith(async function() {
-    if(event.request.method === "GET" && event.request.url.startsWith("https://cdn.") && !event.request.url.contains("hls")) {
+    if(event.request.method === "GET" && event.request.url.startsWith("https://cdn.") && !event.request.url.includes("hls")) {
       const cache = await caches.open('radio-crestin-dynamic');
       const cachedResponse = await cache.match(event.request);
       if (cachedResponse) {
