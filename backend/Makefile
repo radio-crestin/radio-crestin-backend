@@ -23,6 +23,7 @@ open-admin:
 
 start-hasura-console:
 	hasura console --envfile .env
+	# kill -9 $(lsof -ti:9693);
 
 apply-hasura-migrations:
 	hasura migrate apply --all-databases  --envfile .env

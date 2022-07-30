@@ -89,8 +89,8 @@ class StationMetadataFetchCategories(models.Model):
 class StationToStationGroup(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    station = models.ForeignKey('Stations', models.DO_NOTHING)
-    group = models.ForeignKey(StationGroups, models.DO_NOTHING)
+    station = models.ForeignKey('Stations', null=True, on_delete=models.SET_NULL)
+    group = models.ForeignKey(StationGroups, null=True, on_delete=models.SET_NULL)
     order = models.FloatField(blank=True, null=True, default=0)
 
     class Meta:
@@ -121,8 +121,8 @@ class Stations(models.Model):
     feature_latest_post = models.BooleanField(default=True, blank=True, null=True,)
     facebook_page_id = models.TextField(blank=True, null=True,)
 
-    latest_station_uptime = models.ForeignKey('StationsUptime', models.DO_NOTHING, blank=True, null=True)
-    latest_station_now_playing = models.ForeignKey('StationsNowPlaying', models.DO_NOTHING, blank=True, null=True)
+    latest_station_uptime = models.ForeignKey('StationsUptime', on_delete=models.SET_NULL, blank=True, null=True)
+    latest_station_now_playing = models.ForeignKey('StationsNowPlaying', on_delete=models.SET_NULL, blank=True, null=True)
 
     groups = models.ManyToManyField(
         'StationGroups',
@@ -150,8 +150,8 @@ class Stations(models.Model):
 class StationsMetadataFetch(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    station = models.ForeignKey(Stations, models.DO_NOTHING, blank=True, null=True)
-    station_metadata_fetch_category = models.ForeignKey(StationMetadataFetchCategories, models.DO_NOTHING)
+    station = models.ForeignKey(Stations, on_delete=models.SET_NULL, blank=True, null=True)
+    station_metadata_fetch_category = models.ForeignKey(StationMetadataFetchCategories, null=True, on_delete=models.SET_NULL)
     order = models.IntegerField()
     url = models.TextField()
 
@@ -190,8 +190,8 @@ class StationsNowPlaying(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     timestamp = models.DateTimeField()
-    station = models.ForeignKey(Stations, models.DO_NOTHING, blank=True, null=True)
-    song = models.ForeignKey(Songs, models.DO_NOTHING, blank=True, null=True)
+    station = models.ForeignKey(Stations, on_delete=models.SET_NULL, blank=True, null=True)
+    song = models.ForeignKey(Songs, on_delete=models.SET_NULL, blank=True, null=True)
     raw_data = models.JSONField()
     error = models.JSONField(blank=True, null=True)
     listeners = models.IntegerField(blank=True, null=True)
@@ -209,7 +209,7 @@ class StationsUptime(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     timestamp = models.DateTimeField()
-    station = models.ForeignKey(Stations, models.DO_NOTHING)
+    station = models.ForeignKey(Stations, null=True, on_delete=models.SET_NULL)
     is_up = models.BooleanField()
     latency_ms = models.IntegerField()
     raw_data = models.JSONField()

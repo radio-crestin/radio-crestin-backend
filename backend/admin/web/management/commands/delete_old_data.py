@@ -11,11 +11,13 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         while True:
-            print("Starting to delete old data..")
-            d = datetime.utcnow() - timedelta(days=30)
-            StationsNowPlaying.objects.filter(timestamp__lte=d).delete()
-            StationsUptime.objects.filter(timestamp__lte=d).delete()
-            print("The old data has been deleted successfully")
+            try:
+                print("Starting to delete old data..")
+                StationsUptime.objects.raw("DELETE FROM stations_uptime WHERE timestamp < NOW() - interval '30 days'")
+                StationsNowPlaying.objects.raw("DELETE FROM stations_now_playing WHERE timestamp < NOW() - interval '30 days'")
+                print("The old data has been deleted successfully")
+            except Exception as e:
+                print("Error while deleting old data", e)
 
             # Sleep for one hour
             print("Waiting one hour..")
