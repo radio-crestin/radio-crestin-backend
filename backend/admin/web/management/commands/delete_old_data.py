@@ -12,7 +12,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         while True:
             print("Starting to delete old data..")
-            d = datetime.today() - timedelta(days=30)
+            d = datetime.utcnow() - timedelta(days=30)
             StationsNowPlaying.objects.filter(timestamp__lte=d).delete()
             StationsUptime.objects.filter(timestamp__lte=d).delete()
             print("The old data has been deleted successfully")
