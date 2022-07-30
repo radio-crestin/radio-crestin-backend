@@ -14,6 +14,11 @@ services:
       retries: 10
     networks:
       - app_network
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "5"   # number of files or file count
+        max-size: "100m" # file size
   app:
     build:
       context: backend/app
@@ -24,6 +29,11 @@ services:
       - .env
     networks:
       - app_network
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "5"   # number of files or file count
+        max-size: "100m" # file size
   admin:
     build:
       context: backend/admin
@@ -40,6 +50,11 @@ services:
       start_period: 30s
     networks:
       - app_network
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "5"   # number of files or file count
+        max-size: "100m" # file size
   graphql-engine:
     image: hasura/graphql-engine:v2.2.0.cli-migrations-v3
     depends_on:
@@ -58,6 +73,11 @@ services:
       start_period: 30s
     networks:
       - app_network
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "5"   # number of files or file count
+        max-size: "100m" # file size
   graphql-viewer:
     image: ghcr.io/iosifnicolae2/graphql-viewer:latest
     restart: always
@@ -69,6 +89,11 @@ services:
       start_period: 30s
     networks:
       - app_network
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "5"   # number of files or file count
+        max-size: "100m" # file size
   frontend:
     build:
       context: frontend
@@ -88,6 +113,11 @@ services:
       - FRONTEND_CDN_PREFIX=${FRONTEND_CDN_PREFIX}
     networks:
       - app_network
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "5"   # number of files or file count
+        max-size: "100m" # file size
   nginx:
     image: nginx:1.21-alpine
     restart: on-failure
@@ -102,6 +132,11 @@ services:
       - ./nginx/common_caching.conf:/etc/nginx/common_caching.conf
     networks:
       - app_network
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "5"   # number of files or file count
+        max-size: "100m" # file size
 volumes:
   db_data:
 
