@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 from django.core.management.base import BaseCommand
 
-from backend.admin.web.models import StationsNowPlaying, StationsUptime
+from web.models import StationsNowPlaying, StationsUptime
 
 
 class Command(BaseCommand):
