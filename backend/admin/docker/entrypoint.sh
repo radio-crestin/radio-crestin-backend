@@ -25,6 +25,8 @@ python3 manage.py test --keepdb
 #echo "Applying fixtures.."
 #python manage.py loaddata apps/fixtures.yaml
 
+python3 manage.py delete_old_data &
+
 if [[ "$DEBUG" == "true" ]]; then
   echo "Starting the Django server in debug mode.."
   python3 manage.py runserver 0.0.0.0:8080
