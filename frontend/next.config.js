@@ -10,7 +10,7 @@ module.exports = withConfig({
   reactStrictMode: false,
   images: {
     formats: ['image/avif', 'image/webp'],
-    domains: ['radio-crestin.s3.amazonaws.com', '*.aripisprecer.ro'],
+    domains: ['radio-crestin.s3.amazonaws.com', 'cdn.pictures.aripisprecer.ro', 'pictures.aripisprecer.ro'],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384, 480, 640]
   },
   env: {
