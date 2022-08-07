@@ -5,7 +5,7 @@ import React from "react";
 export default class Document extends NextDocument {
   render() {
     return (
-      <Html>
+      <Html lang="en">
         <Head>
           <meta name="description"
                 content="Lista de radiouri crestine · Radio Crestin Live"/>
