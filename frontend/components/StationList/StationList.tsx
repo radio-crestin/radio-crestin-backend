@@ -15,7 +15,7 @@ import {cdnImageLoader} from "../../utils/cdnImageLoader";
 
 const StationItem = (station: Station) => {
   return (
-    <Box position={'relative'}>
+    <Box position={'relative'} role="group">
       <AspectRatio
         position={'relative'}
         ratio={1}
@@ -37,37 +37,64 @@ const StationItem = (station: Station) => {
                "filter": station?.uptime?.is_up ? "": "grayscale(1)"
             }}
           />
-          { station.now_playing?.song?.name && <Box
-            position={'absolute'}
-            h={'100%'}
-            w={'100%'}
-            bgGradient={"linear-gradient(180.37deg, rgb(255 255 255 / 0%) 11.16%, rgb(19 19 19 / 60%) 116.38%)"}/>}
         </Box>
       </AspectRatio>
-      <Text
+      {station.now_playing?.song?.name&&<Text
         as={'h4'}
         position={'absolute'}
-        bottom={'100px'}
+        bottom={'110px'}
+        py={1}
+        px={1}
         fontSize='md'
-        px={3}
+        // mx={3}
         color={'white'}
         align={'left'}
         fontWeight={'600'}
         noOfLines={1}
-      >{station.now_playing?.song?.name}</Text>
-      <Text
+        background={'black'}
+        opacity={0}
+        transition={'opacity .2s linear'}
+        _groupHover={{ opacity: 1 }}
+      >{station.now_playing?.song?.name}</Text>}
+      {station.now_playing?.song?.artist.name && <Text
         as={'h5'}
         position={'absolute'}
-        bottom={'85px'}
+        bottom={'87px'}
+        py={0}
+        px={1}
         fontSize='0.73rem'
-        px={3}
+        // mx={3}
         color={'white'}
         align={'left'}
         fontWeight={'400'}
         noOfLines={1}
-      >{station.now_playing?.song?.artist.name}</Text>
-      <Center mt={1}>
-        <Text fontSize='lg' fontWeight='500' height={55}>{station.title}</Text>
+        background={'black'}
+        opacity={0}
+        transition={'opacity .2s linear'}
+        _groupHover={{ opacity: 1 }}
+      >{station.now_playing?.song?.artist.name}</Text>}
+      {!station.now_playing?.song?.name && !station.now_playing?.song?.artist.name && <Text
+        as={'h5'}
+        position={'absolute'}
+        bottom={'87px'}
+        py={0}
+        px={1}
+        fontSize='0.73rem'
+        // mx={3}
+        color={'white'}
+        align={'left'}
+        fontWeight={'400'}
+        noOfLines={1}
+        background={'black'}
+        opacity={0}
+        transition={'opacity .2s linear'}
+        _groupHover={{ opacity: 1 }}
+      >Metadate indisponibile</Text>}
+      <Center mt={3}>
+        <Text fontSize='xl'
+              fontWeight='500'
+              // height={55}
+              noOfLines={1}>{station.title}</Text>
       </Center>
     </Box>
   );
@@ -76,16 +103,18 @@ const StationItem = (station: Station) => {
 
 export default function StationList({station_group, stations}: {station_group: StationGroup, stations: Station[]}) {
   return (
-    <Grid w='100%' templateColumns={{base: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)', lg: 'repeat(5, 1fr)', xl: 'repeat(6, 1fr)'}} gap={9} >
-      {Object.values(stations).length > 0 ? Object.values(stations).map((station: Station): any => (
+    <Center>
+      <Grid w='91%' mt={1} templateColumns={{base: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)', lg: 'repeat(5, 1fr)', xl: 'repeat(5, 1fr)'}} gap={9} >
+        {Object.values(stations).length > 0 ? Object.values(stations).map((station: Station): any => (
           <GridItem as='button' key={station.id}>
             <Link href={`/${encodeURIComponent(station_group?.slug)}/${encodeURIComponent(station.slug)}`} scroll={false} passHref>
               <a><StationItem {...station} /></a>
             </Link>
           </GridItem>
-      )): <GridItem as='div' colSpan={5}>
-        <Text w={'100%'}>Nu există nici o stație în această categorie.</Text>
-      </GridItem>}
-    </Grid>
+        )): <GridItem as='div' colSpan={5}>
+          <Text w={'100%'}>Nu există nici o stație în această categorie.</Text>
+        </GridItem>}
+      </Grid>
+    </Center>
   );
 }

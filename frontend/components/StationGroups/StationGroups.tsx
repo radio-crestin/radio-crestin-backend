@@ -14,7 +14,7 @@ export default function StationGroups({stationGroups, selectedStationGroup, sele
       {stationGroups.map((stationGroup) => (
         <Box key={stationGroup.slug}>
 
-          <Link href={`/${encodeURIComponent(stationGroup?.slug)}/${encodeURIComponent(selectedStation?.slug)}`} scroll={false}>
+          <Link href={`/${encodeURIComponent(stationGroup?.slug)}/${encodeURIComponent(selectedStation?.slug)}`} scroll={false} prefetch={true}>
             <a>
               <Button key={stationGroup.slug} isActive={stationGroup.slug === selectedStationGroup.slug} style={{"margin": "3px"}} >
                 {stationGroup.name}

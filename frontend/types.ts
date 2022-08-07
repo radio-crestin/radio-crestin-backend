@@ -41,7 +41,7 @@ export interface StationReview {
 
 // TODO: update the below types with the added fields
 export interface Station {
-  id: string;
+  id: number;
   slug: string;
   order: number;
   title: string;
