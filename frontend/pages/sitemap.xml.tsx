@@ -34,7 +34,7 @@ export async function getServerSideProps({ req, res }) {
     for (const station_relationship of station_group.station_to_station_groups) {
       const station = stations_metadata.stations.find(s => s.id === station_relationship.station_id);
       if(station) {
-        urls.push(`${origin}/${station_group.slug}/${station.slug}`);
+        urls.push(`${origin?.replace("http", "https")}/${station_group.slug}/${station.slug}`);
       }
     }
   }

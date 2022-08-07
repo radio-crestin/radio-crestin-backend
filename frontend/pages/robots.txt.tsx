@@ -14,7 +14,7 @@ export async function getServerSideProps({ req, res }) {
 User-agent: *
 Allow: /
 
-Sitemap: ${origin}/sitemap.xml
+Sitemap: ${origin?.replace("http", "https")}/sitemap.xml
 `);
   res.end();
 
