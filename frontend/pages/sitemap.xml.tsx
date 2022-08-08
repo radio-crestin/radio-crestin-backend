@@ -9,9 +9,6 @@ function generateSiteMap(urls: string[]) {
       return `
        <url>
            <loc>${url}</loc>
-          <lastmod>${new Date().toISOString()}</lastmod>
-          <changefreq>weekly</changefreq>
-          <priority>1.0</priority>
        </url>
      `;
     })
