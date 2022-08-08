@@ -5,8 +5,8 @@ class Artists(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     name = models.TextField()
-    thumbnail = models.ImageField(blank=False, null=False,)
-    thumbnail_url = models.URLField(blank=False, null=False,)
+    thumbnail = models.ImageField(blank=True, null=True,)
+    thumbnail_url = models.URLField(blank=True, null=True,)
 
     class Meta:
         managed = False
@@ -21,7 +21,8 @@ class Artists(models.Model):
 
     def save(self, *args, **kwargs):
         super(Artists, self).save(*args, **kwargs)
-        self.thumbnail_url = self.thumbnail.url
+        if self.thumbnail:
+            self.thumbnail_url = self.thumbnail.url
         super(Artists, self).save(*args, **kwargs)
 
 
