@@ -10,7 +10,7 @@ export default function Analytics(props: { children?: any }) {
       {/*        data-cf-beacon='{"token": "c2153a600cc94f69848e4decff1983a1"}'/>*/}
       <script
         async
-        src="https://www.googletagmanager.com/gtag/js?id=UA-204935415-1"></script>
+        src="https://www.googletagmanager.com/gtag/js?id=G-FDX00R8K3P"></script>
       <script src="/ga.js" async></script>
       <script src="/hj.js" async></script>
     </>
