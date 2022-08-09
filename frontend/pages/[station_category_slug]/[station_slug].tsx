@@ -56,6 +56,11 @@ export default function StationPage({
       return;
     }
   }, [])
+  useEffect(() => {
+    if(station_slug) {
+      selectStationSlug(station_slug)
+    }
+  }, [station_slug])
 
 
   // @ts-ignore
