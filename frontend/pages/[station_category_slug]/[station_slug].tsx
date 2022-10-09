@@ -1,21 +1,21 @@
-import React, {useEffect} from "react";
+import React, { useEffect } from "react";
 import Analytics from "@/components/Analytics/Analytics";
 import { useStations } from "../../hooks/stations";
 import Body from "@/components/Body/Body";
 import { useLocalStorageState } from "../../utils/state";
 import { getStationsMetadata } from "../../backendServices/stations";
-import {Station, StationGroup, StationsMetadata} from "../../types";
+import { Station, StationGroup, StationsMetadata } from "../../types";
 import StationHomepageHeader from "@/components/StationHomepageHeader/StationHomepageHeader";
 import StationGroups from "@/components/StationGroups/StationGroups";
 import StationList from "@/components/StationList/StationList";
-import {Box, Container} from "@chakra-ui/react";
+import { Box, Container } from "@chakra-ui/react";
 import HeaderMenu from "@/components/HeaderMenu/HeaderMenu";
 import Head from "next/head";
-import {useRouter} from "next/router";
+import { useRouter } from "next/router";
 import Footer from "@/components/Footer/Footer";
 
-const groupBy = function(xs: any[], key: string) {
-  return xs.reduce(function(rv, x) {
+const groupBy = function (xs: any[], key: string) {
+  return xs.reduce(function (rv, x) {
     rv[x[key]] = x;
     return rv;
   }, {});
@@ -79,9 +79,6 @@ export default function StationPage({
     selectStationSlug(random(stations).slug);
     router.push(`/${selectedStationGroupSlug}/${selectedStationSlug}`)
   }
-
-  // TODO
-  // TODO: add an option to search stations (eventually typing directly on the keyboard..)
 
   const PageTitle = `Radiouri Crestine ${selectedStation && '- ' + selectedStation.title}`
   return (
