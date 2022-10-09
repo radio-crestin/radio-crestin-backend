@@ -135,11 +135,11 @@ export default function StationList({
         justifyContent={"right"}
         mb={4}
         width={"91%"}
-        mx={{ sm: "auto" }}>
+        mx={{ base: "auto" }}>
         <Input
           placeholder="Cauta"
           size="lg"
-          width={{ sm: "100%", md: 350 }}
+          width={{ base: "100%", md: 350 }}
           onChange={e => {
             let filterText = e.target.value.toString().toLowerCase();
             let dataFiltered = stations.filter(
