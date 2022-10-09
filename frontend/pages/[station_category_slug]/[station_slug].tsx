@@ -97,15 +97,15 @@ export default function StationPage({
     <>
       <Head>
         <title>{seo.title}</title>
-        <meta property="title" content={seo.title} />
-        <meta name="description" content={seo.description} />
-        <meta property="og:title" content={seo.title} />
+        <meta property="title" content={seo?.title} />
+        <meta name="description" content={seo?.description} />
+        <meta property="og:title" content={seo?.title} />
         <meta name="og:description" content={seo?.description} />
         <meta property="og:site_name" content="Radio Crestin" />
         <meta property="og:type" content="article" />
-        <meta name="twitter:title" content={seo.title} />
+        <meta name="twitter:title" content={seo?.title} />
         <meta name="twitter:description" content={seo?.description} />
-        <meta name="twitter:title" content={seo.title} />
+        <meta name="twitter:title" content={seo?.title} />
         <meta name="twitter:card" content="summary" />
         <meta name="keywords" content={seo?.keywords} />
         <meta name="viewport" content="initial-scale=1.0, width=device-width" />
