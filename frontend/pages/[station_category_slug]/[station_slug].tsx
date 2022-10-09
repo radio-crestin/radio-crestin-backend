@@ -85,13 +85,13 @@ export default function StationPage({
   // TODO: add an option to search stations (eventually typing directly on the keyboard..)
 
   const seo = {
-    title: `Radiouri Crestine ${
+    title: `🟢 Radiouri Crestine ${
       selectedStation && "- " + selectedStation.title
     }`,
-    description: `${selectedStation?.title} · Lista de radiouri crestine · Radio Crestin Live`,
-    keywords: `${selectedStation && selectedStation?.title + ","}
-     post radio, live, online, cantari, crestine, radiouri, muzica crestina,
-     radio-crestin.com`,
+    description: `Asculta ${selectedStation?.title} live · Lista de radiouri crestine · Radio Crestin Live`,
+    keywords: `${
+      selectedStation && selectedStation?.title + ","
+    } post radio, live, online, cantari, crestine, radiouri, muzica crestina, radio-crestin.com`,
   };
   return (
     <>
