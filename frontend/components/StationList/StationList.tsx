@@ -1,6 +1,6 @@
-import React, { useState } from "react";
-import { Station, StationGroup } from "types";
-import { CONSTANTS } from "../../lib/constants";
+import React, {useState} from 'react';
+import {Station, StationGroup} from 'types';
+import {CONSTANTS} from '../../lib/constants';
 import {
   AspectRatio,
   Box,
@@ -10,15 +10,15 @@ import {
   Image,
   Input,
   Text,
-} from "@chakra-ui/react";
-import Link from "next/link";
-import { cdnImageLoader } from "../../utils/cdnImageLoader";
+} from '@chakra-ui/react';
+import Link from 'next/link';
+import {cdnImageLoader} from '../../utils/cdnImageLoader';
 
 const StationItem = (station: Station) => {
   return (
-    <Box position={"relative"} role="group">
-      <AspectRatio position={"relative"} ratio={1}>
-        <Box borderRadius={{ base: "20px", lg: "41px" }}>
+    <Box position={'relative'} role="group">
+      <AspectRatio position={'relative'} ratio={1}>
+        <Box borderRadius={{base: '20px', lg: '41px'}}>
           <Image
             src={cdnImageLoader({
               src:
@@ -30,9 +30,9 @@ const StationItem = (station: Station) => {
             })}
             alt={
               station.title +
-              " - " +
+              ' - ' +
               station.now_playing?.song?.name +
-              " de " +
+              ' de ' +
               station.now_playing?.song?.artist.name
             }
             boxSize="100%"
@@ -40,69 +40,69 @@ const StationItem = (station: Station) => {
             htmlHeight={250}
             htmlWidth={250}
             style={{
-              filter: station?.uptime?.is_up ? "" : "grayscale(1)",
+              filter: station?.uptime?.is_up ? '' : 'grayscale(1)',
             }}
           />
         </Box>
       </AspectRatio>
       {station.now_playing?.song?.name && (
         <Text
-          as={"h4"}
-          position={"absolute"}
-          bottom={"110px"}
+          as={'h4'}
+          position={'absolute'}
+          bottom={'110px'}
           py={1}
           px={1}
           fontSize="md"
           // mx={3}
-          color={"white"}
-          align={"left"}
-          fontWeight={"600"}
+          color={'white'}
+          align={'left'}
+          fontWeight={'600'}
           noOfLines={1}
-          background={"black"}
+          background={'black'}
           opacity={0}
-          transition={"opacity .2s linear"}
-          _groupHover={{ opacity: 1 }}>
+          transition={'opacity .2s linear'}
+          _groupHover={{opacity: 1}}>
           {station.now_playing?.song?.name}
         </Text>
       )}
       {station.now_playing?.song?.artist.name && (
         <Text
-          as={"h5"}
-          position={"absolute"}
-          bottom={"87px"}
+          as={'h5'}
+          position={'absolute'}
+          bottom={'87px'}
           py={0}
           px={1}
           fontSize="0.73rem"
           // mx={3}
-          color={"white"}
-          align={"left"}
-          fontWeight={"400"}
+          color={'white'}
+          align={'left'}
+          fontWeight={'400'}
           noOfLines={1}
-          background={"black"}
+          background={'black'}
           opacity={0}
-          transition={"opacity .2s linear"}
-          _groupHover={{ opacity: 1 }}>
+          transition={'opacity .2s linear'}
+          _groupHover={{opacity: 1}}>
           {station.now_playing?.song?.artist.name}
         </Text>
       )}
       {!station.now_playing?.song?.name &&
         !station.now_playing?.song?.artist.name && (
           <Text
-            as={"h5"}
-            position={"absolute"}
-            bottom={"87px"}
+            as={'h5'}
+            position={'absolute'}
+            bottom={'87px'}
             py={0}
             px={1}
             fontSize="0.73rem"
             // mx={3}
-            color={"white"}
-            align={"left"}
-            fontWeight={"400"}
+            color={'white'}
+            align={'left'}
+            fontWeight={'400'}
             noOfLines={1}
-            background={"black"}
+            background={'black'}
             opacity={0}
-            transition={"opacity .2s linear"}
-            _groupHover={{ opacity: 1 }}>
+            transition={'opacity .2s linear'}
+            _groupHover={{opacity: 1}}>
             Metadate indisponibile
           </Text>
         )}
@@ -131,15 +131,15 @@ export default function StationList({
   return (
     <>
       <Box
-        display={"flex"}
-        justifyContent={"right"}
+        display={'flex'}
+        justifyContent={'right'}
         mb={4}
-        width={"91%"}
-        mx={{ base: "auto" }}>
+        width={'91%'}
+        mx={{base: 'auto'}}>
         <Input
           placeholder="Cauta"
           size="lg"
-          width={{ base: "100%", md: 350 }}
+          width={{base: '100%', md: 350}}
           onChange={e => {
             let filterText = e.target.value.toString().toLowerCase();
             let dataFiltered = stations.filter(
@@ -157,10 +157,10 @@ export default function StationList({
           w="91%"
           mt={1}
           templateColumns={{
-            base: "repeat(2, 1fr)",
-            md: "repeat(4, 1fr)",
-            lg: "repeat(5, 1fr)",
-            xl: "repeat(5, 1fr)",
+            base: 'repeat(2, 1fr)',
+            md: 'repeat(4, 1fr)',
+            lg: 'repeat(5, 1fr)',
+            xl: 'repeat(5, 1fr)',
           }}
           gap={9}>
           {filteredItems.length > 0 ? (
@@ -180,7 +180,7 @@ export default function StationList({
             ))
           ) : (
             <GridItem as="div" colSpan={5}>
-              <Text w={"100%"}>
+              <Text w={'100%'}>
                 Nu există nici o stație în această categorie.
               </Text>
             </GridItem>
