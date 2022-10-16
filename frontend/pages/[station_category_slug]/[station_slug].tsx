@@ -86,9 +86,7 @@ export default function StationPage({
   // TODO: add an option to search stations (eventually typing directly on the keyboard..)
 
   const seo = {
-    title: `🟢 Radiouri Crestine ${
-      selectedStation && "- " + selectedStation.title
-    }`,
+    title: `${selectedStation && selectedStation.title + " · LIVE  ·"} Radiouri Crestine `,
     description: `📻 ${selectedStation.description ? selectedStation.description :
       `Asculta ${selectedStation?.title} live · Lista de radiouri crestine · Radio Crestin Live`}`,
     keywords: `${
