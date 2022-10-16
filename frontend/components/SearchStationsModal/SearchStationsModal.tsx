@@ -20,7 +20,7 @@ export function SearchStationsModal({ stations }: { stations: Station[] }) {
   const [filteredItems, setFilteredItems]: Station[] | any = useState(stations);
   return (
     <>
-      <InputGroup onClick={onOpen} width={"fit-content"}>
+      <InputGroup onClick={onOpen} width={{ base: "full", sm: "fit-content" }}>
         <InputLeftElement
           pointerEvents="none"
           height={"full"}
@@ -29,7 +29,7 @@ export function SearchStationsModal({ stations }: { stations: Station[] }) {
         <Input
           placeholder="Tasteaza numele statiei"
           size="lg"
-          width={{ base: "100%", md: 270, lg: 350 }}
+          width={{ base: "100%", sm: 280, lg: 350 }}
         />
       </InputGroup>
 
@@ -63,7 +63,7 @@ export function SearchStationsModal({ stations }: { stations: Station[] }) {
                      p={0} pr={3}>
             {filteredItems.length > 0 ? (
               <Flex flexDirection={"column"}>
-                {filteredItems.map((station: any) => (
+                {filteredItems.map((station: Station) => (
                   <Link href={station.slug} px={2} py={3} m={1}
                         key={station.title}
                         _hover={{ background: "#00000013", borderRadius: 10 }}>
