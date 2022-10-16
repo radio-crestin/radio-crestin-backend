@@ -14,9 +14,15 @@ import HeaderMenu from "@/components/HeaderMenu/HeaderMenu";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import Footer from "@/components/Footer/Footer";
+import {
+  SearchStationsModal,
+} from "@/components/SearchStationsModal/SearchStationsModal";
+import {
+  ContactModalLink,
+} from "@/components/ContactModalLink/ContactModalLink";
 
-const groupBy = function (xs: any[], key: string) {
-  return xs.reduce(function (rv, x) {
+const groupBy = function(xs: any[], key: string) {
+  return xs.reduce(function(rv, x) {
     rv[x[key]] = x;
     return rv;
   }, {});
@@ -82,9 +88,6 @@ export default function StationPage({
     router.push(`/${selectedStationGroupSlug}/${selectedStationSlug}`);
   };
 
-  // TODO
-  // TODO: add an option to search stations (eventually typing directly on the keyboard..)
-
   const seo = {
     title: `${selectedStation && selectedStation.title + " · LIVE  ·"} Radio Crestin `,
     description: `📻 ${selectedStation.description ? selectedStation.description :
@@ -93,6 +96,7 @@ export default function StationPage({
       selectedStation && selectedStation?.title + ","
     } post radio, live, online, cantari, crestine, radiouri, muzica crestina, radio-crestin.com`,
   };
+
   return (
     <>
       <Head>
@@ -112,6 +116,11 @@ export default function StationPage({
       </Head>
       <Body>
         <Container maxW={"8xl"}>
+          <Box display={"flex"} alignItems={"center"}
+               justifyContent={"flex-end"} gap={5} my={5}>
+            <ContactModalLink />
+            <SearchStationsModal stations={stations} />
+          </Box>
           <HeaderMenu pickARandomStation={pickARandomStation} />
           {selectedStation && (
             <StationHomepageHeader selectedStation={selectedStation} />
