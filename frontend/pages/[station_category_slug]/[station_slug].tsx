@@ -117,7 +117,7 @@ export default function StationPage({
       <Body>
         <Container maxW={"8xl"}>
           <Box display={"flex"} alignItems={"center"}
-               justifyContent={"flex-end"} gap={5} mt={5}>
+               justifyContent={"flex-end"} gap={5} my={5}>
             <ContactModalLink />
             <SearchStationsModal stations={stations} />
           </Box>
