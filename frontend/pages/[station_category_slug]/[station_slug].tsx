@@ -5,7 +5,8 @@ import Body from "@/components/Body/Body";
 import { useLocalStorageState } from "../../utils/state";
 import { getStationsMetadata } from "../../backendServices/stations";
 import { Station, StationGroup, StationsMetadata } from "../../types";
-import StationHomepageHeader from "@/components/StationHomepageHeader/StationHomepageHeader";
+import StationHomepageHeader
+  from "@/components/StationHomepageHeader/StationHomepageHeader";
 import StationGroups from "@/components/StationGroups/StationGroups";
 import StationList from "@/components/StationList/StationList";
 import { Box, Container } from "@chakra-ui/react";
@@ -88,7 +89,8 @@ export default function StationPage({
     title: `🟢 Radiouri Crestine ${
       selectedStation && "- " + selectedStation.title
     }`,
-    description: `Asculta ${selectedStation?.title} live · Lista de radiouri crestine · Radio Crestin Live`,
+    description: `📻 ${selectedStation.description ? selectedStation.description :
+      `Asculta ${selectedStation?.title} live · Lista de radiouri crestine · Radio Crestin Live`}`,
     keywords: `${
       selectedStation && selectedStation?.title + ","
     } post radio, live, online, cantari, crestine, radiouri, muzica crestina, radio-crestin.com`,
