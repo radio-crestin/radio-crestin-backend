@@ -46,6 +46,11 @@ export default function StationPage({
     initialStationsMetadata: stations_metadata,
   });
 
+  const hostname =
+    typeof window !== "undefined" && window.location.hostname
+      ? window.location.hostname
+      : "";
+
   const random = (a: any[]) =>
     a.find((_, i, ar) => Math.random() < 1 / (ar.length - i));
 
@@ -113,6 +118,8 @@ export default function StationPage({
         <meta name="twitter:card" content="summary" />
         <meta name="keywords" content={seo?.keywords} />
         <meta name="viewport" content="initial-scale=1.0, width=device-width" />
+        {hostname !== "www.radio-crestin.com" &&
+          <meta name="robots" content="noindex, nofollow" />}
       </Head>
       <Body>
         <Container maxW={"8xl"}>
