@@ -33,13 +33,11 @@ export default function StationPage({
   station_category_slug,
   station_slug,
   default_station = false,
-  hostname,
 }: {
   stations_metadata: StationsMetadata;
   station_category_slug: string;
   station_slug: string;
   default_station: boolean;
-  hostname: string;
 }) {
   const router = useRouter();
   // TODO: Add a message when isLoading/isError are true
@@ -115,8 +113,6 @@ export default function StationPage({
         <meta name="twitter:card" content="summary" />
         <meta name="keywords" content={seo?.keywords} />
         <meta name="viewport" content="initial-scale=1.0, width=device-width" />
-        {hostname !== "www.radio-crestin.com" &&
-          <meta name="robots" content="noindex, nofollow" />}
       </Head>
       <Body>
         <Container maxW={"8xl"}>
@@ -149,15 +145,13 @@ export default function StationPage({
 
 export async function getServerSideProps(context: any) {
   const stations_metadata = await getStationsMetadata();
-  const { req, query } = context;
-  const { station_category_slug, station_slug } = query;
 
+  const { station_category_slug, station_slug } = context.query;
   return {
     props: {
       stations_metadata,
       station_category_slug,
       station_slug,
-      hostname: req.headers.host,
     },
   };
 }
