@@ -27,6 +27,7 @@
     "node-cron": "^3.0.0",
     "node-musickit-api": "^2.1.1",
     "rimraf": "^3.0.2",
+    "socks-proxy-agent": "^7.0.0",
     "tslog": "^3.3.2"
   },
   "devDependencies": {

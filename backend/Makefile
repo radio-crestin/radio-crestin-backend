@@ -22,8 +22,8 @@ open-admin:
 	python3 -m webbrowser http://localhost:8545/admin
 
 start-hasura-console:
+	kill $(lsof -t -i:9695); \
 	hasura console --envfile .env
-	# kill -9 $(lsof -ti:9693);
 
 apply-hasura-migrations:
 	hasura migrate apply --all-databases  --envfile .env

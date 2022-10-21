@@ -30,7 +30,7 @@ services:
     env_file:
       - .env
   graphql-engine:
-    image: hasura/graphql-engine:v2.2.0
+    image: hasura/graphql-engine:v2.13.0
     ports:
       - "8080:8080"
     depends_on:
@@ -38,5 +38,12 @@ services:
     restart: always
     env_file:
       - .env
+  tor-proxy:
+    image: dperson/torproxy
+    ports:
+      - "9050:9050"
+    restart: always
+    environment:
+      LOCATION: DE
 volumes:
   db_data:

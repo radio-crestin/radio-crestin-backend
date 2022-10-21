@@ -4,6 +4,8 @@ import {Logger} from "tslog";
 import {PROJECT_ENV} from "./env";
 import * as cron from "node-cron";
 import {refreshStationsRssFeed} from "./services/stationRssFeedScrape";
+import {randomUUID} from "crypto";
+import { SocksProxyAgent } from "socks-proxy-agent";
 import axios from "axios";
 import axiosThrottle from "axios-request-throttle";
 
@@ -17,6 +19,37 @@ const logger: Logger = new Logger({name: "index"});
 axios.defaults.timeout = 15 * 1000;
 
 axiosThrottle.use(axios, { requestsPerSecond: 60 });
+
+axios.interceptors.response.use(
+    (response) => {
+        return response;
+    }, (error) => {
+        error.config.count = (error?.config?.count || 0) + 1;
+
+        if ((!error?.response?.status || error.response.status !== 200) && error.config.count < 4) {
+            if(error.config.count%2 === 1 && PROJECT_ENV.SOCKS5_RETRY_PROXY) {
+                logger.info("retrying the request using the SOCKS5_RETRY_PROXY");
+
+                const agent = new SocksProxyAgent(`socks5://${randomUUID()}:test@${PROJECT_ENV.SOCKS5_RETRY_PROXY}`);
+                return axios.request({
+                    ...error.config,
+                    ...{
+                        httpAgent: agent,
+                        httpsAgent: agent,
+                    },
+                });
+            } else {
+                return new Promise(resolve => {
+                    logger.info("waiting 500ms before retrying");
+                    setTimeout(() => resolve(true), 500);
+                }).then(() => axios.request({
+                    ...error.config,
+                }));
+            }
+        }
+        return Promise.reject(error);
+    });
+
 app.get("/", async (request: Request, response: Response, next: NextFunction) => {
     response.status(200).json({up: true});
 });

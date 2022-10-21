@@ -118,6 +118,21 @@ services:
       options:
         max-file: "5"   # number of files or file count
         max-size: "100m" # file size
+
+  tor-proxy:
+    image: dperson/torproxy
+    ports:
+      - "9050:9050"
+    restart: always
+    environment:
+      LOCATION: DE
+    networks:
+      - app_network
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "5"   # number of files or file count
+        max-size: "100m" # file size
   nginx:
     image: nginx:1.21-alpine
     restart: on-failure

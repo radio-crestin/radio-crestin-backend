@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AnsiEscapeCustomSettingsConfig">
+    <option name="background">
+      <PersistentColor>
+        <option name="red" value="54" />
+        <option name="green" value="54" />
+        <option name="blue" value="54" />
+      </PersistentColor>
+    </option>
+    <option name="foreground">
+      <PersistentColor>
+        <option name="red" value="130" />
+        <option name="green" value="130" />
+        <option name="blue" value="130" />
+      </PersistentColor>
+    </option>
+  </component>
+</project>
