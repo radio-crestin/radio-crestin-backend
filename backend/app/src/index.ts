@@ -73,6 +73,8 @@ app.get("/refreshStationsRssFeed", (request: Request, response: Response, next: 
 });
 
 if(PROJECT_ENV.APP_REFRESH_STATIONS_METADATA_CRON !== "") {
+    logger.info("APP_REFRESH_STATIONS_METADATA_CRON: ", PROJECT_ENV.APP_REFRESH_STATIONS_METADATA_CRON);
+
     cron.schedule(PROJECT_ENV.APP_REFRESH_STATIONS_METADATA_CRON, () => {
         logger.info("Starting to refresh stations metadata..");
 
@@ -86,6 +88,8 @@ if(PROJECT_ENV.APP_REFRESH_STATIONS_METADATA_CRON !== "") {
 }
 
 if(PROJECT_ENV.APP_REFRESH_STATIONS_RSS_FEED_CRON !== "") {
+    logger.info("APP_REFRESH_STATIONS_RSS_FEED_CRON: ", PROJECT_ENV.APP_REFRESH_STATIONS_RSS_FEED_CRON);
+
     cron.schedule(PROJECT_ENV.APP_REFRESH_STATIONS_RSS_FEED_CRON, () => {
         logger.info("Starting to refresh stations rss feed..");
 

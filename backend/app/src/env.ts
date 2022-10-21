@@ -1,6 +1,7 @@
 import {config} from "dotenv";
+import path from "path";
 
-config();
+config({ path: path.resolve(__dirname, "../.env") });
 
 export const PROJECT_ENV: {
     APP_SERVER_PORT: number
@@ -14,6 +15,7 @@ export const PROJECT_ENV: {
     APP_GRAPHQL_ENDPOINT_URI: process.env.APP_GRAPHQL_ENDPOINT_URI || "",
     APP_GRAPHQL_ADMIN_SECRET: process.env.APP_GRAPHQL_ADMIN_SECRET || "",
     APP_REFRESH_STATIONS_METADATA_CRON: process.env.APP_REFRESH_STATIONS_METADATA_CRON || "",
-    APP_REFRESH_STATIONS_RSS_FEED_CRON: process.env.APP_REFRESH_STATIONS_METADATA_CRON || "",
+    APP_REFRESH_STATIONS_RSS_FEED_CRON: process.env.APP_REFRESH_STATIONS_RSS_FEED_CRON || "",
     SOCKS5_RETRY_PROXY: process.env.SOCKS5_RETRY_PROXY || "tor-proxy:9050",
 };
+console.log({PROJECT_ENV, env: process.env.APP_REFRESH_STATIONS_METADATA_CRON});
