@@ -1,21 +1,18 @@
 import React from "react";
 
-import StationInformation from "@/components/StationInformation/StationInformation";
-import {
-  Box,
-  Flex,
-} from "@chakra-ui/react";
+import StationInformation
+  from "@/components/StationInformation/StationInformation";
+import { Box, Flex } from "@chakra-ui/react";
 import StationPlayer from "@/components/StationPlayer/StationPlayer";
-import {Station} from "../../types";
-
+import { Station } from "../../types";
 
 export default function StationHomepageHeader({selectedStation}: { selectedStation: Station }) {
   return (
     <Flex
       borderRadius={{base: 12, lg: 40}}
-      mx={{base: -2, lg: 'auto'}}
-      mt={{base: 0, lg: 8}}
-      mb={{base: 0, lg: 12}}
+      mx={{ base: -2, lg: "auto" }}
+      mt={{ base: 0, lg: 5 }}
+      mb={{ base: 0, lg: 12 }}
       px={{base: 3, lg: 16}}
       py={{base: 3, lg: 14}}
       bg={'brand.600'}

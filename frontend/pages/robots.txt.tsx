@@ -1,20 +1,17 @@
-import {getStationsMetadata} from "../backendServices/stations";
-import absoluteUrl from 'next-absolute-url'
-
 function SiteMap() {
   // getServerSideProps will do the heavy lifting
 }
 
 // @ts-ignore
-export async function getServerSideProps({ req, res }) {
-  const { origin } = absoluteUrl(req)
+export async function getServerSideProps({ res }) {
+  const origin = "https://www.radio-crestin.com";
 
-  res.setHeader('Content-Type', 'text/plain');
+  res.setHeader("Content-Type", "text/plain");
   res.write(`# Allow all crawlers
 User-agent: *
 Allow: /
 
-Sitemap: ${origin?.replace("http", "https")}/sitemap.xml
+Sitemap: ${origin}/sitemap.xml
 `);
   res.end();
 
