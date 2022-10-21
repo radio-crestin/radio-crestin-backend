@@ -4,6 +4,8 @@ import {Logger} from "tslog";
 import {PROJECT_ENV} from "./env";
 import * as cron from "node-cron";
 import {refreshStationsRssFeed} from "./services/stationRssFeedScrape";
+import axios from "axios";
+import axiosThrottle from "axios-request-throttle";
 
 const app = express();
 
@@ -11,6 +13,10 @@ const port = PROJECT_ENV.APP_SERVER_PORT;
 
 const logger: Logger = new Logger({name: "index"});
 
+// Axios config
+axios.defaults.timeout = 15 * 1000;
+
+axiosThrottle.use(axios, { requestsPerSecond: 60 });
 app.get("/", async (request: Request, response: Response, next: NextFunction) => {
     response.status(200).json({up: true});
 });
