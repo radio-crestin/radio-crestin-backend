@@ -18,4 +18,3 @@ export const PROJECT_ENV: {
     APP_REFRESH_STATIONS_RSS_FEED_CRON: process.env.APP_REFRESH_STATIONS_RSS_FEED_CRON || "",
     SOCKS5_RETRY_PROXY: process.env.SOCKS5_RETRY_PROXY || "tor-proxy:9050",
 };
-console.log({PROJECT_ENV, env: process.env.APP_REFRESH_STATIONS_METADATA_CRON});

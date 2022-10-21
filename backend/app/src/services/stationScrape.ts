@@ -531,10 +531,10 @@ const updateStationMetadata = async ({
       timestamp: "${stationNowPlaying.timestamp}"
       song: { 
         data: { 
-            name: ${!stationNowPlaying?.current_song?.name ? "": "\"" + stationNowPlaying.current_song.name + "\""}
+            name: ${!stationNowPlaying?.current_song?.name ? "\"\"": "\"" + stationNowPlaying.current_song.name + "\""}
             artist: {
                 data: {
-                    name: ${!stationNowPlaying?.current_song?.artist ? "": "\"" + stationNowPlaying.current_song.artist + "\""}
+                    name: ${!stationNowPlaying?.current_song?.artist ? "\"\"": "\"" + stationNowPlaying.current_song.artist + "\""}
                 }, 
                 on_conflict: {
                     constraint: artists_name_key, 
