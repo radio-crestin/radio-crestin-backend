@@ -122,7 +122,10 @@ radio crestin muzica non stop,  radio-crestin.com`,
             gap={5}
             my={5}>
             <ContactModalLink />
-            <SearchStationsModal stations={stations} />
+            <SearchStationsModal
+              station_group={selectedStationGroup}
+              stations={stations}
+            />
           </Box>
           <HeaderMenu pickARandomStation={pickARandomStation} />
           {selectedStation && (

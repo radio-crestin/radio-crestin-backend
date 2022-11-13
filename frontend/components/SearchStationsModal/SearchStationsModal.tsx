@@ -1,21 +1,28 @@
+import Link from 'next/link';
+import React, {useState} from 'react';
 import {
+  Button,
   Flex,
   GridItem,
   Input,
   InputGroup,
   InputLeftElement,
-  Link,
   Modal,
   ModalBody,
   ModalContent,
   ModalOverlay,
   useDisclosure,
 } from '@chakra-ui/react';
-import React, {useState} from 'react';
-import {Station} from '../../types';
+import {Station, StationGroup} from '../../types';
 import {SearchIcon} from '@chakra-ui/icons';
 
-export function SearchStationsModal({stations}: {stations: Station[]}) {
+export function SearchStationsModal({
+  station_group,
+  stations,
+}: {
+  station_group: StationGroup;
+  stations: Station[];
+}) {
   const {isOpen, onOpen, onClose} = useDisclosure();
   const [filteredItems, setFilteredItems]: Station[] | any = useState(stations);
   return (
@@ -70,13 +77,25 @@ export function SearchStationsModal({stations}: {stations: Station[]}) {
               <Flex flexDirection={'column'}>
                 {filteredItems.map((station: Station) => (
                   <Link
-                    href={station.slug}
-                    px={2}
-                    py={3}
-                    m={1}
-                    key={station.title}
-                    _hover={{background: '#00000013', borderRadius: 10}}>
-                    {station.title}
+                    href={`/${encodeURIComponent(
+                      station_group?.slug,
+                    )}/${encodeURIComponent(station.slug)}`}
+                    onClick={() => {
+                      onClose();
+                      setFilteredItems(stations);
+                    }}
+                    key={station.title}>
+                    <Button
+                      background={'white'}
+                      _hover={{background: '#00000013', borderRadius: 10}}
+                      px={2}
+                      py={3}
+                      m={1}
+                      justifyContent={'flex-start'}
+                      fontWeight={'normal'}
+                      width={'100%'}>
+                      {station.title}
+                    </Button>
                   </Link>
                 ))}
               </Flex>
