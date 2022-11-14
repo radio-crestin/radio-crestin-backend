@@ -1,5 +1,6 @@
 /**
- * Make first letter of a string upppercase
+ * Make the first letter of a string uppercase
+ *
  * @param str - string
  * @returns a string
  */

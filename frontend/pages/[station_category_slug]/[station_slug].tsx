@@ -13,7 +13,7 @@ import StationList from '@/components/StationList/StationList';
 import Footer from '@/components/Footer/Footer';
 import {SearchStationsModal} from '@/components/SearchStationsModal/SearchStationsModal';
 import {ContactModalLink} from '@/components/ContactModalLink/ContactModalLink';
-import {groupBy} from '@/utils/groupBy';
+import {indexBy} from '@/utils/indexBy';
 import {seoStation} from '@/utils/seo';
 
 export default function StationPage({
@@ -37,7 +37,7 @@ export default function StationPage({
   // @ts-ignore
   const selectedStation: Station = stations.find(s => s.slug === station_slug);
 
-  const stationById = groupBy(stations, 'id');
+  const stationById = indexBy(stations, 'id');
 
   // @ts-ignore
   const selectedStationGroup: StationGroup = station_groups.find(
