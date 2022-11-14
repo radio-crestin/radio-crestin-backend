@@ -1,20 +1,23 @@
-import React, {useEffect, useMemo, useState} from "react";
-import { Station } from "../../types";
-import {CONSTANTS} from "../../lib/constants";
-import {Flex, Text, Image, Spacer} from "@chakra-ui/react"
-
-import {useLocalStorageState} from "../../utils/state";
+import React, {useEffect, useMemo, useState} from 'react';
+import {Station} from '../../types';
+import {CONSTANTS} from '../../lib/constants';
 import {
   Box,
+  Flex,
+  Image,
   Slider,
   SliderFilledTrack,
   SliderThumb,
-  SliderTrack
-} from "@chakra-ui/react";
+  SliderTrack,
+  Spacer,
+  Text,
+} from '@chakra-ui/react';
+
+import {useLocalStorageState} from '@/utils/state';
 import NoSSR from 'react-no-ssr';
-import {trackListenClientSide} from "../../frontendServices/listen";
-import dynamic from "next/dynamic";
-import {cdnImageLoader} from "../../utils/cdnImageLoader";
+import {trackListenClientSide} from '../../frontendServices/listen';
+import dynamic from 'next/dynamic';
+import {cdnImageLoader} from '@/utils/cdnImageLoader';
 
 let firstStart = true;
 const STREAM_TYPE_INFO: any = {

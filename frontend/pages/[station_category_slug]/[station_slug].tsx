@@ -3,7 +3,7 @@ import Head from 'next/head';
 import {useRouter} from 'next/router';
 import {Box, Container} from '@chakra-ui/react';
 import Analytics from '@/components/Analytics/Analytics';
-import {useStations} from '../../hooks/stations';
+import {useStations} from '@/hooks/stations';
 import Body from '@/components/Body/Body';
 import {getStationsMetadata} from '../../backendServices/stations';
 import {Station, StationGroup, StationsMetadata} from '../../types';
@@ -13,7 +13,7 @@ import StationList from '@/components/StationList/StationList';
 import Footer from '@/components/Footer/Footer';
 import {SearchStationsModal} from '@/components/SearchStationsModal/SearchStationsModal';
 import {ContactModalLink} from '@/components/ContactModalLink/ContactModalLink';
-import {groupBy} from '../../utils/groupBy';
+import {groupBy} from '@/utils/groupBy';
 
 export default function StationPage({
   stations_metadata,

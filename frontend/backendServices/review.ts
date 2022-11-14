@@ -1,17 +1,18 @@
-import axios, { AxiosRequestConfig } from "axios";
-import {Review} from "../types";
-import { PROJECT_ENV } from "../utils/env";
+import axios, {AxiosRequestConfig} from 'axios';
+import {Review} from '../types';
+import {PROJECT_ENV} from '@/utils/env';
 
-export const postReview = (review: Review): Promise<{ done: boolean }> => {
+export const postReview = (review: Review): Promise<{done: boolean}> => {
   const options: AxiosRequestConfig = {
-    method: "POST",
+    method: 'POST',
     url: PROJECT_ENV.FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_URI,
     headers: {
-      "content-type": "application/json",
-      "x-hasura-admin-secret": PROJECT_ENV.FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_ADMIN_SECRET
+      'content-type': 'application/json',
+      'x-hasura-admin-secret':
+        PROJECT_ENV.FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_ADMIN_SECRET,
     },
     data: {
-      operationName: "InsertStationReview",
+      operationName: 'InsertStationReview',
       query: `mutation InsertStationReview(
   $user_name: String
   $ip_address: String!
@@ -56,7 +57,7 @@ export const postReview = (review: Review): Promise<{ done: boolean }> => {
     }
 
     return {
-      done: typeof response.data.data.insert_reviews_one.id !== "undefined",
+      done: typeof response.data.data.insert_reviews_one.id !== 'undefined',
     };
   });
 };
