@@ -1,16 +1,16 @@
-import axios, { AxiosRequestConfig } from "axios";
-import { StationsMetadata } from "../types";
-import { PROJECT_ENV } from "../utils/env";
+import axios, {AxiosRequestConfig} from 'axios';
+import {StationsMetadata} from '../types';
+import {PROJECT_ENV} from '@/utils/env';
 
 export const getStationsMetadata = (): Promise<StationsMetadata> => {
   const options: AxiosRequestConfig = {
-    method: "POST",
+    method: 'POST',
     url: PROJECT_ENV.FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_URI,
     headers: {
-      "content-type": "application/json",
+      'content-type': 'application/json',
     },
     data: {
-      operationName: "GetStations",
+      operationName: 'GetStations',
       query: `
 query GetStations {
   stations {

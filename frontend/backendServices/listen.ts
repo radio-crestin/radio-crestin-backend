@@ -1,17 +1,20 @@
-import axios, { AxiosRequestConfig } from "axios";
-import {ListeningEvent} from "../types";
-import { PROJECT_ENV } from "../utils/env";
+import axios, {AxiosRequestConfig} from 'axios';
+import {ListeningEvent} from '../types';
+import {PROJECT_ENV} from '@/utils/env';
 
-export const trackListen = (listeningEvent: ListeningEvent): Promise<{ done: boolean }> => {
+export const trackListen = (
+  listeningEvent: ListeningEvent,
+): Promise<{done: boolean}> => {
   const options: AxiosRequestConfig = {
-    method: "POST",
+    method: 'POST',
     url: PROJECT_ENV.FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_URI,
     headers: {
-      "content-type": "application/json",
-      "x-hasura-admin-secret": PROJECT_ENV.FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_ADMIN_SECRET
+      'content-type': 'application/json',
+      'x-hasura-admin-secret':
+        PROJECT_ENV.FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_ADMIN_SECRET,
     },
     data: {
-      operationName: "InsertListeningEvent",
+      operationName: 'InsertListeningEvent',
       query: `mutation InsertListeningEvent(
   $session_id: String!
   $ip_address: String!
@@ -46,7 +49,9 @@ export const trackListen = (listeningEvent: ListeningEvent): Promise<{ done: boo
     }
 
     return {
-      done: typeof response.data.data.insert_listening_events_one.id !== "undefined",
+      done:
+        typeof response.data.data.insert_listening_events_one.id !==
+        'undefined',
     };
   });
 };

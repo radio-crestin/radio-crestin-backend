@@ -14,7 +14,7 @@ import {
   Text,
 } from '@chakra-ui/react';
 import Link from 'next/link';
-import {cdnImageLoader} from '../../utils/cdnImageLoader';
+import {cdnImageLoader} from '@/utils/cdnImageLoader';
 
 const StationMetadata = dynamic(
   () => import('@/components/StationMetadata/StationMetadata'),
@@ -56,8 +56,13 @@ const StationItem = (station: Station) => {
   );
 };
 
-
-export default function StationList({station_group, stations}: {station_group: StationGroup, stations: Station[]}) {
+export default function StationList({
+  station_group,
+  stations,
+}: {
+  station_group: StationGroup;
+  stations: Station[];
+}) {
   return (
     <Center>
       <Grid

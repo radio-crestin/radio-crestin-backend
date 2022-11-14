@@ -9,6 +9,12 @@
       ],
       "@/public/*": [
         "public/*"
+      ],
+      "@/utils/*": [
+        "utils/*"
+      ],
+      "@/hooks/*": [
+        "hooks/*"
       ]
     },
     "lib": [
