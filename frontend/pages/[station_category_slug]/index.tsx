@@ -2,6 +2,7 @@ import React from 'react';
 import {StationsMetadata} from '../../types';
 import {getStationsMetadata} from '../../backendServices/stations';
 import StationPage from './[station_slug]';
+import {seoCategory} from '@/utils/seo';
 
 export default function StationCategoryPage({
   stations_metadata,
@@ -13,6 +14,7 @@ export default function StationCategoryPage({
   return StationPage({
     stations_metadata,
     station_category_slug,
+    seoMetadata: seoCategory(station_category_slug),
   });
 }
 

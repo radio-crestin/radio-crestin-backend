@@ -14,15 +14,18 @@ import Footer from '@/components/Footer/Footer';
 import {SearchStationsModal} from '@/components/SearchStationsModal/SearchStationsModal';
 import {ContactModalLink} from '@/components/ContactModalLink/ContactModalLink';
 import {groupBy} from '@/utils/groupBy';
+import {seoStation} from '@/utils/seo';
 
 export default function StationPage({
   stations_metadata,
   station_category_slug = 'radio',
   station_slug,
+  seoMetadata,
 }: {
   stations_metadata: StationsMetadata;
   station_category_slug?: string;
   station_slug?: string;
+  seoMetadata?: any;
 }) {
   const router = useRouter();
   // TODO: Add a message when isLoading/isError are true
@@ -46,23 +49,9 @@ export default function StationPage({
       return stationById[item.station_id];
     }) || [];
 
-  const seo = selectedStation
-    ? {
-        title: `${selectedStation.title + ' · LIVE  ·'} Radio Crestin `,
-        description: `${selectedStation?.title} · 📻 ${
-          selectedStation?.description
-            ? selectedStation?.description
-            : `Asculta ${selectedStation?.title} live · Lista de radiouri crestine · Radio Crestin Live`
-        }`,
-        keywords: `${selectedStation?.title}, asculta ${selectedStation?.title} live, post radio, live, radio crestin online, cantari, crestine, radiouri, muzica crestina, lista radio crestin, asculta radio crestin online, radio fm crestine, lista radio crestin online, \t
-  radio crestin muzica non stop,  radio-crestin.com`,
-      }
-    : {
-        title: `Lista de radiouri crestine`,
-        description: `Asculta radio crestin 📻 · Peste 25 de posturi de radio`,
-        keywords: `post radio, live, radio crestin online, cantari, crestine, radiouri, muzica crestina, lista radio crestin, asculta radio crestin online, radio fm crestine, lista radio crestin online, \t
-  radio crestin muzica non stop, radio-crestin.com`,
-      };
+  const seo =
+    seoMetadata ||
+    seoStation(selectedStation.title, selectedStation.description);
 
   return (
     <>
