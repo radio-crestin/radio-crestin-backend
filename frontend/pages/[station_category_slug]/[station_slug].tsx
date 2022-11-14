@@ -6,7 +6,12 @@ import Analytics from '@/components/Analytics/Analytics';
 import {useStations} from '@/hooks/stations';
 import Body from '@/components/Body/Body';
 import {getStationsMetadata} from '../../backendServices/stations';
-import {Station, StationGroup, StationsMetadata} from '../../types';
+import {
+  SeoMetadata,
+  Station,
+  StationGroup,
+  StationsMetadata,
+} from '../../types';
 import StationHomepageHeader from '@/components/StationHomepageHeader/StationHomepageHeader';
 import StationGroups from '@/components/StationGroups/StationGroups';
 import StationList from '@/components/StationList/StationList';
@@ -25,7 +30,7 @@ export default function StationPage({
   stations_metadata: StationsMetadata;
   station_category_slug?: string;
   station_slug?: string;
-  seoMetadata?: any;
+  seoMetadata?: SeoMetadata;
 }) {
   const router = useRouter();
   // TODO: Add a message when isLoading/isError are true
@@ -49,7 +54,7 @@ export default function StationPage({
       return stationById[item.station_id];
     }) || [];
 
-  const seo =
+  const seo: SeoMetadata =
     seoMetadata ||
     seoStation(selectedStation.title, selectedStation.description);
 

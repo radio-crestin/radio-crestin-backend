@@ -26,11 +26,11 @@ export interface StationUptime {
 }
 
 export interface Post {
-  id: number
-  title: string
-  description: string
-  link: string
-  published: string
+  id: number;
+  title: string;
+  description: string;
+  link: string;
+  published: string;
 }
 
 export interface StationReview {
@@ -45,23 +45,23 @@ export interface Station {
   slug: string;
   order: number;
   title: string;
-  website: string | null
-  email: string | null
+  website: string | null;
+  email: string | null;
   stream_url: string;
   proxy_stream_url: string;
   hls_stream_url: string;
-  thumbnail_url: string | null
-  radio_crestin_listeners: number
-  description: string | null
-  description_action_title: string | null
-  description_link: string | null
-  feature_latest_post: boolean
-  facebook_page_id: string | null
+  thumbnail_url: string | null;
+  radio_crestin_listeners: number;
+  description: string | null;
+  description_action_title: string | null;
+  description_link: string | null;
+  feature_latest_post: boolean;
+  facebook_page_id: string | null;
 
-  posts: Post[]
+  posts: Post[];
   uptime?: StationUptime;
   now_playing?: StationNowPlaying;
-  reviews: StationReview[]
+  reviews: StationReview[];
 }
 
 export interface StationGroup {
@@ -80,30 +80,35 @@ export interface StationsMetadata {
 }
 
 export interface Review {
-  user_name: String | null
-  ip_address: String,
-  session_id: String,
-  station_id: bigint,
-  stars: number,
-  message: String | null
+  user_name: String | null;
+  ip_address: String;
+  session_id: String;
+  station_id: bigint;
+  stars: number;
+  message: String | null;
 }
 
 export interface ClientSideReview {
-  user_name: String | null
-  station_id: bigint,
-  stars: number,
-  message: String | null
+  user_name: String | null;
+  station_id: bigint;
+  stars: number;
+  message: String | null;
 }
 
 export interface ListeningEvent {
-  ip_address: String | null
-  session_id: String,
-  station_id: bigint,
-  info: any,
+  ip_address: String | null;
+  session_id: String;
+  station_id: bigint;
+  info: any;
 }
 
 export interface ClientSideListeningEvent {
-  station_id: bigint,
-  info: any,
+  station_id: bigint;
+  info: any;
 }
 
+export interface SeoMetadata {
+  title: string;
+  description: string;
+  keywords: string;
+}
