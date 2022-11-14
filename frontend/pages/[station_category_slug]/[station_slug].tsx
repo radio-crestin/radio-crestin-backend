@@ -1,4 +1,7 @@
 import React from 'react';
+import Head from 'next/head';
+import {useRouter} from 'next/router';
+import {Box, Container} from '@chakra-ui/react';
 import Analytics from '@/components/Analytics/Analytics';
 import {useStations} from '../../hooks/stations';
 import Body from '@/components/Body/Body';
@@ -7,9 +10,6 @@ import {Station, StationGroup, StationsMetadata} from '../../types';
 import StationHomepageHeader from '@/components/StationHomepageHeader/StationHomepageHeader';
 import StationGroups from '@/components/StationGroups/StationGroups';
 import StationList from '@/components/StationList/StationList';
-import {Box, Container} from '@chakra-ui/react';
-import Head from 'next/head';
-import {useRouter} from 'next/router';
 import Footer from '@/components/Footer/Footer';
 import {SearchStationsModal} from '@/components/SearchStationsModal/SearchStationsModal';
 import {ContactModalLink} from '@/components/ContactModalLink/ContactModalLink';

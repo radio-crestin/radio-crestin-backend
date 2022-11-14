@@ -12,6 +12,8 @@ export default function StationGroups({
   selectedStationGroup: StationGroup;
   selectedStation: Station;
 }) {
+  const selectedStationSlug = selectedStation?.slug || '';
+
   return (
     <Flex
       ml={2}
@@ -28,7 +30,7 @@ export default function StationGroups({
           <Link
             href={`/${encodeURIComponent(
               stationGroup?.slug,
-            )}/${encodeURIComponent(selectedStation?.slug)}`}
+            )}/${encodeURIComponent(selectedStationSlug)}`}
             scroll={false}
             prefetch={true}>
             <Button
