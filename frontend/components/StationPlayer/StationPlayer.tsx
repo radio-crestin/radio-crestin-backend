@@ -18,6 +18,7 @@ import NoSSR from 'react-no-ssr';
 import {trackListenClientSide} from '../../frontendServices/listen';
 import dynamic from 'next/dynamic';
 import {cdnImageLoader} from '@/utils/cdnImageLoader';
+import {isMobile} from 'react-device-detect';
 
 let firstStart = true;
 const STREAM_TYPE_INFO: any = {
@@ -42,17 +43,12 @@ export default function StationPlayer(props: {station: Station}) {
   const {station} = props;
 
   const [retries, setRetries] = useState(MAX_MEDIA_RETRIES);
-
-  const [playing, setPlayingOriginalMethod] = useLocalStorageState(
-    false,
-    'IS_PLAYING',
-  );
+  const [isMuted, setMuted] = useState(true);
+  const [isPlaying, setPlaying] = useLocalStorageState(false, 'IS_PLAYING');
   const [frontendPlaying, setFrontendPlaying] = useState(false);
-  const setPlaying = (newPlayingState: boolean) => {
-    setPlayingOriginalMethod(newPlayingState);
-    setFrontendPlaying(newPlayingState);
-  };
-  firstStart = false;
+  useEffect(() => {
+    isMobile && setPlaying(false);
+  }, []);
 
   // TODO: we might need to populate these from local storage
   const [volume, setVolume] = useLocalStorageState(60, 'AUDIO_PLAYER_VOLUME');
@@ -97,7 +93,7 @@ export default function StationPlayer(props: {station: Station}) {
 
   useEffect(() => {
     if ('mediaSession' in navigator) {
-      if (playing) {
+      if (isPlaying) {
         navigator.mediaSession.metadata = new MediaMetadata({
           title: station.now_playing?.song?.name || station.title,
           artist: station.now_playing?.song?.artist.name || '',
@@ -119,17 +115,15 @@ export default function StationPlayer(props: {station: Station}) {
   // Also, delay the updated by 500 ms, also optional we can add an animation when we update the listeners counter.. to emphasis it
   // TODO: make the player mobile responsive
 
-  const floatingPlayer = true;
-
   useEffect(() => {
-    if (playing) {
+    if (isPlaying) {
       trackListenClientSide({
         station_id: station.id as unknown as bigint,
         info: {},
       });
     }
     const timer = setInterval(() => {
-      if (playing) {
+      if (isPlaying) {
         trackListenClientSide({
           station_id: station.id as unknown as bigint,
           info: {},
@@ -137,7 +131,7 @@ export default function StationPlayer(props: {station: Station}) {
       }
     }, 30 * 1000);
     return () => clearInterval(timer);
-  });
+  }, [isPlaying]);
 
   return (
     <Box
@@ -212,7 +206,7 @@ export default function StationPlayer(props: {station: Station}) {
             <button
               name="Start/Stop"
               onClick={() => {
-                setPlaying(!playing);
+                setPlaying(!isPlaying);
               }}>
               <Box fill={{base: 'white', lg: 'gray.900'}}>
                 <svg
@@ -252,18 +246,21 @@ export default function StationPlayer(props: {station: Station}) {
               {useMemo(() => {
                 return (
                   <DynamicReactPlayer
-                    url={playing ? station_url : ''}
+                    url={station_url}
                     width={0}
                     height={0}
-                    playing={playing}
+                    playing={isPlaying}
+                    muted={isMuted}
                     // controls={true}
                     volume={volume / 100}
                     onPlay={() => {
                       console.debug('onPlay');
+                      setMuted(false);
                       setFrontendPlaying(true);
                     }}
                     onPause={() => {
                       console.debug('pause');
+                      setMuted(true);
                       setFrontendPlaying(false);
                     }}
                     onReady={r => {
@@ -288,7 +285,7 @@ export default function StationPlayer(props: {station: Station}) {
                     }}
                   />
                 );
-              }, [station_url, playing, volume])}
+              }, [station_url, isPlaying, volume, isMuted])}
             </Box>
           </Flex>
         </Flex>

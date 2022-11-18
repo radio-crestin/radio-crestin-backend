@@ -31,8 +31,7 @@ export default function StationGroups({
             href={`/${encodeURIComponent(
               stationGroup?.slug,
             )}/${encodeURIComponent(selectedStationSlug)}`}
-            scroll={false}
-            prefetch={true}>
+            scroll={false}>
             <Button
               key={stationGroup.slug}
               isActive={stationGroup.slug === selectedStationGroup.slug}
