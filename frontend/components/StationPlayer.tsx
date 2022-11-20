@@ -19,6 +19,7 @@ import {cdnImageLoader} from '@/utils/cdnImageLoader';
 import {trackListenClientSide} from '../frontendServices/listen';
 import {CONSTANTS} from '../lib/constants';
 import {Station} from '../types';
+import {isMobile} from 'react-device-detect';
 
 const STREAM_TYPE_INFO: any = {
   HLS: {
@@ -43,6 +44,12 @@ export default function StationPlayer({stations}: any) {
   const [isPlaying, setPlaying] = useLocalStorageState(false, 'IS_PLAYING');
   const [volume, setVolume] = useLocalStorageState(60, 'AUDIO_PLAYER_VOLUME');
   const [selectedStreamType, setSelectedStreamType] = useState('HLS');
+
+  useEffect(() => {
+    if (isMobile) {
+      setPlaying(false);
+    }
+  }, []);
 
   const station: Station = stations.find(
     (station: {slug: string}) => station.slug === station_slug,
