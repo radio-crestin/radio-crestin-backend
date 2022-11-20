@@ -1,7 +1,8 @@
 import React from 'react';
 import Head from 'next/head';
-import {useRouter} from 'next/router';
 import {Box, Container} from '@chakra-ui/react';
+import dynamic from 'next/dynamic';
+
 import Analytics from '@/components/Analytics/Analytics';
 import {useStations} from '@/hooks/stations';
 import Body from '@/components/Body/Body';
@@ -21,6 +22,10 @@ import {ContactModalLink} from '@/components/ContactModalLink/ContactModalLink';
 import {indexBy} from '@/utils/indexBy';
 import {seoStation} from '@/utils/seo';
 
+const StationPlayer = dynamic(() => import('@/components/StationPlayer'), {
+  ssr: false,
+});
+
 export default function StationPage({
   stations_metadata,
   station_category_slug = 'radio',
@@ -32,7 +37,6 @@ export default function StationPage({
   station_slug?: string;
   seoMetadata?: SeoMetadata;
 }) {
-  const router = useRouter();
   // TODO: Add a message when isLoading/isError are true
   const {stations, station_groups, isLoading, isError} = useStations({
     refreshInterval: 10000,
@@ -103,6 +107,7 @@ export default function StationPage({
           />
           <Footer />
           <Box mb={{base: 40, lg: 20}} />
+          <StationPlayer stations={stations} />
         </Container>
       </Body>
       <Analytics />

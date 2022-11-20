@@ -1,6 +1,7 @@
-import React, {useEffect, useMemo, useState} from 'react';
-import {Station} from '../../types';
-import {CONSTANTS} from '../../lib/constants';
+import React, {useEffect, useState} from 'react';
+import ReactPlayer from 'react-player/lazy';
+import {useRouter} from 'next/router';
+
 import {
   Box,
   Flex,
@@ -14,13 +15,11 @@ import {
 } from '@chakra-ui/react';
 
 import {useLocalStorageState} from '@/utils/state';
-import NoSSR from 'react-no-ssr';
-import {trackListenClientSide} from '../../frontendServices/listen';
-import dynamic from 'next/dynamic';
 import {cdnImageLoader} from '@/utils/cdnImageLoader';
-import {isMobile} from 'react-device-detect';
+import {trackListenClientSide} from '../frontendServices/listen';
+import {CONSTANTS} from '../lib/constants';
+import {Station} from '../types';
 
-let firstStart = true;
 const STREAM_TYPE_INFO: any = {
   HLS: {
     field: 'hls_stream_url',
@@ -37,24 +36,24 @@ const STREAM_TYPE_INFO: any = {
 };
 const MAX_MEDIA_RETRIES = 20;
 
-const DynamicReactPlayer = dynamic(() => import('react-player'), {ssr: false});
-
-export default function StationPlayer(props: {station: Station}) {
-  const {station} = props;
-
+export default function StationPlayer({stations}: any) {
+  const {station_slug} = useRouter().query;
   const [retries, setRetries] = useState(MAX_MEDIA_RETRIES);
   const [isMuted, setMuted] = useState(true);
   const [isPlaying, setPlaying] = useLocalStorageState(false, 'IS_PLAYING');
   const [frontendPlaying, setFrontendPlaying] = useState(false);
-  useEffect(() => {
-    isMobile && setPlaying(false);
-  }, []);
-
-  // TODO: we might need to populate these from local storage
   const [volume, setVolume] = useLocalStorageState(60, 'AUDIO_PLAYER_VOLUME');
-
   const [selectedStreamType, setSelectedStreamType] = useState('HLS');
 
+  const station: Station = stations.find(
+    (station: {slug: string}) => station.slug === station_slug,
+  );
+
+  if (!station) {
+    return <></>;
+  }
+
+  // TODO: we might need to populate these from local storage
   const retryMechanism = async () => {
     console.debug('retryMechanism called');
     setRetries(retries - 1);
@@ -135,23 +134,22 @@ export default function StationPlayer(props: {station: Station}) {
 
   return (
     <Box
-      w={{base: '100%', lg: '29%'}}
-      h={{base: 'auto', lg: '360px'}}
-      minW={{base: 'auto', lg: '250px'}}
-      maxW={'100%'}
-      pl={{base: 0, lg: 4}}
-      position={{base: 'fixed', lg: 'relative'}}
-      bottom={{base: '0', lg: 'auto'}}
-      left={{base: '0', lg: 'auto'}}
-      right={{base: '0', lg: 'auto'}}
+      w={{base: '100%'}}
+      h={{base: 'auto'}}
+      minW={{base: 'auto'}}
+      maxW={'500px'}
+      pl={{base: 0}}
+      position={{base: 'fixed'}}
+      bottom={{base: 0}}
+      right={0}
       zIndex={9}>
       <Box
-        bg={{base: 'blue.500', lg: 'transparent'}}
+        bg={{base: 'blue.500'}}
         borderRadius={15}
-        m={{base: 3, lg: 0}}
-        p={{base: 2, lg: 0}}
-        display={{base: 'flex', lg: 'block'}}
-        alignItems={{base: 'center', lg: 'auto'}}>
+        m={{base: 3}}
+        p={{base: 2}}
+        display={{base: 'flex'}}
+        alignItems={{base: 'center'}}>
         <Image
           src={cdnImageLoader({
             src:
@@ -163,52 +161,53 @@ export default function StationPlayer(props: {station: Station}) {
           })}
           fallbackSrc={station.thumbnail_url || CONSTANTS.DEFAULT_COVER}
           alt={station.title}
-          boxSize={{base: '70px', lg: '220px'}}
-          htmlHeight={250}
-          htmlWidth={250}
-          borderRadius={{base: '12px', lg: '30px'}}
+          boxSize={{base: '70px'}}
+          htmlHeight={80}
+          htmlWidth={80}
+          borderRadius={{base: '12px'}}
           style={{filter: 'drop-shadow(2px 2px 5px rgba(0, 0, 0, 0.25))'}}
           loading={'eager'}
+          objectFit={'cover'}
         />
         <Flex
           w={'100%'}
-          mt={{base: 0, lg: 3}}
-          ml={{base: 4, lg: 0}}
-          flexDirection={{base: 'row', lg: 'column'}}>
+          mt={{base: 0}}
+          ml={{base: 4}}
+          flexDirection={{base: 'row'}}>
           <Box>
             <Text
               as="h2"
-              fontSize={{base: 'sm', lg: '2xl'}}
-              mt={{base: 0, lg: 2}}
+              fontSize={{base: 'sm'}}
+              mt={{base: 0}}
               lineHeight={1.3}
-              color={{base: 'white', lg: 'gray.800'}}
+              color={{base: 'white'}}
               noOfLines={2}
               fontWeight="700">
               {station.now_playing?.song?.name || (
-                <Box display={{base: 'block', lg: 'none'}}>{station.title}</Box>
+                <Box display={{base: 'block'}}>{station.title}</Box>
               )}
             </Text>
             <Text
               as="h3"
-              fontSize={{base: 'sm', lg: 'lg'}}
-              color={{base: 'white', lg: 'gray.800'}}
+              fontSize={{base: 'sm'}}
+              color={{base: 'white'}}
               noOfLines={1}>
               {station.now_playing?.song?.artist.name}
             </Text>
           </Box>
           <Spacer />
           <Flex
-            w={{base: 'fit-content', lg: '100%'}}
-            mt={{base: 0, lg: 4}}
-            ml={{base: 6, lg: 0}}
-            mr={{base: 5, lg: 0}}
+            w={{base: 'fit-content'}}
+            mt={{base: 0}}
+            ml={{base: 6}}
+            mr={{base: 5}}
             alignItems="center">
             <button
               name="Start/Stop"
               onClick={() => {
                 setPlaying(!isPlaying);
               }}>
-              <Box fill={{base: 'white', lg: 'gray.900'}}>
+              <Box fill={{base: 'white'}}>
                 <svg
                   width="50px"
                   height="50px"
@@ -223,69 +222,60 @@ export default function StationPlayer(props: {station: Station}) {
                 </svg>
               </Box>
             </button>
-            <Box
-              ml={{base: 4, lg: 5}}
-              display={{base: 'none', lg: 'flex'}}
-              alignItems="center">
+            <Box ml={{base: 4}} display={{base: 'none'}} alignItems="center">
               <Slider
-                w={{base: '120px', lg: '175px'}}
+                w={{base: '120px'}}
                 aria-label="Volume"
                 defaultValue={volume}
                 onChange={value => {
                   setVolume(value as number);
                 }}>
-                <SliderTrack bg={{base: 'gray.400', lg: 'gray.200'}}>
-                  <NoSSR>
-                    <SliderFilledTrack bg={{base: 'white', lg: 'gray.900'}} />
-                  </NoSSR>
+                <SliderTrack bg={{base: 'gray.400'}}>
+                  <SliderFilledTrack bg={{base: 'white'}} />
                 </SliderTrack>
                 <SliderThumb boxSize={6} />
               </Slider>
             </Box>
             <Box>
-              {useMemo(() => {
-                return (
-                  <DynamicReactPlayer
-                    url={station_url}
-                    width={0}
-                    height={0}
-                    playing={isPlaying}
-                    muted={isMuted}
-                    // controls={true}
-                    volume={volume / 100}
-                    onPlay={() => {
-                      console.debug('onPlay');
-                      setMuted(false);
-                      setFrontendPlaying(true);
-                    }}
-                    onPause={() => {
-                      console.debug('pause');
-                      setMuted(true);
-                      setFrontendPlaying(false);
-                    }}
-                    onReady={r => {
-                      console.debug('ready');
-                    }}
-                    onEnded={() => {
-                      console.debug('onEnded');
-                    }}
-                    onError={e => {
-                      console.error(e);
-                      if (!retryMechanism()) {
-                        setPlaying(false);
-                      }
-                    }}
-                    config={{
-                      file: {
-                        attributes: {
-                          autoPlay: false,
-                        },
-                        forceAudio: true,
-                      },
-                    }}
-                  />
-                );
-              }, [station_url, isPlaying, volume, isMuted])}
+              <ReactPlayer
+                url={station_url}
+                width={0}
+                height={0}
+                playing={isPlaying}
+                muted={isMuted}
+                volume={volume / 100}
+                onPlay={() => {
+                  console.debug('onPlay');
+                  setMuted(false);
+                  setFrontendPlaying(true);
+                  setPlaying(true);
+                }}
+                onPause={() => {
+                  console.debug('pause');
+                  setMuted(true);
+                  setFrontendPlaying(false);
+                }}
+                onReady={r => {
+                  console.debug('ready');
+                }}
+                onEnded={() => {
+                  console.debug('onEnded');
+                }}
+                onError={e => {
+                  console.error(e);
+                  if (!retryMechanism()) {
+                    setPlaying(false);
+                  }
+                }}
+                config={{
+                  file: {
+                    attributes: {
+                      autoPlay: true,
+                    },
+                    forceAudio: true,
+                  },
+                }}
+              />
             </Box>
           </Flex>
         </Flex>
