@@ -1,6 +1,5 @@
 import React from 'react';
 import Head from 'next/head';
-import {useRouter} from 'next/router';
 import {Box, Container} from '@chakra-ui/react';
 import Analytics from '@/components/Analytics/Analytics';
 import {useStations} from '@/hooks/stations';
@@ -37,7 +36,6 @@ export default function StationPage({
   station_slug?: string;
   seoMetadata?: SeoMetadata;
 }) {
-  const router = useRouter();
   // TODO: Add a message when isLoading/isError are true
   const {stations, station_groups, isLoading, isError} = useStations({
     refreshInterval: 10000,

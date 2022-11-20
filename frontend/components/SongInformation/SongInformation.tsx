@@ -18,6 +18,7 @@ export default function SongInformation(props: {station: Station}) {
       bottom={{base: 'auto'}}
       left={{base: 'auto'}}
       right={{base: 'auto'}}
+      display={{base: 'none', lg: 'block'}}
       zIndex={9}>
       <Box
         bg={{base: 'transparent'}}
@@ -42,6 +43,7 @@ export default function SongInformation(props: {station: Station}) {
           htmlWidth={250}
           style={{filter: 'drop-shadow(2px 2px 5px rgba(0, 0, 0, 0.25))'}}
           loading={'eager'}
+          objectFit={'contain'}
         />
         <Flex
           w={'100%'}
