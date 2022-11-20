@@ -1,6 +1,8 @@
 import React from 'react';
 import Head from 'next/head';
 import {Box, Container} from '@chakra-ui/react';
+import dynamic from 'next/dynamic';
+
 import Analytics from '@/components/Analytics/Analytics';
 import {useStations} from '@/hooks/stations';
 import Body from '@/components/Body/Body';
@@ -19,7 +21,6 @@ import {SearchStationsModal} from '@/components/SearchStationsModal/SearchStatio
 import {ContactModalLink} from '@/components/ContactModalLink/ContactModalLink';
 import {indexBy} from '@/utils/indexBy';
 import {seoStation} from '@/utils/seo';
-import dynamic from 'next/dynamic';
 
 const StationPlayer = dynamic(() => import('@/components/StationPlayer'), {
   ssr: false,

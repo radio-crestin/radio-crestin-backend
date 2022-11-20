@@ -18,6 +18,7 @@ import {useLocalStorageState} from '@/utils/state';
 import {cdnImageLoader} from '@/utils/cdnImageLoader';
 import {trackListenClientSide} from '../frontendServices/listen';
 import {CONSTANTS} from '../lib/constants';
+import {Station} from '../types';
 
 const STREAM_TYPE_INFO: any = {
   HLS: {
@@ -44,9 +45,8 @@ export default function StationPlayer({stations}: any) {
   const [volume, setVolume] = useLocalStorageState(60, 'AUDIO_PLAYER_VOLUME');
   const [selectedStreamType, setSelectedStreamType] = useState('HLS');
 
-  const station = stations.find(
-    (station: {slug: string | string[] | undefined}) =>
-      station.slug === station_slug,
+  const station: Station = stations.find(
+    (station: {slug: string}) => station.slug === station_slug,
   );
 
   if (!station) {
@@ -131,8 +131,6 @@ export default function StationPlayer({stations}: any) {
     }, 30 * 1000);
     return () => clearInterval(timer);
   }, [isPlaying]);
-
-  //TODO: show just blue player desktop / mobile
 
   return (
     <Box
@@ -245,12 +243,12 @@ export default function StationPlayer({stations}: any) {
                 height={0}
                 playing={isPlaying}
                 muted={isMuted}
-                // controls={true}
                 volume={volume / 100}
                 onPlay={() => {
                   console.debug('onPlay');
                   setMuted(false);
                   setFrontendPlaying(true);
+                  setPlaying(true);
                 }}
                 onPause={() => {
                   console.debug('pause');
