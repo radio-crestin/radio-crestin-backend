@@ -20,6 +20,11 @@ import {SearchStationsModal} from '@/components/SearchStationsModal/SearchStatio
 import {ContactModalLink} from '@/components/ContactModalLink/ContactModalLink';
 import {indexBy} from '@/utils/indexBy';
 import {seoStation} from '@/utils/seo';
+import dynamic from 'next/dynamic';
+
+const StationPlayer = dynamic(() => import('@/components/StationPlayer'), {
+  ssr: false,
+});
 
 export default function StationPage({
   stations_metadata,
@@ -103,6 +108,7 @@ export default function StationPage({
           />
           <Footer />
           <Box mb={{base: 40, lg: 20}} />
+          <StationPlayer stations={stations} />
         </Container>
       </Body>
       <Analytics />
