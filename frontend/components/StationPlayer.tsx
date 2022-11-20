@@ -1,6 +1,8 @@
 import React, {useEffect, useState} from 'react';
 import ReactPlayer from 'react-player/lazy';
 import {useRouter} from 'next/router';
+import {useIdleTimer} from 'react-idle-timer';
+import {isDesktop, isMobile} from 'react-device-detect';
 
 import {
   Box,
@@ -40,9 +42,20 @@ export default function StationPlayer({stations}: any) {
   const {station_slug} = useRouter().query;
   const [retries, setRetries] = useState(MAX_MEDIA_RETRIES);
   const [isMuted, setMuted] = useState(true);
-  const [isPlaying, setPlaying] = useState(false);
+  const [isPlaying, setPlaying] = useLocalStorageState(false, 'IS_PLAYING');
   const [volume, setVolume] = useLocalStorageState(60, 'AUDIO_PLAYER_VOLUME');
   const [selectedStreamType, setSelectedStreamType] = useState('HLS');
+  const [hasInteracted, setInteraction] = useState(false);
+
+  useIdleTimer({
+    onAction: () => setInteraction(true),
+  });
+
+  useEffect(() => {
+    if (isMobile && !hasInteracted) {
+      setPlaying(false);
+    }
+  }, []);
 
   const station: Station = stations.find(
     (station: {slug: string}) => station.slug === station_slug,
@@ -267,7 +280,7 @@ export default function StationPlayer({stations}: any) {
                 config={{
                   file: {
                     attributes: {
-                      autoPlay: true,
+                      autoPlay: (isMobile && hasInteracted) || isDesktop,
                     },
                     forceAudio: true,
                   },
