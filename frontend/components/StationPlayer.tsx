@@ -280,7 +280,9 @@ export default function StationPlayer({stations}: any) {
                 config={{
                   file: {
                     attributes: {
-                      autoPlay: (isMobile && hasInteracted) || isDesktop,
+                      autoPlay:
+                        (isMobile && hasInteracted && isPlaying) ||
+                        (isDesktop && isPlaying),
                     },
                     forceAudio: true,
                   },
