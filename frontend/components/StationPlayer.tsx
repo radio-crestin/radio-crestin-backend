@@ -41,7 +41,6 @@ export default function StationPlayer({stations}: any) {
   const [retries, setRetries] = useState(MAX_MEDIA_RETRIES);
   const [isMuted, setMuted] = useState(true);
   const [isPlaying, setPlaying] = useLocalStorageState(false, 'IS_PLAYING');
-  const [frontendPlaying, setFrontendPlaying] = useState(false);
   const [volume, setVolume] = useLocalStorageState(60, 'AUDIO_PLAYER_VOLUME');
   const [selectedStreamType, setSelectedStreamType] = useState('HLS');
 
@@ -214,7 +213,7 @@ export default function StationPlayer({stations}: any) {
                   focusable="false"
                   aria-hidden="true"
                   viewBox="0 0 24 24">
-                  {frontendPlaying ? (
+                  {isPlaying ? (
                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"></path>
                   ) : (
                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM9.5 16.5v-9l7 4.5-7 4.5z"></path>
@@ -247,13 +246,11 @@ export default function StationPlayer({stations}: any) {
                 onPlay={() => {
                   console.debug('onPlay');
                   setMuted(false);
-                  setFrontendPlaying(true);
                   setPlaying(true);
                 }}
                 onPause={() => {
                   console.debug('pause');
                   setMuted(true);
-                  setFrontendPlaying(false);
                 }}
                 onReady={r => {
                   console.debug('ready');
