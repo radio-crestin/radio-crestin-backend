@@ -37,6 +37,8 @@ export function SearchStationsModal({
           placeholder="Tasteaza numele statiei"
           size="lg"
           width={{base: '100%', sm: 280, lg: 350}}
+          cursor={'pointer'}
+          isReadOnly
         />
       </InputGroup>
 
