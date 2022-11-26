@@ -1,4 +1,5 @@
 import React from "react";
+import Script from "next/script";
 
 export default function Analytics(props: { children?: any }) {
   return (
@@ -8,11 +9,11 @@ export default function Analytics(props: { children?: any }) {
       {/*TODO: Add this after merge*/}
       {/*<script defer src='https://static.cloudflareinsights.com/beacon.min.js'*/}
       {/*        data-cf-beacon='{"token": "c2153a600cc94f69848e4decff1983a1"}'/>*/}
-      <script
-        async
-        src="https://www.googletagmanager.com/gtag/js?id=G-FDX00R8K3P"></script>
-      <script src="/ga.js" async></script>
-      <script src="/hj.js" async></script>
+      <Script
+        strategy="worker"
+        src="https://www.googletagmanager.com/gtag/js?id=G-FDX00R8K3P"></Script>
+      <Script src="/ga.js" strategy="worker"></Script>
+      <Script src="/hj.js" strategy="worker"></Script>
     </>
   );
 }
