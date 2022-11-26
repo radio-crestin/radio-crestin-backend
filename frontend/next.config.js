@@ -8,18 +8,20 @@ const withConfig = nextRuntimeDotenv({
 
 module.exports = withConfig({
   reactStrictMode: false,
+  output: 'standalone',
   images: {
     formats: ['image/avif', 'image/webp'],
     domains: ['radio-crestin.s3.amazonaws.com', 'cdn.pictures.aripisprecer.ro', 'pictures.aripisprecer.ro'],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384, 480, 640]
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384, 480, 640],
+    minimumCacheTTL: 60 * 60 * 24,
   },
   env: {
     cdnPrefix: process.env.FRONTEND_CDN_PREFIX !== "" ?  process.env.FRONTEND_CDN_PREFIX : ''
   },
   experimental: {
-    outputStandalone: true
+    nextScriptWorkers: true,
   },
   // Use the CDN in production and localhost for development.
-  assetPrefix: process.env.FRONTEND_CDN_PREFIX !== "" ?  process.env.FRONTEND_CDN_PREFIX : '',
+  // assetPrefix: process.env.FRONTEND_CDN_PREFIX !== "" ?  process.env.FRONTEND_CDN_PREFIX : undefined,
 });
-console.log("process.env.FRONTEND_CDN_PREFIX", process.env.FRONTEND_CDN_PREFIX);
+console.log("process.env.FRONTEND_CDN_PREFIX", process.env.FRONTEND_CDN_PREFIX)
