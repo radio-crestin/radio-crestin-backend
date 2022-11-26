@@ -5,8 +5,11 @@ const withConfig = nextRuntimeDotenv({
   public: [],
   server: []
 });
+const withBundleAnalyzer = require("@next/bundle-analyzer")({
+  enabled: process.env.ANALYZE === "true",
+})
 
-module.exports = withConfig({
+module.exports = withConfig(withBundleAnalyzer({
   reactStrictMode: false,
   output: 'standalone',
   images: {
@@ -23,5 +26,5 @@ module.exports = withConfig({
   },
   // Use the CDN in production and localhost for development.
   // assetPrefix: process.env.FRONTEND_CDN_PREFIX !== "" ?  process.env.FRONTEND_CDN_PREFIX : undefined,
-});
+}));
 console.log("process.env.FRONTEND_CDN_PREFIX", process.env.FRONTEND_CDN_PREFIX)

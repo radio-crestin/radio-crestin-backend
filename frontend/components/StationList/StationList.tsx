@@ -10,11 +10,10 @@ import {
   Center,
   Grid,
   GridItem,
-  Image,
   Text,
 } from '@chakra-ui/react';
 import Link from 'next/link';
-import {cdnImageLoader} from '@/utils/cdnImageLoader';
+import { ImageWithFallback } from '../ImageWithFallback/ImageWithFallback';
 
 const StationMetadata = dynamic(
   () => import('@/components/StationMetadata/StationMetadata'),
@@ -25,25 +24,26 @@ const StationItem = (station: Station) => {
   return (
     <Box position={'relative'} role="group">
       <AspectRatio position={'relative'} ratio={1}>
-        <Box borderRadius={{base: '20px', lg: '41px'}}>
-          <Image
-            src={cdnImageLoader({
-              src:
-                station.now_playing?.song?.thumbnail_url ||
+        <Box borderRadius={{base: '20px', lg: '41px'}}
+             position={'relative'}
+             width={250}
+             height={250}
+             overflow={'hidden'}>
+
+            <ImageWithFallback
+              src={station.now_playing?.song?.thumbnail_url ||
                 station.thumbnail_url ||
-                CONSTANTS.DEFAULT_COVER,
-              width: 384,
-              quality: 80,
-            })}
-            alt={`${station.title} - ${station.now_playing?.song?.name} de ${station.now_playing?.song?.artist.name}`}
-            boxSize="100%"
-            objectFit="cover"
-            htmlHeight={250}
-            htmlWidth={250}
-            style={{
-              filter: station?.uptime?.is_up ? '' : 'grayscale(1)',
-            }}
-          />
+                CONSTANTS.DEFAULT_COVER}
+              fallbackSrc={station.thumbnail_url || CONSTANTS.DEFAULT_COVER}
+              alt={station.title}
+              priority={false}
+              fill
+              sizes="250px"
+              style={{
+                filter: station?.uptime?.is_up ? '' : 'grayscale(1)',
+                objectFit: "cover",
+              }}
+            />
         </Box>
       </AspectRatio>
       {!isMobile && <StationMetadata {...station} />}
@@ -79,6 +79,7 @@ export default function StationList({
           Object.values(stations).map((station: Station): any => (
             <GridItem as="button" key={station.id}>
               <Link
+                prefetch={false}
                 href={`/${encodeURIComponent(
                   station_group?.slug,
                 )}/${encodeURIComponent(station.slug)}`}

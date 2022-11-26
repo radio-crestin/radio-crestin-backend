@@ -1,8 +1,12 @@
 import React from 'react';
 import {Station} from '../../types';
 import {CONSTANTS} from '../../lib/constants';
-import {Box, Flex, Image, Text} from '@chakra-ui/react';
+import {Box, Flex, Text} from '@chakra-ui/react';
+import Image from 'next/image'
 import {cdnImageLoader} from '@/utils/cdnImageLoader';
+import {
+  ImageWithFallback
+} from "@/components/ImageWithFallback/ImageWithFallback";
 
 export default function SongInformation(props: {station: Station}) {
   const {station} = props;
@@ -25,26 +29,27 @@ export default function SongInformation(props: {station: Station}) {
         borderRadius={15}
         m={{base: 0}}
         p={{base: 0}}
+        mt={{base: 6}}
         display={{base: 'block'}}
         alignItems={{base: 'auto'}}>
-        <Image
-          src={cdnImageLoader({
-            src:
-              station.now_playing?.song?.thumbnail_url ||
+        <Box
+          width={250}
+          height={250}
+          overflow={'hidden'}
+          style={{
+            filter: 'drop-shadow(2px 2px 5px rgba(0, 0, 0, 0.25))',
+          }}>
+          <ImageWithFallback
+            src={station.now_playing?.song?.thumbnail_url ||
               station.thumbnail_url ||
-              CONSTANTS.DEFAULT_COVER,
-            width: 384,
-            quality: 80,
-          })}
-          fallbackSrc={station.thumbnail_url || CONSTANTS.DEFAULT_COVER}
-          alt={station.title}
-          boxSize={{base: '220px'}}
-          htmlHeight={250}
-          htmlWidth={250}
-          style={{filter: 'drop-shadow(2px 2px 5px rgba(0, 0, 0, 0.25))'}}
-          loading={'eager'}
-          objectFit={'contain'}
-        />
+              CONSTANTS.DEFAULT_COVER}
+            fallbackSrc={station.thumbnail_url || CONSTANTS.DEFAULT_COVER}
+            alt={station.title}
+            priority={true}
+            fill
+            sizes="250px"
+          />
+        </Box>
         <Flex
           w={'100%'}
           mt={{base: 3}}

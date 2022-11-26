@@ -28,6 +28,7 @@ export default function StationGroups({
       {stationGroups.map(stationGroup => (
         <Box key={stationGroup.slug}>
           <Link
+            prefetch={false}
             href={`/${encodeURIComponent(
               stationGroup?.slug,
             )}/${encodeURIComponent(selectedStationSlug)}`}

@@ -3,9 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "analyze": "cross-env ANALYZE=true next build",
     "build": "cross-env NODE_OPTIONS='--inspect' && next build",
-    "start:dev": "node server.js",
-    "start": "cross-env NODE_ENV=production && node server.js"
+    "start:dev": "next dev",
+    "start-server": "cross-env NODE_ENV=production && node server.js",
+    "start": "next start -p 3000 --keepAliveTimeout 70000"
   },
   "dependencies": {
     "@chakra-ui/icons": "^2.0.11",
@@ -45,6 +47,7 @@
   },
   "devDependencies": {
     "@builder.io/partytown": "^0.7.2",
+    "@next/bundle-analyzer": "^13.0.5",
     "@styled-jsx/plugin-sass": "^4.0.2",
     "@types/node": "^18.11.9",
     "@types/react": "18.0.25",
