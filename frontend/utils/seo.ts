@@ -18,7 +18,7 @@ export const seoStation = (
 
 export const seoCategory = (category: string) => {
   return {
-    title: `Rradiouri crestine · ${capitalize(category)}`,
+    title: `Radiouri crestine · ${capitalize(category)}`,
     description: `Asculta radio crestin online 📻 · ${capitalize(category)}`,
     keywords: `post radio, radio ${category} live, radio crestin online, cantari, crestine, radiouri, muzica crestina, lista radio crestin, asculta radio crestin online, radio fm crestine, lista radio crestin online,
   radio crestin muzica non stop, radio-crestin.com`,
