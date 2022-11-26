@@ -6,8 +6,8 @@
     "analyze": "cross-env ANALYZE=true next build",
     "build": "cross-env NODE_OPTIONS='--inspect' && next build",
     "start:dev": "next dev",
-    "start-server": "cross-env NODE_ENV=production && node server.js",
-    "start": "next start -p 3000 --keepAliveTimeout 70000"
+    "start": "cross-env NODE_ENV=production && node server.js",
+    "start-new": "next start -p 3000 --keepAliveTimeout 70000"
   },
   "dependencies": {
     "@chakra-ui/icons": "^2.0.11",
