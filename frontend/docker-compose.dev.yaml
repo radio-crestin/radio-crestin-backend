@@ -1,0 +1,26 @@
+version: '3.6'
+services:
+  frontend:
+    build:
+      context: .
+      args:
+        - FRONTEND_CDN_PREFIX=${FRONTEND_CDN_PREFIX}
+    restart: always
+    ports:
+      - "8085:8080"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    environment:
+      - FRONTEND_GRAPHQL_ENDPOINT_URI=${FRONTEND_GRAPHQL_ENDPOINT_URI}
+      - FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_URI=${FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_URI}
+      - FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_ADMIN_SECRET=${FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_ADMIN_SECRET}
+      - FRONTEND_CDN_PREFIX=${FRONTEND_CDN_PREFIX}
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "5"   # number of files or file count
+        max-size: "100m" # file size
