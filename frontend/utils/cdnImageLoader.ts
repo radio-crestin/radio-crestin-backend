@@ -1,3 +1,3 @@
 export const cdnImageLoader = ({ src, width, quality }: any) => {
-  return `/_next/image?w=${width}&q=${quality || 85}&url=${encodeURI(src)}`
+  return `${process.env.cdnPrefix}/_next/image?w=${width}&q=${quality || 85}&url=${encodeURI(src)}`
 }
