@@ -2,76 +2,95 @@
   pk: 1
   fields:
     created_at: 2022-04-02 07:55:16.074070+00:00
-    updated_at: 2022-04-16 15:04:03.417034+00:00
+    updated_at: 2022-05-08 11:10:04.775478+00:00
+    slug: general
     name: General
     order: '1.0'
 - model: web.stationgroups
   pk: 2
   fields:
     created_at: 2022-04-02 07:55:20.365557+00:00
-    updated_at: 2022-04-16 15:04:03.417034+00:00
+    updated_at: 2022-05-08 11:10:04.775478+00:00
+    slug: muzica
     name: Muzica
     order: '2.0'
 - model: web.stationgroups
   pk: 3
   fields:
     created_at: 2022-04-02 07:55:25.634020+00:00
-    updated_at: 2022-04-16 15:04:03.417034+00:00
+    updated_at: 2022-05-08 11:10:04.775478+00:00
+    slug: popular
     name: Popular
     order: '3.0'
 - model: web.stationgroups
   pk: 4
   fields:
     created_at: 2022-04-02 07:55:31.011557+00:00
-    updated_at: 2022-04-16 15:04:03.417034+00:00
+    updated_at: 2022-05-08 11:10:04.775478+00:00
+    slug: predici
     name: Predici
     order: '4.0'
 - model: web.stationgroups
   pk: 5
   fields:
     created_at: 2022-04-02 07:55:39.703678+00:00
-    updated_at: 2022-04-16 15:04:03.417034+00:00
+    updated_at: 2022-05-08 11:10:04.775478+00:00
+    slug: worship
     name: Worship
     order: '5.0'
 - model: web.stationgroups
   pk: 6
   fields:
     created_at: 2022-04-02 07:55:48.711458+00:00
-    updated_at: 2022-04-16 15:04:03.417034+00:00
+    updated_at: 2022-05-08 11:10:04.775478+00:00
+    slug: international
     name: International
     order: '6.0'
 - model: web.stationgroups
   pk: 7
   fields:
     created_at: 2022-04-02 07:56:00.734657+00:00
-    updated_at: 2022-04-16 15:04:03.417034+00:00
+    updated_at: 2022-05-08 11:10:04.775478+00:00
+    slug: gospel
     name: Gospel
     order: '7.0'
 - model: web.stationgroups
   pk: 8
   fields:
     created_at: 2022-04-02 07:56:07.424406+00:00
-    updated_at: 2022-04-16 15:04:03.417034+00:00
+    updated_at: 2022-05-08 11:10:04.775478+00:00
+    slug: instrumental
     name: Instrumental
     order: '8.0'
 - model: web.stationgroups
   pk: 9
   fields:
     created_at: 2022-04-02 07:56:17.259241+00:00
-    updated_at: 2022-04-16 15:04:03.417034+00:00
+    updated_at: 2022-05-08 11:10:04.775478+00:00
+    slug: emisiuni
     name: Emisiuni
     order: '3.1'
 - model: web.stationgroups
   pk: 10
   fields:
     created_at: 2022-04-02 08:02:36.106494+00:00
-    updated_at: 2022-04-16 15:04:03.417034+00:00
+    updated_at: 2022-05-08 11:10:04.775478+00:00
+    slug: biblia
     name: Biblia
-    order: '9.0'
+    order: '10.0'
 - model: web.stationgroups
   pk: 11
   fields:
     created_at: 2022-04-02 08:06:06.399178+00:00
-    updated_at: 2022-04-16 15:04:03.417034+00:00
+    updated_at: 2022-05-08 11:10:04.775478+00:00
+    slug: copii
     name: Copii
     order: '9.0'
+- model: web.stationgroups
+  pk: 12
+  fields:
+    created_at: 2022-05-09 17:17:26.176937+00:00
+    updated_at: 2022-05-09 17:20:11.034869+00:00
+    slug: radio
+    name: Toate
+    order: '-1.0'
