@@ -17,7 +17,7 @@ RUN yarn build
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nextjs -u 1001
 
-RUN chown -r nextjs /app/.next/cache
+RUN chown -r nextjs:node /app/.next/cache
 
 USER nextjs
 
