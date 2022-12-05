@@ -26,7 +26,7 @@ const config = withConfig({
         : '',
   },
   experimental: {
-    // nextScriptWorkers: true,
+    nextScriptWorkers: true,
   },
   // Use the CDN in production and localhost for development.
   assetPrefix:
