@@ -45,4 +45,4 @@ ENV PORT 8080
 # Uncomment the following line in case you want to disable telemetry.
 # ENV NEXT_TELEMETRY_DISABLED 1
 
-CMD ["yarn", "run", "start-new"]
+CMD ["yarn", "run", "start"]
