@@ -20,7 +20,7 @@ const StationMetadata = dynamic(
   {ssr: false},
 );
 
-const StationItem = (station: Station) => {
+const StationItem = ({station, priority}: {station: Station, priority: boolean}) => {
   return (
     <Box position={'relative'} role="group">
       <AspectRatio position={'relative'} ratio={1}>
@@ -36,7 +36,7 @@ const StationItem = (station: Station) => {
                 CONSTANTS.DEFAULT_COVER}
               fallbackSrc={station.thumbnail_url || CONSTANTS.DEFAULT_COVER}
               alt={station.title}
-              priority={false}
+              priority={priority}
               fill
               sizes="250px"
               style={{
@@ -76,7 +76,7 @@ export default function StationList({
         }}
         gap={9}>
         {Object.values(stations).length > 0 ? (
-          Object.values(stations).map((station: Station): any => (
+          Object.values(stations).map((station: Station, index): any => (
             <GridItem as="button" key={station.id}>
               <Link
                 prefetch={false}
@@ -85,7 +85,7 @@ export default function StationList({
                 )}/${encodeURIComponent(station.slug)}`}
                 scroll={false}
                 passHref>
-                <StationItem {...station} />
+                <StationItem station={station} priority={index < 6}/>
               </Link>
             </GridItem>
           ))
