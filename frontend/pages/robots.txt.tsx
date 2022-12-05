@@ -3,17 +3,21 @@ function SiteMap() {
 }
 
 // @ts-ignore
-export async function getServerSideProps({ res }) {
+export async function getServerSideProps(context: any) {
+  context.res.setHeader(
+    'Cache-Control',
+    'public, s-maxage=10, stale-while-revalidate=59'
+  );
   const origin = "https://www.radio-crestin.com";
 
-  res.setHeader("Content-Type", "text/plain");
-  res.write(`# Allow all crawlers
+  context.res.setHeader("Content-Type", "text/plain");
+  context.res.write(`# Allow all crawlers
 User-agent: *
 Allow: /
 
 Sitemap: ${origin}/sitemap.xml
 `);
-  res.end();
+  context.res.end();
 
   return {
     props: {},
