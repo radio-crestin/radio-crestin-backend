@@ -44,26 +44,6 @@ export default function StationMetadata(station: Station) {
           {station.now_playing?.song?.artist.name}
         </Text>
       )}
-      {!station.now_playing?.song?.name &&
-        !station.now_playing?.song?.artist.name && (
-          <Text
-            as={'h5'}
-            position={'absolute'}
-            bottom={'87px'}
-            py={0}
-            px={1}
-            fontSize="0.73rem"
-            color={'white'}
-            align={'left'}
-            fontWeight={'400'}
-            noOfLines={1}
-            background={'black'}
-            opacity={0}
-            transition={'opacity .2s linear'}
-            _groupHover={{opacity: 1}}>
-            Metadate indisponibile
-          </Text>
-        )}
     </Box>
   );
 }
