@@ -2,10 +2,12 @@ import React, {useEffect, useState} from 'react';
 import {useRouter} from 'next/router';
 import {useIdleTimer} from 'react-idle-timer';
 import {isDesktop, isMobile} from 'react-device-detect';
+import dynamic from 'next/dynamic';
 
 import {
   Box,
   Flex,
+  Image,
   Slider,
   SliderFilledTrack,
   SliderThumb,
@@ -18,10 +20,7 @@ import {useLocalStorageState} from '@/utils/state';
 import {trackListenClientSide} from '../frontendServices/listen';
 import {CONSTANTS} from '../lib/constants';
 import {Station} from '../types';
-import {
-  ImageWithFallback
-} from "@/components/ImageWithFallback/ImageWithFallback";
-import dynamic from "next/dynamic";
+import {cdnImageLoader} from '@/utils/cdnImageLoader';
 
 const ReactPlayer = dynamic(() => import('react-player/lazy'), {ssr: false});
 
@@ -165,26 +164,25 @@ export default function StationPlayer({stations}: any) {
         p={{base: 2}}
         display={{base: 'flex'}}
         alignItems={{base: 'center'}}>
-
-        <Box
-          overflow={'hidden'}
-          boxSize={{base: '80px'}}
-          minWidth={'80px'}
+        <Image
+          src={cdnImageLoader({
+            src:
+              station.now_playing?.song?.thumbnail_url ||
+              station.thumbnail_url ||
+              CONSTANTS.DEFAULT_COVER,
+            width: 384,
+            quality: 80,
+          })}
+          fallbackSrc={station.thumbnail_url || CONSTANTS.DEFAULT_COVER}
+          alt={station.title}
+          boxSize={{base: '70px'}}
+          htmlHeight={80}
+          htmlWidth={80}
           borderRadius={{base: '12px'}}
           style={{filter: 'drop-shadow(2px 2px 5px rgba(0, 0, 0, 0.25))'}}
+          loading={'eager'}
           objectFit={'cover'}
-        >
-          <ImageWithFallback
-            src={station.now_playing?.song?.thumbnail_url ||
-              station.thumbnail_url ||
-              CONSTANTS.DEFAULT_COVER}
-            fallbackSrc={station.thumbnail_url || CONSTANTS.DEFAULT_COVER}
-            alt={station.title}
-            priority={true}
-            fill
-            sizes="250px"
-          />
-        </Box>
+        />
         <Flex
           w={'100%'}
           mt={{base: 0}}
@@ -211,7 +209,7 @@ export default function StationPlayer({stations}: any) {
               {station.now_playing?.song?.artist.name}
             </Text>
           </Box>
-          <Spacer/>
+          <Spacer />
           <Flex
             w={{base: 'fit-content'}}
             mt={{base: 0}}
@@ -231,11 +229,9 @@ export default function StationPlayer({stations}: any) {
                   aria-hidden="true"
                   viewBox="0 0 24 24">
                   {isPlaying ? (
-                    <path
-                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"></path>
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"></path>
                   ) : (
-                    <path
-                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM9.5 16.5v-9l7 4.5-7 4.5z"></path>
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM9.5 16.5v-9l7 4.5-7 4.5z"></path>
                   )}
                 </svg>
               </Box>
@@ -249,9 +245,9 @@ export default function StationPlayer({stations}: any) {
                   setVolume(value as number);
                 }}>
                 <SliderTrack bg={{base: 'gray.400'}}>
-                  <SliderFilledTrack bg={{base: 'white'}}/>
+                  <SliderFilledTrack bg={{base: 'white'}} />
                 </SliderTrack>
-                <SliderThumb boxSize={6}/>
+                <SliderThumb boxSize={6} />
               </Slider>
             </Box>
             <Box>
