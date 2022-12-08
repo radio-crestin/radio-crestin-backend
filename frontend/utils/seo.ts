@@ -33,7 +33,7 @@ export const seoHomepage = {
 };
 
 export const seoNotFoundPage = {
-  title: `Statia nu a fost gasita`,
+  title: `Stația nu a fost găsită`,
 };
 
 export const seoInternalErrorPage = {

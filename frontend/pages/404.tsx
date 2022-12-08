@@ -18,13 +18,13 @@ export default function NotFoundPage({
     toast({
       title: `Eroare!`,
       description: (
-        <>
-          Statia <b>{router.asPath}</b> nu exista !
-        </>
+        <p>
+          Stația <b>{router.asPath}</b> nu a fost găsită
+        </p>
       ),
       status: 'error',
       position: 'top',
-      duration: 3000,
+      duration: 4000,
       isClosable: true,
     });
   }, []);

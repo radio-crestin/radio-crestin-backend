@@ -18,7 +18,7 @@ export default function InternalErrorPage({
       description: 'Vă rugăm să încercați mai târziu!',
       status: 'error',
       position: 'top',
-      duration: 3000,
+      duration: 4000,
       isClosable: true,
     });
   }, []);

@@ -56,7 +56,7 @@ export default function StationInformation(props: any) {
         description: 'Vă mulțumim frumos!',
         status: 'success',
         position: 'top',
-        duration: 3000,
+        duration: 4000,
         isClosable: true,
       });
     } else {
@@ -65,7 +65,7 @@ export default function StationInformation(props: any) {
         description: 'Vă rugăm să încercați mai târziu!',
         status: 'error',
         position: 'top',
-        duration: 3000,
+        duration: 4000,
         isClosable: true,
       });
     }
@@ -87,7 +87,7 @@ export default function StationInformation(props: any) {
         description: 'Vă rugăm să încercați mai târziu!',
         status: 'error',
         position: 'top',
-        duration: 3000,
+        duration: 4000,
         isClosable: true,
       });
     }
