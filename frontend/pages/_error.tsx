@@ -1,5 +1,43 @@
-import React from 'react';
+import {useRouter} from 'next/router';
+import React, {useEffect} from 'react';
+import {useToast} from '@chakra-ui/react';
+import {getStationsMetadata} from '../backendServices/stations';
+import {StationsMetadata} from '../types';
+import StationPage from './[station_category_slug]/[station_slug]';
+import {seoHomepage} from '@/utils/seo';
 
-export default function PageInternalError() {
-  return <>500 - internal error</>;
+export default function PageInternalError({
+  stations_metadata,
+}: {
+  stations_metadata: StationsMetadata;
+}) {
+  const router = useRouter();
+  const toast = useToast();
+
+  useEffect(() => {
+    toast({
+      title: 'A apărut o eroare neașteptată.',
+      description: 'Vă rugăm să încercați mai târziu!',
+      status: 'error',
+      position: 'top',
+      duration: 3000,
+      isClosable: true,
+    });
+  }, []);
+
+  return StationPage({
+    stations_metadata,
+    seoMetadata: seoHomepage,
+  });
+}
+
+export async function getStaticProps(context: any) {
+  const stations_metadata = await getStationsMetadata();
+
+  return {
+    props: {
+      stations_metadata,
+    },
+    revalidate: 10,
+  };
 }
