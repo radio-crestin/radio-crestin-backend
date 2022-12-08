@@ -4,7 +4,7 @@ import {useToast} from '@chakra-ui/react';
 import {getStationsMetadata} from '../backendServices/stations';
 import {StationsMetadata} from '../types';
 import StationPage from './[station_category_slug]/[station_slug]';
-import {seoHomepage} from '@/utils/seo';
+import {seoNotFoundPage} from '@/utils/seo';
 
 export default function NotFoundPage({
   stations_metadata,
@@ -31,7 +31,7 @@ export default function NotFoundPage({
 
   return StationPage({
     stations_metadata,
-    seoMetadata: seoHomepage,
+    seoMetadata: seoNotFoundPage,
   });
 }
 

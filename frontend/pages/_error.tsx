@@ -1,17 +1,15 @@
-import {useRouter} from 'next/router';
 import React, {useEffect} from 'react';
 import {useToast} from '@chakra-ui/react';
 import {getStationsMetadata} from '../backendServices/stations';
 import {StationsMetadata} from '../types';
 import StationPage from './[station_category_slug]/[station_slug]';
-import {seoHomepage} from '@/utils/seo';
+import {seoInternalErrorPage} from '@/utils/seo';
 
-export default function PageInternalError({
+export default function InternalErrorPage({
   stations_metadata,
 }: {
   stations_metadata: StationsMetadata;
 }) {
-  const router = useRouter();
   const toast = useToast();
 
   useEffect(() => {
@@ -27,7 +25,7 @@ export default function PageInternalError({
 
   return StationPage({
     stations_metadata,
-    seoMetadata: seoHomepage,
+    seoMetadata: seoInternalErrorPage,
   });
 }
 

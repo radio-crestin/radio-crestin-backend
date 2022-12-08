@@ -31,3 +31,11 @@ export const seoHomepage = {
   keywords: `post radio, live, radio crestin online, cantari, crestine, radiouri, muzica crestina, lista radio crestin, asculta radio crestin online, radio fm crestine, lista radio crestin online,
   radio crestin muzica non stop, radio-crestin.com`,
 };
+
+export const seoNotFoundPage = {
+  title: `Statia nu a fost gasita`,
+};
+
+export const seoInternalErrorPage = {
+  title: `A apărut o eroare neașteptată`,
+};

@@ -121,12 +121,12 @@ export async function getServerSideProps(context: any) {
     'public, s-maxage=10, stale-while-revalidate=59',
   );
   const stations_metadata = await getStationsMetadata();
-
   const {station_category_slug, station_slug} = context.query;
 
   const stationData = stations_metadata.stations.find(
     station => station.slug === station_slug,
   );
+
   if (!stationData) {
     return {
       notFound: true,
