@@ -152,7 +152,17 @@ radio crestin muzica non stop,  radio-crestin.com`,
 export async function getServerSideProps(context: any) {
   const stations_metadata = await getStationsMetadata();
 
-  const { station_category_slug, station_slug } = context.query;
+  const {station_category_slug, station_slug} = context.query;
+
+  const stationData = stations_metadata.stations.find(
+    station => station.slug === station_slug,
+  );
+  if (!stationData) {
+    return {
+      notFound: true,
+    };
+  }
+
   return {
     props: {
       stations_metadata,
