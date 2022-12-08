@@ -109,6 +109,6 @@ export interface ClientSideListeningEvent {
 
 export interface SeoMetadata {
   title: string;
-  description: string;
-  keywords: string;
+  description?: string;
+  keywords?: string;
 }
