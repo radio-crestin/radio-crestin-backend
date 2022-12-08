@@ -10,40 +10,40 @@ import {
   Center,
   Grid,
   GridItem,
-  Image,
   Text,
 } from '@chakra-ui/react';
 import Link from 'next/link';
-import {cdnImageLoader} from '../../utils/cdnImageLoader';
+import { ImageWithFallback } from '../ImageWithFallback/ImageWithFallback';
 
 const StationMetadata = dynamic(
   () => import('@/components/StationMetadata/StationMetadata'),
   {ssr: false},
 );
 
-const StationItem = (station: Station) => {
+const StationItem = ({station, priority}: {station: Station, priority: boolean}) => {
   return (
     <Box position={'relative'} role="group">
       <AspectRatio position={'relative'} ratio={1}>
-        <Box borderRadius={{base: '20px', lg: '41px'}}>
-          <Image
-            src={cdnImageLoader({
-              src:
-                station.now_playing?.song?.thumbnail_url ||
+        <Box borderRadius={{base: '20px', lg: '41px'}}
+             position={'relative'}
+             width={250}
+             height={250}
+             overflow={'hidden'}>
+
+            <ImageWithFallback
+              src={station.now_playing?.song?.thumbnail_url ||
                 station.thumbnail_url ||
-                CONSTANTS.DEFAULT_COVER,
-              width: 384,
-              quality: 80,
-            })}
-            alt={`${station.title} - ${station.now_playing?.song?.name} de ${station.now_playing?.song?.artist.name}`}
-            boxSize="100%"
-            objectFit="cover"
-            htmlHeight={250}
-            htmlWidth={250}
-            style={{
-              filter: station?.uptime?.is_up ? '' : 'grayscale(1)',
-            }}
-          />
+                CONSTANTS.DEFAULT_COVER}
+              fallbackSrc={station.thumbnail_url || CONSTANTS.DEFAULT_COVER}
+              alt={station.title}
+              priority={priority}
+              fill
+              sizes="250px"
+              style={{
+                filter: station?.uptime?.is_up ? '' : 'grayscale(1)',
+                objectFit: "cover",
+              }}
+            />
         </Box>
       </AspectRatio>
       {!isMobile && <StationMetadata {...station} />}
@@ -56,8 +56,13 @@ const StationItem = (station: Station) => {
   );
 };
 
-
-export default function StationList({station_group, stations}: {station_group: StationGroup, stations: Station[]}) {
+export default function StationList({
+  station_group,
+  stations,
+}: {
+  station_group: StationGroup;
+  stations: Station[];
+}) {
   return (
     <Center>
       <Grid
@@ -71,15 +76,16 @@ export default function StationList({station_group, stations}: {station_group: S
         }}
         gap={9}>
         {Object.values(stations).length > 0 ? (
-          Object.values(stations).map((station: Station): any => (
+          Object.values(stations).map((station: Station, index): any => (
             <GridItem as="button" key={station.id}>
               <Link
+                prefetch={false}
                 href={`/${encodeURIComponent(
                   station_group?.slug,
                 )}/${encodeURIComponent(station.slug)}`}
                 scroll={false}
                 passHref>
-                <StationItem {...station} />
+                <StationItem station={station} priority={false}/>
               </Link>
             </GridItem>
           ))

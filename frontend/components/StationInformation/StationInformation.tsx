@@ -110,7 +110,7 @@ export default function StationInformation(props: any) {
         {station.facebook_page_id && <Link href={'https://facebook.com/' + station.facebook_page_id} isExternal>
           <Image
             src={FacebookIcon.src}
-            alt={"facebook icon"}
+            alt={"Facebook page"}
             height={22}
             width={22}
             htmlHeight={22}

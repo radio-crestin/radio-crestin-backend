@@ -12,6 +12,8 @@ export default function StationGroups({
   selectedStationGroup: StationGroup;
   selectedStation: Station;
 }) {
+  const selectedStationSlug = selectedStation?.slug || '';
+
   return (
     <Flex
       ml={2}
@@ -26,11 +28,11 @@ export default function StationGroups({
       {stationGroups.map(stationGroup => (
         <Box key={stationGroup.slug}>
           <Link
+            prefetch={false}
             href={`/${encodeURIComponent(
               stationGroup?.slug,
-            )}/${encodeURIComponent(selectedStation?.slug)}`}
-            scroll={false}
-            prefetch={true}>
+            )}/${encodeURIComponent(selectedStationSlug)}`}
+            scroll={false}>
             <Button
               key={stationGroup.slug}
               isActive={stationGroup.slug === selectedStationGroup.slug}

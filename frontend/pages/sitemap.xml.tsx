@@ -21,7 +21,11 @@ function SiteMap() {
 }
 
 // @ts-ignore
-export async function getServerSideProps({ res }) {
+export async function getServerSideProps(context) {
+  context.res.setHeader(
+    'Cache-Control',
+    'public, s-maxage=10, stale-while-revalidate=59'
+  );
   const origin = "https://www.radio-crestin.com";
   const stations_metadata = await getStationsMetadata();
   const urls: string[] = [];
@@ -38,10 +42,10 @@ export async function getServerSideProps({ res }) {
   // We generate the XML sitemap with the posts data
   const sitemap = generateSiteMap(urls);
 
-  res.setHeader('Content-Type', 'text/xml');
+  context.res.setHeader('Content-Type', 'text/xml');
   // we send the XML to the browser
-  res.write(sitemap);
-  res.end();
+  context.res.write(sitemap);
+  context.res.end();
 
   return {
     props: {},
