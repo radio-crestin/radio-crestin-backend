@@ -45,7 +45,6 @@
     "uuid": "^9.0.0"
   },
   "devDependencies": {
-    "@builder.io/partytown": "^0.7.2",
     "@next/bundle-analyzer": "^13.0.5",
     "@styled-jsx/plugin-sass": "^4.0.2",
     "@types/node": "^18.11.9",
