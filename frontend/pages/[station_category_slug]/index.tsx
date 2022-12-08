@@ -20,15 +20,18 @@ export default function StationCategoryPage({
 
 export async function getServerSideProps(context: any) {
   const stations_metadata = await getStationsMetadata();
-  const {station_category_slug, station_slug} = context.query;
+  const {station_category_slug} = context.query;
 
-  const stationData = stations_metadata.stations.find(
-    station => station.slug === station_slug,
+  const stationData = stations_metadata.station_groups.find(
+    group => group.slug === station_category_slug,
   );
 
   if (!stationData) {
     return {
-      notFound: true,
+      redirect: {
+        permanent: false,
+        destination: `/?error=Categoria ${station_category_slug} nu a fost gasita`,
+      },
     };
   }
 

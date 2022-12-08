@@ -125,9 +125,13 @@ export async function getServerSideProps(context: any) {
 
   if (!stationData) {
     return {
-      notFound: true,
+      redirect: {
+        permanent: false,
+        destination: `/?error=Statia ${station_slug} nu a fost gasita`,
+      },
     };
   }
+
   return {
     props: {
       stations_metadata,
