@@ -2,7 +2,7 @@ import {useRouter} from 'next/router';
 import {Box, Container, useToast} from '@chakra-ui/react';
 import {getStationsMetadata} from '../backendServices/stations';
 import {StationGroup, StationsMetadata} from '../types';
-import {useStations} from '../hooks/stations';
+import {useStations} from '@/hooks/stations';
 import Body from '@/components/Body/Body';
 import Footer from '@/components/Footer/Footer';
 import React, {useEffect} from 'react';
@@ -27,9 +27,14 @@ export default function NotFoundPage({
 
   useEffect(() => {
     toast({
-      title: `Statia ${router.asPath} nu exista !`,
+      title: `Eroare!`,
+      description: (
+        <>
+          Statia <b>{router.asPath}</b> nu exista !
+        </>
+      ),
       status: 'error',
-      position: 'bottom-right',
+      position: 'top',
       duration: 10000,
       isClosable: true,
     });
