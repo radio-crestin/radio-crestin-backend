@@ -35,6 +35,10 @@ export default function Home({
 }
 
 export async function getServerSideProps(context: any) {
+  context.res.setHeader(
+    'Cache-Control',
+    'public, s-maxage=10, stale-while-revalidate=59',
+  );
   const stations_metadata = await getStationsMetadata();
   return {
     props: {

@@ -22,13 +22,19 @@ function SiteMap() {
 
 // @ts-ignore
 export async function getServerSideProps(context) {
-  const origin = "https://www.radio-crestin.com";
+  context.res.setHeader(
+    'Cache-Control',
+    'public, s-maxage=10, stale-while-revalidate=59',
+  );
+  const origin = 'https://www.radio-crestin.com';
   const stations_metadata = await getStationsMetadata();
   const urls: string[] = [];
   urls.push(`${origin}/`);
   for (const station_group of stations_metadata.station_groups) {
     for (const station_relationship of station_group.station_to_station_groups) {
-      const station = stations_metadata.stations.find(s => s.id === station_relationship.station_id);
+      const station = stations_metadata.stations.find(
+        s => s.id === station_relationship.station_id,
+      );
       if (station) {
         urls.push(`${origin}/${station_group.slug}/${station.slug}`);
       }
