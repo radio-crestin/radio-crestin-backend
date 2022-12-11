@@ -131,6 +131,7 @@ export default function StationInformation(props: any) {
               htmlWidth={22}
               m={'4px'}
               ml={1.5}
+              draggable={false}
             />
           </Link>
         )}

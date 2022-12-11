@@ -182,6 +182,7 @@ export default function StationPlayer({stations}: any) {
           style={{filter: 'drop-shadow(2px 2px 5px rgba(0, 0, 0, 0.25))'}}
           loading={'eager'}
           objectFit={'cover'}
+          draggable={false}
         />
         <Flex
           w={'100%'}
