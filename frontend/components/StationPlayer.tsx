@@ -267,6 +267,7 @@ export default function StationPlayer({stations}: any) {
                 onPause={() => {
                   console.debug('pause');
                   setMuted(true);
+                  setPlaying(false);
                 }}
                 onReady={r => {
                   console.debug('ready');
