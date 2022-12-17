@@ -48,7 +48,7 @@ const StationItem = ({station, priority}: {station: Station, priority: boolean})
       </AspectRatio>
       {!isMobile && <StationMetadata {...station} />}
       <Center mt={3}>
-        <Text fontSize="xl" fontWeight="500" noOfLines={1}>
+        <Text fontSize="sm" fontWeight="300" noOfLines={1} mt={"-3px"}>
           {station.title}
         </Text>
       </Center>
