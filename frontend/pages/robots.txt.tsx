@@ -6,11 +6,11 @@ function SiteMap() {
 export async function getServerSideProps(context: any) {
   context.res.setHeader(
     'Cache-Control',
-    'public, s-maxage=10, stale-while-revalidate=59'
+    'public, s-maxage=10, stale-while-revalidate=59',
   );
-  const origin = "https://www.radio-crestin.com";
+  const origin = 'https://www.radio-crestin.com';
 
-  context.res.setHeader("Content-Type", "text/plain");
+  context.res.setHeader('Content-Type', 'text/plain');
   context.res.write(`# Allow all crawlers
 User-agent: *
 Allow: /

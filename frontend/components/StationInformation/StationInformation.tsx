@@ -1,40 +1,44 @@
-import React, {useState} from "react";
+import React, {useState} from 'react';
 
-import FacebookIcon from "@/public/facebook.svg";
+import FacebookIcon from '@/public/facebook.svg';
 import {
-  Text,
-  Link,
+  Button,
   Flex,
+  FormControl,
+  FormLabel,
   Image,
-  useToast,
-  useDisclosure, FormControl, FormLabel, Button, Textarea
-} from "@chakra-ui/react";
-import { ExternalLinkIcon } from '@chakra-ui/icons'
-// @ts-ignore
-import ReactStars from "react-rating-stars-component";
-import {postReviewClientSide} from "../../frontendServices/review";
-
-import {
+  Link,
   Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalFooter,
   ModalBody,
   ModalCloseButton,
-} from '@chakra-ui/react'
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
+  Text,
+  Textarea,
+  useDisclosure,
+  useToast,
+} from '@chakra-ui/react';
+import {ExternalLinkIcon} from '@chakra-ui/icons';
+// @ts-ignore
+import ReactStars from 'react-rating-stars-component';
+import {postReviewClientSide} from '../../frontendServices/review';
 
 export default function StationInformation(props: any) {
-  const { station } = props;
-  const average = (arr: any[]) => arr.reduce((a,b) => a + b, 0) / arr.length;
-  const StationRating = Math.round((average(station?.reviews?.map((i: any)=>i.stars) || []) || 0) * 10) / 10;
+  const {station} = props;
+  const average = (arr: any[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+  const StationRating =
+    Math.round(
+      (average(station?.reviews?.map((i: any) => i.stars) || []) || 0) * 10,
+    ) / 10;
   const NumberOfListeners = station?.now_playing?.listeners || null;
   const latestPost = station.posts[0];
   const toast = useToast();
 
-  const [userReviewStars, setUserReviewStars] = useState(5)
-  const [userReviewMessage, setUserReviewMessage] = useState("")
-  const { isOpen, onOpen, onClose } = useDisclosure()
+  const [userReviewStars, setUserReviewStars] = useState(5);
+  const [userReviewMessage, setUserReviewMessage] = useState('');
+  const {isOpen, onOpen, onClose} = useDisclosure();
 
   const initialRef = React.useRef<HTMLTextAreaElement>(null);
 
@@ -43,55 +47,60 @@ export default function StationInformation(props: any) {
     const {done} = await postReviewClientSide({
       user_name: null,
       station_id: station.id,
-      stars:  userReviewStars,
-      message: userReviewMessage
+      stars: userReviewStars,
+      message: userReviewMessage,
     });
-    if(done) {
+    if (done) {
       toast({
         title: 'Review-ul a fost încărcat cu success.',
-        description: "Vă mulțumim frumos!",
+        description: 'Vă mulțumim frumos!',
         status: 'success',
-        position: 'bottom-left',
-        duration: 3000,
+        position: 'top',
+        duration: 4000,
         isClosable: true,
-      })
+      });
     } else {
       toast({
         title: 'A apărut o eroare neașteptată.',
-        description: "Vă rugăm să încercați mai târziu!",
+        description: 'Vă rugăm să încercați mai târziu!',
         status: 'error',
-        position: 'bottom-left',
-        duration: 9000,
+        position: 'top',
+        duration: 4000,
         isClosable: true,
-      })
+      });
     }
-  }
+  };
   const onRatingChange = async (stars: number) => {
     const {done} = await postReviewClientSide({
       user_name: null,
       station_id: station.id,
-      stars:  userReviewStars,
-      message: null
+      stars: userReviewStars,
+      message: null,
     });
-    if(done) {
+    if (done) {
       setUserReviewStars(stars);
-      setUserReviewMessage("");
+      setUserReviewMessage('');
       onOpen();
     } else {
       toast({
         title: 'A apărut o eroare neașteptată.',
-        description: "Vă rugăm să încercați mai târziu!",
+        description: 'Vă rugăm să încercați mai târziu!',
         status: 'error',
-        position: 'bottom-left',
-        duration: 9000,
+        position: 'top',
+        duration: 4000,
         isClosable: true,
-      })
+      });
     }
   };
 
   return (
     <Flex direction={'column'} pl={{base: 0, lg: 4}}>
-      <Text as='h1' fontSize={{base: '2xl', lg: '5xl'}} mt={{base: 1, lg: 0}} noOfLines={1} fontWeight='bold'>
+      <Text
+        as="h1"
+        fontSize={{base: '2xl', lg: '5xl'}}
+        mt={{base: 1, lg: 0}}
+        noOfLines={1}
+        fontWeight="bold">
         {station.title}
       </Text>
 
@@ -105,37 +114,61 @@ export default function StationInformation(props: any) {
         />
         {/* @ts-ignore */}
         {StationRating !== 0 && (
-          <Text fontSize={'md'} lineHeight={'30px'} ml={1}>{StationRating}/5</Text>
+          <Text fontSize={'md'} lineHeight={'30px'} ml={1}>
+            {StationRating}/5
+          </Text>
         )}
-        {station.facebook_page_id && <Link href={'https://facebook.com/' + station.facebook_page_id} isExternal>
-          <Image
-            src={FacebookIcon.src}
-            alt={"Facebook page"}
-            height={22}
-            width={22}
-            htmlHeight={22}
-            htmlWidth={22}
-            m={'4px'}
-            ml={1.5}
-          />
-        </Link>}
-
+        {station.facebook_page_id && (
+          <Link
+            href={'https://facebook.com/' + station.facebook_page_id}
+            isExternal>
+            <Image
+              src={FacebookIcon.src}
+              alt={'Facebook page'}
+              height={22}
+              width={22}
+              htmlHeight={22}
+              htmlWidth={22}
+              m={'4px'}
+              ml={1.5}
+              draggable={false}
+            />
+          </Link>
+        )}
       </Flex>
 
-      {NumberOfListeners && <Text
-        fontSize={{base: 'sm', lg: 'md'}}>
-        {NumberOfListeners} persoane ascultă împreună cu tine acest radio
-      </Text>}
+      {NumberOfListeners && (
+        <Text fontSize={{base: 'sm', lg: 'md'}}>
+          {NumberOfListeners} persoane ascultă împreună cu tine acest radio
+        </Text>
+      )}
 
       <>
-        <Text as='h2' fontSize={{base: 'md', lg:'xl'}} mt={{base: 4, lg: 6}} maxW={{base: '100%', lg: '80%'}} noOfLines={1} fontWeight='bold'>
+        <Text
+          as="h2"
+          fontSize={{base: 'md', lg: 'xl'}}
+          mt={{base: 4, lg: 6}}
+          maxW={{base: '100%', lg: '80%'}}
+          noOfLines={1}
+          fontWeight="bold">
           {latestPost ? latestPost.title : station.title}
         </Text>
-        <Text fontSize={{base: 'md', lg:'xl'}} mt='1' noOfLines={{base: 5, lg: 3}} maxW={{base: '100%', lg: '90%'}}>
+        <Text
+          fontSize={{base: 'md', lg: 'xl'}}
+          mt="1"
+          noOfLines={{base: 5, lg: 3}}
+          maxW={{base: '100%', lg: '90%'}}>
           {latestPost ? latestPost.description : station.description}
         </Text>
-        <Link href={latestPost ? latestPost.link : station.website} mt={{base: 2, lg: 3}} fontSize={'md'} isExternal>
-          {latestPost && latestPost.link ? 'Continuă citirea articolului': 'Vizitează site-ul web'} <ExternalLinkIcon mx='2px' />
+        <Link
+          href={latestPost ? latestPost.link : station.website}
+          mt={{base: 2, lg: 3}}
+          fontSize={'md'}
+          isExternal>
+          {latestPost && latestPost.link
+            ? 'Continuă citirea articolului'
+            : 'Vizitează site-ul web'}{' '}
+          <ExternalLinkIcon mx="2px" />
         </Link>
       </>
 
@@ -143,8 +176,7 @@ export default function StationInformation(props: any) {
         initialFocusRef={initialRef}
         isOpen={isOpen}
         onClose={onClose}
-        preserveScrollBarGap={true}
-      >
+        preserveScrollBarGap={true}>
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Adauga un mesaj recenziei</ModalHeader>
@@ -154,19 +186,18 @@ export default function StationInformation(props: any) {
               <FormLabel>Mesajul dumneavoastra</FormLabel>
               <Textarea
                 ref={initialRef}
-                placeholder='Introduceți mesajul dumneavoastră aici..'
-                onChange={(e) => {
+                placeholder="Introduceți mesajul dumneavoastră aici.."
+                onChange={e => {
                   setUserReviewMessage(e.target.value);
                 }}
-                size='sm'
+                size="sm"
                 resize={'none'}
               />
             </FormControl>
-
           </ModalBody>
 
           <ModalFooter>
-            <Button colorScheme='blue' mr={3} onClick={submitReviewMessage}>
+            <Button colorScheme="blue" mr={3} onClick={submitReviewMessage}>
               Trimite
             </Button>
             <Button onClick={submitReviewMessage}>Închide</Button>

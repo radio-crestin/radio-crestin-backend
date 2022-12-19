@@ -25,9 +25,6 @@ const config = withConfig({
         ? process.env.FRONTEND_CDN_PREFIX
         : '',
   },
-  experimental: {
-    nextScriptWorkers: true,
-  },
   // Use the CDN in production and localhost for development.
   assetPrefix:
     process.env.FRONTEND_CDN_PREFIX !== ''
