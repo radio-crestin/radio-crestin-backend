@@ -253,7 +253,7 @@ export default function StationPlayer({stations}: any) {
             </Box>
             <Box>
               <ReactPlayer
-                url={isPlaying ? station_url : ''}
+                url={station_url}
                 width={0}
                 height={0}
                 playing={isPlaying}
