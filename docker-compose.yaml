@@ -133,7 +133,7 @@ services:
         max-size: "100m" # file size
   nginx:
     image: nginx:1.21-alpine
-    restart: on-failure
+    restart: always
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
