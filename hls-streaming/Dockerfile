@@ -98,7 +98,8 @@ RUN apk add --update \
   opus \
   rtmpdump \
   x264-dev \
-  x265-dev
+  x265-dev \
+  bash
 
 RUN apk add rav1e-libs --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testing
 
