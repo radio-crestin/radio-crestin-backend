@@ -1,8 +1,8 @@
 deploy: generate-deployment
-	docker-compose up -d --remove-orphans
+	docker-compose up -d --remove-orphans --build
 
 force-deploy: generate-deployment
-	docker-compose up -d --force-recreate --remove-orphans
+	docker-compose up -d --force-recreate --remove-orphans  --build
 
 clear-hls-data:
 	mkdir -p /tmp/data/hls
