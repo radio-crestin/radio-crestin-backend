@@ -151,15 +151,18 @@ export default function StationPlayer({stations}: any) {
       w={{base: '100%'}}
       h={{base: 'auto'}}
       minW={{base: 'auto'}}
-      maxW={'500px'}
+      maxW={'560px'}
       pl={{base: 0}}
-      position={{base: 'fixed'}}
-      bottom={{base: 0}}
+      position="fixed"
+      bottom={0}
       right={0}
+      left={0}
+      margin="auto"
       zIndex={9}>
       <Box
-        bg={{base: 'blue.500'}}
-        borderRadius={15}
+        bg={{base: 'black'}}
+        boxShadow={'0 10px 30px 0 rgb(0 0 0 / 15%)'}
+        borderRadius={16}
         m={{base: 3}}
         p={{base: 2}}
         display={{base: 'flex'}}
@@ -210,7 +213,25 @@ export default function StationPlayer({stations}: any) {
               {station.now_playing?.song?.artist.name}
             </Text>
           </Box>
-          <Spacer />
+          <Spacer marginLeft={2} />
+          <Box
+            ml={{base: 4}}
+            margin={'auto'}
+            display={{base: 'none', md: 'block'}}>
+            <Slider
+              w={{base: '100px'}}
+              marginTop={2}
+              aria-label="Volume"
+              defaultValue={volume}
+              onChange={value => {
+                setVolume(value as number);
+              }}>
+              <SliderTrack bg={{base: 'gray.400'}}>
+                <SliderFilledTrack bg={{base: 'white'}} />
+              </SliderTrack>
+              <SliderThumb boxSize={5} />
+            </Slider>
+          </Box>
           <Flex
             w={{base: 'fit-content'}}
             mt={{base: 0}}
@@ -237,20 +258,6 @@ export default function StationPlayer({stations}: any) {
                 </svg>
               </Box>
             </button>
-            <Box ml={{base: 4}} display={{base: 'none'}} alignItems="center">
-              <Slider
-                w={{base: '120px'}}
-                aria-label="Volume"
-                defaultValue={volume}
-                onChange={value => {
-                  setVolume(value as number);
-                }}>
-                <SliderTrack bg={{base: 'gray.400'}}>
-                  <SliderFilledTrack bg={{base: 'white'}} />
-                </SliderTrack>
-                <SliderThumb boxSize={6} />
-              </Slider>
-            </Box>
             <Box>
               <ReactPlayer
                 url={station_url}
