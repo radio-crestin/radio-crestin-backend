@@ -3,7 +3,6 @@ import {useRouter} from 'next/router';
 import {useIdleTimer} from 'react-idle-timer';
 import {isDesktop, isMobile} from 'react-device-detect';
 import dynamic from 'next/dynamic';
-
 import {
   Box,
   Flex,
@@ -21,6 +20,7 @@ import {trackListenClientSide} from '../frontendServices/listen';
 import {CONSTANTS} from '../lib/constants';
 import {Station} from '../types';
 import {cdnImageLoader} from '@/utils/cdnImageLoader';
+import {Loading} from '@/public/images/loading';
 
 const ReactPlayer = dynamic(() => import('react-player/lazy'), {ssr: false});
 
@@ -48,6 +48,7 @@ export default function StationPlayer({stations}: any) {
   const [volume, setVolume] = useLocalStorageState(60, 'AUDIO_PLAYER_VOLUME');
   const [selectedStreamType, setSelectedStreamType] = useState('HLS');
   const [hasInteracted, setInteraction] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useIdleTimer({
     onAction: () => setInteraction(true),
@@ -251,9 +252,13 @@ export default function StationPlayer({stations}: any) {
                   aria-hidden="true"
                   viewBox="0 0 24 24">
                   {isPlaying ? (
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"></path>
+                    isLoading ? (
+                      <Loading />
+                    ) : (
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" />
+                    )
                   ) : (
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM9.5 16.5v-9l7 4.5-7 4.5z"></path>
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM9.5 16.5v-9l7 4.5-7 4.5z" />
                   )}
                 </svg>
               </Box>
@@ -266,6 +271,12 @@ export default function StationPlayer({stations}: any) {
                 playing={isPlaying}
                 muted={isMuted}
                 volume={volume / 100}
+                onBuffer={() => {
+                  setIsLoading(true);
+                }}
+                onBufferEnd={() => {
+                  setIsLoading(false);
+                }}
                 onPlay={() => {
                   console.debug('onPlay');
                   setMuted(false);
