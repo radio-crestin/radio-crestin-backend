@@ -26,8 +26,8 @@ export const seoCategory = (category: string) => {
 };
 
 export const seoHomepage = {
-  title: `Lista cu radiouri crestine`,
-  description: `Asculta radio crestin 📻 · Peste 25 de posturi de radio`,
+  title: `Radio Crestin · Asculta Radio Crestin online`,
+  description: `Radio-Crestin.com contine o lista cu cele mai populare radiouri crestine din Romania, dar si din strainatate. Aici vei gasi radiouri crestine FM, dar si din online. Te invitam sa asculti impreuna cu noi radio crestin online.`,
   keywords: `post radio, live, radio crestin online, cantari, crestine, radiouri, muzica crestina, lista radio crestin, asculta radio crestin online, radio fm crestine, lista radio crestin online,
   radio crestin muzica non stop, radio-crestin.com`,
 };
