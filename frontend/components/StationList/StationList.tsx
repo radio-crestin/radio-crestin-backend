@@ -4,16 +4,9 @@ import {isMobile} from 'react-device-detect';
 
 import {Station, StationGroup} from 'types';
 import {CONSTANTS} from '../../lib/constants';
-import {
-  AspectRatio,
-  Box,
-  Center,
-  Grid,
-  GridItem,
-  Text,
-} from '@chakra-ui/react';
+import {AspectRatio, Box, Center, Grid, GridItem, Text} from '@chakra-ui/react';
 import Link from 'next/link';
-import { ImageWithFallback } from '../ImageWithFallback/ImageWithFallback';
+import {ImageWithFallback} from '../ImageWithFallback/ImageWithFallback';
 
 const StationMetadata = dynamic(
   () => import('@/components/StationMetadata/StationMetadata'),
@@ -24,31 +17,32 @@ const StationItem = ({station, priority}: {station: Station, priority: boolean})
   return (
     <Box position={'relative'} role="group">
       <AspectRatio position={'relative'} ratio={1}>
-        <Box borderRadius={{base: '20px', lg: '41px'}}
-             position={'relative'}
-             width={250}
-             height={250}
-             overflow={'hidden'}>
-
-            <ImageWithFallback
-              src={station.now_playing?.song?.thumbnail_url ||
-                station.thumbnail_url ||
-                CONSTANTS.DEFAULT_COVER}
-              fallbackSrc={station.thumbnail_url || CONSTANTS.DEFAULT_COVER}
-              alt={station.title}
-              priority={priority}
-              fill
-              sizes="250px"
-              style={{
-                filter: station?.uptime?.is_up ? '' : 'grayscale(1)',
-                objectFit: "cover",
-              }}
-            />
+        <Box
+          borderRadius={{base: '20px', lg: '41px'}}
+          position={'relative'}
+          overflow={'hidden'}
+          height={250}
+          width={250}>
+          <ImageWithFallback
+            src={
+              station.now_playing?.song?.thumbnail_url ||
+              station.thumbnail_url ||
+              CONSTANTS.DEFAULT_COVER
+            }
+            fallbackSrc={station.thumbnail_url || CONSTANTS.DEFAULT_COVER}
+            alt={`${station.title} | Radio Crestin`}
+            style={{
+              filter: station?.uptime?.is_up ? '' : 'grayscale(1)',
+              objectFit: 'cover',
+              width: '100%',
+              height: '100%',
+            }}
+          />
         </Box>
       </AspectRatio>
       {!isMobile && <StationMetadata {...station} />}
       <Center mt={3}>
-        <Text fontSize="sm" fontWeight="300" noOfLines={1} mt={"-3px"}>
+        <Text fontSize="sm" fontWeight="300" noOfLines={1} mt={'-3px'}>
           {station.title}
         </Text>
       </Center>

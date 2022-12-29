@@ -6,7 +6,6 @@ import dynamic from 'next/dynamic';
 import {
   Box,
   Flex,
-  Image,
   Slider,
   SliderFilledTrack,
   SliderThumb,
@@ -19,8 +18,8 @@ import {useLocalStorageState} from '@/utils/state';
 import {trackListenClientSide} from '../frontendServices/listen';
 import {CONSTANTS} from '../lib/constants';
 import {Station} from '../types';
-import {cdnImageLoader} from '@/utils/cdnImageLoader';
 import {Loading} from '@/public/images/loading';
+import {ImageWithFallback} from '@/components/ImageWithFallback/ImageWithFallback';
 
 const ReactPlayer = dynamic(() => import('react-player/lazy'), {ssr: false});
 
@@ -168,25 +167,22 @@ export default function StationPlayer({stations}: any) {
         p={{base: 2}}
         display={{base: 'flex'}}
         alignItems={{base: 'center'}}>
-        <Image
-          src={cdnImageLoader({
-            src:
-              station.now_playing?.song?.thumbnail_url ||
-              station.thumbnail_url ||
-              CONSTANTS.DEFAULT_COVER,
-            width: 384,
-            quality: 80,
-          })}
+        <ImageWithFallback
+          src={
+            station.now_playing?.song?.thumbnail_url ||
+            station.thumbnail_url ||
+            CONSTANTS.DEFAULT_COVER
+          }
           fallbackSrc={station.thumbnail_url || CONSTANTS.DEFAULT_COVER}
-          alt={station.title}
-          boxSize={{base: '70px'}}
+          alt={`${station.title} | Radio Crestin`}
           htmlHeight={80}
           htmlWidth={80}
-          borderRadius={{base: '12px'}}
-          style={{filter: 'drop-shadow(2px 2px 5px rgba(0, 0, 0, 0.25))'}}
           loading={'eager'}
-          objectFit={'cover'}
-          draggable={false}
+          borderRadius={{base: '12px'}}
+          style={{
+            filter: station?.uptime?.is_up ? '' : 'grayscale(1)',
+            objectFit: 'cover',
+          }}
         />
         <Flex
           w={'100%'}

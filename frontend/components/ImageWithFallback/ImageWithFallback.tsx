@@ -1,8 +1,8 @@
 import {useEffect, useState} from 'react';
 
-import Image from 'next/image';
 import {cdnImageLoader} from '@/utils/cdnImageLoader';
-import {ImageProps} from 'next/dist/client/image';
+import {Image} from '@chakra-ui/react';
+import {ImageProps} from '@chakra-ui/image';
 
 export const ImageWithFallback = ({
   fallbackSrc,
@@ -17,10 +17,15 @@ export const ImageWithFallback = ({
   return (
     <Image
       {...{
-        loader: cdnImageLoader,
         onError: () => setError(true),
+        htmlHeight: 250,
+        htmlWidth: 250,
+        loading: 'lazy',
         ...props,
-        src: error ? fallbackSrc : props.src,
+        src: cdnImageLoader({
+          src: error ? fallbackSrc : props.src,
+          width: 256,
+        }),
       }}
       draggable={false}
     />
