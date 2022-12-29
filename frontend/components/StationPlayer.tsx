@@ -182,6 +182,8 @@ export default function StationPlayer({stations}: any) {
           style={{
             filter: station?.uptime?.is_up ? '' : 'grayscale(1)',
             objectFit: 'cover',
+            width: '80px',
+            height: '80px',
           }}
         />
         <Flex
