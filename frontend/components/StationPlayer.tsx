@@ -224,6 +224,7 @@ export default function StationPlayer({stations}: any) {
               marginTop={2}
               aria-label="Volume"
               defaultValue={volume}
+              step={0.5}
               onChange={value => {
                 setVolume(value as number);
               }}>
@@ -270,7 +271,7 @@ export default function StationPlayer({stations}: any) {
                 height={0}
                 playing={isPlaying}
                 muted={isMuted}
-                volume={volume / 100}
+                volume={volume / 200}
                 onBuffer={() => {
                   setIsLoading(true);
                 }}
