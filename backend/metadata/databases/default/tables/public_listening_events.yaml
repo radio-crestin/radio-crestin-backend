@@ -1,6 +1,6 @@
 table:
-  schema: public
   name: listening_events
+  schema: public
 object_relationships:
   - name: station
     using:

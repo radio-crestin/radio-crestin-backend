@@ -24,13 +24,11 @@ services:
       - "8545:8080"
     depends_on:
       - postgres
-    volumes:
-      - ./admin:/src
     restart: always
     env_file:
       - .env
   graphql-engine:
-    image: hasura/graphql-engine:v2.13.0
+    image: hasura/graphql-engine:v2.16.1.cli-migrations-v3
     ports:
       - "8080:8080"
     depends_on:

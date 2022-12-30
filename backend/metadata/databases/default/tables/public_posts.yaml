@@ -1,6 +1,6 @@
 table:
-  schema: public
   name: posts
+  schema: public
 object_relationships:
   - name: station
     using:

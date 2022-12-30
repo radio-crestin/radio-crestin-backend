@@ -1,6 +1,6 @@
 table:
-  schema: public
   name: songs
+  schema: public
 object_relationships:
   - name: artist
     using:
@@ -11,8 +11,8 @@ array_relationships:
       foreign_key_constraint_on:
         column: song_id
         table:
-          schema: public
           name: stations_now_playing
+          schema: public
 select_permissions:
   - role: public
     permission:

@@ -1,6 +1,6 @@
 table:
-  schema: public
   name: stations_uptime
+  schema: public
 object_relationships:
   - name: station
     using:
@@ -11,8 +11,8 @@ array_relationships:
       foreign_key_constraint_on:
         column: latest_station_uptime_id
         table:
-          schema: public
           name: stations
+          schema: public
 select_permissions:
   - role: public
     permission:

@@ -1,6 +1,6 @@
 table:
-  schema: public
   name: stations_metadata_fetch
+  schema: public
 object_relationships:
   - name: station
     using:

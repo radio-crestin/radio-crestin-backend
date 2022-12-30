@@ -1,6 +1,6 @@
 table:
-  schema: public
   name: station_to_station_group
+  schema: public
 object_relationships:
   - name: group
     using:

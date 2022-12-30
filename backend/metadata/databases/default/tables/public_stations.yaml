@@ -1,6 +1,6 @@
 table:
-  schema: public
   name: stations
+  schema: public
 object_relationships:
   - name: now_playing
     using:
@@ -14,66 +14,66 @@ array_relationships:
       foreign_key_constraint_on:
         column: station_id
         table:
-          schema: public
           name: listening_events
+          schema: public
   - name: now_playing_history
     using:
       foreign_key_constraint_on:
         column: station_id
         table:
-          schema: public
           name: stations_now_playing
+          schema: public
   - name: posts
     using:
       foreign_key_constraint_on:
         column: station_id
         table:
-          schema: public
           name: posts
+          schema: public
   - name: reviews
     using:
       foreign_key_constraint_on:
         column: station_id
         table:
-          schema: public
           name: reviews
+          schema: public
   - name: station_metadata_fetches
     using:
       foreign_key_constraint_on:
         column: station_id
         table:
-          schema: public
           name: stations_metadata_fetch
+          schema: public
   - name: station_to_station_groups
     using:
       foreign_key_constraint_on:
         column: station_id
         table:
-          schema: public
           name: station_to_station_group
+          schema: public
   - name: uptime_history
     using:
       foreign_key_constraint_on:
         column: station_id
         table:
-          schema: public
           name: stations_uptime
+          schema: public
 computed_fields:
   - name: hls_stream_url
     definition:
       function:
-        schema: public
         name: hls_stream_url
+        schema: public
   - name: proxy_stream_url
     definition:
       function:
-        schema: public
         name: proxy_stream_url
+        schema: public
   - name: radio_crestin_listeners
     definition:
       function:
-        schema: public
         name: radio_crestin_listeners
+        schema: public
 select_permissions:
   - role: public
     permission:

@@ -1,14 +1,14 @@
 table:
-  schema: public
   name: station_groups
+  schema: public
 array_relationships:
   - name: station_to_station_groups
     using:
       foreign_key_constraint_on:
         column: group_id
         table:
-          schema: public
           name: station_to_station_group
+          schema: public
 select_permissions:
   - role: public
     permission:

@@ -1,6 +1,6 @@
 table:
-  schema: public
   name: reviews
+  schema: public
 object_relationships:
   - name: station
     using:

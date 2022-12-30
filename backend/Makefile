@@ -25,6 +25,10 @@ start-hasura-console:
 	kill $(lsof -t -i:9695); \
 	hasura console --envfile .env
 
+start-hasura-console-remote:
+	kill $(lsof -t -i:9695); \
+	hasura console --envfile .env.remote --endpoint https://graphql.radio-crestin.com
+
 apply-hasura-migrations:
 	hasura migrate apply --all-databases  --envfile .env
 
