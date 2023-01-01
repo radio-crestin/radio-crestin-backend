@@ -371,8 +371,12 @@ export default function StationPlayer({stations}: any) {
                 onEnded={() => {
                   console.debug('onEnded');
                 }}
-                onError={async (e) => {
-                  console.error('player onError:', e);
+                onError={async (error, ...args) => {
+                  if (error?.target?.error?.code === 4) {
+                    // Ignore this error as we know that we've passed an empty src attribute
+                    return;
+                  }
+                  console.trace('player onError:', error, args);
                   if (!await retryMechanism()) {
                     setPlaybackState(PLAYBACK_STATE.ERROR)
                   }
