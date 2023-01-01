@@ -6,7 +6,8 @@
     "analyze": "cross-env ANALYZE=true next build",
     "build": "next build",
     "start:dev": "next dev",
-    "start": "next start -p 8080 --keepAliveTimeout 70000"
+    "start": "next start -p 8080 --keepAliveTimeout 70000",
+    "build-and-start": "yarn run build && yarn run start"
   },
   "dependencies": {
     "@chakra-ui/icons": "^2.0.11",

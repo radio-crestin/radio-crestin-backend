@@ -30,6 +30,11 @@ const config = withConfig({
     process.env.FRONTEND_CDN_PREFIX !== ''
       ? process.env.FRONTEND_CDN_PREFIX
       : undefined,
+  compiler: {
+    removeConsole: {
+      exclude: ['error'],
+    },
+  },
 });
 console.log('process.env.FRONTEND_CDN_PREFIX', process.env.FRONTEND_CDN_PREFIX);
 
