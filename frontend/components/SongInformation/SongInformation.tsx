@@ -45,7 +45,7 @@ export default function SongInformation(props: {station: Station}) {
             alt={`${station.title} | Radio Crestin`}
             loading={'eager'}
             style={{
-              filter: station?.uptime?.is_up ? '' : 'grayscale(1)',
+              filter: station?.uptime?.is_up ? 'unset' : 'grayscale(1)',
               objectFit: 'cover',
               width: '100%',
               height: '100%',

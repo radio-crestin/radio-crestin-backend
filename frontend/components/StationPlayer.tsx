@@ -180,7 +180,7 @@ export default function StationPlayer({stations}: any) {
           loading={'eager'}
           borderRadius={{base: '12px'}}
           style={{
-            filter: station?.uptime?.is_up ? '' : 'grayscale(1)',
+            filter: station?.uptime?.is_up ? 'unset' : 'grayscale(1)',
             objectFit: 'cover',
             width: '80px',
             height: '80px',
@@ -264,7 +264,7 @@ export default function StationPlayer({stations}: any) {
             </button>
             <Box>
               <ReactPlayer
-                url={isPlaying? station_url: null}
+                url={isPlaying ? station_url : null}
                 width={0}
                 height={0}
                 playing={isPlaying}
