@@ -14,48 +14,87 @@ import {
   Text,
 } from '@chakra-ui/react';
 
+import {useTimeoutFn} from 'react-use';
 import {useLocalStorageState} from '@/utils/state';
 import {trackListenClientSide} from '../frontendServices/listen';
 import {CONSTANTS} from '../lib/constants';
 import {Station} from '../types';
 import {Loading} from '@/public/images/loading';
-import {ImageWithFallback} from '@/components/ImageWithFallback/ImageWithFallback';
+import {
+  ImageWithFallback
+} from '@/components/ImageWithFallback/ImageWithFallback';
 
 const ReactPlayer = dynamic(() => import('react-player/lazy'), {ssr: false});
 
+enum STREAM_TYPE {
+  HLS = 'HLS',
+  PROXY = 'PROXY',
+  ORIGINAL = 'ORIGINAL',
+}
+
 const STREAM_TYPE_INFO: any = {
-  HLS: {
+  [STREAM_TYPE.HLS]: {
     field: 'hls_stream_url',
     name: 'hls',
   },
-  PROXY: {
+  [STREAM_TYPE.PROXY]: {
     field: 'proxy_stream_url',
     name: 'proxy',
   },
-  ORIGINAL: {
+  [STREAM_TYPE.ORIGINAL]: {
     field: 'stream_url',
     name: 'original',
   },
 };
 const MAX_MEDIA_RETRIES = 20;
 
+enum PLAYBACK_STATE {
+  STARTED = 'started',
+  STOPPED = 'stopped',
+  PAUSED = 'paused',
+  BUFFERING = 'buffering',
+  PLAYING = 'playing',
+  ERROR = 'error',
+}
+
 export default function StationPlayer({stations}: any) {
-  const {station_slug} = useRouter().query;
+  const router = useRouter();
+  const {station_slug} = router.query;
   const [retries, setRetries] = useState(MAX_MEDIA_RETRIES);
-  const [isMuted, setMuted] = useState(true);
-  const [isPlaying, setPlaying] = useLocalStorageState(false, 'IS_PLAYING');
+  const [playbackState, setPlaybackState] = useState(PLAYBACK_STATE.STOPPED);
   const [volume, setVolume] = useLocalStorageState(60, 'AUDIO_PLAYER_VOLUME');
-  const [selectedStreamType, setSelectedStreamType] = useState('HLS');
+  const [streamType, setStreamType] = useState(STREAM_TYPE.HLS);
+
   const [hasInteracted, setInteraction] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+
+  const [, , resetPlayerTimeout] = useTimeoutFn(async () => {
+    if (playbackState !== PLAYBACK_STATE.PLAYING) {
+      console.log("start timed out after 5 seconds, calling the retrying mechanism...", {playbackState});
+      if (!await retryMechanism()) {
+        setPlaybackState(PLAYBACK_STATE.ERROR)
+      }
+    }
+  }, 5000);
+
+  useEffect(() => {
+    if (playbackState === PLAYBACK_STATE.STARTED) {
+      resetPlayerTimeout();
+    }
+  }, [station_slug, playbackState])
+
+  console.debug({station_slug, streamType, playbackState})
 
   useIdleTimer({
     onAction: () => setInteraction(true),
   });
 
   useEffect(() => {
+    setStreamType(STREAM_TYPE.HLS);
+  }, [station_slug])
+
+  useEffect(() => {
     if (isMobile && !hasInteracted) {
-      setPlaying(false);
+      setPlaybackState(PLAYBACK_STATE.STOPPED);
     }
   }, []);
 
@@ -67,46 +106,47 @@ export default function StationPlayer({stations}: any) {
     return <></>;
   }
 
+  const nextRandomStation = () => {
+    const randomStation = stations[Math.floor(Math.random() * stations.length)];
+    router.push(`/radio/${randomStation.slug}`);
+  }
+
   // TODO: we might need to populate these from local storage
   const retryMechanism = async () => {
-    console.debug('retryMechanism called');
+    console.debug('retryMechanism called', {streamType});
     setRetries(retries - 1);
     console.debug('remaining retries: ', retries);
     if (retries > 0) {
-      setSelectedStreamType('');
       await new Promise(r => setTimeout(r, 200));
 
-      if (selectedStreamType === 'HLS') {
-        setSelectedStreamType('PROXY');
-        console.debug('waiting 1s');
+      if (streamType === STREAM_TYPE.HLS) {
+        console.debug('waiting 1s before changing to PROXY');
         await new Promise(r => setTimeout(r, 1000));
+        setStreamType(STREAM_TYPE.PROXY);
         return true;
       }
-      if (selectedStreamType === 'PROXY') {
-        setSelectedStreamType('ORIGINAL');
-        console.debug('waiting 1s');
+      if (streamType === STREAM_TYPE.PROXY) {
+        console.debug('waiting 1s before changing to ORIGINAL');
         await new Promise(r => setTimeout(r, 1000));
+        setStreamType(STREAM_TYPE.ORIGINAL);
         return true;
       }
-      if (selectedStreamType === 'ORIGINAL') {
-        setSelectedStreamType('HLS');
-        console.debug('waiting 1s');
+      if (streamType === STREAM_TYPE.ORIGINAL) {
+        console.debug('waiting 1s before changing to HLS');
         await new Promise(r => setTimeout(r, 1000));
+        setStreamType(STREAM_TYPE.HLS);
         return true;
       }
     }
     return false;
   };
 
-  const station_url =
-    selectedStreamType !== ''
-      ? // @ts-ignore
-      station[STREAM_TYPE_INFO[selectedStreamType as string].field]
-      : '';
+  // @ts-ignore
+  const station_url = streamType === null ? null : station[STREAM_TYPE_INFO[streamType].field];
 
   useEffect(() => {
     if ('mediaSession' in navigator) {
-      if (isPlaying) {
+      if (playbackState === PLAYBACK_STATE.PLAYING) {
         navigator.mediaSession.metadata = new MediaMetadata({
           title: station.now_playing?.song?.name || station.title,
           artist: station.now_playing?.song?.artist.name || '',
@@ -124,19 +164,43 @@ export default function StationPlayer({stations}: any) {
     }
   }, [station]);
 
+  const actionHandlers = [
+    ['pause', () => {
+      console.debug("notification pause");
+      setPlaybackState(PLAYBACK_STATE.PAUSED);
+    }],
+    ['stop', () => {
+      console.debug("notification stop");
+      setPlaybackState(PLAYBACK_STATE.STOPPED);
+    }],
+    ['nexttrack', () => {
+      console.debug("notification nexttrack");
+      nextRandomStation();
+    }],
+  ];
+
+  for (const [action, handler] of actionHandlers) {
+    try {
+      // @ts-ignore
+      navigator.mediaSession.setActionHandler(action, handler);
+    } catch (error) {
+      console.log(`The media session action "${action}" is not supported yet.`);
+    }
+  }
+
   // TODO: when the user click play, increase the number of listeners by 1
   // Also, delay the updated by 500 ms, also optional we can add an animation when we update the listeners counter.. to emphasis it
   // TODO: make the player mobile responsive
 
   useEffect(() => {
-    if (isPlaying) {
+    if (playbackState === PLAYBACK_STATE.PLAYING) {
       trackListenClientSide({
         station_id: station.id as unknown as bigint,
         info: {},
       });
     }
     const timer = setInterval(() => {
-      if (isPlaying) {
+      if (playbackState === PLAYBACK_STATE.PLAYING) {
         trackListenClientSide({
           station_id: station.id as unknown as bigint,
           info: {},
@@ -144,7 +208,22 @@ export default function StationPlayer({stations}: any) {
       }
     }, 30 * 1000);
     return () => clearInterval(timer);
-  }, [isPlaying]);
+  }, [playbackState]);
+
+  const renderPlayButtonSvg = () => {
+    switch (playbackState) {
+      case PLAYBACK_STATE.STARTED:
+        return <Loading/>;
+      case PLAYBACK_STATE.BUFFERING:
+        return <Loading/>;
+      case PLAYBACK_STATE.PLAYING:
+        return <path
+          d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>;
+      default:
+        return <path
+          d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM9.5 16.5v-9l7 4.5-7 4.5z"/>;
+    }
+  }
 
   return (
     <Box
@@ -212,7 +291,7 @@ export default function StationPlayer({stations}: any) {
               {station.now_playing?.song?.artist.name}
             </Text>
           </Box>
-          <Spacer marginLeft={2} />
+          <Spacer marginLeft={2}/>
           <Box
             ml={{base: 4}}
             margin={'auto'}
@@ -227,9 +306,9 @@ export default function StationPlayer({stations}: any) {
                 setVolume(value as number);
               }}>
               <SliderTrack bg={{base: 'gray.400'}}>
-                <SliderFilledTrack bg={{base: 'white'}} />
+                <SliderFilledTrack bg={{base: 'white'}}/>
               </SliderTrack>
-              <SliderThumb boxSize={5} />
+              <SliderThumb boxSize={5}/>
             </Slider>
           </Box>
           <Flex
@@ -241,7 +320,11 @@ export default function StationPlayer({stations}: any) {
             <button
               name="Start/Stop"
               onClick={() => {
-                setPlaying(!isPlaying);
+                setPlaybackState(
+                  playbackState === PLAYBACK_STATE.PLAYING || playbackState === PLAYBACK_STATE.STARTED
+                    ? PLAYBACK_STATE.STOPPED
+                    : PLAYBACK_STATE.STARTED,
+                );
               }}>
               <Box fill={{base: 'white'}}>
                 <svg
@@ -250,60 +333,54 @@ export default function StationPlayer({stations}: any) {
                   focusable="false"
                   aria-hidden="true"
                   viewBox="0 0 24 24">
-                  {isPlaying ? (
-                    isLoading ? (
-                      <Loading />
-                    ) : (
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" />
-                    )
-                  ) : (
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM9.5 16.5v-9l7 4.5-7 4.5z" />
-                  )}
+                  {renderPlayButtonSvg()}
                 </svg>
               </Box>
             </button>
             <Box>
               <ReactPlayer
-                url={isPlaying ? station_url : null}
+                url={(playbackState === PLAYBACK_STATE.STARTED || playbackState === PLAYBACK_STATE.PLAYING || playbackState === PLAYBACK_STATE.BUFFERING) ? station_url : null}
                 width={0}
                 height={0}
-                playing={isPlaying}
-                muted={isMuted}
+                playing={playbackState === PLAYBACK_STATE.STARTED || playbackState === PLAYBACK_STATE.PLAYING || playbackState === PLAYBACK_STATE.BUFFERING}
                 volume={volume / 200}
+                loop={true}
+                disableDeferredLoading={true}
                 onBuffer={() => {
-                  setIsLoading(true);
+                  console.debug('onBuffer');
+                  setPlaybackState(PLAYBACK_STATE.BUFFERING);
                 }}
                 onBufferEnd={() => {
-                  setIsLoading(false);
+                  console.debug('onBufferEnd');
+                  setPlaybackState(PLAYBACK_STATE.PLAYING);
                 }}
                 onPlay={() => {
                   console.debug('onPlay');
-                  setMuted(false);
-                  setPlaying(true);
                 }}
                 onPause={() => {
-                  console.debug('pause');
-                  setMuted(true);
-                  setPlaying(false);
+                  console.debug('onPause');
+                }}
+                onStart={() => {
+                  console.debug('onStart');
                 }}
                 onReady={r => {
-                  console.debug('ready');
+                  console.debug('onReady');
                 }}
                 onEnded={() => {
                   console.debug('onEnded');
                 }}
-                onError={e => {
-                  console.error(e);
-                  if (!retryMechanism()) {
-                    setPlaying(false);
+                onError={async (e) => {
+                  console.error('player onError:', e);
+                  if (!await retryMechanism()) {
+                    setPlaybackState(PLAYBACK_STATE.ERROR)
                   }
                 }}
                 config={{
                   file: {
                     attributes: {
                       autoPlay:
-                        (isMobile && hasInteracted && isPlaying) ||
-                        (isDesktop && isPlaying),
+                        (isMobile && hasInteracted) ||
+                        (isDesktop),
                     },
                     forceAudio: true,
                   },

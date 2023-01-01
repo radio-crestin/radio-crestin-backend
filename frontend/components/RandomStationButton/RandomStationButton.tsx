@@ -9,7 +9,7 @@ export default function RandomStationButton({pickARandomStation}: any) {
       h={{base: '45px', lg: '50px'}}
       p={'13px'}
       bg={'#ffc107'}
-      _hover={{ bg: '#ffcf40' }}
+      _hover={{bg: '#ffcf40'}}
       borderRadius={'40px'}
       onClick={pickARandomStation}>
       <svg

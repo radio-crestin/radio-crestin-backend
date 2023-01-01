@@ -30,10 +30,10 @@ export function ContactModalLink() {
         onClose={onClose}
         size={'lg'}
         preserveScrollBarGap={true}>
-        <ModalOverlay />
+        <ModalOverlay/>
         <ModalContent>
           <ModalHeader>Contact</ModalHeader>
-          <ModalCloseButton />
+          <ModalCloseButton/>
           <ModalBody>
             <Text>
               Dacă doriți să ne transmiteți un mesaj vă rugăm să folosiți una
@@ -59,7 +59,7 @@ export function ContactModalLink() {
                 +4 0773 994 595
               </Link>
             </Text>
-            <br />
+            <br/>
           </ModalBody>
 
           <ModalFooter>

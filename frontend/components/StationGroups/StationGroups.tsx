@@ -4,10 +4,10 @@ import Link from 'next/link';
 import React from 'react';
 
 export default function StationGroups({
-  stationGroups,
-  selectedStationGroup,
-  selectedStation,
-}: {
+                                        stationGroups,
+                                        selectedStationGroup,
+                                        selectedStation,
+                                      }: {
   stationGroups: StationGroup[];
   selectedStationGroup: StationGroup;
   selectedStation: Station;

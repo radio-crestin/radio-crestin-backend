@@ -13,7 +13,10 @@ const StationMetadata = dynamic(
   {ssr: false},
 );
 
-const StationItem = ({station}: {station: Station}) => {
+const StationItem = ({
+                       station,
+                       priority
+                     }: { station: Station, priority?: boolean }) => {
   return (
     <Box position={'relative'} role="group">
       <AspectRatio position={'relative'} ratio={1}>
@@ -76,9 +79,9 @@ const StationItem = ({station}: {station: Station}) => {
 };
 
 export default function StationList({
-  station_group,
-  stations,
-}: {
+                                      station_group,
+                                      stations,
+                                    }: {
   station_group: StationGroup;
   stations: Station[];
 }) {
