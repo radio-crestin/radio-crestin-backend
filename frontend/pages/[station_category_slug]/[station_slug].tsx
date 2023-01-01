@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import Head from 'next/head';
-import {Box, Container, useToast} from '@chakra-ui/react';
+import {Box, Container} from '@chakra-ui/react';
 import dynamic from 'next/dynamic';
 
 import Analytics from '@/components/Analytics/Analytics';
@@ -36,7 +36,6 @@ export default function StationPage({
   station_slug?: string;
   seoMetadata?: SeoMetadata;
 }) {
-  const toast = useToast();
   const [stations, setStations] = useState(stations_metadata.stations);
   const [station_groups, setStation_groups] = useState(
     stations_metadata.station_groups,
@@ -46,18 +45,6 @@ export default function StationPage({
     const fetchStations = setInterval(() => {
       fetch('/api/v1/stations').then(async r => {
         const data = await r.json();
-        if (!data) {
-          toast({
-            title: 'A apărut o eroare neașteptată.',
-            description:
-              'În cazul în care eroarea persistă, va rugăm să ne trimiteți un mesaj pe whatsapp: +4 0773 994 595. Va mulțumim!',
-            status: 'error',
-            position: 'top',
-            duration: 14000,
-            isClosable: true,
-          });
-          return;
-        }
         setStations(data.stations);
         setStation_groups(data.station_groups);
       });
