@@ -13,7 +13,7 @@ export default function Body(props: {
 }) {
   useEffect(() => {
     window.addEventListener("load", function () {
-      navigator.serviceWorker.register("/sw.js").then(
+      navigator.serviceWorker?.register("/sw.js").then(
         function (registration) {
           console.log(
             "Service Worker registration successful with scope: ",
