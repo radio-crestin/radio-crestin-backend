@@ -1142,6 +1142,11 @@
   resolved "https://registry.yarnpkg.com/@tsconfig/node16/-/node16-1.0.3.tgz#472eaab5f15c1ffdd7f8628bd4c4f753995ec79e"
   integrity sha512-yOlFc+7UtL/89t2ZhjPvvB/DeAr3r+Dq58IgzsFkOAvVC6NMJXmCGjbptdXdR9qsX7pKcTL+s87FtYREi2dEEQ==
 
+"@types/can-autoplay@^3.0.1":
+  version "3.0.1"
+  resolved "https://registry.yarnpkg.com/@types/can-autoplay/-/can-autoplay-3.0.1.tgz#22fa87b62492f0a75caf094c07e41e82098134ec"
+  integrity sha512-E4AYbmLUKP5Bn0jb7w58ul6Yt8hlOzEExpFFIk0LLWklGAqyqy1v+QKOZGT3v5uq6P/bLUCyofkfF/aYQiYHmw==
+
 "@types/js-cookie@^2.2.6":
   version "2.2.7"
   resolved "https://registry.yarnpkg.com/@types/js-cookie/-/js-cookie-2.2.7.tgz#226a9e31680835a6188e887f3988e60c04d3f6a3"
@@ -1311,6 +1316,11 @@ callsites@^3.0.0:
   version "3.1.0"
   resolved "https://registry.yarnpkg.com/callsites/-/callsites-3.1.0.tgz#b3630abd8943432f54b3f0519238e33cd7df2f73"
   integrity sha512-P8BjAsXvZS+VIDUI11hHCQEv74YT67YUi5JJFNWIqL235sBmjX4+qx9Muvls5ivyNENctx46xQLQ3aTuE7ssaQ==
+
+can-autoplay@^3.0.2:
+  version "3.0.2"
+  resolved "https://registry.yarnpkg.com/can-autoplay/-/can-autoplay-3.0.2.tgz#d48b4d68c44834fdb02635a4014f06609b22caee"
+  integrity sha512-Ih6wc7yJB4TylS/mLyAW0Dj5Nh3Gftq/g966TcxgvpNCOzlbqTs85srAq7mwIspo4w8gnLCVVGroyCHfh6l9aA==
 
 caniuse-lite@^1.0.30001406:
   version "1.0.30001439"
@@ -2193,11 +2203,6 @@ react-focus-lock@^2.9.1:
     react-clientside-effect "^1.2.6"
     use-callback-ref "^1.3.0"
     use-sidecar "^1.1.2"
-
-react-idle-timer@^5.4.2:
-  version "5.4.2"
-  resolved "https://registry.yarnpkg.com/react-idle-timer/-/react-idle-timer-5.4.2.tgz#69e20044cf2ecc421aef99cd82298c526d8acf37"
-  integrity sha512-ofCS/qpFjm6ZguEyePvtf9YMDnLj7zZfeLXRWGRpsC6Ga47H4dm7EvoUW8MsozGEGy8zCvPK0Sk6YuAnwLEzRQ==
 
 react-is@^16.13.1, react-is@^16.7.0:
   version "16.13.1"

@@ -1,7 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {useRouter} from 'next/router';
-import {useIdleTimer} from 'react-idle-timer';
-import {isDesktop, isMobile} from 'react-device-detect';
+import {isIOS, isMobile} from 'react-device-detect';
 import dynamic from 'next/dynamic';
 import {
   Box,
@@ -23,6 +22,7 @@ import {Loading} from '@/public/images/loading';
 import {
   ImageWithFallback
 } from '@/components/ImageWithFallback/ImageWithFallback';
+import canAutoplay from 'can-autoplay';
 
 const ReactPlayer = dynamic(() => import('react-player/lazy'), {ssr: false});
 
@@ -65,7 +65,7 @@ export default function StationPlayer({stations}: any) {
   const [volume, setVolume] = useLocalStorageState(60, 'AUDIO_PLAYER_VOLUME');
   const [streamType, setStreamType] = useState(STREAM_TYPE.HLS);
 
-  const [hasInteracted, setInteraction] = useState(false);
+  const [canAutoplayV, setcanAutoplayV] = useState(false);
 
   const [, cancelPlayerTimeout, resetPlayerTimeout] = useTimeoutFn(async () => {
     if ((playbackState === PLAYBACK_STATE.STARTED || playbackState === PLAYBACK_STATE.BUFFERING)) {
@@ -85,16 +85,18 @@ export default function StationPlayer({stations}: any) {
 
   console.debug({station_slug, streamType, playbackState})
 
-  useIdleTimer({
-    onAction: () => setInteraction(true),
-  });
+  useEffect(() => {
+    canAutoplay.audio().then(({result}) => {
+      setcanAutoplayV(result);
+    })
+  }, [])
 
   useEffect(() => {
     setStreamType(STREAM_TYPE.HLS);
   }, [station_slug])
 
   useEffect(() => {
-    if (isMobile && !hasInteracted) {
+    if (isMobile && !canAutoplayV) {
       setPlaybackState(PLAYBACK_STATE.STOPPED);
     }
   }, []);
@@ -341,12 +343,14 @@ export default function StationPlayer({stations}: any) {
               </Box>
             </button>
             <Box>
+              {/* it seems that on IOS, we are not allowed to change the audio url after interaction */}
               <ReactPlayer
-                url={playbackEnabled && station_url || null}
+                url={playbackEnabled && station_url || 'data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBQbHVzIMKpIE5DSCBTb2Z0d2FyZQBUSVQyAAAABgAAAzIyMzUAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV'}
                 width={0}
                 height={0}
                 playing={playbackEnabled}
                 volume={volume / 200}
+                playsinline={true}
                 loop={true}
                 onBuffer={() => {
                   console.debug('onBuffer');
@@ -386,12 +390,11 @@ export default function StationPlayer({stations}: any) {
                 config={{
                   file: {
                     attributes: {
-                      autoPlay:
-                        (isMobile && hasInteracted && playbackEnabled) ||
-                        (isDesktop && playbackEnabled),
+                      autoPlay: canAutoplayV && playbackEnabled,
+                      preload: 'none',
                     },
-                    forceAudio: streamType !== STREAM_TYPE.HLS,
-                    forceHLS: streamType === STREAM_TYPE.HLS
+                    forceAudio: isIOS ? true : playbackEnabled && streamType !== STREAM_TYPE.HLS,
+                    forceHLS: isIOS ? false : playbackEnabled && streamType === STREAM_TYPE.HLS
                   },
                 }}
               />
