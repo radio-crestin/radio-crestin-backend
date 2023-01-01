@@ -342,7 +342,7 @@ export default function StationPlayer({stations}: any) {
             </button>
             <Box>
               <ReactPlayer
-                url={playbackEnabled ? station_url : null}
+                url={playbackEnabled && station_url || null}
                 width={0}
                 height={0}
                 playing={playbackEnabled}
@@ -375,6 +375,7 @@ export default function StationPlayer({stations}: any) {
                 onError={async (error, ...args) => {
                   if (error?.target?.error?.code === 4) {
                     // Ignore this error as we know that we've passed an empty src attribute
+                    console.debug("Ignoring error: ", error?.target?.error, error, args);
                     return;
                   }
                   console.trace('player onError:', error, args);
@@ -389,7 +390,8 @@ export default function StationPlayer({stations}: any) {
                         (isMobile && hasInteracted && playbackEnabled) ||
                         (isDesktop && playbackEnabled),
                     },
-                    forceAudio: true,
+                    forceAudio: streamType !== STREAM_TYPE.HLS,
+                    forceHLS: streamType === STREAM_TYPE.HLS
                   },
                 }}
               />
