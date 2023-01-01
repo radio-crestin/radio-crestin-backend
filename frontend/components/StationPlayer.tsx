@@ -67,14 +67,15 @@ export default function StationPlayer({stations}: any) {
 
   const [hasInteracted, setInteraction] = useState(false);
 
-  const [, , resetPlayerTimeout] = useTimeoutFn(async () => {
-    if (playbackState !== PLAYBACK_STATE.PLAYING) {
+  const [, cancelPlayerTimeout, resetPlayerTimeout] = useTimeoutFn(async () => {
+    if ((playbackState === PLAYBACK_STATE.STARTED || playbackState === PLAYBACK_STATE.BUFFERING)) {
       console.log("start timed out after 5 seconds, calling the retrying mechanism...", {playbackState});
       if (!await retryMechanism()) {
         setPlaybackState(PLAYBACK_STATE.ERROR)
       }
     }
   }, 5000);
+  cancelPlayerTimeout();
 
   useEffect(() => {
     if (playbackState === PLAYBACK_STATE.STARTED) {
@@ -225,6 +226,8 @@ export default function StationPlayer({stations}: any) {
     }
   }
 
+  const playbackEnabled = playbackState === PLAYBACK_STATE.STARTED || playbackState === PLAYBACK_STATE.PLAYING || playbackState === PLAYBACK_STATE.BUFFERING;
+
   return (
     <Box
       w={{base: '100%'}}
@@ -339,13 +342,12 @@ export default function StationPlayer({stations}: any) {
             </button>
             <Box>
               <ReactPlayer
-                url={(playbackState === PLAYBACK_STATE.STARTED || playbackState === PLAYBACK_STATE.PLAYING || playbackState === PLAYBACK_STATE.BUFFERING) ? station_url : null}
+                url={playbackEnabled ? station_url : null}
                 width={0}
                 height={0}
-                playing={playbackState === PLAYBACK_STATE.STARTED || playbackState === PLAYBACK_STATE.PLAYING || playbackState === PLAYBACK_STATE.BUFFERING}
+                playing={playbackEnabled}
                 volume={volume / 200}
                 loop={true}
-                disableDeferredLoading={true}
                 onBuffer={() => {
                   console.debug('onBuffer');
                   setPlaybackState(PLAYBACK_STATE.BUFFERING);
@@ -379,8 +381,8 @@ export default function StationPlayer({stations}: any) {
                   file: {
                     attributes: {
                       autoPlay:
-                        (isMobile && hasInteracted) ||
-                        (isDesktop),
+                        (isMobile && hasInteracted && playbackEnabled) ||
+                        (isDesktop && playbackEnabled),
                     },
                     forceAudio: true,
                   },
