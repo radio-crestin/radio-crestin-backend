@@ -394,7 +394,7 @@ export default function StationPlayer({stations}: any) {
                       preload: 'none',
                     },
                     forceAudio: isIOS ? true : playbackEnabled && streamType !== STREAM_TYPE.HLS,
-                    forceHLS: isIOS ? false : playbackEnabled && streamType === STREAM_TYPE.HLS
+                    forceHLS: isIOS ? false : streamType === STREAM_TYPE.HLS
                   },
                 }}
               />
