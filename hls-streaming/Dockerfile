@@ -108,6 +108,6 @@ COPY --from=build /usr/lib/libfdk-aac.so.2 /usr/lib/libfdk-aac.so.2
 COPY --from=build /usr/lib/librav1e.so /usr/lib/librav1e.so
 
 HEALTHCHECK --start-period=10s --interval=5s --timeout=3s \
-  CMD  [[ ! -f /data/index.m3u8 ]] && echo "is starting.." || s=$(( $(date +%s) - $(stat /data/index.m3u8   -c %Y) )) && [ "$s" -lt "60" ] && echo "is up" && exit 0 || echo "is down" && rm -f /data/index.m3u8 && exit 1
+  CMD  [[ ! -f /data/index.m3u8 ]] && echo "is starting.." && exit 1 || s=$(( $(date +%s) - $(stat /data/index.m3u8   -c %Y) )) && [ "$s" -lt "60" ] && echo "is up" && exit 0 || echo "is down" && rm -f /data/index.m3u8 && exit 1
 
 CMD ["ffmpeg"]
