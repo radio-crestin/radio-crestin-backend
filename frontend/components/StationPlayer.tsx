@@ -364,6 +364,7 @@ export default function StationPlayer({stations}: any) {
                 }}
                 onStart={() => {
                   console.debug('onStart');
+                  setPlaybackState(PLAYBACK_STATE.STARTED);
                 }}
                 onReady={r => {
                   console.debug('onReady');
