@@ -104,7 +104,7 @@ export default function StationList({
                 )}/${encodeURIComponent(station.slug)}`}
                 scroll={false}
                 passHref>
-                <StationItem station={station} priority={false}/>
+                <StationItem station={station} />
               </Link>
             </GridItem>
           ))
