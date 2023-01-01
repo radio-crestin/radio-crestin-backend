@@ -1,11 +1,11 @@
 import React from 'react';
 import dynamic from 'next/dynamic';
 import {isMobile} from 'react-device-detect';
+import Link from 'next/link';
 
 import {Station, StationGroup} from 'types';
 import {CONSTANTS} from '../../lib/constants';
 import {AspectRatio, Box, Center, Grid, GridItem, Text} from '@chakra-ui/react';
-import Link from 'next/link';
 import {ImageWithFallback} from '../ImageWithFallback/ImageWithFallback';
 
 const StationMetadata = dynamic(
@@ -16,7 +16,7 @@ const StationMetadata = dynamic(
 const StationItem = ({
                        station,
                        priority
-                     }: { station: Station, priority: boolean }) => {
+                     }: { station: Station, priority?: boolean }) => {
   return (
     <Box position={'relative'} role="group">
       <AspectRatio position={'relative'} ratio={1}>
@@ -35,12 +35,37 @@ const StationItem = ({
             fallbackSrc={station.thumbnail_url || CONSTANTS.DEFAULT_COVER}
             alt={`${station.title} | Radio Crestin`}
             style={{
-              filter: station?.uptime?.is_up ? '' : 'grayscale(1)',
+              filter: station?.uptime?.is_up ? 'unset' : 'grayscale(1)',
               objectFit: 'cover',
               width: '100%',
               height: '100%',
             }}
           />
+          {!station?.uptime?.is_up && (
+            <Box
+              position={'absolute'}
+              bottom={0}
+              width={'100%'}
+              height={6}
+              display={'flex'}
+              justifyContent={'end'}
+              alignItems={'center'}
+              color={'white'}>
+              <Text
+                as={'p'}
+                bg={'#d52619'}
+                py={'1px'}
+                px={'6px'}
+                borderRadius={30}
+                position={'relative'}
+                right={'7%'}
+                bottom={'10px'}
+                fontSize={'0.7rem'}
+                fontWeight={'400'}>
+                offline
+              </Text>
+            </Box>
+          )}
         </Box>
       </AspectRatio>
       {!isMobile && <StationMetadata {...station} />}
@@ -82,7 +107,7 @@ export default function StationList({
                 )}/${encodeURIComponent(station.slug)}`}
                 scroll={false}
                 passHref>
-                <StationItem station={station} priority={false}/>
+                <StationItem station={station} />
               </Link>
             </GridItem>
           ))

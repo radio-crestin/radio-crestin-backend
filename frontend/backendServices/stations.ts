@@ -13,7 +13,7 @@ export const getStationsMetadata = (): Promise<StationsMetadata> => {
       operationName: 'GetStations',
       query: `
 query GetStations {
-  stations {
+  stations(order_by: {order: asc}) {
     id
     slug
     order
@@ -63,7 +63,7 @@ query GetStations {
       message
     }
   }
-  station_groups {
+  station_groups(order_by: {order: asc}) {
     id
     slug
     name
