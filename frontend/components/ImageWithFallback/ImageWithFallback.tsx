@@ -5,9 +5,9 @@ import {Image} from '@chakra-ui/react';
 import {ImageProps} from '@chakra-ui/image';
 
 export const ImageWithFallback = ({
-  fallbackSrc,
-  ...props
-}: ImageProps & {fallbackSrc: string}) => {
+                                    fallbackSrc,
+                                    ...props
+                                  }: ImageProps & { fallbackSrc: string }) => {
   const [error, setError] = useState(false);
 
   useEffect(() => {

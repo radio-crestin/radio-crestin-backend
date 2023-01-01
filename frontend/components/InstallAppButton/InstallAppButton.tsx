@@ -1,4 +1,4 @@
-import {Box, Button} from "@chakra-ui/react";
+import {Button} from "@chakra-ui/react";
 import React from "react";
 
 export default function InstallAppButton() {
@@ -8,10 +8,10 @@ export default function InstallAppButton() {
       h={{base: '45px', lg: '50px'}}
       p={'13px'}
       bg={'#72ac40'}
-      _hover={{ bg: '#7db64d' }}
+      _hover={{bg: '#7db64d'}}
       borderRadius={'40px'}
     >
-      <svg  width="50" height="50" fill={'white'}
+      <svg width="50" height="50" fill={'white'}
            focusable="false" aria-hidden="true" viewBox="0 0 24 24">
         <path
           d="M17 18H7V6h10v1h2V3c0-1.1-.9-2-2-2H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2v-4h-2v1zm3.38-8.38L21 11l.62-1.38L23 9l-1.38-.62L21 7l-.62 1.38L19 9z"></path>

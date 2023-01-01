@@ -2,9 +2,11 @@ import React from 'react';
 import {Station} from '../../types';
 import {CONSTANTS} from '../../lib/constants';
 import {Box, Flex, Text} from '@chakra-ui/react';
-import {ImageWithFallback} from '@/components/ImageWithFallback/ImageWithFallback';
+import {
+  ImageWithFallback
+} from '@/components/ImageWithFallback/ImageWithFallback';
 
-export default function SongInformation(props: {station: Station}) {
+export default function SongInformation(props: { station: Station }) {
   const {station} = props;
 
   return (

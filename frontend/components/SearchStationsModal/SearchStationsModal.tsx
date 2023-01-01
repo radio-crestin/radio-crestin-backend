@@ -17,9 +17,9 @@ import {Station, StationGroup} from '../../types';
 import {SearchIcon} from '@chakra-ui/icons';
 
 export function SearchStationsModal({
-  station_group,
-  stations,
-}: {
+                                      station_group,
+                                      stations,
+                                    }: {
   station_group: StationGroup;
   stations: Station[];
 }) {
@@ -31,7 +31,7 @@ export function SearchStationsModal({
         <InputLeftElement
           pointerEvents="none"
           height={'full'}
-          children={<SearchIcon color="black" />}
+          children={<SearchIcon color="black"/>}
         />
         <Input
           placeholder="Tasteaza numele statiei"
@@ -47,13 +47,13 @@ export function SearchStationsModal({
         onClose={onClose}
         size={'3xl'}
         preserveScrollBarGap={true}>
-        <ModalOverlay />
+        <ModalOverlay/>
         <ModalContent p={5}>
           <InputGroup mb={5}>
             <InputLeftElement
               pointerEvents="none"
               height={'full'}
-              children={<SearchIcon color="black" />}
+              children={<SearchIcon color="black"/>}
             />
             <Input
               placeholder="Tasteaza numele statiei"
