@@ -345,6 +345,7 @@ export default function StationPlayer({stations}: any) {
                 playing={playbackState === PLAYBACK_STATE.STARTED || playbackState === PLAYBACK_STATE.PLAYING || playbackState === PLAYBACK_STATE.BUFFERING}
                 volume={volume / 200}
                 loop={true}
+                disableDeferredLoading={true}
                 onBuffer={() => {
                   console.debug('onBuffer');
                   setPlaybackState(PLAYBACK_STATE.BUFFERING);
