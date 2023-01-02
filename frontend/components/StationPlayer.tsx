@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {useRouter} from 'next/router';
-import {isIOS, isMobile} from 'react-device-detect';
+import {isIOS} from 'react-device-detect';
 import dynamic from 'next/dynamic';
 import {
   Box,
@@ -23,6 +23,7 @@ import {
   ImageWithFallback
 } from '@/components/ImageWithFallback/ImageWithFallback';
 import canAutoplay from 'can-autoplay';
+import {useIdleTimer} from 'react-idle-timer';
 
 const ReactPlayer = dynamic(() => import('react-player/lazy'), {ssr: false});
 
@@ -64,10 +65,9 @@ export default function StationPlayer({stations}: any) {
   const {station_slug} = router.query;
   const [retries, setRetries] = useState(MAX_MEDIA_RETRIES);
   const [playbackState, setPlaybackState] = useState(PLAYBACK_STATE.STOPPED);
+  const [hasInteracted, setHasInteracted] = useState(false);
   const [volume, setVolume] = useLocalStorageState(60, 'AUDIO_PLAYER_VOLUME');
   const [streamType, setStreamType] = useState(STREAM_TYPE.HLS);
-
-  const [canAutoplayV, setcanAutoplayV] = useState(false);
 
   const [, cancelPlayerTimeout, resetPlayerTimeout] = useTimeoutFn(async () => {
     if ((playbackState === PLAYBACK_STATE.STARTED || playbackState === PLAYBACK_STATE.BUFFERING)) {
@@ -79,6 +79,10 @@ export default function StationPlayer({stations}: any) {
   }, 5000);
   cancelPlayerTimeout();
 
+  useIdleTimer({
+    onAction: () => setHasInteracted(true),
+  });
+
   useEffect(() => {
     if (playbackState === PLAYBACK_STATE.STARTED) {
       resetPlayerTimeout();
@@ -89,19 +93,20 @@ export default function StationPlayer({stations}: any) {
 
   useEffect(() => {
     canAutoplay.audio().then(({result}) => {
-      setcanAutoplayV(result);
+      if (result) {
+        console.debug("can autoplay audio");
+        setHasInteracted(true);
+        setPlaybackState(PLAYBACK_STATE.STARTED);
+      }
     })
   }, [])
 
   useEffect(() => {
     setStreamType(STREAM_TYPE.HLS);
-  }, [station_slug])
-
-  useEffect(() => {
-    if (isMobile && !canAutoplayV) {
-      setPlaybackState(PLAYBACK_STATE.STOPPED);
+    if (hasInteracted) {
+      setPlaybackState(PLAYBACK_STATE.STARTED);
     }
-  }, []);
+  }, [station_slug])
 
   const station: Station = stations.find(
     (station: { slug: string }) => station.slug === station_slug,
@@ -231,7 +236,7 @@ export default function StationPlayer({stations}: any) {
   }
 
   const playbackEnabled = playbackState === PLAYBACK_STATE.STARTED || playbackState === PLAYBACK_STATE.PLAYING || playbackState === PLAYBACK_STATE.BUFFERING;
-  const url = playbackEnabled && station_url || (!isIOS && streamType === STREAM_TYPE.HLS ? '' : EMPTY_AUDIO);
+  const url = playbackEnabled && station_url || (isIOS ? station_url : EMPTY_AUDIO);
   console.debug({playbackEnabled, station_url, url})
 
   return (
@@ -268,7 +273,6 @@ export default function StationPlayer({stations}: any) {
           loading={'eager'}
           borderRadius={{base: '12px'}}
           style={{
-            filter: station?.uptime?.is_up ? 'unset' : 'grayscale(1)',
             objectFit: 'cover',
             width: '80px',
             height: '80px',
@@ -355,7 +359,7 @@ export default function StationPlayer({stations}: any) {
                 playing={playbackEnabled}
                 volume={volume / 200}
                 playsinline={true}
-                disabledeferredloading={"true"}
+                disableDeferredLoading={true}
                 onBuffer={() => {
                   console.debug('onBuffer');
                   setPlaybackState(PLAYBACK_STATE.BUFFERING);
@@ -394,8 +398,7 @@ export default function StationPlayer({stations}: any) {
                 config={{
                   file: {
                     attributes: {
-                      autoPlay: canAutoplayV && playbackEnabled,
-                      preload: 'none',
+                      autoPlay: hasInteracted,
                     },
                     forceAudio: isIOS ? true : playbackEnabled && streamType !== STREAM_TYPE.HLS,
                     forceHLS: isIOS ? false : playbackEnabled && streamType === STREAM_TYPE.HLS
