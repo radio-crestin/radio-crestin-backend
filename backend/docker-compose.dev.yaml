@@ -9,6 +9,11 @@ services:
       - db_data:/var/lib/postgresql/data
     env_file:
       - .env
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
   app:
     build:
       context: ./app
@@ -17,6 +22,11 @@ services:
     restart: always
     env_file:
       - .env
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
   admin:
     build:
       context: ./admin
@@ -27,6 +37,11 @@ services:
     restart: always
     env_file:
       - .env
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
   graphql-engine:
     image: hasura/graphql-engine:v2.16.1.cli-migrations-v3
     ports:
@@ -36,6 +51,11 @@ services:
     restart: always
     env_file:
       - .env
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
   tor-proxy:
     image: dperson/torproxy
     ports:
@@ -43,5 +63,10 @@ services:
     restart: always
     environment:
       LOCATION: DE
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
 volumes:
   db_data:
