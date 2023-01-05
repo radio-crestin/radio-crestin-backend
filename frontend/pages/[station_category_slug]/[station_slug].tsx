@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import Head from 'next/head';
-import {Box, Container, Image, Spacer} from '@chakra-ui/react';
+import {Box, Container} from '@chakra-ui/react';
 import dynamic from 'next/dynamic';
 
 import Analytics from '@/components/Analytics/Analytics';
@@ -96,14 +96,6 @@ export default function StationPage({
             justifyContent={'flex-end'}
             gap={5}
             my={5}>
-            <Image
-              ml={{base: 0, md: 10}}
-              htmlWidth={40}
-              htmlHeight={20}
-              src={'/images/logo.svg'}
-              alt={'Radio Crestin'}
-            />
-            <Spacer />
             <ContactModalLink />
             <SearchStationsModal
               station_group={selectedStationGroup}
