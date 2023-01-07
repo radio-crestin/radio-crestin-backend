@@ -28,11 +28,10 @@ export default function Home({
     }
   }, []);
 
-  return <>123</>
-//   return StationPage({
-//     stations_metadata,
-//     seoMetadata: seoHomepage,
-//   });
+  return StationPage({
+    stations_metadata,
+    seoMetadata: seoHomepage,
+  });
 }
 
 export async function getServerSideProps(context: any) {
