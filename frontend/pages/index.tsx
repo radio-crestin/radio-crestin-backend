@@ -3,8 +3,6 @@ import {useRouter} from 'next/router';
 import {useToast} from '@chakra-ui/react';
 import {getStationsMetadata} from '../backendServices/stations';
 import {StationsMetadata} from '../types';
-import StationPage from './[station_category_slug]/[station_slug]';
-import {seoHomepage} from '@/utils/seo';
 
 export default function Home({
   stations_metadata,
@@ -28,10 +26,7 @@ export default function Home({
     }
   }, []);
 
-  return StationPage({
-    stations_metadata,
-    seoMetadata: seoHomepage,
-  });
+  return <>123</>;
 }
 
 export async function getServerSideProps(context: any) {
