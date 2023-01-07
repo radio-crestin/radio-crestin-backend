@@ -4,6 +4,10 @@ deploy: git-pull
 force-deploy: git-pull
 	docker-compose --env-file .env  up --build --force-recreate -d
 
+
+deploy-staging: git-pull
+	docker-compose -f docker-compose.staging.yaml --env-file .env  up --build -d
+
 start-dev:
 	docker-compose --env-file .env  up --build --force-recreate -d
 
