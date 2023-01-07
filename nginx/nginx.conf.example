@@ -24,7 +24,6 @@ http {
    server {
         listen 80 default_server;
         server_name _;
-        include       common.conf;
         location = / {
             add_header Content-Type text/plain;
             include     common_location.conf;
@@ -33,7 +32,6 @@ http {
   }
 
    server {
-        listen 80;
         server_name beta.radio-crestin.com;
         include       common.conf;
         location / {
@@ -44,7 +42,6 @@ http {
   }
 
    server {
-        listen 80;
         server_name admin.radio-crestin.com;
         include       common.conf;
         location / {
@@ -54,7 +51,6 @@ http {
   }
 
    server {
-        listen 80;
         server_name graphql.radio-crestin.com;
         include       common.conf;
         location / {
@@ -65,7 +61,6 @@ http {
   }
 
    server {
-        listen 80;
         server_name graphql-viewer.radio-crestin.com;
         include       common.conf;
         location / {

@@ -139,6 +139,8 @@ services:
     ports:
       - "80:80"
     volumes:
+      - ./nginx/server.crt:/etc/nginx/server.crt
+      - ./nginx/server.key:/etc/nginx/server.key
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
       - ./nginx/common.conf:/etc/nginx/common.conf
       - ./nginx/common_location.conf:/etc/nginx/common_location.conf
