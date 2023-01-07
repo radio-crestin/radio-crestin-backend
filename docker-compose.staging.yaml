@@ -7,7 +7,7 @@ services:
     env_file:
       - .env
     ports:
-      - "127.0.0.1:28080:8080"
+      - "28080:8080"
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/admin" ]
       interval: 30s
@@ -27,7 +27,7 @@ services:
       args:
         - FRONTEND_CDN_PREFIX=${FRONTEND_CDN_PREFIX}
     ports:
-      - "127.0.0.1:18080:8080"
+      - "18080:8080"
     restart: always
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/" ]
