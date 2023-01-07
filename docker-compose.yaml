@@ -138,6 +138,7 @@ services:
       - "host.docker.internal:host-gateway"
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./nginx/server.crt:/etc/nginx/server.crt
       - ./nginx/server.key:/etc/nginx/server.key
