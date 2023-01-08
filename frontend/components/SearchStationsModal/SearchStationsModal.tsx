@@ -17,9 +17,9 @@ import {Station, StationGroup} from '../../types';
 import {SearchIcon} from '@chakra-ui/icons';
 
 export function SearchStationsModal({
-                                      station_group,
-                                      stations,
-                                    }: {
+  station_group,
+  stations,
+}: {
   station_group: StationGroup;
   stations: Station[];
 }) {
@@ -27,19 +27,17 @@ export function SearchStationsModal({
   const [filteredItems, setFilteredItems]: Station[] | any = useState(stations);
   return (
     <>
-      <InputGroup onClick={onOpen} width={{base: 'full', sm: 'fit-content'}}>
-        <InputLeftElement
-          pointerEvents="none"
-          height={'full'}
-          children={<SearchIcon color="black"/>}
-        />
-        <Input
-          placeholder="Tasteaza numele statiei"
-          size="lg"
-          width={{base: '100%', sm: 280, lg: 350}}
-          cursor={'pointer'}
-          isReadOnly
-        />
+      <InputGroup
+        as={'button'}
+        border={'solid'}
+        borderWidth={'1'}
+        borderColor={'black'}
+        cursor={'pointer'}
+        p={2}
+        borderRadius={15}
+        onClick={onOpen}
+        width={'fit-content'}>
+        <SearchIcon color="black" />
       </InputGroup>
 
       <Modal
@@ -47,13 +45,13 @@ export function SearchStationsModal({
         onClose={onClose}
         size={'3xl'}
         preserveScrollBarGap={true}>
-        <ModalOverlay/>
+        <ModalOverlay />
         <ModalContent p={5}>
           <InputGroup mb={5}>
             <InputLeftElement
               pointerEvents="none"
               height={'full'}
-              children={<SearchIcon color="black"/>}
+              children={<SearchIcon color="black" />}
             />
             <Input
               placeholder="Tasteaza numele statiei"

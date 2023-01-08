@@ -94,8 +94,8 @@ export default function StationPage({
             display={'flex'}
             alignItems={'center'}
             justifyContent={'flex-end'}
-            gap={5}
-            my={5}>
+            my={4}
+            gap={2}>
             <ContactModalLink />
             <SearchStationsModal
               station_group={selectedStationGroup}
