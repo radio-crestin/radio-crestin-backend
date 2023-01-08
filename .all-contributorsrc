@@ -1,0 +1,33 @@
+{
+  "projectName": "radio-crestin.com",
+  "projectOwner": "iosifnicolae2",
+  "files": [
+    "README.md"
+  ],
+  "imageSize": 100,
+  "contributors": [
+    {
+      "login": "iosifnicolae2",
+      "name": "Iosif Nicolae",
+      "avatar_url": "https://avatars.githubusercontent.com/u/7108834?v=4",
+      "profile": "https://github.com/iosifnicolae2",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "EliseiNicolae",
+      "name": "Elisei Nicolae",
+      "avatar_url": "https://avatars.githubusercontent.com/u/43387542?v=4",
+      "profile": "https://github.com/EliseiNicolae",
+      "contributions": [
+        "code"
+      ]
+    },
+  ],
+  "repoType": "github",
+  "contributorsPerLine": 7,
+  "repoHost": "https://github.com",
+  "commitConvention": "angular",
+  "skipCi": true
+}
