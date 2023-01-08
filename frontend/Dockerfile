@@ -9,10 +9,6 @@ RUN apk add --no-cache libc6-compat
 COPY package.json ./
 RUN yarn install --frozen-lockfile
 
-COPY . .
-ARG FRONTEND_CDN_PREFIX
-ENV FRONTEND_CDN_PREFIX=$FRONTEND_CDN_PREFIX
-RUN yarn build
 
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nextjs -u 1001
@@ -20,6 +16,11 @@ RUN adduser -S nextjs -u 1001
 RUN chown -R nextjs:node /app/.next/cache
 
 USER nextjs
+
+COPY . .
+ARG FRONTEND_CDN_PREFIX
+ENV FRONTEND_CDN_PREFIX=$FRONTEND_CDN_PREFIX
+RUN yarn build
 
 EXPOSE 8080
 
