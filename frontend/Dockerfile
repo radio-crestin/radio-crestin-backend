@@ -13,14 +13,14 @@ RUN yarn install --frozen-lockfile
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nextjs -u 1001
 
-RUN chown -R nextjs:node /app/.next/cache
-
 USER nextjs
 
 COPY . .
 ARG FRONTEND_CDN_PREFIX
 ENV FRONTEND_CDN_PREFIX=$FRONTEND_CDN_PREFIX
 RUN yarn build
+
+RUN chown -R nextjs:node /app/.next
 
 EXPOSE 8080
 
