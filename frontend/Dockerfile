@@ -14,11 +14,10 @@ ARG FRONTEND_CDN_PREFIX
 ENV FRONTEND_CDN_PREFIX=$FRONTEND_CDN_PREFIX
 RUN yarn build
 
-
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nextjs -u 1001
-USER nextjs
-RUN chown -R nextjs:node /app/.next
+#RUN addgroup -g 1001 -S nodejs
+#RUN adduser -S nextjs -u 1001
+#USER nextjs
+#RUN chown -R nextjs:node /app/.next
 
 EXPOSE 8080
 
