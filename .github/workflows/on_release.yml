@@ -16,5 +16,5 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.KEY }}
           port: ${{ secrets.PORT }}
-          script: cd ~/staging.radio-crestin.com && make deploy
+          script: cd ~/radio-crestin.com && make deploy
 
