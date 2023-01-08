@@ -3,7 +3,7 @@
     <img src="https://user-images.githubusercontent.com/43387542/211213394-e0497c8c-7b8a-43ba-b144-f512653b682d.svg" alt="Radio Crestin logo" width="200" />
   </a>
 </p>
-<h1 align="center">Directory of Christian radio stations ⚡️</h1>
+<h1 align="center">Christian Radio Stations Directory ⚡️</h1>
 <br>
 <p align="center">
   <img alt="Bundle Size" src="https://img.shields.io/github/contributors/iosifnicolae2/radio-crestin.com"/>
