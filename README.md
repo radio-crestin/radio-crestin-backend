@@ -1,4 +1,21 @@
-### radio-crestin.com - a directory of christian radio stations
+<p align="center">
+  <a href="https://github.com/chakra-ui/chakra-ui">
+    <img src="https://user-images.githubusercontent.com/43387542/211213394-e0497c8c-7b8a-43ba-b144-f512653b682d.svg" alt="Radio Crestin logo" width="200" />
+  </a>
+</p>
+<h1 align="center">Directory of Christian radio stations ⚡️</h1>
+<br>
+<p align="center">
+  <img alt="Bundle Size" src="https://img.shields.io/github/contributors/iosifnicolae2/radio-crestin.com"/>
+  <img alt="Github Stars" src="https://badgen.net/github/stars/iosifnicolae2/radio-crestin.com" />
+  <a href="https://github.com/iosifnicolae2/radio-crestin.com/blob/master/LICENSE" target="_blank">
+    <img alt="Website Status" src="https://img.shields.io/badge/-Licence-blue" />
+  </a>
+  <a href="https://radio-crestin.com/" target="_blank">
+    <img alt="Website Status" src="https://img.shields.io/website?url=https%3A%2F%2Fradio-crestin.com%2F" />
+  </a>
+</p>
+
 
 Feel free to contribute to this project or get in touch with us at: contact@radio-crestin.com
 
