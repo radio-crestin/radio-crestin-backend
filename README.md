@@ -9,7 +9,7 @@
   <img alt="Bundle Size" src="https://img.shields.io/github/contributors/iosifnicolae2/radio-crestin.com"/>
   <img alt="Github Stars" src="https://badgen.net/github/stars/iosifnicolae2/radio-crestin.com" />
   <a href="https://github.com/iosifnicolae2/radio-crestin.com/blob/master/LICENSE" target="_blank">
-    <img alt="Website Status" src="https://img.shields.io/badge/-Licence-blue" />
+    <img alt="Website Status" src="https://img.shields.io/badge/-License-blue" />
   </a>
   <a href="https://radio-crestin.com/" target="_blank">
     <img alt="Website Status" src="https://img.shields.io/website?url=https%3A%2F%2Fradio-crestin.com%2F" />
