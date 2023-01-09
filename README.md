@@ -8,9 +8,7 @@
 <p align="center">
   <img alt="Bundle Size" src="https://img.shields.io/github/contributors/iosifnicolae2/radio-crestin.com"/>
   <img alt="Github Stars" src="https://badgen.net/github/stars/iosifnicolae2/radio-crestin.com" />
-  <a href="https://radio-crestin.com/">
-    <img alt="Website Status" src="https://img.shields.io/website?url=https%3A%2F%2Fradio-crestin.com%2F" />
-  </a>
+  <a href="https://radio-crestin.com/"><img alt="Website Status" src="https://img.shields.io/website?url=https%3A%2F%2Fradio-crestin.com%2F" /></a>
   <a href="https://github.com/iosifnicolae2/radio-crestin.com/blob/master/LICENSE">
     <img alt="Website Status" src="https://img.shields.io/badge/-License-blue" />
   </a>
