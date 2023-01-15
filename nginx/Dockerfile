@@ -1,8 +1,5 @@
 FROM nginx:alpine AS builder
 
-# nginx:alpine contains NGINX_VERSION environment variable, like so:
-ENV NGINX_VERSION 1.21.4
-
 # Download sources
 RUN wget "http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz" -O nginx.tar.gz && \
     wget "https://github.com/openresty/headers-more-nginx-module/archive/refs/tags/v0.34.tar.gz" -O headers-more-nginx-module.tar.gz
