@@ -132,7 +132,8 @@ services:
         max-file: "5"   # number of files or file count
         max-size: "100m" # file size
   nginx:
-    image: nginx:1.21-alpine
+    build:
+      context: nginx
     restart: always
     extra_hosts:
       - "host.docker.internal:host-gateway"
