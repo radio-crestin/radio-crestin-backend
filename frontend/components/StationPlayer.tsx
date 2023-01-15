@@ -76,51 +76,43 @@ export default function StationPlayer({stations}: any) {
   }
 
   useEffect(() => {
-    var audio = document.getElementById('audio') as HTMLAudioElement;
+    const audio = document.getElementById('audioPlayer') as HTMLAudioElement;
+    let hls: Hls = new Hls();
+
     if (Hls.isSupported()) {
-      var hls = new Hls();
       hls.loadSource(station.hls_stream_url);
       hls.attachMedia(audio);
-
-      // check if src of hls is broken
-      hls.on(Hls.Events.ERROR, function (event, error) {
-        console.log('event', event);
-        console.log('error', error);
-        if (retryMechanism()) {
-          hls.loadSource(station.proxy_stream_url);
-          hls.attachMedia(audio);
+      hls.on(Hls.Events.ERROR, function (event, data) {
+        if (data.fatal) {
+          retryMechanism();
         }
       });
-    } else {
-      // hls.js is not supported on platforms that do not have Media Source Extensions (MSE) enabled.
     }
-    audio.load();
-    console.log('up');
+
+    return () => {
+      hls.destroy();
+      setStreamType(STREAM_TYPE.HLS);
+      setRetries(20);
+    };
   }, [station.slug]);
 
-  // TODO: we might need to populate these from local storage
   const retryMechanism = () => {
-    console.debug('retryMechanism called', {streamType});
+    const audio = document.getElementById('audioPlayer') as HTMLAudioElement;
+    console.log('before audio.src: ', audio.src, Date.now());
     setRetries(retries - 1);
-    console.debug('remaining retries: ', retries);
     if (retries > 0) {
-      if (streamType === STREAM_TYPE.HLS) {
-        console.debug('waiting 1s before changing to PROXY');
-        setStreamType(STREAM_TYPE.PROXY);
-        return true;
-      }
-      if (streamType === STREAM_TYPE.PROXY) {
-        console.debug('waiting 1s before changing to ORIGINAL');
-        setStreamType(STREAM_TYPE.ORIGINAL);
-        return true;
-      }
-      if (streamType === STREAM_TYPE.ORIGINAL) {
-        console.debug('waiting 1s before changing to HLS');
-        setStreamType(STREAM_TYPE.HLS);
-        return true;
+      switch (streamType) {
+        case STREAM_TYPE.HLS:
+          setStreamType(STREAM_TYPE.PROXY);
+          audio.src = station.proxy_stream_url;
+          break;
+        case STREAM_TYPE.PROXY:
+          setStreamType(STREAM_TYPE.ORIGINAL);
+          audio.src = station.stream_url;
+          break;
       }
     }
-    return false;
+    console.log('after audio.src: ', audio.src, Date.now());
   };
 
   useEffect(() => {
@@ -291,21 +283,14 @@ export default function StationPlayer({stations}: any) {
               </Box>
             </button>
             <audio
-              placeholder={
-                station.now_playing?.song?.thumbnail_url ||
-                station.thumbnail_url ||
-                CONSTANTS.DEFAULT_COVER
-              }
               preload="true"
               controls
               autoPlay
-              id="audio"
-              onError={e => {
-                console.log('Error', e);
-              }}>
-              <source src={station.proxy_stream_url} type="audio/mpeg" />
-              <source src={station.stream_url} type="audio/mpeg" />
-            </audio>
+              id="audioPlayer"
+              onError={() => {
+                retryMechanism();
+              }}
+            />
           </Flex>
         </Flex>
       </Box>
