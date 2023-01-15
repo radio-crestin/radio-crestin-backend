@@ -1,4 +1,3 @@
-FROM chentex/docker-nginx-centos:latest
+FROM nginx:1.22.1-alpine
 
-RUN yum -y install https://extras.getpagespeed.com/release-latest.rpm
-RUN yum -y install nginx-module-headers-more
+RUN apk add nginx-mod-http-headers-more
