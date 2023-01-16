@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {useRouter} from 'next/router';
 import {
   Box,
@@ -23,16 +23,14 @@ enum STREAM_TYPE {
   ORIGINAL = 'ORIGINAL',
 }
 
-const MAX_MEDIA_RETRIES = 20;
-
 enum PLAYBACK_STATE {
   STARTED = 'started',
   STOPPED = 'stopped',
-  PAUSED = 'paused',
   BUFFERING = 'buffering',
   PLAYING = 'playing',
-  ERROR = 'error',
 }
+
+const MAX_MEDIA_RETRIES = 20;
 
 export default function StationPlayer({stations}: any) {
   const router = useRouter();
@@ -41,31 +39,27 @@ export default function StationPlayer({stations}: any) {
   const [playbackState, setPlaybackState] = useState(PLAYBACK_STATE.STOPPED);
   const [volume, setVolume] = useLocalStorageState(60, 'AUDIO_PLAYER_VOLUME');
   const [streamType, setStreamType] = useState(STREAM_TYPE.HLS);
+  const audioRef: React.MutableRefObject<HTMLAudioElement | null> =
+    useRef(null);
+  const audio: HTMLAudioElement | null = audioRef.current;
+  const hls: Hls = new Hls();
 
-  // const [, cancelPlayerTimeout, resetPlayerTimeout] = useTimeoutFn(async () => {
-  //   if (
-  //     playbackState === PLAYBACK_STATE.STARTED ||
-  //     playbackState === PLAYBACK_STATE.BUFFERING
-  //   ) {
-  //     console.log(
-  //       'start timed out after 5 seconds, calling the retrying mechanism...',
-  //       {playbackState},
-  //     );
-  //     if (!(await retryMechanism())) {
-  //       setPlaybackState(PLAYBACK_STATE.ERROR);
-  //     }
-  //   }
-  // }, 5000);
-  // cancelPlayerTimeout();
+  useEffect(() => {
+    if (!audio) return;
+    if (playbackState === PLAYBACK_STATE.STARTED) {
+      if (streamType === STREAM_TYPE.HLS) {
+        hls.loadSource(station.hls_stream_url);
+        hls.attachMedia(audio);
+        hls.startLoad();
+      } else {
+        audio.play();
+      }
+    }
 
-  // TODO: Check if is still needed ("To not make useless requests to BunnyCDN")
-  // useEffect(() => {
-  //   if (playbackState === PLAYBACK_STATE.STARTED) {
-  //     resetPlayerTimeout();
-  //   }
-  // }, [station_slug, playbackState]);
-
-  console.debug({station_slug, streamType, playbackState});
+    if (playbackState === PLAYBACK_STATE.STOPPED) {
+      audio.pause();
+    }
+  }, [playbackState]);
 
   const station = stations.find(
     (station: {slug: string}) => station.slug === station_slug,
@@ -76,12 +70,13 @@ export default function StationPlayer({stations}: any) {
   }
 
   useEffect(() => {
-    const audio = document.getElementById('audioPlayer') as HTMLAudioElement;
-    let hls: Hls = new Hls();
+    if (!audio) return;
+    audio.volume = volume / 100;
 
     if (Hls.isSupported()) {
       hls.loadSource(station.hls_stream_url);
       hls.attachMedia(audio);
+      hls.startLoad();
       hls.on(Hls.Events.ERROR, function (event, data) {
         if (data.fatal) {
           retryMechanism();
@@ -97,7 +92,8 @@ export default function StationPlayer({stations}: any) {
   }, [station.slug]);
 
   const retryMechanism = () => {
-    const audio = document.getElementById('audioPlayer') as HTMLAudioElement;
+    if (!audio) return;
+
     setRetries(retries - 1);
     if (retries > 0) {
       switch (streamType) {
@@ -249,7 +245,10 @@ export default function StationPlayer({stations}: any) {
               defaultValue={volume}
               step={0.5}
               onChange={value => {
-                setVolume(value as number);
+                if (audio) {
+                  setVolume(value as number);
+                  audio.volume = volume / 100;
+                }
               }}>
               <SliderTrack bg={{base: 'gray.400'}}>
                 <SliderFilledTrack bg={{base: 'white'}} />
@@ -285,10 +284,19 @@ export default function StationPlayer({stations}: any) {
               </Box>
             </button>
             <audio
+              ref={audioRef}
               preload="true"
-              controls
               autoPlay
               id="audioPlayer"
+              onPlay={() => {
+                setPlaybackState(PLAYBACK_STATE.PLAYING);
+              }}
+              onPause={() => {
+                setPlaybackState(PLAYBACK_STATE.STOPPED);
+              }}
+              onLoadStart={() => {
+                setPlaybackState(PLAYBACK_STATE.BUFFERING);
+              }}
               onError={() => {
                 retryMechanism();
               }}
