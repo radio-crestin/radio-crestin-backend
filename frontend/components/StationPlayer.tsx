@@ -98,7 +98,6 @@ export default function StationPlayer({stations}: any) {
 
   const retryMechanism = () => {
     const audio = document.getElementById('audioPlayer') as HTMLAudioElement;
-    console.log('before audio.src: ', audio.src, Date.now());
     setRetries(retries - 1);
     if (retries > 0) {
       switch (streamType) {
@@ -110,9 +109,12 @@ export default function StationPlayer({stations}: any) {
           setStreamType(STREAM_TYPE.ORIGINAL);
           audio.src = station.stream_url;
           break;
+        case STREAM_TYPE.ORIGINAL:
+          setStreamType(STREAM_TYPE.HLS);
+          audio.src = station.hls_stream_url;
+          break;
       }
     }
-    console.log('after audio.src: ', audio.src, Date.now());
   };
 
   useEffect(() => {
