@@ -46,6 +46,11 @@ export default function StationPlayer({stations}: any) {
 
   useEffect(() => {
     if (!audio) return;
+    audio.volume = volume / 100;
+  }, [volume, audio]);
+
+  useEffect(() => {
+    if (!audio) return;
     if (playbackState === PLAYBACK_STATE.STARTED) {
       if (streamType === STREAM_TYPE.HLS) {
         hls.loadSource(station.hls_stream_url);
@@ -245,10 +250,7 @@ export default function StationPlayer({stations}: any) {
               defaultValue={volume}
               step={0.5}
               onChange={value => {
-                if (audio) {
-                  setVolume(value as number);
-                  audio.volume = volume / 100;
-                }
+                setVolume(value as number);
               }}>
               <SliderTrack bg={{base: 'gray.400'}}>
                 <SliderFilledTrack bg={{base: 'white'}} />
