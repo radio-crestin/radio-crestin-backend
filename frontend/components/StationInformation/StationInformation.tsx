@@ -168,7 +168,7 @@ export default function StationInformation(props: any) {
           {latestPost && latestPost.link
             ? 'Continuă citirea articolului'
             : 'Vizitează site-ul web'}{' '}
-          <ExternalLinkIcon mx="2px"/>
+          <ExternalLinkIcon mx="2px" width={4} height={4} />
         </Link>
       </>
 
@@ -177,10 +177,10 @@ export default function StationInformation(props: any) {
         isOpen={isOpen}
         onClose={onClose}
         preserveScrollBarGap={true}>
-        <ModalOverlay/>
+        <ModalOverlay />
         <ModalContent>
           <ModalHeader>Adauga un mesaj recenziei</ModalHeader>
-          <ModalCloseButton/>
+          <ModalCloseButton />
           <ModalBody pb={6}>
             <FormControl>
               <FormLabel>Mesajul dumneavoastra</FormLabel>
