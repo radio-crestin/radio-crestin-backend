@@ -8,9 +8,11 @@ import {seoHomepage} from '@/utils/seo';
 
 export default function Home({
   stations_metadata,
+  fullURL,
 }: {
   stations_metadata: StationsMetadata;
   message: string;
+  fullURL: string;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -31,18 +33,22 @@ export default function Home({
   return StationPage({
     stations_metadata,
     seoMetadata: seoHomepage,
+    fullURL: fullURL,
   });
 }
 
 export async function getServerSideProps(context: any) {
-  context.res.setHeader(
+  const {req, res} = context;
+  res.setHeader(
     'Cache-Control',
     'public, s-maxage=10, stale-while-revalidate=59',
   );
+  const host = req.headers.host;
   const stations_metadata = await getStationsMetadata();
   return {
     props: {
       stations_metadata,
+      fullURL: `https://www.${host}`,
     },
   };
 }
