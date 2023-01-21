@@ -7,10 +7,6 @@ export default class Document extends NextDocument {
     return (
       <Html lang="en">
         <Head>
-          <meta
-            name="description"
-            content="Lista de radiouri crestine · Radio Crestin Live"
-          />
           <link
             rel="apple-touch-icon"
             sizes="180x180"

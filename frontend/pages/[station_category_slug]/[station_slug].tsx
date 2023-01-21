@@ -20,6 +20,7 @@ import {SearchStationsModal} from '@/components/SearchStationsModal/SearchStatio
 import {ContactModalLink} from '@/components/ContactModalLink/ContactModalLink';
 import {indexBy} from '@/utils/indexBy';
 import {seoStation} from '@/utils/seo';
+import {parse} from 'url';
 
 const StationPlayer = dynamic(() => import('@/components/StationPlayer'), {
   ssr: false,
@@ -30,11 +31,13 @@ export default function StationPage({
   station_category_slug = 'radio',
   station_slug,
   seoMetadata,
+  fullURL,
 }: {
   stations_metadata: StationsMetadata;
   station_category_slug?: string;
   station_slug?: string;
   seoMetadata?: SeoMetadata;
+  fullURL: string;
 }) {
   const [stations, setStations] = useState(stations_metadata.stations);
   const [station_groups, setStation_groups] = useState(
@@ -69,24 +72,68 @@ export default function StationPage({
 
   const seo: SeoMetadata =
     seoMetadata ||
-    seoStation(selectedStation.title, selectedStation.description);
+    seoStation(selectedStation?.title, selectedStation.description);
 
   return (
     <>
       <Head>
+        <link
+          rel="image_src"
+          href={
+            selectedStation?.thumbnail_url ||
+            '/images/android-chrome-512x512.png'
+          }
+        />
         <title>{seo.title}</title>
+        <meta name="viewport" content="initial-scale=1.0, width=device-width" />
         <meta property="title" content={seo?.title} />
         <meta name="description" content={seo?.description} />
-        <meta property="og:title" content={seo?.title} />
-        <meta name="og:description" content={seo?.description} />
+        <meta name="keywords" content={seo?.keywords} />
+        <meta
+          property="image:alt_text"
+          content={`${
+            selectedStation?.title || 'Asculta radio crestin online'
+          } | Radio Crestin`}
+        />
         <meta property="og:site_name" content="Radio Crestin" />
-        <meta property="og:type" content="article" />
-        <meta name="twitter:title" content={seo?.title} />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content={fullURL} />
+        <meta property="og:title" content={seo?.title} />
+        <meta property="og:description" content={seo?.description} />
+        <meta
+          property="og:image"
+          content={
+            selectedStation?.thumbnail_url ||
+            '/images/android-chrome-512x512.png'
+          }
+        />
+        <meta
+          property="og:image:url"
+          content={
+            selectedStation?.thumbnail_url ||
+            '/images/android-chrome-512x512.png'
+          }
+        />
+        <meta
+          property="og:image:secure_url"
+          content={
+            selectedStation?.thumbnail_url ||
+            '/images/android-chrome-512x512.png'
+          }
+        />
+        <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:description" content={seo?.description} />
         <meta name="twitter:title" content={seo?.title} />
-        <meta name="twitter:card" content="summary" />
-        <meta name="keywords" content={seo?.keywords} />
-        <meta name="viewport" content="initial-scale=1.0, width=device-width" />
+        <meta name="twitter:url" content={fullURL} />
+        <meta
+          name="twitter:image"
+          content={
+            selectedStation?.thumbnail_url ||
+            '/images/android-chrome-512x512.png'
+          }
+        />
+        <meta name="MobileOptimized" content="width" />
+        <meta name="HandheldFriendly" content="true" />
       </Head>
       <Body>
         <Container maxW={'8xl'}>
@@ -125,16 +172,18 @@ export default function StationPage({
 }
 
 export async function getServerSideProps(context: any) {
-  context.res.setHeader(
+  const {req, res, query} = context;
+  res.setHeader(
     'Cache-Control',
     'public, s-maxage=10, stale-while-revalidate=59',
   );
   const stations_metadata = await getStationsMetadata();
-  const {station_category_slug, station_slug} = context.query;
-
+  const {station_category_slug, station_slug} = query;
   const stationData = stations_metadata.stations.find(
     station => station.slug === station_slug,
   );
+  const {pathname} = parse(req.url, true);
+  const host = req.headers.host;
 
   if (!stationData) {
     return {
@@ -150,6 +199,7 @@ export async function getServerSideProps(context: any) {
       stations_metadata,
       station_category_slug,
       station_slug,
+      fullURL: `https://www.${host}${pathname}`,
     },
   };
 }
