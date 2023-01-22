@@ -1,7 +1,7 @@
 import {ClientSideReview} from "../types";
 
 export const postReviewClientSide = (review: ClientSideReview): Promise<{ done: boolean }> => {
-  return fetch(process.env.NEXT_PUBLIC_FRONTEND_API_PREFIX + '/api/v1/review', {
+  return fetch('/api/v1/review', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'

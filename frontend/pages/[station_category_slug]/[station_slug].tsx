@@ -49,7 +49,7 @@ export default function StationPage({
 
   useEffect(() => {
     const fetchStations = setInterval(() => {
-      fetch(process.env.NEXT_PUBLIC_FRONTEND_API_PREFIX + '/api/v1/stations').then(async r => {
+      fetch('/api/v1/stations').then(async r => {
         const data = await r.json();
         setStations(data.stations);
         setStation_groups(data.station_groups);
