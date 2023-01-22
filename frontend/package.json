@@ -20,6 +20,7 @@
     "@types/uuid": "^9.0.0",
     "axios": "^1.2.2",
     "bluebird": "^3.7.2",
+    "cachios": "^4.0.0",
     "can-autoplay": "^3.0.2",
     "concurrently": "^7.6.0",
     "cookie-session": "^2.0.0",

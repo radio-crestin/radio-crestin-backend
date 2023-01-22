@@ -1,15 +1,12 @@
-import axios, {AxiosRequestConfig} from 'axios';
 import {StationsMetadata} from '../types';
 import {PROJECT_ENV} from '@/utils/env';
 
+const cachios = require('cachios');
+
 export const getStationsMetadata = (): Promise<StationsMetadata> => {
-  const options: AxiosRequestConfig = {
-    method: 'POST',
-    url: PROJECT_ENV.FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_URI,
-    headers: {
-      'content-type': 'application/json',
-    },
-    data: {
+  return cachios.post(
+    PROJECT_ENV.FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_URI,
+    {
       operationName: 'GetStations',
       query: `
 query GetStations {
@@ -78,9 +75,14 @@ query GetStations {
     `,
       variables: {},
     },
-  };
-
-  return axios.request(options).then(function (response) {
+    {
+      headers: {
+        'content-type': 'application/json',
+      },
+      ttl: 5,
+    }
+  ).then(function (response: any) {
+    console.log(response);
     if (!response.data?.data) {
       throw new Error(`Invalid response: ${JSON.stringify(response.data)}`);
     }
