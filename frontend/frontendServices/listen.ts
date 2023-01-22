@@ -1,7 +1,7 @@
 import {ClientSideListeningEvent} from "../types";
 
 export const trackListenClientSide = (listeningEvent: ClientSideListeningEvent): Promise<{ done: boolean }> => {
-  return fetch(process.env.apiPrefix + '/api/v1/listen', {
+  return fetch(process.env.NEXT_PUBLIC_FRONTEND_API_PREFIX + '/api/v1/listen', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
