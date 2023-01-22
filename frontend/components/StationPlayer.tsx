@@ -49,20 +49,27 @@ export default function StationPlayer({stations}: any) {
     audio.volume = volume / 100;
   }, [volume, audio]);
 
+  const loadHLS = (hls_stream_url: string, audio: HTMLAudioElement) => {
+    hls.loadSource(hls_stream_url);
+    hls.attachMedia(audio);
+    hls.startLoad();
+    hls.on(Hls.Events.ERROR, function (event, data) {
+      if (data.fatal) {
+        retryMechanism();
+      }
+    });
+  };
+
   useEffect(() => {
     if (!audio) return;
-    if (playbackState === PLAYBACK_STATE.STARTED) {
-      if (streamType === STREAM_TYPE.HLS) {
-        hls.loadSource(station.hls_stream_url);
-        hls.attachMedia(audio);
-        hls.startLoad();
-      } else {
-        audio.play();
-      }
-    }
 
-    if (playbackState === PLAYBACK_STATE.STOPPED) {
-      audio.pause();
+    switch (playbackState) {
+      case PLAYBACK_STATE.STARTED:
+        audio.play();
+        break;
+      case PLAYBACK_STATE.STOPPED:
+        audio.pause();
+        break;
     }
   }, [playbackState]);
 
@@ -78,23 +85,32 @@ export default function StationPlayer({stations}: any) {
     if (!audio) return;
     audio.volume = volume / 100;
 
-    if (Hls.isSupported()) {
-      hls.loadSource(station.hls_stream_url);
-      hls.attachMedia(audio);
-      hls.startLoad();
-      hls.on(Hls.Events.ERROR, function (event, data) {
-        if (data.fatal) {
-          retryMechanism();
-        }
-      });
-    }
-
     return () => {
-      hls.destroy();
       setStreamType(STREAM_TYPE.HLS);
       setRetries(20);
     };
   }, [station.slug]);
+
+  useEffect(() => {
+    if (!audio) return;
+
+    switch (streamType) {
+      case STREAM_TYPE.HLS:
+        loadHLS(station.hls_stream_url, audio);
+        break;
+      case STREAM_TYPE.PROXY:
+        audio.src = station.proxy_stream_url;
+        audio.play();
+        break;
+      case STREAM_TYPE.ORIGINAL:
+        audio.src = station.stream_url;
+        audio.play();
+    }
+
+    return () => {
+      hls.destroy();
+    };
+  }, [streamType, station.slug, audio]);
 
   const retryMechanism = () => {
     if (!audio) return;
@@ -104,15 +120,12 @@ export default function StationPlayer({stations}: any) {
       switch (streamType) {
         case STREAM_TYPE.HLS:
           setStreamType(STREAM_TYPE.PROXY);
-          audio.src = station.proxy_stream_url;
           break;
         case STREAM_TYPE.PROXY:
           setStreamType(STREAM_TYPE.ORIGINAL);
-          audio.src = station.stream_url;
           break;
         case STREAM_TYPE.ORIGINAL:
           setStreamType(STREAM_TYPE.HLS);
-          audio.src = station.hls_stream_url;
           break;
       }
     }
@@ -290,14 +303,14 @@ export default function StationPlayer({stations}: any) {
               preload="true"
               autoPlay
               id="audioPlayer"
-              onPlay={() => {
-                setPlaybackState(PLAYBACK_STATE.PLAYING);
-              }}
               onPause={() => {
                 setPlaybackState(PLAYBACK_STATE.STOPPED);
               }}
               onLoadStart={() => {
                 setPlaybackState(PLAYBACK_STATE.BUFFERING);
+              }}
+              onLoadedData={() => {
+                setPlaybackState(PLAYBACK_STATE.PLAYING);
               }}
               onError={() => {
                 retryMechanism();
