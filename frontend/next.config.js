@@ -24,7 +24,7 @@ const config = withConfig({
       process.env.FRONTEND_CDN_PREFIX !== ''
         ? process.env.FRONTEND_CDN_PREFIX
         : '',
-    REFRESH_CACHE_TOKEN: process.env.FRONTEND_REFRESH_CACHE_TOKEN,
+    FRONTEND_REFRESH_CACHE_TOKEN: process.env.FRONTEND_REFRESH_CACHE_TOKEN,
   },
   // Use the CDN in production and localhost for development.
   assetPrefix:
