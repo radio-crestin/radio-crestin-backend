@@ -7,6 +7,8 @@
     "build": "next build",
     "start:dev": "next dev",
     "start": "next start -p 8080 --keepAliveTimeout 70000",
+    "refresh-cache": "while sleep 5; do curl -s http://localhost:8080/api/v1/refresh_cache?token=$$FRONTEND_REFRESH_CACHE_TOKEN; done ",
+    "start-with-refresh-cache": "concurrently \"yarn run start\" \"yarn run refresh-cache\"",
     "build-and-start": "yarn run build && yarn run start"
   },
   "dependencies": {
@@ -17,7 +19,9 @@
     "@types/can-autoplay": "^3.0.1",
     "@types/uuid": "^9.0.0",
     "axios": "^1.2.2",
+    "bluebird": "^3.7.2",
     "can-autoplay": "^3.0.2",
+    "concurrently": "^7.6.0",
     "cookie-session": "^2.0.0",
     "cross-env": "^7.0.3",
     "framer-motion": "^8",
@@ -40,6 +44,7 @@
   "devDependencies": {
     "@next/bundle-analyzer": "^13.1.1",
     "@styled-jsx/plugin-sass": "^4.0.2",
+    "@types/bluebird": "^3.5.38",
     "@types/node": "^18.11.18",
     "@types/react": "18.0.26",
     "prettier": "2.8.2",
