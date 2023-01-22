@@ -20,7 +20,7 @@ function SiteMap() {
   // getServerSideProps will do the heavy lifting
 }
 
-export const getAllUrls = async () => {
+export const getAllUrls = async (include_api_endpoints = false) => {
   const origin = 'https://www.radio-crestin.com';
   const stations_metadata = await getStationsMetadata();
   const urls: string[] = [];

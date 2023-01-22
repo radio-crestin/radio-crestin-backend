@@ -11,11 +11,14 @@ import {
   StationGroup,
   StationsMetadata,
 } from '../../types';
-import StationHomepageHeader from '@/components/StationHomepageHeader/StationHomepageHeader';
+import StationHomepageHeader
+  from '@/components/StationHomepageHeader/StationHomepageHeader';
 import StationGroups from '@/components/StationGroups/StationGroups';
 import StationList from '@/components/StationList/StationList';
 import Footer from '@/components/Footer/Footer';
-import {SearchStationsModal} from '@/components/SearchStationsModal/SearchStationsModal';
+import {
+  SearchStationsModal
+} from '@/components/SearchStationsModal/SearchStationsModal';
 import {ContactModalLink} from '@/components/ContactModalLink/ContactModalLink';
 import {indexBy} from '@/utils/indexBy';
 import {seoStation} from '@/utils/seo';
@@ -27,12 +30,12 @@ const StationPlayer = dynamic(() => import('@/components/StationPlayer'), {
 });
 
 export default function StationPage({
-  stations_metadata,
-  station_category_slug = 'radio',
-  station_slug,
-  seoMetadata,
-  fullURL,
-}: {
+                                      stations_metadata,
+                                      station_category_slug = 'radio',
+                                      station_slug,
+                                      seoMetadata,
+                                      fullURL,
+                                    }: {
   stations_metadata: StationsMetadata;
   station_category_slug?: string;
   station_slug?: string;
@@ -46,7 +49,7 @@ export default function StationPage({
 
   useEffect(() => {
     const fetchStations = setInterval(() => {
-      fetch('/api/v1/stations').then(async r => {
+      fetch(process.env.apiPrefix + '/api/v1/stations').then(async r => {
         const data = await r.json();
         setStations(data.stations);
         setStation_groups(data.station_groups);
@@ -89,14 +92,14 @@ export default function StationPage({
             justifyContent={'flex-end'}
             my={4}
             gap={2}>
-            <ContactModalLink />
+            <ContactModalLink/>
             <SearchStationsModal
               station_group={selectedStationGroup}
               stations={stations}
             />
           </Box>
           {selectedStation && (
-            <StationHomepageHeader selectedStation={selectedStation} />
+            <StationHomepageHeader selectedStation={selectedStation}/>
           )}
           <StationGroups
             stationGroups={station_groups}
@@ -107,12 +110,12 @@ export default function StationPage({
             station_group={selectedStationGroup}
             stations={displayedStations}
           />
-          <Footer />
-          <Box mb={{base: 40, lg: 20}} />
-          <StationPlayer stations={stations} />
+          <Footer/>
+          <Box mb={{base: 40, lg: 20}}/>
+          <StationPlayer stations={stations}/>
         </Container>
       </Body>
-      <Analytics />
+      <Analytics/>
     </>
   );
 }

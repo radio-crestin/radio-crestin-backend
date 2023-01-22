@@ -24,6 +24,7 @@ const config = withConfig({
       process.env.FRONTEND_CDN_PREFIX !== ''
         ? process.env.FRONTEND_CDN_PREFIX
         : '',
+    apiPrefix: process.env.FRONTEND_API_PREFIX || ""
   },
   // Use the CDN in production and localhost for development.
   assetPrefix:
