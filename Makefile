@@ -1,15 +1,19 @@
 deploy: git-pull
-	docker-compose --env-file .env  up --build --no-cache -d
+	docker-compose --env-file .env  build --no-cache
+	docker-compose --env-file .env  up -d
 
 force-deploy: git-pull
-	docker-compose --env-file .env  up --build -d
+	docker-compose --env-file .env  build --no-cache
+	docker-compose --env-file .env  up -d --force-recreate
 
 
 deploy-staging: git-pull
-	docker-compose -f docker-compose.staging.yaml --env-file .env  up --build -d
+	docker-compose -f docker-compose.staging.yaml --env-file .env  build --no-cache
+	docker-compose -f docker-compose.staging.yaml --env-file .env  up -d
 
 force-deploy-staging: git-pull
-	docker-compose -f docker-compose.staging.yaml --env-file .env  up --build -d --force-recreate
+	docker-compose -f docker-compose.staging.yaml --env-file .env  build --no-cache
+	docker-compose -f docker-compose.staging.yaml --env-file .env  up -d --force-recreate
 
 start-dev:
 	docker-compose --env-file .env  up --build --force-recreate -d
