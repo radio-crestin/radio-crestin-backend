@@ -11,15 +11,17 @@ import {
   StationGroup,
   StationsMetadata,
 } from '../../types';
-import StationHomepageHeader from '@/components/StationHomepageHeader/StationHomepageHeader';
+import StationHomepageHeader
+  from '@/components/StationHomepageHeader/StationHomepageHeader';
 import StationGroups from '@/components/StationGroups/StationGroups';
 import StationList from '@/components/StationList/StationList';
 import Footer from '@/components/Footer/Footer';
-import {SearchStationsModal} from '@/components/SearchStationsModal/SearchStationsModal';
+import {
+  SearchStationsModal
+} from '@/components/SearchStationsModal/SearchStationsModal';
 import {ContactModalLink} from '@/components/ContactModalLink/ContactModalLink';
 import {indexBy} from '@/utils/indexBy';
 import {seoStation} from '@/utils/seo';
-import {parse} from 'url';
 import HeadContainer from '@/components/HeadContainer';
 
 const StationPlayer = dynamic(() => import('@/components/StationPlayer'), {
@@ -27,12 +29,12 @@ const StationPlayer = dynamic(() => import('@/components/StationPlayer'), {
 });
 
 export default function StationPage({
-  stations_metadata,
-  station_category_slug = 'radio',
-  station_slug,
-  seoMetadata,
-  fullURL,
-}: {
+                                      stations_metadata,
+                                      station_category_slug = 'radio',
+                                      station_slug,
+                                      seoMetadata,
+                                      fullURL,
+                                    }: {
   stations_metadata: StationsMetadata;
   station_category_slug?: string;
   station_slug?: string;
@@ -89,14 +91,14 @@ export default function StationPage({
             justifyContent={'flex-end'}
             my={4}
             gap={2}>
-            <ContactModalLink />
+            <ContactModalLink/>
             <SearchStationsModal
               station_group={selectedStationGroup}
               stations={stations}
             />
           </Box>
           {selectedStation && (
-            <StationHomepageHeader selectedStation={selectedStation} />
+            <StationHomepageHeader selectedStation={selectedStation}/>
           )}
           <StationGroups
             stationGroups={station_groups}
@@ -107,29 +109,55 @@ export default function StationPage({
             station_group={selectedStationGroup}
             stations={displayedStations}
           />
-          <Footer />
-          <Box mb={{base: 40, lg: 20}} />
-          <StationPlayer stations={stations} />
+          <Footer/>
+          <Box mb={{base: 40, lg: 20}}/>
+          <StationPlayer stations={stations}/>
         </Container>
       </Body>
-      <Analytics />
+      <Analytics/>
     </>
   );
 }
 
-export async function getServerSideProps(context: any) {
-  const {req, res, query} = context;
-  res.setHeader(
-    'Cache-Control',
-    'public, s-maxage=10, stale-while-revalidate=59',
-  );
+// export async function getServerSideProps(context: any) {
+//   const {req, res, query} = context;
+//   res?.setHeader(
+//     'Cache-Control',
+//     'public, s-maxage=10, stale-while-revalidate=59',
+//   );
+//   const stations_metadata = await getStationsMetadata();
+//   const {station_category_slug, station_slug} = query;
+//   const stationData = stations_metadata.stations.find(
+//     station => station.slug === station_slug,
+//   );
+//   const {pathname} = parse(req.url, true);
+//   const host = req.headers.host;
+//
+//   if (!stationData) {
+//     return {
+//       redirect: {
+//         permanent: false,
+//         destination: `/?error=Statia ${station_slug} nu a fost gasita`,
+//       },
+//     };
+//   }
+//
+//   return {
+//     stations_metadata,
+//     station_category_slug,
+//     station_slug,
+//     fullURL: `https://www.${host}${pathname}`,
+//   };
+// }
+
+
+export async function getStaticProps(context: any) {
+  const {params} = context;
   const stations_metadata = await getStationsMetadata();
-  const {station_category_slug, station_slug} = query;
+  const {station_category_slug, station_slug} = params;
   const stationData = stations_metadata.stations.find(
     station => station.slug === station_slug,
   );
-  const {pathname} = parse(req.url, true);
-  const host = req.headers.host;
 
   if (!stationData) {
     return {
@@ -145,7 +173,33 @@ export async function getServerSideProps(context: any) {
       stations_metadata,
       station_category_slug,
       station_slug,
-      fullURL: `https://www.${host}${pathname}`,
     },
+    // Next.js will attempt to re-generate the page:
+    // - When a request comes in
+    // - At most once every 10 seconds
+    revalidate: 10, // In seconds
   };
+}
+
+export async function getStaticPaths() {
+  const stations_metadata = await getStationsMetadata();
+
+  // Generate paths with all statinos for each station group
+  const paths = [];
+  const station_by_station_id = indexBy(stations_metadata.stations, 'id');
+  for (const station_group of stations_metadata.station_groups) {
+    for (const station of station_group.station_to_station_groups) {
+      paths.push({
+        params: {
+          station_category_slug: station_group.slug,
+          station_slug: station_by_station_id[station.station_id].slug,
+        },
+      });
+    }
+  }
+
+  // We'll pre-render only these paths at build time.
+  // { fallback: blocking } will server-render pages
+  // on-demand if the path doesn't exist.
+  return {paths, fallback: 'blocking'}
 }

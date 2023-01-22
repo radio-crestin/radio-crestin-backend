@@ -7,9 +7,9 @@ import StationPage from './[station_category_slug]/[station_slug]';
 import {seoHomepage} from '@/utils/seo';
 
 export default function Home({
-  stations_metadata,
-  fullURL,
-}: {
+                               stations_metadata,
+                               fullURL,
+                             }: {
   stations_metadata: StationsMetadata;
   message: string;
   fullURL: string;
@@ -37,18 +37,32 @@ export default function Home({
   });
 }
 
-export async function getServerSideProps(context: any) {
-  const {req, res} = context;
-  res.setHeader(
-    'Cache-Control',
-    'public, s-maxage=10, stale-while-revalidate=59',
-  );
-  const host = req.headers.host;
+// export async function getServerSideProps(context: any) {
+//   const {req, res} = context;
+//   res.setHeader(
+//     'Cache-Control',
+//     'public, s-maxage=10, stale-while-revalidate=59',
+//   );
+//   const host = req.headers.host;
+//   const stations_metadata = await getStationsMetadata();
+//   return {
+//     props: {
+//       stations_metadata,
+//       fullURL: `https://www.${host}`,
+//     },
+//   };
+// }
+
+
+export async function getStaticProps() {
   const stations_metadata = await getStationsMetadata();
   return {
     props: {
       stations_metadata,
-      fullURL: `https://www.${host}`,
     },
+    // Next.js will attempt to re-generate the page:
+    // - When a request comes in
+    // - At most once every 10 seconds
+    revalidate: 10, // In seconds
   };
 }

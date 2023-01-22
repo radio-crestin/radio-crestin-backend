@@ -20,6 +20,7 @@ const config = withConfig({
     minimumCacheTTL: 60 * 60 * 24,
   },
   env: {
+    ROOT_DOMAIN: process.env.FRONTEND_ROOT_DOMAIN,
     cdnPrefix:
       process.env.FRONTEND_CDN_PREFIX !== ''
         ? process.env.FRONTEND_CDN_PREFIX
