@@ -82,7 +82,6 @@ query GetStations {
       ttl: 5,
     }
   ).then(function (response: any) {
-    console.log(response);
     if (!response.data?.data) {
       throw new Error(`Invalid response: ${JSON.stringify(response.data)}`);
     }
