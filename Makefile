@@ -2,6 +2,9 @@ deploy: git-pull
 	docker-compose --env-file .env  up --build -d
 
 force-deploy: git-pull
+	docker-compose --env-file .env  up -d --build --force-recreate
+
+force-deploy-no-cache: git-pull
 	docker-compose --env-file .env  build --no-cache
 	docker-compose --env-file .env  up -d --force-recreate
 
