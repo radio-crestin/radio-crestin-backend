@@ -28,4 +28,4 @@ ENV PORT 8080
 # Uncomment the following line in case you want to disable telemetry.
 # ENV NEXT_TELEMETRY_DISABLED 1
 
-CMD ["yarn", "run", "start-with-refresh-cache"]
+CMD ["yarn", "run", "start"]
