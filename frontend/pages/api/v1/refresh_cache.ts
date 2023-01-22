@@ -4,8 +4,8 @@ import {Promise} from "bluebird";
 import axios from "axios";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<{ done: boolean, duration: number, error?: string }>) {
-  console.error("process.env.refreshCacheToken", process.env.refreshCacheToken)
-  if (process.env.refreshCacheToken === "" || req.query.token !== process.env.refreshCacheToken) {
+  console.error("process.env.FRONTEND_REFRESH_CACHE_TOKEN", process.env.FRONTEND_REFRESH_CACHE_TOKEN)
+  if (process.env.FRONTEND_REFRESH_CACHE_TOKEN === "" || req.query.token !== process.env.FRONTEND_REFRESH_CACHE_TOKEN) {
     res.status(401).json({done: false, duration: 0, error: "Not authorized"});
     return;
   }
