@@ -12,8 +12,6 @@ services:
       timeout: 45s
       interval: 10s
       retries: 10
-    networks:
-      - app_network
     logging:
       driver: "json-file"
       options:
@@ -27,8 +25,6 @@ services:
     restart: always
     env_file:
       - .env
-    networks:
-      - app_network
     logging:
       driver: "json-file"
       options:
@@ -48,8 +44,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-    networks:
-      - app_network
     logging:
       driver: "json-file"
       options:
@@ -71,8 +65,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-    networks:
-      - app_network
     logging:
       driver: "json-file"
       options:
@@ -87,8 +79,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-    networks:
-      - app_network
     logging:
       driver: "json-file"
       options:
@@ -111,8 +101,6 @@ services:
       - FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_URI=${FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_URI}
       - FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_ADMIN_SECRET=${FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_ADMIN_SECRET}
       - FRONTEND_CDN_PREFIX=${FRONTEND_CDN_PREFIX}
-    networks:
-      - app_network
     logging:
       driver: "json-file"
       options:
@@ -124,8 +112,6 @@ services:
     restart: always
     environment:
       LOCATION: DE
-    networks:
-      - app_network
     logging:
       driver: "json-file"
       options:
@@ -147,8 +133,6 @@ services:
       - ./nginx/common.conf:/etc/nginx/common.conf
       - ./nginx/common_location.conf:/etc/nginx/common_location.conf
       - ./nginx/common_caching.conf:/etc/nginx/common_caching.conf
-    networks:
-      - app_network
     logging:
       driver: "json-file"
       options:
@@ -157,6 +141,3 @@ services:
 volumes:
   db_data:
 
-networks:
-  app_network:
-    name: app_network_webgateway
