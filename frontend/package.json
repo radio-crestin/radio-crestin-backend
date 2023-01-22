@@ -7,7 +7,7 @@
     "build": "next build",
     "start:dev": "next dev",
     "start": "next start -p 8080 --keepAliveTimeout 70000",
-    "refresh-cache": "while sleep 5; do curl -s http://localhost:8080/api/v1/refresh_cache?token=$$FRONTEND_REFRESH_CACHE_TOKEN; done ",
+    "refresh-cache": "while sleep 2; do curl -s http://localhost:8080/api/v1/refresh_cache?token=$FRONTEND_REFRESH_CACHE_TOKEN; done ",
     "start-with-refresh-cache": "concurrently \"yarn run start\" \"yarn run refresh-cache\"",
     "build-and-start": "yarn run build && yarn run start"
   },
