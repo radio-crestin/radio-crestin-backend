@@ -152,6 +152,7 @@ export default function StationPage({
 
 
 export async function getStaticProps(context: any) {
+  console.log("getStaticProps")
   const {params} = context;
   const stations_metadata = await getStationsMetadata();
   const {station_category_slug, station_slug} = params;

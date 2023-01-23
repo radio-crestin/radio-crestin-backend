@@ -8,6 +8,7 @@ const withConfig = nextRuntimeDotenv({
 
 const config = withConfig({
   reactStrictMode: true,
+  trailingSlash: true,
   output: 'standalone',
   images: {
     formats: ['image/avif', 'image/webp'],
@@ -25,6 +26,7 @@ const config = withConfig({
       process.env.FRONTEND_CDN_PREFIX !== ''
         ? process.env.FRONTEND_CDN_PREFIX
         : '',
+    cdnImagePrefix: process.env.FRONTEND_CDN_IMAGE_PREFIX || process.env.FRONTEND_CDN_PREFIX || '',
   },
   // Use the CDN in production and localhost for development.
   assetPrefix:
@@ -32,9 +34,9 @@ const config = withConfig({
       ? process.env.FRONTEND_CDN_PREFIX
       : undefined,
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'development' ? false : {
-      exclude: ['error'],
-    },
+    // removeConsole: process.env.NODE_ENV === 'development' ? false : {
+    //   exclude: ['error'],
+    // },
   },
 });
 console.log('process.env.FRONTEND_CDN_PREFIX', process.env.FRONTEND_CDN_PREFIX);
