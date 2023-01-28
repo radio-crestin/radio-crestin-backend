@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {useRouter} from 'next/router';
 import {
   Box,
@@ -39,33 +39,41 @@ export default function StationPlayer({stations}: any) {
   const [playbackState, setPlaybackState] = useState(PLAYBACK_STATE.STOPPED);
   const [volume, setVolume] = useLocalStorageState(60, 'AUDIO_PLAYER_VOLUME');
   const [streamType, setStreamType] = useState(STREAM_TYPE.HLS);
-  const audioRef: React.MutableRefObject<HTMLAudioElement | null> =
-    useRef(null);
-  const audio: HTMLAudioElement | null = audioRef.current;
-  const hls: Hls = new Hls();
 
   useEffect(() => {
+    const audio = document.getElementById('audioPlayer') as HTMLAudioElement;
     if (!audio) return;
     audio.volume = volume / 100;
-  }, [volume, audio]);
+  }, [volume]);
 
-  const loadHLS = (hls_stream_url: string, audio: HTMLAudioElement) => {
-    hls.loadSource(hls_stream_url);
-    hls.attachMedia(audio);
-    hls.startLoad();
-    hls.on(Hls.Events.ERROR, function (event, data) {
-      if (data.fatal) {
-        retryMechanism();
-      }
+  const loadHLS = (
+    hls_stream_url: string,
+    audio: HTMLAudioElement,
+    hls: Hls,
+  ) => {
+    if (Hls.isSupported()) {
+      hls.loadSource(hls_stream_url);
+      hls.attachMedia(audio);
+    } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
+      audio.src = hls_stream_url;
+    }
+
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      audio.play().catch(() => {
+        setPlaybackState(PLAYBACK_STATE.STOPPED);
+      });
     });
   };
 
   useEffect(() => {
+    const audio = document.getElementById('audioPlayer') as HTMLAudioElement;
     if (!audio) return;
 
     switch (playbackState) {
       case PLAYBACK_STATE.STARTED:
-        audio.play();
+        audio.play().catch(() => {
+          setPlaybackState(PLAYBACK_STATE.STOPPED);
+        });
         break;
       case PLAYBACK_STATE.STOPPED:
         audio.pause();
@@ -82,6 +90,7 @@ export default function StationPlayer({stations}: any) {
   }
 
   useEffect(() => {
+    const audio = document.getElementById('audioPlayer') as HTMLAudioElement;
     if (!audio) return;
     audio.volume = volume / 100;
 
@@ -92,27 +101,34 @@ export default function StationPlayer({stations}: any) {
   }, [station.slug]);
 
   useEffect(() => {
+    const hls = new Hls();
+    const audio = document.getElementById('audioPlayer') as HTMLAudioElement;
     if (!audio) return;
 
     switch (streamType) {
       case STREAM_TYPE.HLS:
-        loadHLS(station.hls_stream_url, audio);
+        loadHLS(station.hls_stream_url, audio, hls);
         break;
       case STREAM_TYPE.PROXY:
         audio.src = station.proxy_stream_url;
-        audio.play();
+        audio.play().catch(() => {
+          setPlaybackState(PLAYBACK_STATE.STOPPED);
+        });
         break;
       case STREAM_TYPE.ORIGINAL:
         audio.src = station.stream_url;
-        audio.play();
+        audio.play().catch(() => {
+          setPlaybackState(PLAYBACK_STATE.STOPPED);
+        });
     }
 
     return () => {
       hls.destroy();
     };
-  }, [streamType, station.slug, audio]);
+  }, [streamType, station.slug]);
 
   const retryMechanism = () => {
+    const audio = document.getElementById('audioPlayer') as HTMLAudioElement;
     if (!audio) return;
 
     setRetries(retries - 1);
@@ -280,12 +296,17 @@ export default function StationPlayer({stations}: any) {
             <button
               name="Start/Stop"
               onClick={() => {
-                setPlaybackState(
+                if (
                   playbackState === PLAYBACK_STATE.PLAYING ||
-                    playbackState === PLAYBACK_STATE.STARTED
-                    ? PLAYBACK_STATE.STOPPED
-                    : PLAYBACK_STATE.STARTED,
-                );
+                  playbackState === PLAYBACK_STATE.STARTED
+                ) {
+                  setPlaybackState(PLAYBACK_STATE.STOPPED);
+                  return;
+                }
+
+                if (playbackState === PLAYBACK_STATE.STOPPED) {
+                  setPlaybackState(PLAYBACK_STATE.STARTED);
+                }
               }}>
               <Box fill={{base: 'white'}}>
                 <svg
@@ -299,18 +320,19 @@ export default function StationPlayer({stations}: any) {
               </Box>
             </button>
             <audio
-              ref={audioRef}
               preload="true"
               autoPlay
               id="audioPlayer"
+              onPlay={() => {
+                setPlaybackState(PLAYBACK_STATE.PLAYING);
+              }}
               onPause={() => {
+                console.log('onPause');
                 setPlaybackState(PLAYBACK_STATE.STOPPED);
               }}
               onLoadStart={() => {
+                console.log('onLoadStart');
                 setPlaybackState(PLAYBACK_STATE.BUFFERING);
-              }}
-              onLoadedData={() => {
-                setPlaybackState(PLAYBACK_STATE.PLAYING);
               }}
               onError={() => {
                 retryMechanism();
