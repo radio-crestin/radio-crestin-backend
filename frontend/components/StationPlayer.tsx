@@ -63,6 +63,12 @@ export default function StationPlayer({stations}: any) {
         setPlaybackState(PLAYBACK_STATE.STOPPED);
       });
     });
+
+    hls.on(Hls.Events.ERROR, function (event, data) {
+      if (data.fatal) {
+        retryMechanism();
+      }
+    });
   };
 
   useEffect(() => {
@@ -323,6 +329,9 @@ export default function StationPlayer({stations}: any) {
               preload="true"
               autoPlay
               id="audioPlayer"
+              onPlaying={() => {
+                setPlaybackState(PLAYBACK_STATE.PLAYING);
+              }}
               onPlay={() => {
                 setPlaybackState(PLAYBACK_STATE.PLAYING);
               }}

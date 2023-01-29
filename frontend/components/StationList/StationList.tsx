@@ -28,7 +28,6 @@ const StationItem = ({
   priority?: boolean;
 }) => {
   const [isTabletOrMobile] = useMediaQuery('(max-width: 1024px)');
-
   return (
     <Box position={'relative'} role="group">
       <AspectRatio position={'relative'} ratio={1}>
