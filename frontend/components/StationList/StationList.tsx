@@ -1,11 +1,18 @@
 import React from 'react';
 import dynamic from 'next/dynamic';
-import {isMobile} from 'react-device-detect';
 import Link from 'next/link';
 
 import {Station, StationGroup} from 'types';
 import {CONSTANTS} from '../../lib/constants';
-import {AspectRatio, Box, Center, Grid, GridItem, Text} from '@chakra-ui/react';
+import {
+  AspectRatio,
+  Box,
+  Center,
+  Grid,
+  GridItem,
+  Text,
+  useMediaQuery,
+} from '@chakra-ui/react';
 import {ImageWithFallback} from '../ImageWithFallback/ImageWithFallback';
 
 const StationMetadata = dynamic(
@@ -14,9 +21,14 @@ const StationMetadata = dynamic(
 );
 
 const StationItem = ({
-                       station,
-                       priority
-                     }: { station: Station, priority?: boolean }) => {
+  station,
+  priority,
+}: {
+  station: Station;
+  priority?: boolean;
+}) => {
+  const [isTabletOrMobile] = useMediaQuery('(max-width: 1024px)');
+
   return (
     <Box position={'relative'} role="group">
       <AspectRatio position={'relative'} ratio={1}>
@@ -68,7 +80,7 @@ const StationItem = ({
           )}
         </Box>
       </AspectRatio>
-      {!isMobile && <StationMetadata {...station} />}
+      {!isTabletOrMobile && <StationMetadata {...station} />}
       <Center mt={3}>
         <Text fontSize="sm" fontWeight="300" noOfLines={1} mt={'-3px'}>
           {station.title}

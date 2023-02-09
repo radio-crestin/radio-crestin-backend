@@ -19,9 +19,7 @@ import {trackListenClientSide} from '../frontendServices/listen';
 import {CONSTANTS} from '../lib/constants';
 import {Station} from '../types';
 import {Loading} from '@/public/images/loading';
-import {
-  ImageWithFallback
-} from '@/components/ImageWithFallback/ImageWithFallback';
+import {ImageWithFallback} from '@/components/ImageWithFallback/ImageWithFallback';
 import canAutoplay from 'can-autoplay';
 import {useIdleTimer} from 'react-idle-timer';
 
