@@ -336,12 +336,13 @@ export default function StationPlayer({stations}: any) {
                 setPlaybackState(PLAYBACK_STATE.PLAYING);
               }}
               onPause={() => {
-                console.log('onPause');
                 setPlaybackState(PLAYBACK_STATE.STOPPED);
               }}
               onLoadStart={() => {
-                console.log('onLoadStart');
                 setPlaybackState(PLAYBACK_STATE.BUFFERING);
+              }}
+              onLoadedData={() => {
+                setPlaybackState(PLAYBACK_STATE.STOPPED);
               }}
               onError={() => {
                 retryMechanism();
