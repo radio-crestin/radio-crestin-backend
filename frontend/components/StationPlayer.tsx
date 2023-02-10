@@ -9,6 +9,7 @@ import {
   SliderTrack,
   Spacer,
   Text,
+  useToast,
 } from '@chakra-ui/react';
 import {useLocalStorageState} from '@/utils/state';
 import {trackListenClientSide} from '../frontendServices/listen';
@@ -38,7 +39,7 @@ export default function StationPlayer({stations}: any) {
   const {station_slug} = router.query;
   const [retries, setRetries] = useState(MAX_MEDIA_RETRIES);
   const [playbackState, setPlaybackState] = useState(PLAYBACK_STATE.STOPPED);
-  const [volume, setVolume] = useLocalStorageState(30, 'AUDIO_PLAYER_VOLUME');
+  const [volume, setVolume] = useLocalStorageState(25, 'AUDIO_PLAYER_VOLUME');
   const [streamType, setStreamType] = useState(STREAM_TYPE.HLS);
 
   useEffect(() => {
