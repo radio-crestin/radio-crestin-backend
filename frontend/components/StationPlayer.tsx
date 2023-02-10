@@ -33,11 +33,12 @@ enum PLAYBACK_STATE {
 const MAX_MEDIA_RETRIES = 20;
 
 export default function StationPlayer({stations}: any) {
+  const toast = useToast();
   const router = useRouter();
   const {station_slug} = router.query;
   const [retries, setRetries] = useState(MAX_MEDIA_RETRIES);
   const [playbackState, setPlaybackState] = useState(PLAYBACK_STATE.STOPPED);
-  const [volume, setVolume] = useLocalStorageState(60, 'AUDIO_PLAYER_VOLUME');
+  const [volume, setVolume] = useLocalStorageState(30, 'AUDIO_PLAYER_VOLUME');
   const [streamType, setStreamType] = useState(STREAM_TYPE.HLS);
 
   useEffect(() => {
@@ -150,6 +151,15 @@ export default function StationPlayer({stations}: any) {
           setStreamType(STREAM_TYPE.HLS);
           break;
       }
+    } else {
+      toast({
+        title: `Nu s-a putut stabili o conexiune cu stația: ${station.title}`,
+        description: 'Vă rugăm să încercați mai târziu!',
+        status: 'error',
+        position: 'top',
+        duration: 8000,
+        isClosable: true,
+      });
     }
   };
 
