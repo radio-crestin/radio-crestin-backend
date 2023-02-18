@@ -31,12 +31,9 @@ const config = withConfig({
       ? process.env.FRONTEND_CDN_PREFIX
       : undefined,
   compiler: {
-    removeConsole:
-      process.env.NODE_ENV === 'development'
-        ? false
-        : {
-            exclude: ['error'],
-          },
+    removeConsole: process.env.NODE_ENV === 'development' ? false : {
+      exclude: ['error'],
+    },
   },
 });
 console.log('process.env.FRONTEND_CDN_PREFIX', process.env.FRONTEND_CDN_PREFIX);
