@@ -164,36 +164,23 @@ export default function StationPlayer({stations}: any) {
     }
   };
 
-  // Mobile/Desktop Navigation Controls
   useEffect(() => {
     if ('mediaSession' in navigator) {
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: station.now_playing?.song?.name || station.title,
-        artist: station.now_playing?.song?.artist.name || '',
-        artwork: [
-          {
-            src: station.thumbnail_url || CONSTANTS.DEFAULT_COVER,
-            sizes: '512x512',
-            type: 'image/png',
-          },
-        ],
-      });
-
-      navigator.mediaSession.setActionHandler('play', () => {
-        setPlaybackState(PLAYBACK_STATE.STARTED);
-      });
-
-      navigator.mediaSession.setActionHandler('pause', () => {
-        setPlaybackState(PLAYBACK_STATE.STOPPED);
-      });
-
-      navigator.mediaSession.setActionHandler('nexttrack', () => {
-        nextRandomStation();
-      });
-
-      navigator.mediaSession.setActionHandler('previoustrack', () => {
-        history.back();
-      });
+      if (playbackState === PLAYBACK_STATE.PLAYING) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: station.now_playing?.song?.name || station.title,
+          artist: station.now_playing?.song?.artist.name || '',
+          artwork: [
+            {
+              src: station.thumbnail_url || CONSTANTS.DEFAULT_COVER,
+              sizes: '512x512',
+              type: 'image/png',
+            },
+          ],
+        });
+      } else {
+        navigator.mediaSession.metadata = new MediaMetadata({});
+      }
     }
   }, [station]);
 
@@ -214,15 +201,6 @@ export default function StationPlayer({stations}: any) {
     }, 30 * 1000);
     return () => clearInterval(timer);
   }, [playbackState]);
-
-  const nextRandomStation = () => {
-    const upStations = stations.filter(
-      (station: any) => station.uptime.is_up === true,
-    );
-    const randomStation =
-      upStations[Math.floor(Math.random() * stations.length)];
-    router.push(`/radio/${randomStation.slug}`);
-  };
 
   const renderPlayButtonSvg = () => {
     switch (playbackState) {
