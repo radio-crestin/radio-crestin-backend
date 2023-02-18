@@ -1,7 +1,5 @@
 import React, {useEffect, useState} from 'react';
 import {useRouter} from 'next/router';
-import {isIOS} from 'react-device-detect';
-import dynamic from 'next/dynamic';
 import {
   Box,
   Flex,
@@ -11,21 +9,14 @@ import {
   SliderTrack,
   Spacer,
   Text,
+  useToast,
 } from '@chakra-ui/react';
-
-import {useTimeoutFn} from 'react-use';
 import {useLocalStorageState} from '@/utils/state';
 import {trackListenClientSide} from '../frontendServices/listen';
 import {CONSTANTS} from '../lib/constants';
-import {Station} from '../types';
 import {Loading} from '@/public/images/loading';
 import {ImageWithFallback} from '@/components/ImageWithFallback/ImageWithFallback';
-import canAutoplay from 'can-autoplay';
-import {useIdleTimer} from 'react-idle-timer';
-
-const ReactPlayer = dynamic(() => import('react-player/lazy'), {ssr: false});
-
-const EMPTY_AUDIO = 'data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBQbHVzIMKpIE5DSCBTb2Z0d2FyZQBUSVQyAAAABgAAAzIyMzUAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
+import Hls from 'hls.js';
 
 enum STREAM_TYPE {
   HLS = 'HLS',
@@ -33,124 +24,145 @@ enum STREAM_TYPE {
   ORIGINAL = 'ORIGINAL',
 }
 
-const STREAM_TYPE_INFO: any = {
-  [STREAM_TYPE.HLS]: {
-    field: 'hls_stream_url',
-    name: 'hls',
-  },
-  [STREAM_TYPE.PROXY]: {
-    field: 'proxy_stream_url',
-    name: 'proxy',
-  },
-  [STREAM_TYPE.ORIGINAL]: {
-    field: 'stream_url',
-    name: 'original',
-  },
-};
-const MAX_MEDIA_RETRIES = 20;
-
 enum PLAYBACK_STATE {
   STARTED = 'started',
   STOPPED = 'stopped',
-  PAUSED = 'paused',
   BUFFERING = 'buffering',
   PLAYING = 'playing',
-  ERROR = 'error',
 }
 
+const MAX_MEDIA_RETRIES = 20;
+
 export default function StationPlayer({stations}: any) {
+  const toast = useToast();
   const router = useRouter();
   const {station_slug} = router.query;
   const [retries, setRetries] = useState(MAX_MEDIA_RETRIES);
   const [playbackState, setPlaybackState] = useState(PLAYBACK_STATE.STOPPED);
-  const [hasInteracted, setHasInteracted] = useState(false);
-  const [volume, setVolume] = useLocalStorageState(60, 'AUDIO_PLAYER_VOLUME');
+  const [volume, setVolume] = useLocalStorageState(25, 'AUDIO_PLAYER_VOLUME');
   const [streamType, setStreamType] = useState(STREAM_TYPE.HLS);
 
-  const [, cancelPlayerTimeout, resetPlayerTimeout] = useTimeoutFn(async () => {
-    if ((playbackState === PLAYBACK_STATE.STARTED || playbackState === PLAYBACK_STATE.BUFFERING)) {
-      console.log("start timed out after 5 seconds, calling the retrying mechanism...", {playbackState});
-      if (!await retryMechanism()) {
-        setPlaybackState(PLAYBACK_STATE.ERROR)
+  useEffect(() => {
+    const audio = document.getElementById('audioPlayer') as HTMLAudioElement;
+    if (!audio) return;
+    audio.volume = volume / 100;
+  }, [volume]);
+
+  const loadHLS = (
+    hls_stream_url: string,
+    audio: HTMLAudioElement,
+    hls: Hls,
+  ) => {
+    if (Hls.isSupported()) {
+      hls.loadSource(hls_stream_url);
+      hls.attachMedia(audio);
+    } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
+      audio.src = hls_stream_url;
+    }
+
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      audio.play().catch(() => {
+        setPlaybackState(PLAYBACK_STATE.STOPPED);
+      });
+    });
+
+    hls.on(Hls.Events.ERROR, function (event, data) {
+      if (data.fatal) {
+        retryMechanism();
       }
-    }
-  }, 5000);
-  cancelPlayerTimeout();
-
-  useIdleTimer({
-    onAction: () => setHasInteracted(true),
-  });
+    });
+  };
 
   useEffect(() => {
-    if (playbackState === PLAYBACK_STATE.STARTED) {
-      resetPlayerTimeout();
+    const audio = document.getElementById('audioPlayer') as HTMLAudioElement;
+    if (!audio) return;
+
+    switch (playbackState) {
+      case PLAYBACK_STATE.STARTED:
+        audio.play().catch(() => {
+          setPlaybackState(PLAYBACK_STATE.STOPPED);
+        });
+        break;
+      case PLAYBACK_STATE.STOPPED:
+        audio.pause();
+        break;
     }
-  }, [station_slug, playbackState])
+  }, [playbackState]);
 
-  console.debug({station_slug, streamType, playbackState})
-
-  useEffect(() => {
-    canAutoplay.audio().then(({result}) => {
-      if (result) {
-        console.debug("can autoplay audio");
-        setHasInteracted(true);
-        setPlaybackState(PLAYBACK_STATE.STARTED);
-      }
-    })
-  }, [])
-
-  useEffect(() => {
-    setStreamType(STREAM_TYPE.HLS);
-    if (hasInteracted) {
-      setPlaybackState(PLAYBACK_STATE.STARTED);
-    }
-  }, [station_slug])
-
-  const station: Station = stations.find(
-    (station: { slug: string }) => station.slug === station_slug,
+  const station = stations.find(
+    (station: {slug: string}) => station.slug === station_slug,
   );
 
   if (!station) {
     return <></>;
   }
 
-  const nextRandomStation = () => {
-    const randomStation = stations[Math.floor(Math.random() * stations.length)];
-    router.push(`/radio/${randomStation.slug}`);
-  }
+  useEffect(() => {
+    const audio = document.getElementById('audioPlayer') as HTMLAudioElement;
+    if (!audio) return;
+    audio.volume = volume / 100;
 
-  // TODO: we might need to populate these from local storage
-  const retryMechanism = async () => {
-    console.debug('retryMechanism called', {streamType});
-    setRetries(retries - 1);
-    console.debug('remaining retries: ', retries);
-    if (retries > 0) {
-      await new Promise(r => setTimeout(r, 200));
+    return () => {
+      setStreamType(STREAM_TYPE.HLS);
+      setRetries(20);
+    };
+  }, [station.slug]);
 
-      if (streamType === STREAM_TYPE.HLS) {
-        console.debug('waiting 1s before changing to PROXY');
-        await new Promise(r => setTimeout(r, 1000));
-        setStreamType(STREAM_TYPE.PROXY);
-        return true;
-      }
-      if (streamType === STREAM_TYPE.PROXY) {
-        console.debug('waiting 1s before changing to ORIGINAL');
-        await new Promise(r => setTimeout(r, 1000));
-        setStreamType(STREAM_TYPE.ORIGINAL);
-        return true;
-      }
-      if (streamType === STREAM_TYPE.ORIGINAL) {
-        console.debug('waiting 1s before changing to HLS');
-        await new Promise(r => setTimeout(r, 1000));
-        setStreamType(STREAM_TYPE.HLS);
-        return true;
-      }
+  useEffect(() => {
+    const hls = new Hls();
+    const audio = document.getElementById('audioPlayer') as HTMLAudioElement;
+    if (!audio) return;
+
+    switch (streamType) {
+      case STREAM_TYPE.HLS:
+        loadHLS(station.hls_stream_url, audio, hls);
+        break;
+      case STREAM_TYPE.PROXY:
+        audio.src = station.proxy_stream_url;
+        audio.play().catch(() => {
+          setPlaybackState(PLAYBACK_STATE.STOPPED);
+        });
+        break;
+      case STREAM_TYPE.ORIGINAL:
+        audio.src = station.stream_url;
+        audio.play().catch(() => {
+          setPlaybackState(PLAYBACK_STATE.STOPPED);
+        });
     }
-    return false;
-  };
 
-  // @ts-ignore
-  const station_url = streamType === null ? null : station[STREAM_TYPE_INFO[streamType].field];
+    return () => {
+      hls.destroy();
+    };
+  }, [streamType, station.slug]);
+
+  const retryMechanism = () => {
+    const audio = document.getElementById('audioPlayer') as HTMLAudioElement;
+    if (!audio) return;
+
+    setRetries(retries - 1);
+    if (retries > 0) {
+      switch (streamType) {
+        case STREAM_TYPE.HLS:
+          setStreamType(STREAM_TYPE.PROXY);
+          break;
+        case STREAM_TYPE.PROXY:
+          setStreamType(STREAM_TYPE.ORIGINAL);
+          break;
+        case STREAM_TYPE.ORIGINAL:
+          setStreamType(STREAM_TYPE.HLS);
+          break;
+      }
+    } else {
+      toast({
+        title: `Nu s-a putut stabili o conexiune cu stația: ${station.title}`,
+        description: 'Vă rugăm să încercați mai târziu!',
+        status: 'error',
+        position: 'top',
+        duration: 8000,
+        isClosable: true,
+      });
+    }
+  };
 
   useEffect(() => {
     if ('mediaSession' in navigator) {
@@ -171,34 +183,6 @@ export default function StationPlayer({stations}: any) {
       }
     }
   }, [station]);
-
-  const actionHandlers = [
-    ['pause', () => {
-      console.debug("notification pause");
-      setPlaybackState(PLAYBACK_STATE.PAUSED);
-    }],
-    ['stop', () => {
-      console.debug("notification stop");
-      setPlaybackState(PLAYBACK_STATE.STOPPED);
-    }],
-    ['nexttrack', () => {
-      console.debug("notification nexttrack");
-      nextRandomStation();
-    }],
-  ];
-
-  for (const [action, handler] of actionHandlers) {
-    try {
-      // @ts-ignore
-      navigator.mediaSession.setActionHandler(action, handler);
-    } catch (error) {
-      console.log(`The media session action "${action}" is not supported yet.`);
-    }
-  }
-
-  // TODO: when the user click play, increase the number of listeners by 1
-  // Also, delay the updated by 500 ms, also optional we can add an animation when we update the listeners counter.. to emphasis it
-  // TODO: make the player mobile responsive
 
   useEffect(() => {
     if (playbackState === PLAYBACK_STATE.PLAYING) {
@@ -221,21 +205,19 @@ export default function StationPlayer({stations}: any) {
   const renderPlayButtonSvg = () => {
     switch (playbackState) {
       case PLAYBACK_STATE.STARTED:
-        return <Loading/>;
+        return <Loading />;
       case PLAYBACK_STATE.BUFFERING:
-        return <Loading/>;
+        return <Loading />;
       case PLAYBACK_STATE.PLAYING:
-        return <path
-          d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>;
+        return (
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" />
+        );
       default:
-        return <path
-          d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM9.5 16.5v-9l7 4.5-7 4.5z"/>;
+        return (
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM9.5 16.5v-9l7 4.5-7 4.5z" />
+        );
     }
-  }
-
-  const playbackEnabled = playbackState === PLAYBACK_STATE.STARTED || playbackState === PLAYBACK_STATE.PLAYING || playbackState === PLAYBACK_STATE.BUFFERING;
-  const url = playbackEnabled && station_url || (isIOS ? station_url : EMPTY_AUDIO);
-  console.debug({playbackEnabled, station_url, url})
+  };
 
   return (
     <Box
@@ -302,7 +284,7 @@ export default function StationPlayer({stations}: any) {
               {station.now_playing?.song?.artist.name}
             </Text>
           </Box>
-          <Spacer marginLeft={2}/>
+          <Spacer marginLeft={2} />
           <Box
             ml={{base: 4}}
             margin={'auto'}
@@ -317,9 +299,9 @@ export default function StationPlayer({stations}: any) {
                 setVolume(value as number);
               }}>
               <SliderTrack bg={{base: 'gray.400'}}>
-                <SliderFilledTrack bg={{base: 'white'}}/>
+                <SliderFilledTrack bg={{base: 'white'}} />
               </SliderTrack>
-              <SliderThumb boxSize={5}/>
+              <SliderThumb boxSize={5} />
             </Slider>
           </Box>
           <Flex
@@ -331,11 +313,17 @@ export default function StationPlayer({stations}: any) {
             <button
               name="Start/Stop"
               onClick={() => {
-                setPlaybackState(
-                  playbackState === PLAYBACK_STATE.PLAYING || playbackState === PLAYBACK_STATE.STARTED
-                    ? PLAYBACK_STATE.STOPPED
-                    : PLAYBACK_STATE.STARTED,
-                );
+                if (
+                  playbackState === PLAYBACK_STATE.PLAYING ||
+                  playbackState === PLAYBACK_STATE.STARTED
+                ) {
+                  setPlaybackState(PLAYBACK_STATE.STOPPED);
+                  return;
+                }
+
+                if (playbackState === PLAYBACK_STATE.STOPPED) {
+                  setPlaybackState(PLAYBACK_STATE.STARTED);
+                }
               }}>
               <Box fill={{base: 'white'}}>
                 <svg
@@ -348,62 +336,29 @@ export default function StationPlayer({stations}: any) {
                 </svg>
               </Box>
             </button>
-            <Box>
-              {/* it seems that on IOS, we are not allowed to change the audio url after interaction */}
-              <ReactPlayer
-                url={url}
-                width={0}
-                height={0}
-                playing={playbackEnabled}
-                volume={volume / 200}
-                playsinline={true}
-                disableDeferredLoading={true}
-                onBuffer={() => {
-                  console.debug('onBuffer');
-                  setPlaybackState(PLAYBACK_STATE.BUFFERING);
-                }}
-                onBufferEnd={() => {
-                  console.debug('onBufferEnd');
-                  setPlaybackState(PLAYBACK_STATE.PLAYING);
-                }}
-                onPlay={() => {
-                  console.debug('onPlay');
-                }}
-                onPause={() => {
-                  console.debug('onPause');
-                }}
-                onStart={() => {
-                  console.debug('onStart');
-                  setPlaybackState(PLAYBACK_STATE.STARTED);
-                }}
-                onReady={r => {
-                  console.debug('onReady');
-                }}
-                onEnded={() => {
-                  console.debug('onEnded');
-                }}
-                onError={async (error, ...args) => {
-                  if (error?.target?.error?.code === 4) {
-                    // Ignore this error as we know that we've passed an empty src attribute
-                    console.debug("Ignoring error: ", error?.target?.error, error, args);
-                    return;
-                  }
-                  console.trace('player onError:', error, args);
-                  if (!await retryMechanism()) {
-                    setPlaybackState(PLAYBACK_STATE.ERROR)
-                  }
-                }}
-                config={{
-                  file: {
-                    attributes: {
-                      autoPlay: hasInteracted,
-                    },
-                    forceAudio: isIOS ? true : playbackEnabled && streamType !== STREAM_TYPE.HLS,
-                    forceHLS: isIOS ? false : playbackEnabled && streamType === STREAM_TYPE.HLS
-                  },
-                }}
-              />
-            </Box>
+            <audio
+              preload="true"
+              autoPlay
+              id="audioPlayer"
+              onPlaying={() => {
+                setPlaybackState(PLAYBACK_STATE.PLAYING);
+              }}
+              onPlay={() => {
+                setPlaybackState(PLAYBACK_STATE.PLAYING);
+              }}
+              onPause={() => {
+                setPlaybackState(PLAYBACK_STATE.STOPPED);
+              }}
+              onLoadStart={() => {
+                setPlaybackState(PLAYBACK_STATE.BUFFERING);
+              }}
+              onLoadedData={() => {
+                setPlaybackState(PLAYBACK_STATE.STOPPED);
+              }}
+              onError={() => {
+                retryMechanism();
+              }}
+            />
           </Flex>
         </Flex>
       </Box>
