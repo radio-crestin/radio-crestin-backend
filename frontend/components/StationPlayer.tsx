@@ -371,7 +371,7 @@ export default function StationPlayer({stations}: any) {
               onPause={() => {
                 setPlaybackState(PLAYBACK_STATE.STOPPED);
               }}
-              onLoadStart={() => {
+              onWaiting={() => {
                 setPlaybackState(PLAYBACK_STATE.BUFFERING);
               }}
               onLoadedData={() => {
