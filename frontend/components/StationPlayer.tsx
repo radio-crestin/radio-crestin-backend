@@ -60,10 +60,21 @@ export default function StationPlayer({stations}: any) {
       audio.src = hls_stream_url;
     }
 
+    hls.on(Hls.Events.AUDIO_TRACK_LOADING, function () {
+      setPlaybackState(PLAYBACK_STATE.BUFFERING);
+    });
+
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
-      audio.play().catch(() => {
-        setPlaybackState(PLAYBACK_STATE.STOPPED);
-      });
+      setPlaybackState(PLAYBACK_STATE.BUFFERING);
+      audio.addEventListener(
+        'canplaythrough',
+        function () {
+          audio.play().catch(() => {
+            setPlaybackState(PLAYBACK_STATE.STOPPED);
+          });
+        },
+        {once: true},
+      );
     });
 
     hls.on(Hls.Events.ERROR, function (event, data) {
@@ -373,9 +384,6 @@ export default function StationPlayer({stations}: any) {
               }}
               onWaiting={() => {
                 setPlaybackState(PLAYBACK_STATE.BUFFERING);
-              }}
-              onLoadedData={() => {
-                setPlaybackState(PLAYBACK_STATE.STOPPED);
               }}
               onError={() => {
                 retryMechanism();
