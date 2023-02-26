@@ -19,6 +19,8 @@ Feel free to contribute to this project or get in touch with us at: contact@radi
 
 Obs. This project can be used only by christian organizations for non-comercial purposes.
 
+![Group 16 (1)](https://user-images.githubusercontent.com/43387542/221437741-3fc43f37-349a-45c5-b813-8acb6251c535.png)
+
 #### Development
 ```bash
 cd backend
