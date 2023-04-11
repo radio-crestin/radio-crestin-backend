@@ -11,7 +11,7 @@ export const getTopicMetadata = (topic_slug: string): Promise<any> => {
         operationName: 'getTopic',
         query: `
 query getTopic($topic_slug: String!) {
-  bible_topic(where: {topic_slug: {_eq: $topic_slug}}) {
+  bible_topic(where: {topic_slug: {_eq: $topic_slug}}, order_by: {book: asc, chapter: asc, verse_from: asc}) {
     id
     topic
     topic_slug
@@ -28,6 +28,7 @@ query getTopic($topic_slug: String!) {
     }
   }
 }
+
     `,
         variables: {
           topic_slug: topic_slug,
