@@ -112,3 +112,12 @@ export interface SeoMetadata {
   description?: string;
   keywords?: string;
 }
+
+export interface Topic {
+  topic: string;
+  topic_slug: string;
+}
+
+export interface TopicsMetadata {
+  topics: Topic[];
+}
