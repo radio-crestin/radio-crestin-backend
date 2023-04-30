@@ -1,4 +1,4 @@
-const nextRuntimeDotenv = require("next-runtime-dotenv");
+const nextRuntimeDotenv = require('next-runtime-dotenv');
 
 const withConfig = nextRuntimeDotenv({
   path: '.env',
@@ -10,7 +10,7 @@ const config = withConfig({
   reactStrictMode: true,
   output: 'standalone',
   images: {
-    formats: ['image/avif', 'image/webp'],
+    formats: ['image/webp'],
     domains: [
       'radio-crestin.s3.amazonaws.com',
       'cdn.pictures.aripisprecer.ro',
