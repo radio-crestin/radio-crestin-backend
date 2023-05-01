@@ -9,6 +9,7 @@ import {
   SliderTrack,
   Spacer,
   Text,
+  Tooltip,
   useToast,
 } from '@chakra-ui/react';
 import {useLocalStorageState} from '@/utils/state';
@@ -373,16 +374,18 @@ export default function StationPlayer({stations}: any) {
                   setPlaybackState(PLAYBACK_STATE.STARTED);
                 }
               }}>
-              <Box fill={{base: 'white'}}>
-                <svg
-                  width="50px"
-                  height="50px"
-                  focusable="false"
-                  aria-hidden="true"
-                  viewBox="0 0 24 24">
-                  {renderPlayButtonSvg()}
-                </svg>
-              </Box>
+              <Tooltip label="Start/Stop [Space]">
+                <Box fill={{base: 'white'}}>
+                  <svg
+                    width="50px"
+                    height="50px"
+                    focusable="false"
+                    aria-hidden="true"
+                    viewBox="0 0 24 24">
+                    {renderPlayButtonSvg()}
+                  </svg>
+                </Box>
+              </Tooltip>
             </button>
             <audio
               preload="true"
