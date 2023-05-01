@@ -3,16 +3,28 @@ import {useEffect} from 'react';
 const useSpaceBarPress = (callback: any) => {
   useEffect(() => {
     const handleKeyDown = (e: any) => {
+      const isInputOrTextArea = ['input', 'textarea', 'select'].includes(
+        e.target.tagName.toLowerCase(),
+      );
+
       if (
         e.keyCode === 32 &&
-        e.target.getAttribute('contentEditable') !== 'true'
+        e.target.getAttribute('contentEditable') !== 'true' &&
+        !isInputOrTextArea
       ) {
         e.preventDefault();
       }
     };
 
     const handleKeyPress = (e: any) => {
-      if (e.key === ' ' || e.code === 'Space' || e.keyCode === 32) {
+      const isInputOrTextArea = ['input', 'textarea', 'select'].includes(
+        e.target.tagName.toLowerCase(),
+      );
+
+      if (
+        (e.key === ' ' || e.code === 'Space' || e.keyCode === 32) &&
+        !isInputOrTextArea
+      ) {
         callback();
       }
     };
