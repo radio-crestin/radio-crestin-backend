@@ -1,6 +1,6 @@
 import {useEffect} from 'react';
 
-const useSpaceBarPress = (callback: any) => {
+const useSpaceBarPress = (callback: () => void) => {
   useEffect(() => {
     const handleKeyDown = (e: any) => {
       const isInputOrTextArea = ['input', 'textarea', 'select'].includes(
