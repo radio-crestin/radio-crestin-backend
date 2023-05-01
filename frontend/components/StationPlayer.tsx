@@ -17,6 +17,7 @@ import {CONSTANTS} from '../lib/constants';
 import {Loading} from '@/public/images/loading';
 import {ImageWithFallback} from '@/components/ImageWithFallback/ImageWithFallback';
 import Hls from 'hls.js';
+import useSpaceBarPress from '@/hooks/useSpaceBarPress';
 
 enum STREAM_TYPE {
   HLS = 'HLS',
@@ -225,6 +226,20 @@ export default function StationPlayer({stations}: any) {
     }, 30 * 1000);
     return () => clearInterval(timer);
   }, [playbackState]);
+
+  useSpaceBarPress(() => {
+    if (
+      playbackState === PLAYBACK_STATE.PLAYING ||
+      playbackState === PLAYBACK_STATE.STARTED
+    ) {
+      setPlaybackState(PLAYBACK_STATE.STOPPED);
+      return;
+    }
+
+    if (playbackState === PLAYBACK_STATE.STOPPED) {
+      setPlaybackState(PLAYBACK_STATE.STARTED);
+    }
+  });
 
   const nextRandomStation = () => {
     const upStations = stations.filter(
