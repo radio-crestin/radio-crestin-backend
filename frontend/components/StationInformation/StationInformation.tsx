@@ -108,10 +108,12 @@ export default function StationInformation(props: any) {
 
       <Flex>
         <ReactStars
+          key={`rating-${station.id}`}
           count={5}
           onChange={(rating: any) => onRatingChange(rating)}
           size={20}
           value={StationRating}
+          isHalf={true}
           activeColor="#fe7f38"
         />
         {/* @ts-ignore */}
