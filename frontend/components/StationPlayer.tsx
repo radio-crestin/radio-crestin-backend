@@ -246,9 +246,15 @@ export default function StationPlayer({stations}: any) {
     const upStations = stations.filter(
       (station: any) => station.uptime.is_up === true,
     );
-    const randomStation =
-      upStations[Math.floor(Math.random() * stations.length)];
-    router.push(`/radio/${randomStation.slug}`);
+
+    // Find the index of the current ID
+    const currentIndex = upStations.findIndex((s: any) => s.id === station.id);
+
+    // Increment the index to move to the next ID
+    const nextIndex = currentIndex + 1;
+    const nextStation = upStations[nextIndex % upStations.length];
+
+    router.push(`/radio/${nextStation.slug}`);
   };
 
   const renderPlayButtonSvg = () => {
