@@ -312,7 +312,10 @@ export default function StationPlayer({stations}: any) {
           mt={{base: 0}}
           ml={{base: 4}}
           flexDirection={{base: 'row'}}>
-          <Box>
+          <Box
+            display={'flex'}
+            flexDirection={'column'}
+            justifyContent={'center'}>
             <Text
               as="h2"
               fontSize={{base: 'sm'}}
