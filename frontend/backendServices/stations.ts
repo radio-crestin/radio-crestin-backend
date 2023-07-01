@@ -4,11 +4,12 @@ import {PROJECT_ENV} from '@/utils/env';
 const cachios = require('cachios');
 
 export const getStationsMetadata = (): Promise<StationsMetadata> => {
-  return cachios.post(
-    PROJECT_ENV.FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_URI,
-    {
-      operationName: 'GetStations',
-      query: `
+  return cachios
+    .post(
+      PROJECT_ENV.FRONTEND_GRAPHQL_INTERNAL_ENDPOINT_URI,
+      {
+        operationName: 'GetStations',
+        query: `
 query GetStations {
   stations(order_by: {order: asc}) {
     id
@@ -21,7 +22,7 @@ query GetStations {
     proxy_stream_url
     hls_stream_url
     thumbnail_url
-    radio_crestin_listeners
+    total_listeners
     description
     description_action_title
     description_link
@@ -42,7 +43,6 @@ query GetStations {
     now_playing {
       id
       timestamp
-      listeners
       song {
         id
         name
@@ -73,22 +73,23 @@ query GetStations {
 }
 
     `,
-      variables: {},
-    },
-    {
-      headers: {
-        'content-type': 'application/json',
+        variables: {},
       },
-      ttl: 5,
-    }
-  ).then(function (response: any) {
-    if (!response.data?.data) {
-      throw new Error(`Invalid response: ${JSON.stringify(response.data)}`);
-    }
+      {
+        headers: {
+          'content-type': 'application/json',
+        },
+        ttl: 5,
+      },
+    )
+    .then(function (response: any) {
+      if (!response.data?.data) {
+        throw new Error(`Invalid response: ${JSON.stringify(response.data)}`);
+      }
 
-    return {
-      station_groups: response.data.data.station_groups,
-      stations: response.data.data.stations,
-    };
-  });
+      return {
+        station_groups: response.data.data.station_groups,
+        stations: response.data.data.stations,
+      };
+    });
 };

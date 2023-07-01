@@ -21,7 +21,6 @@ select_permissions:
     permission:
       columns:
         - id
-        - listeners
         - song_id
         - station_id
         - timestamp

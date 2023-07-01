@@ -29,8 +29,8 @@ const StationItem = ({
   station: Station;
   is_listening?: boolean;
 }) => {
-  const numberOfListeners = station?.now_playing?.listeners
-    ? station?.now_playing?.listeners + (is_listening ? 1 : 0)
+  const numberOfListeners = station?.total_listeners
+    ? station?.total_listeners + (is_listening ? 1 : 0)
     : null;
   const [isTabletOrMobile] = useMediaQuery('(max-width: 1024px)');
   return (

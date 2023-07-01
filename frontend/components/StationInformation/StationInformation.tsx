@@ -32,8 +32,8 @@ export default function StationInformation(props: any) {
     Math.round(
       (average(station?.reviews?.map((i: any) => i.stars) || []) || 0) * 10,
     ) / 10;
-  const numberOfListeners = station?.now_playing?.listeners
-    ? station?.now_playing?.listeners + 1
+  const numberOfListeners = station?.total_listeners
+    ? station?.total_listeners + 1
     : null;
   const latestPost = station.posts[0];
   const toast = useToast();

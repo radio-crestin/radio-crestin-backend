@@ -14,7 +14,6 @@ export interface Artist {
 export interface StationNowPlaying {
   id: number;
   timestamp: string;
-  listeners: number | null;
   song: Song | null;
 }
 
@@ -51,7 +50,7 @@ export interface Station {
   proxy_stream_url: string;
   hls_stream_url: string;
   thumbnail_url: string | null;
-  radio_crestin_listeners: number;
+  total_listeners: number;
   description: string | null;
   description_action_title: string | null;
   description_link: string | null;

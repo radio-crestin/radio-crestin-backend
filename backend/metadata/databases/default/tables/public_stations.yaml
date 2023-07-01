@@ -74,6 +74,11 @@ computed_fields:
       function:
         name: radio_crestin_listeners
         schema: public
+  - name: total_listeners
+    definition:
+      function:
+        name: stations_total_listeners
+        schema: public
 select_permissions:
   - role: public
     permission:
@@ -100,5 +105,5 @@ select_permissions:
       computed_fields:
         - hls_stream_url
         - proxy_stream_url
-        - radio_crestin_listeners
+        - total_listeners
       filter: {}
