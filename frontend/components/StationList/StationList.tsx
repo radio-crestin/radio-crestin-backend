@@ -14,6 +14,8 @@ import {
   useMediaQuery,
 } from '@chakra-ui/react';
 import {ImageWithFallback} from '../ImageWithFallback/ImageWithFallback';
+import {ViewIcon} from '@chakra-ui/icons';
+import {useRouter} from 'next/router';
 
 const StationMetadata = dynamic(
   () => import('@/components/StationMetadata/StationMetadata'),
@@ -22,11 +24,14 @@ const StationMetadata = dynamic(
 
 const StationItem = ({
   station,
-  priority,
+  is_listening,
 }: {
   station: Station;
-  priority?: boolean;
+  is_listening?: boolean;
 }) => {
+  const numberOfListeners = station?.now_playing?.listeners
+    ? station?.now_playing?.listeners + (is_listening ? 1 : 0)
+    : null;
   const [isTabletOrMobile] = useMediaQuery('(max-width: 1024px)');
   return (
     <Box position={'relative'} role="group">
@@ -37,6 +42,24 @@ const StationItem = ({
           overflow={'hidden'}
           height={250}
           width={250}>
+          {numberOfListeners && (
+            <Text
+              position={'absolute'}
+              display={'flex'}
+              justifyContent={'center'}
+              alignItems={'center'}
+              background={'rgba(0,0,0,0.68)'}
+              color={'white'}
+              paddingX={1}
+              borderRadius={10}
+              right={4}
+              top={3}
+              fontSize={14}
+              gap={1}>
+              <ViewIcon />
+              {numberOfListeners}
+            </Text>
+          )}
           <ImageWithFallback
             src={
               station.now_playing?.song?.thumbnail_url ||
@@ -90,12 +113,18 @@ const StationItem = ({
 };
 
 export default function StationList({
-                                      station_group,
-                                      stations,
-                                    }: {
+  station_group,
+  stations,
+}: {
   station_group: StationGroup;
   stations: Station[];
 }) {
+  const route = useRouter();
+  // @ts-ignore
+  const selectedStation: Station = stations.find(
+    s => s.slug === route.asPath.split('/')[2],
+  );
+
   return (
     <Center>
       <Grid
@@ -109,7 +138,7 @@ export default function StationList({
         }}
         gap={9}>
         {Object.values(stations).length > 0 ? (
-          Object.values(stations).map((station: Station, index): any => (
+          Object.values(stations).map((station: Station): any => (
             <GridItem as="button" key={station.id}>
               <Link
                 prefetch={false}
@@ -118,7 +147,10 @@ export default function StationList({
                 )}/${encodeURIComponent(station.slug)}`}
                 scroll={false}
                 passHref>
-                <StationItem station={station} />
+                <StationItem
+                  station={station}
+                  is_listening={station === selectedStation || false}
+                />
               </Link>
             </GridItem>
           ))

@@ -9,6 +9,7 @@ import {
   SliderTrack,
   Spacer,
   Text,
+  Tooltip,
   useToast,
 } from '@chakra-ui/react';
 import {useLocalStorageState} from '@/utils/state';
@@ -17,6 +18,7 @@ import {CONSTANTS} from '../lib/constants';
 import {Loading} from '@/public/images/loading';
 import {ImageWithFallback} from '@/components/ImageWithFallback/ImageWithFallback';
 import Hls from 'hls.js';
+import useSpaceBarPress from '@/hooks/useSpaceBarPress';
 
 enum STREAM_TYPE {
   HLS = 'HLS',
@@ -226,13 +228,33 @@ export default function StationPlayer({stations}: any) {
     return () => clearInterval(timer);
   }, [playbackState]);
 
+  useSpaceBarPress(() => {
+    if (
+      playbackState === PLAYBACK_STATE.PLAYING ||
+      playbackState === PLAYBACK_STATE.STARTED
+    ) {
+      setPlaybackState(PLAYBACK_STATE.STOPPED);
+      return;
+    }
+
+    if (playbackState === PLAYBACK_STATE.STOPPED) {
+      setPlaybackState(PLAYBACK_STATE.STARTED);
+    }
+  });
+
   const nextRandomStation = () => {
     const upStations = stations.filter(
       (station: any) => station.uptime.is_up === true,
     );
-    const randomStation =
-      upStations[Math.floor(Math.random() * stations.length)];
-    router.push(`/radio/${randomStation.slug}`);
+
+    // Find the index of the current ID
+    const currentIndex = upStations.findIndex((s: any) => s.id === station.id);
+
+    // Increment the index to move to the next ID
+    const nextIndex = currentIndex + 1;
+    const nextStation = upStations[nextIndex % upStations.length];
+
+    router.push(`/radio/${nextStation.slug}`);
   };
 
   const renderPlayButtonSvg = () => {
@@ -296,7 +318,10 @@ export default function StationPlayer({stations}: any) {
           mt={{base: 0}}
           ml={{base: 4}}
           flexDirection={{base: 'row'}}>
-          <Box>
+          <Box
+            display={'flex'}
+            flexDirection={'column'}
+            justifyContent={'center'}>
             <Text
               as="h2"
               fontSize={{base: 'sm'}}
@@ -358,16 +383,18 @@ export default function StationPlayer({stations}: any) {
                   setPlaybackState(PLAYBACK_STATE.STARTED);
                 }
               }}>
-              <Box fill={{base: 'white'}}>
-                <svg
-                  width="50px"
-                  height="50px"
-                  focusable="false"
-                  aria-hidden="true"
-                  viewBox="0 0 24 24">
-                  {renderPlayButtonSvg()}
-                </svg>
-              </Box>
+              <Tooltip label="Start/Stop [Space]">
+                <Box fill={{base: 'white'}}>
+                  <svg
+                    width="50px"
+                    height="50px"
+                    focusable="false"
+                    aria-hidden="true"
+                    viewBox="0 0 24 24">
+                    {renderPlayButtonSvg()}
+                  </svg>
+                </Box>
+              </Tooltip>
             </button>
             <audio
               preload="true"

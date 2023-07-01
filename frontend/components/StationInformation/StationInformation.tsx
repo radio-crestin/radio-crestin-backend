@@ -32,7 +32,9 @@ export default function StationInformation(props: any) {
     Math.round(
       (average(station?.reviews?.map((i: any) => i.stars) || []) || 0) * 10,
     ) / 10;
-  const NumberOfListeners = station?.now_playing?.listeners || null;
+  const numberOfListeners = station?.now_playing?.listeners
+    ? station?.now_playing?.listeners + 1
+    : null;
   const latestPost = station.posts[0];
   const toast = useToast();
 
@@ -106,10 +108,12 @@ export default function StationInformation(props: any) {
 
       <Flex>
         <ReactStars
+          key={`rating-${station.id}`}
           count={5}
           onChange={(rating: any) => onRatingChange(rating)}
           size={20}
           value={StationRating}
+          isHalf={true}
           activeColor="#fe7f38"
         />
         {/* @ts-ignore */}
@@ -137,9 +141,9 @@ export default function StationInformation(props: any) {
         )}
       </Flex>
 
-      {NumberOfListeners && (
+      {numberOfListeners && (
         <Text fontSize={{base: 'sm', lg: 'md'}}>
-          {NumberOfListeners} persoane ascultă împreună cu tine acest radio
+          {numberOfListeners} persoane ascultă împreună cu tine acest radio
         </Text>
       )}
 

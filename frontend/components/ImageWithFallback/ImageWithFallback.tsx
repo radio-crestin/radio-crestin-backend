@@ -5,9 +5,9 @@ import {Image} from '@chakra-ui/react';
 import {ImageProps} from '@chakra-ui/image';
 
 export const ImageWithFallback = ({
-                                    fallbackSrc,
-                                    ...props
-                                  }: ImageProps & { fallbackSrc: string }) => {
+  fallbackSrc,
+  ...props
+}: ImageProps & {fallbackSrc: string}) => {
   const [error, setError] = useState(false);
 
   useEffect(() => {
@@ -16,17 +16,15 @@ export const ImageWithFallback = ({
 
   return (
     <Image
-      {...{
-        onError: () => setError(true),
-        htmlHeight: 250,
-        htmlWidth: 250,
-        loading: 'lazy',
-        ...props,
-        src: cdnImageLoader({
-          src: error ? fallbackSrc : props.src,
-          width: 256,
-        }),
-      }}
+      {...props}
+      onError={() => setError(true)}
+      htmlHeight={250}
+      htmlWidth={250}
+      loading={'lazy'}
+      src={cdnImageLoader({
+        src: error ? fallbackSrc : props.src,
+        width: 256,
+      })}
       draggable={false}
     />
   );
