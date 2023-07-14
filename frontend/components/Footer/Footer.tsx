@@ -27,6 +27,11 @@ export default function Footer() {
               API
             </Link>
           </Box>
+          <Box ml={{base: 4, lg: 6}} mb={24}>
+            <Link key="privacy-policy" href="/privacy-policy" isExternal>
+              Politică de confidențialitate
+            </Link>
+          </Box>
         </Flex>
       </SimpleGrid>
     </>
