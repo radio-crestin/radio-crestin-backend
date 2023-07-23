@@ -35,13 +35,17 @@ export default function DownloadAppBanner() {
               alt={'AppStore Image Radio Crestin'}
             />
           </Link>
-          <Link href="https://play.google.com/store/apps/details?id=com.radiocrestin.radio_crestin&hl=en_US">
+          <Link
+            href="https://play.google.com/store/apps/details?id=com.radiocrestin.radio_crestin&hl=en_US"
+            style={{position: 'relative'}}>
             <Image
+              className={styles.playstore_link}
               src={'/images/playstore.svg'}
               width={150}
               height={53}
               alt={'PlayStore Image Radio Crestin'}
             />
+            <p className={styles.beta}>BETA</p>
           </Link>
         </Box>
       </Box>
