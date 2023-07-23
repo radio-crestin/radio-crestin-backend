@@ -1,0 +1,44 @@
+@use '../../styles/mixinHelper';
+
+.image_iphone12 {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+
+  @include mixinHelper.onTablet {
+    display: none;
+  }
+}
+
+.image_iphone12_mobile {
+  display: none;
+  position: relative;
+  margin: 0 auto;
+  padding: 20px 20px 0;
+
+  @include mixinHelper.onTablet {
+    display: block;
+  }
+}
+
+.image_qr_code {
+  display: block;
+  position: absolute;
+  top: 20px;
+  right: 20px;
+
+  @include mixinHelper.onTablet {
+    display: none;
+  }
+}
+
+.beta {
+  position: absolute;
+  right: -15px;
+  top: -10px;
+  background-color: #f12f2f;
+  border-radius: 20px;
+  padding: 0 5px;
+  color: white;
+  font-size: 14px;
+}

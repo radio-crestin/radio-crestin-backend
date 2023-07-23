@@ -5,11 +5,7 @@ import React from 'react';
 export default function Footer() {
   return (
     <>
-      <SimpleGrid
-        columns={{base: 1}}
-        mt={{base: 3, lg: 20}}
-        h={'fit-content'}
-        alignItems={'left'}>
+      <SimpleGrid columns={{base: 1}} h={'fit-content'} alignItems={'left'}>
         <Flex justifyContent={{base: 'center', sm: 'left'}}>
           <Box>
             <Link
