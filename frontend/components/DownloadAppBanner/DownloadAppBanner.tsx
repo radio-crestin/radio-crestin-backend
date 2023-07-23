@@ -15,7 +15,10 @@ export default function DownloadAppBanner() {
       background={'#c6eaff'}
       position={'relative'}
       justifyContent={'space-between'}>
-      <Box paddingLeft={{base: '20px', md: '60px'}} paddingBottom={20}>
+      <Box
+        minW={{md: '390px', lg: '625px'}}
+        paddingLeft={{base: '20px', md: '60px'}}
+        paddingBottom={20}>
         <Text fontSize={32} fontWeight={700} letterSpacing={0.7}>
           Descarcă aplicația Radio Creștin
         </Text>

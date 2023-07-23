@@ -2,9 +2,10 @@
 
 .image_iphone12 {
   position: absolute;
+  right: 0;
   bottom: 0;
 
-  @include mixinHelper.onMobile {
+  @include mixinHelper.onTablet {
     display: none;
   }
 }
@@ -15,7 +16,7 @@
   margin: 0 auto;
   padding: 20px 20px 0;
 
-  @include mixinHelper.onMobile {
+  @include mixinHelper.onTablet {
     display: block;
   }
 }
