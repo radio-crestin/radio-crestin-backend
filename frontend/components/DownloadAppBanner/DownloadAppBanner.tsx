@@ -1,6 +1,7 @@
 import React from 'react';
-import {Box, Text} from '@chakra-ui/react';
+import Link from 'next/link';
 import Image from 'next/image';
+import {Box, Text} from '@chakra-ui/react';
 import styles from './DownloadAppBanner.module.scss';
 
 export default function DownloadAppBanner() {
@@ -23,18 +24,22 @@ export default function DownloadAppBanner() {
           reclame.
         </Text>
         <Box mt={5} display={'flex'} gap={2} alignItems={'center'}>
-          <Image
-            src={'/images/appstore.svg'}
-            width={150}
-            height={54}
-            alt={'AppStore Image Radio Crestin'}
-          />
-          <Image
-            src={'/images/playstore.svg'}
-            width={150}
-            height={53}
-            alt={'PlayStore Image Radio Crestin'}
-          />
+          <Link href="https://apps.apple.com/app/6451270471">
+            <Image
+              src={'/images/appstore.svg'}
+              width={150}
+              height={54}
+              alt={'AppStore Image Radio Crestin'}
+            />
+          </Link>
+          <Link href="https://play.google.com/store/apps/details?id=com.radiocrestin.radio_crestin&hl=en_US">
+            <Image
+              src={'/images/playstore.svg'}
+              width={150}
+              height={53}
+              alt={'PlayStore Image Radio Crestin'}
+            />
+          </Link>
         </Box>
       </Box>
       <Box
