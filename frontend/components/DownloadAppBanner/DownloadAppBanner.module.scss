@@ -1,0 +1,32 @@
+@use '../../styles/mixinHelper';
+
+.image_iphone12 {
+  position: absolute;
+  bottom: 0;
+
+  @include mixinHelper.onMobile {
+    display: none;
+  }
+}
+
+.image_iphone12_mobile {
+  display: none;
+  position: relative;
+  margin: 0 auto;
+  padding: 20px 20px 0;
+
+  @include mixinHelper.onMobile {
+    display: block;
+  }
+}
+
+.image_qr_code {
+  display: block;
+  position: absolute;
+  top: 20px;
+  right: 20px;
+
+  @include mixinHelper.onTablet {
+    display: none;
+  }
+}
