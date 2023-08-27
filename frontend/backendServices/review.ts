@@ -18,7 +18,7 @@ export const postReview = (review: Review): Promise<{done: boolean}> => {
   $ip_address: String!
   $session_id: String!
   $station_id: Int!
-  $stars: Int!
+  $stars: Float!
   $message: String
 ) {
   insert_reviews_one(
