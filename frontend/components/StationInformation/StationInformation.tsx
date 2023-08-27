@@ -72,28 +72,6 @@ export default function StationInformation(props: any) {
       });
     }
   };
-  const onRatingChange = async (stars: number) => {
-    const {done} = await postReviewClientSide({
-      user_name: null,
-      station_id: station.id,
-      stars: userReviewStars,
-      message: null,
-    });
-    if (done) {
-      setUserReviewStars(stars);
-      setUserReviewMessage('');
-      onOpen();
-    } else {
-      toast({
-        title: 'A apărut o eroare neașteptată.',
-        description: 'Vă rugăm să încercați mai târziu!',
-        status: 'error',
-        position: 'top',
-        duration: 4000,
-        isClosable: true,
-      });
-    }
-  };
 
   return (
     <Flex direction={'column'} pl={{base: 0, lg: 4}}>
@@ -110,7 +88,11 @@ export default function StationInformation(props: any) {
         <ReactStars
           key={`rating-${station.id}`}
           count={5}
-          onChange={(rating: any) => onRatingChange(rating)}
+          onChange={(rating: number) => {
+            setUserReviewStars(rating);
+            setUserReviewMessage('');
+            onOpen();
+          }}
           size={20}
           value={StationRating}
           isHalf={true}
