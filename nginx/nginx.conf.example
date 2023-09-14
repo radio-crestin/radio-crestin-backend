@@ -17,9 +17,9 @@ http {
       tcp_nopush   on;
       server_names_hash_bucket_size 128; # this seems to be required for some vhosts
       proxy_cache_path  /tmp/nginx-cache  levels=1:2    keys_zone=STATIC:10m inactive=24h  max_size=1g;
-
+    
     limit_conn_zone $binary_remote_addr zone=conn_limit_per_ip:10m;
-    limit_req_zone $binary_remote_addr zone=req_limit_per_ip:10m rate=60r/m;
+    limit_req_zone $binary_remote_addr zone=req_limit_per_ip:10m rate=120r/m;
 
     upstream staging_upstream {
        server host.docker.internal:18080;
@@ -89,7 +89,7 @@ http {
         include       common.conf;
         location / {
 	    limit_conn conn_limit_per_ip 50;
-            limit_req zone=req_limit_per_ip burst=200;
+            limit_req zone=req_limit_per_ip burst=300;
 
 	    include     common_location.conf;
             proxy_pass http://frontend_upstream;
@@ -122,7 +122,7 @@ http {
         include       common.conf;
         location / {
 	    limit_conn conn_limit_per_ip 10;
-            limit_req zone=req_limit_per_ip burst=120;
+            limit_req zone=req_limit_per_ip burst=200;
 
 	    include     common_location.conf;
             include     common_caching.conf;
