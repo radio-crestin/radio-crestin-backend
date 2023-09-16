@@ -35,3 +35,9 @@ export const seoNotFoundPage = {
 export const seoInternalErrorPage = {
   title: `A apărut o eroare neașteptată`,
 };
+
+export const seoPrivacyPolicy = {
+  title: `Politica de confidențialitate`,
+  description: `Politica de confidențialitate a site-ului Radio-Crestin.com`,
+  keywords: ``,
+};
