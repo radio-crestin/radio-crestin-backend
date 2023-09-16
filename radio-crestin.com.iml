@@ -5,9 +5,13 @@
       <configuration sdkName="Python 3.8" />
     </facet>
   </component>
+  <component name="Go" enabled="true" />
   <component name="NewModuleRootManager" inherit-compiler-output="true">
     <exclude-output />
     <content url="file://$MODULE_DIR$">
+      <excludeFolder url="file://$MODULE_DIR$/android/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/android/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/android/build" />
       <excludeFolder url="file://$MODULE_DIR$/backend/admin/venv" />
     </content>
     <orderEntry type="sourceFolder" forTests="false" />
