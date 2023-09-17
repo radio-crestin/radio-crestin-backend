@@ -1,4 +1,4 @@
-import {getStationsMetadata} from '../../../backendServices/stations';
+import {getStations} from '../../../backendServices/stations';
 import {NextApiRequest, NextApiResponse} from 'next';
 import {StationsMetadata} from '../../../types';
 
@@ -10,7 +10,7 @@ export default function handler(
     'Cache-Control',
     'public, s-maxage=1, stale-while-revalidate=5',
   );
-  return getStationsMetadata().then(stationsMetadata => {
+  return getStations().then(stationsMetadata => {
     res.status(200).json(stationsMetadata);
   });
 }

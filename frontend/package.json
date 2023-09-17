@@ -12,6 +12,7 @@
     "build-and-start": "yarn run build && yarn run start"
   },
   "dependencies": {
+    "@apollo/client": "3.8.3",
     "@chakra-ui/icons": "^2.0.19",
     "@chakra-ui/react": "^2.7.1",
     "@emotion/react": "^11",
@@ -24,6 +25,7 @@
     "cookie-session": "^2.0.0",
     "cross-env": "^7.0.3",
     "framer-motion": "^10",
+    "graphql": "16.8.0",
     "hls.js": "1.4.6",
     "next": "13.4.7",
     "next-runtime-dotenv": "^1.5.1",

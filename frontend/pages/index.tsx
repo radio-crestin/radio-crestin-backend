@@ -1,7 +1,7 @@
 import React, {useEffect} from 'react';
 import {useRouter} from 'next/router';
 import {useToast} from '@chakra-ui/react';
-import {getStationsMetadata} from '../backendServices/stations';
+import {getStations} from '../backendServices/stations';
 import {StationsMetadata} from '../types';
 import StationPage from './[station_category_slug]/[station_slug]';
 import {seoHomepage} from '@/utils/seo';
@@ -44,7 +44,7 @@ export async function getServerSideProps(context: any) {
     'public, s-maxage=10, stale-while-revalidate=59',
   );
   const host = req.headers.host;
-  const stations_metadata = await getStationsMetadata();
+  const stations_metadata = await getStations();
   return {
     props: {
       stations_metadata,
