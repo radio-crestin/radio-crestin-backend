@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 
 import Analytics from '@/components/Analytics/Analytics';
 import Body from '@/components/Body/Body';
-import {getStations} from '../../backendServices/stations';
+import {getStationsMetadata} from '../../backendServices/stations';
 import {
   SeoMetadata,
   Station,
@@ -125,10 +125,10 @@ export async function getServerSideProps(context: any) {
     'Cache-Control',
     'public, s-maxage=10, stale-while-revalidate=59',
   );
-  const stations_metadata = await getStations();
+  const stations_metadata = await getStationsMetadata();
   const {station_category_slug, station_slug} = query;
-  const stationData = stations_metadata.station_groups.find(
-    (group: {slug: string}) => group.slug === station_category_slug,
+  const stationData = stations_metadata.stations.find(
+    station => station.slug === station_slug,
   );
   const {pathname} = parse(req.url, true);
   const host = req.headers.host;

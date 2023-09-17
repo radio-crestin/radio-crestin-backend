@@ -1,5 +1,6 @@
+import React from 'react';
 import {StationsMetadata} from '../../types';
-import {getStations} from '../../backendServices/stations';
+import {getStationsMetadata} from '../../backendServices/stations';
 import StationPage from './[station_slug]';
 import {seoCategory} from '@/utils/seo';
 import {parse} from 'url';
@@ -27,13 +28,13 @@ export async function getServerSideProps(context: any) {
     'Cache-Control',
     'public, s-maxage=10, stale-while-revalidate=59',
   );
-  const stations_metadata = await getStations();
+  const stations_metadata = await getStationsMetadata();
   const {station_category_slug} = query;
   const {pathname} = parse(req.url, true);
   const host = req.headers.host;
 
   const stationData = stations_metadata.station_groups.find(
-    (group: {slug: string}) => group.slug === station_category_slug,
+    group => group.slug === station_category_slug,
   );
 
   if (!stationData) {
