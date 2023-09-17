@@ -3,6 +3,10 @@ import {PROJECT_ENV} from '@/utils/env';
 
 const cachios = require('cachios');
 
+// A variable to store the last good API response data
+let lastGoodData: StationsMetadata | null = null;
+
+// Function to get station metadata
 export const getStationsMetadata = (): Promise<StationsMetadata> => {
   return cachios
     .post(
@@ -71,8 +75,7 @@ query GetStations {
     }
   }
 }
-
-    `,
+        `,
         variables: {},
       },
       {
@@ -82,14 +85,29 @@ query GetStations {
         ttl: 5,
       },
     )
-    .then(function (response: any) {
+    .then((response: any) => {
       if (!response.data?.data) {
-        throw new Error(`Invalid response: ${JSON.stringify(response.data)}`);
+        if (lastGoodData) {
+          return lastGoodData;
+        } else {
+          throw new Error(`Invalid response: ${JSON.stringify(response.data)}`);
+        }
       }
 
-      return {
+      const stationsMetadata: StationsMetadata = {
         station_groups: response.data.data.station_groups,
         stations: response.data.data.stations,
       };
+
+      lastGoodData = stationsMetadata;
+
+      return stationsMetadata;
+    })
+    .catch((error: any) => {
+      if (lastGoodData) {
+        return Promise.resolve(lastGoodData);
+      } else {
+        return Promise.reject(error);
+      }
     });
 };
