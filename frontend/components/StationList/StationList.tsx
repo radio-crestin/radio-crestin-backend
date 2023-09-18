@@ -29,6 +29,11 @@ const StationItem = ({
   station: Station;
   is_listening?: boolean;
 }) => {
+  const metadataUpToDate = station?.now_playing?.timestamp
+    ? new Date().getTime() - new Date(station.now_playing.timestamp).getTime() <
+      1000 * 60 // 60 seconds
+    : false;
+
   const numberOfListeners = station?.total_listeners
     ? station?.total_listeners + (is_listening ? 1 : 0)
     : null;
@@ -42,7 +47,7 @@ const StationItem = ({
           overflow={'hidden'}
           height={250}
           width={250}>
-          {numberOfListeners && (
+          {metadataUpToDate && numberOfListeners && (
             <Text
               position={'absolute'}
               display={'flex'}
@@ -75,7 +80,7 @@ const StationItem = ({
               height: '100%',
             }}
           />
-          {!station?.uptime?.is_up && (
+          {metadataUpToDate && !station?.uptime?.is_up && (
             <Box
               position={'absolute'}
               bottom={0}
@@ -102,7 +107,9 @@ const StationItem = ({
           )}
         </Box>
       </AspectRatio>
-      {!isTabletOrMobile && <StationMetadata {...station} />}
+      {metadataUpToDate && !isTabletOrMobile && (
+        <StationMetadata {...station} />
+      )}
       <Center mt={3}>
         <Text fontSize="sm" fontWeight="300" noOfLines={1} mt={'-3px'}>
           {station.title}
