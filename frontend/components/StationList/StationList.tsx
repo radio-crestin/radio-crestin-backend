@@ -29,6 +29,7 @@ const StationItem = ({
   station: Station;
   is_listening?: boolean;
 }) => {
+  // TODO: calculate this on the backend
   const metadataUpToDate = station?.now_playing?.timestamp
     ? new Date().getTime() - new Date(station.now_playing.timestamp).getTime() <
       1000 * 60 // 60 seconds
