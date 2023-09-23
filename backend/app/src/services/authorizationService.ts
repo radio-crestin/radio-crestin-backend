@@ -1,7 +1,6 @@
 import { Request } from "express";
-import axios from "axios";
+import axios, {AxiosRequestConfig} from "axios";
 import {PROJECT_ENV} from "@/env";
-import {RetryableAxiosRequestConfig} from "@/types";
 
 export const authenticationService = (req: Request): Promise<any> => {
 
@@ -24,10 +23,9 @@ export const authenticationService = (req: Request): Promise<any> => {
       };
     }
 
-    const options: RetryableAxiosRequestConfig = {
+    const options: AxiosRequestConfig = {
       method: "POST",
       url: PROJECT_ENV.APP_GRAPHQL_ENDPOINT_URI,
-      retryOnErrorWithSocks5: true,
       headers: {
         "content-type": "application/json",
         "x-hasura-admin-secret": PROJECT_ENV.APP_GRAPHQL_ADMIN_SECRET,
