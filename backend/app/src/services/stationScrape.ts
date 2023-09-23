@@ -175,7 +175,7 @@ const extractRadioCoNowPlaying = async ({
           {
             name: songName?.trim(),
             artist: artist?.trim(),
-            thumbnail_url: null,
+            thumbnail_url: data?.current_track?.artwork_url_large || null,
           } || null,
         listeners: data["currentlisteners"] || null,
       };
@@ -624,7 +624,7 @@ const getStationNowPlaying = async ({
       });
     }
 
-    mergedStats = mergeStats(mergedStats, stats);
+    mergedStats = JSON.parse(JSON.stringify(mergeStats(mergedStats, stats)));
   }
   return mergedStats;
 };
