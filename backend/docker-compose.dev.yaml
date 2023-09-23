@@ -22,6 +22,7 @@ services:
     restart: always
     ports:
       - "8085:8080"
+      - "8029:8029"
     env_file:
       - .env
     logging:
@@ -45,7 +46,7 @@ services:
         max-size: "100m"
         max-file: "3"
   graphql-engine:
-    image: hasura/graphql-engine:v2.16.1.cli-migrations-v3
+    image: hasura/graphql-engine:v2.33.4.cli-migrations-v3
     ports:
       - "8080:8080"
     depends_on:

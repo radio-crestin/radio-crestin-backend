@@ -8,3 +8,18 @@ object_relationships:
   - name: user
     using:
       foreign_key_constraint_on: user_id
+insert_permissions:
+  - role: public
+    permission:
+      check: {}
+      columns:
+        - info
+        - station_id
+  - role: user
+    permission:
+      check: {}
+      set:
+        user_id: x-hasura-User-Id
+      columns:
+        - info
+        - station_id

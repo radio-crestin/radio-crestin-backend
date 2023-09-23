@@ -4,10 +4,10 @@ import { Logger } from "tslog";
 import { PROJECT_ENV } from "./env";
 import * as cron from "node-cron";
 import { refreshStationsRssFeed } from "./services/stationRssFeedScrape";
-import { randomUUID } from "crypto";
-import { SocksProxyAgent } from "socks-proxy-agent";
 import axios from "axios";
 import axiosThrottle from "axios-request-throttle";
+import {authenticationService} from "./services/authorizationService";
+import cookieParser from "cookie-parser";
 
 const app = express();
 
@@ -16,53 +16,87 @@ const port = PROJECT_ENV.APP_SERVER_PORT;
 const logger: Logger = new Logger({ name: "index" });
 
 // Axios config
-axios.defaults.timeout = 15 * 1000;
+axios.defaults.timeout = 10 * 1000;
 
 axiosThrottle.use(axios, { requestsPerSecond: 60 });
 
-axios.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  (error) => {
-    error.config.count = (error?.config?.count || 0) + 1;
+// TODO: this might introduce a memory leak..
+// TODO: also, we might need to disable this for local requests..
+// axios.interceptors.response.use(
+//   (response) => {
+//     return response;
+//   },
+//   async (error) => {
+//     error.config.count = (error?.config?.count || 0) + 1;
+//     logger.info("MYERROR:", {error_config: error.config});
+//
+//     if (
+//       (!error?.response?.status || error.response.status !== 200) &&
+//       error.config.count < 4
+//     ) {
+//       if (error.config.count % 2 === 1 && PROJECT_ENV.SOCKS5_RETRY_PROXY) {
+//         logger.info("retrying the request using the SOCKS5_RETRY_PROXY");
+//
+//         const agent = new SocksProxyAgent(
+//           `socks5://${randomUUID()}:test@${PROJECT_ENV.SOCKS5_RETRY_PROXY}`
+//         );
+//         return axios.request({
+//           ...error.config,
+//           ...{
+//             httpAgent: agent,
+//             httpsAgent: agent,
+//           },
+//         });
+//       } else {
+//         await new Promise((resolve) => {
+//           logger.info("waiting 500ms before retrying");
+//           setTimeout(() => resolve(true), 500);
+//         });
+//         return await axios.request({
+//           ...error.config,
+//         });
+//       }
+//     }
+//     return Promise.reject(error);
+//   }
+// );
 
-    if (
-      (!error?.response?.status || error.response.status !== 200) &&
-      error.config.count < 4
-    ) {
-      if (error.config.count % 2 === 1 && PROJECT_ENV.SOCKS5_RETRY_PROXY) {
-        logger.info("retrying the request using the SOCKS5_RETRY_PROXY");
+app.use(cookieParser() as any);
 
-        const agent = new SocksProxyAgent(
-          `socks5://${randomUUID()}:test@${PROJECT_ENV.SOCKS5_RETRY_PROXY}`
-        );
-        return axios.request({
-          ...error.config,
-          ...{
-            httpAgent: agent,
-            httpsAgent: agent,
-          },
-        });
-      } else {
-        return new Promise((resolve) => {
-          logger.info("waiting 500ms before retrying");
-          setTimeout(() => resolve(true), 500);
-        }).then(() =>
-          axios.request({
-            ...error.config,
-          })
-        );
-      }
-    }
-    return Promise.reject(error);
-  }
-);
+app.use((req, res, next) => {
+  (req as any).user_ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || "";
+
+  // TODO: in the future, we might use a signed session id here, for now it's ok like this
+  (req as any).session_id = (
+    req.cookies["Session-Id"]
+      || req.headers["session-id"]
+      || req.body?.session_id
+      || req.query?.session_id
+      || req.cookies["Device-Id"]
+      || req.headers["device-id"]
+  );
+
+  next();
+});
 
 app.get(
   "/",
   async (request: Request, response: Response, next: NextFunction) => {
     response.status(200).json({ up: true });
+  }
+);
+
+app.use(
+  "/api/v1/webhook/authentication",
+  async (request: Request, response: Response, next: NextFunction) => {
+    authenticationService(request)
+      .then((r) => {
+        response.status(200).json(r);
+      })
+      .catch((error) => {
+        logger.error(error.toString());
+        response.status(500).json({ error });
+      });
   }
 );
 

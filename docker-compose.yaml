@@ -62,7 +62,7 @@ services:
         max-file: "5"   # number of files or file count
         max-size: "100m" # file size
   graphql-engine:
-    image: hasura/graphql-engine:v2.16.1.cli-migrations-v3
+    image: hasura/graphql-engine:v2.33.4.cli-migrations-v3
     depends_on:
       - postgres
     restart: always

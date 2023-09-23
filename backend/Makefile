@@ -1,5 +1,10 @@
 start-dev:
-	docker-compose -f docker-compose.dev.yaml --project-name radio_crestin_dev up  --build --force-recreate
+	docker-compose -f docker-compose.dev.yaml --project-name radio_crestin_dev up  --build --force-recreate -d
+	docker-compose logs -f
+
+start-dev-fast:
+	docker-compose -f docker-compose.dev.yaml --project-name radio_crestin_dev up  --build -d
+	docker-compose logs -f
 
 fresh-install:
 	make apply-hasura-metadata;

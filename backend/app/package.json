@@ -10,15 +10,19 @@
     "test": "echo 'no tests'",
     "dev": "nodemon",
     "start": "node ./dist/index.js",
-    "start:prod-build": "yarn run build && yarn run start",
+    "start:debug": "node --inspect=0.0.0.0:8029 ./dist/index.js",
+    "start:debug-ts": "node --inspect=0.0.0.0:8029 -r ts-node/register ./src/index.ts",
+    "start:prod-build": "yarn run build && yarn run start:debug",
     "start:bun": "bun run ./src/index.js"
   },
   "dependencies": {
     "@types/express": "^4.17.13",
     "@types/node-cron": "^3.0.1",
+    "@types/uuid": "^9.0.4",
     "axios": "^0.26.0",
     "axios-request-throttle": "^1.0.0",
     "bluebird": "^3.7.2",
+    "cookie-parser": "^1.4.6",
     "dotenv": "^16.0.0",
     "eslint": "^8.2.0",
     "eslint-plugin-jest": "^26.1.0",
@@ -30,10 +34,13 @@
     "node-musickit-api": "^2.1.1",
     "rimraf": "^3.0.2",
     "socks-proxy-agent": "^7.0.0",
-    "tslog": "^3.3.2"
+    "tslog": "^3.3.2",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "@types/bluebird": "^3.5.36",
+    "@types/cookie-parser": "^1.4.4",
+    "@types/express-session": "^1.17.7",
     "@types/lodash": "^4.14.199",
     "@types/node": "^17.0.18",
     "@typescript-eslint/eslint-plugin": "^5.13.0",
