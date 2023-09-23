@@ -6,16 +6,20 @@ const withConfig = nextRuntimeDotenv({
   server: [],
 });
 
+
+const allowedCDNs = [
+  'radio-crestin.s3.amazonaws.com',
+  'cdn.pictures.aripisprecer.ro',
+  'pictures.aripisprecer.ro',
+  'images.radio.co',
+];
+
 const config = withConfig({
   reactStrictMode: true,
   output: 'standalone',
   images: {
     formats: ['image/webp'],
-    domains: [
-      'radio-crestin.s3.amazonaws.com',
-      'cdn.pictures.aripisprecer.ro',
-      'pictures.aripisprecer.ro',
-    ],
+    domains: allowedCDNs,
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384, 480, 640],
     minimumCacheTTL: 60 * 60 * 24,
   },
@@ -46,7 +50,11 @@ if (process.env.ANALYZE === 'true') {
   const withBundleAnalyzer = require('@next/bundle-analyzer')({
     enabled: process.env.ANALYZE === 'true',
   });
-  module.exports = withBundleAnalyzer(config);
+  module.exports = {
+    ...withBundleAnalyzer(config),
+  };
 } else {
-  module.exports = config;
+  module.exports = {
+    ...config,
+  };
 }
