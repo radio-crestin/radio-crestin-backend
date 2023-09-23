@@ -1,18 +1,18 @@
-import {Station} from "@/types";
-import axios, {AxiosRequestConfig} from "axios";
-import {PROJECT_ENV} from "@/env";
+import { Station } from "@/types";
+import axios, { AxiosRequestConfig } from "axios";
+import { PROJECT_ENV } from "@/env";
 
 export const getStations = (): Promise<Station[]> => {
-    const options: AxiosRequestConfig = {
-        method: "POST",
-        url: PROJECT_ENV.APP_GRAPHQL_ENDPOINT_URI,
-        headers: {
-            "content-type": "application/json",
-            "x-hasura-admin-secret": PROJECT_ENV.APP_GRAPHQL_ADMIN_SECRET,
-        },
-        data: {
-            operationName: "GetStations",
-            query: `query GetStations {
+  const options: AxiosRequestConfig = {
+    method: "POST",
+    url: PROJECT_ENV.APP_GRAPHQL_ENDPOINT_URI,
+    headers: {
+      "content-type": "application/json",
+      "x-hasura-admin-secret": PROJECT_ENV.APP_GRAPHQL_ADMIN_SECRET,
+    },
+    data: {
+      operationName: "GetStations",
+      query: `query GetStations {
   stations {
     id
     title
@@ -27,16 +27,15 @@ export const getStations = (): Promise<Station[]> => {
     }
   }
 }`,
-            variables: {},
-        },
-    };
+      variables: {},
+    },
+  };
 
-    return axios.request(options).then(function (response) {
-        if (!response.data?.data) {
-            throw new Error(`Invalid response: ${JSON.stringify(response.data)}`);
-        }
+  return axios.request(options).then(function (response) {
+    if (!response.data?.data) {
+      throw new Error(`Invalid response: ${JSON.stringify(response.data)}`);
+    }
 
-        return response.data.data.stations as Station[];
-
-    });
+    return response.data.data.stations as Station[];
+  });
 };
