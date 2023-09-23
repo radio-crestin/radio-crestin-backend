@@ -532,12 +532,17 @@ const getStationUptime = ({
     });
 };
 
-const mergeStats = (a: any, b: any) => {
+const mergeStats = (a: object, b: object) => {
   return _.mergeWith(a, b, (objValue: object, srcValue: object) => {
     if (_.isObject(objValue)) {
-      return _.mergeWith({}, objValue, srcValue, (ov: object, sv: object) =>
-        ov !== undefined ? ov : sv
-      );
+      return _.mergeWith({}, objValue, srcValue, (ov: object, sv: object) => {
+        // Check if sv is not null before merging
+        if (sv !== null) {
+          return sv;
+        }
+        // If sv is null, return the original value
+        return ov;
+      });
     }
   });
 };
