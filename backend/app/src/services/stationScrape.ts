@@ -3,6 +3,7 @@ import { Station, StationNowPlaying, StationUptime } from "@/types";
 import axios, { AxiosRequestConfig } from "axios";
 import { PROJECT_ENV } from "@/env";
 import { Logger } from "tslog";
+import _ from "lodash";
 import { getStations } from "@/services/getStations";
 
 const logger: Logger = new Logger({ name: "stationScrape" });
@@ -371,6 +372,7 @@ const extractOldShoutcastHtmlNowPlaying = async ({
     },
     statsExtractor: (html_page) => {
       const regex =
+      // eslint-disable-next-line max-len
         /<tr><td width=100 nowrap><font class=default>(?<param_data>[a-zA-Z\s]+): <\/font><\/td><td><font class=default><b>(?<param_value>(.*?))<\/b><\/td><\/tr>/gim;
 
       const data: any = {};
@@ -543,20 +545,13 @@ const getStationUptime = ({
 };
 
 const mergeStats = (a: any, b: any) => {
-  a = JSON.parse(JSON.stringify(a));
-  b = JSON.parse(JSON.stringify(b));
-
-  Object.keys(b).forEach((key) => {
-    if (b[key]) {
-      if (typeof b[key] === "object") {
-        a[key] = mergeStats(a[key] || {}, b[key]);
-        return;
-      }
-
-      a[key] = b[key];
+  return _.mergeWith(a, b, (objValue: object, srcValue: object) => {
+    if (_.isObject(objValue)) {
+      return _.mergeWith({}, objValue, srcValue, (ov: object, sv: object) =>
+        ov !== undefined ? ov : sv
+      );
     }
   });
-  return JSON.parse(JSON.stringify(a));
 };
 
 const getStationNowPlaying = async ({
@@ -564,7 +559,7 @@ const getStationNowPlaying = async ({
 }: {
   station: Station;
 }): Promise<StationNowPlaying> => {
-  let mergedStats: any = {
+  let mergedStats = {
     timestamp: new Date().toISOString(),
     current_song: null,
     listeners: null,
@@ -643,7 +638,7 @@ const getStationNowPlaying = async ({
 
     mergedStats = mergeStats(mergedStats, stats);
   }
-  return JSON.parse(JSON.stringify(mergedStats));
+  return mergedStats;
 };
 
 const updateStationMetadata = async ({
@@ -675,17 +670,17 @@ const updateStationMetadata = async ({
       song: { 
         data: { 
             name: ${
-              !stationNowPlaying?.current_song?.name
-                ? '""'
-                : '"' + stationNowPlaying.current_song.name + '"'
-            }
+  !stationNowPlaying?.current_song?.name
+    ? "\"\""
+    : "\"" + stationNowPlaying.current_song.name + "\""
+}
             artist: {
                 data: {
                     name: ${
-                      !stationNowPlaying?.current_song?.artist
-                        ? '""'
-                        : '"' + stationNowPlaying.current_song.artist + '"'
-                    }
+  !stationNowPlaying?.current_song?.artist
+    ? "\"\""
+    : "\"" + stationNowPlaying.current_song.artist + "\""
+}
                 }, 
                 on_conflict: {
                     constraint: artists_name_key, 
@@ -693,10 +688,10 @@ const updateStationMetadata = async ({
                 }
             }
             thumbnail_url: ${
-              !stationNowPlaying?.current_song?.thumbnail_url
-                ? null
-                : '"' + stationNowPlaying.current_song.thumbnail_url + '"'
-            }
+  !stationNowPlaying?.current_song?.thumbnail_url
+    ? null
+    : "\"" + stationNowPlaying.current_song.thumbnail_url + "\""
+}
         } 
         on_conflict: {
           constraint: songs_name_artist_id_key
@@ -704,10 +699,10 @@ const updateStationMetadata = async ({
         }
       }
       listeners: ${
-        !stationNowPlaying?.listeners
-          ? null
-          : '"' + stationNowPlaying.listeners + '"'
-      }
+  !stationNowPlaying?.listeners
+    ? null
+    : "\"" + stationNowPlaying.listeners + "\""
+}
       raw_data: ${escapedStationNowPlayingRawData || null}
       error: ${escapedStationNowPlayingError || null}
     },
@@ -780,7 +775,6 @@ export const refreshStationsMetadata = async () => {
 
       const stationUptime = await getStationUptime({ station });
 
-      // TODO: implement a mechanism to save in DB just the changes
       const done = await updateStationMetadata({
         station,
         stationNowPlaying,

@@ -20,6 +20,8 @@ services:
     depends_on:
       - graphql-engine
     restart: always
+    ports:
+      - "8085:8080"
     env_file:
       - .env
     logging:
