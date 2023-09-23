@@ -3,7 +3,6 @@ import { Station, StationNowPlaying, StationUptime } from "@/types";
 import axios, { AxiosRequestConfig } from "axios";
 import { PROJECT_ENV } from "@/env";
 import { Logger } from "tslog";
-import _ from "lodash";
 import { getStations } from "@/services/getStations";
 
 const logger: Logger = new Logger({ name: "stationScrape" });
@@ -532,27 +531,12 @@ const getStationUptime = ({
     });
 };
 
-const mergeStats = (a: object, b: object) => {
-  return _.mergeWith(a, b, (objValue: object, srcValue: object) => {
-    if (_.isObject(objValue)) {
-      return _.mergeWith({}, objValue, srcValue, (ov: object, sv: object) => {
-        // Check if sv is not null before merging
-        if (sv !== null) {
-          return sv;
-        }
-        // If sv is null, return the original value
-        return ov;
-      });
-    }
-  });
-};
-
 const getStationNowPlaying = async ({
   station,
 }: {
   station: Station;
 }): Promise<StationNowPlaying> => {
-  let mergedStats = {
+  const mergedStats: any = {
     timestamp: new Date().toISOString(),
     current_song: null,
     listeners: null,
@@ -629,7 +613,11 @@ const getStationNowPlaying = async ({
       });
     }
 
-    mergedStats = JSON.parse(JSON.stringify(mergeStats(mergedStats, stats)));
+    for(const[key, value] of Object.entries(stats)) {
+      if(value != null) {
+        mergedStats[key] = value;
+      }
+    }
   }
   return mergedStats;
 };
