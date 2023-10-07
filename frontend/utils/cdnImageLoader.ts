@@ -6,9 +6,9 @@ const allowedCDNs = [
 ];
 
 export const cdnImageLoader = ({src, width, quality = 80}: any) => {
-  if(process.env.FRONTEND_CDN_IMAGE_PREFIX && allowedCDNs.some(element => src.includes(element))) {
+  if(process.env.cdnPrefix && allowedCDNs.some(element => src.includes(element))) {
     return `${
-      process.env.FRONTEND_CDN_IMAGE_PREFIX
+      process.env.cdnPrefix
     }/_next/image?w=${width}&q=${quality}&url=${encodeURI(src)}`;
   }
   return src;
