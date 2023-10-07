@@ -23,12 +23,6 @@ const config = withConfig({
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384, 480, 640],
     minimumCacheTTL: 60 * 60 * 24,
   },
-  env: {
-    cdnPrefix:
-      process.env.FRONTEND_CDN_PREFIX !== ''
-        ? process.env.FRONTEND_CDN_PREFIX
-        : '',
-  },
   // Use the CDN in production and localhost for development.
   assetPrefix:
     process.env.FRONTEND_CDN_PREFIX !== ''
@@ -54,7 +48,5 @@ if (process.env.ANALYZE === 'true') {
     ...withBundleAnalyzer(config),
   };
 } else {
-  module.exports = {
-    ...config,
-  };
+  module.exports = config;
 }
