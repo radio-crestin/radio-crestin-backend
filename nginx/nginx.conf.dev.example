@@ -22,7 +22,6 @@ http {
     }
 
    server {
-        listen 80;
         server_name _;
         include       common.conf;
         location / {
@@ -33,7 +32,6 @@ http {
   }
 
    server {
-        listen 80;
         server_name admin.localhost;
         include       common.conf;
         location / {
@@ -43,7 +41,6 @@ http {
   }
 
    server {
-        listen 80;
         server_name graphql.localhost;
         include       common.conf;
         location / {
@@ -54,7 +51,6 @@ http {
   }
 
    server {
-        listen 80;
         server_name graphql-viewer.localhost;
         include       common.conf;
         location / {
@@ -66,7 +62,6 @@ http {
 
 
    server {
-        listen 80;
         server_name radio.localhost;
         server_tokens off;
 
