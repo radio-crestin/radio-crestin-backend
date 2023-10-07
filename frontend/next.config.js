@@ -31,8 +31,8 @@ const config = withConfig({
   },
   // Use the CDN in production and localhost for development.
   assetPrefix:
-    process.env.FRONTEND_CDN_PREFIX !== ''
-      ? process.env.FRONTEND_CDN_PREFIX
+    process.env.FRONTEND_CDN_IMAGE_PREFIX !== ''
+      ? process.env.FRONTEND_CDN_IMAGE_PREFIX
       : undefined,
   compiler: {
     removeConsole:
@@ -43,7 +43,7 @@ const config = withConfig({
           },
   },
 });
-console.log('process.env.FRONTEND_CDN_PREFIX', process.env.FRONTEND_CDN_PREFIX);
+console.log('process.env.FRONTEND_CDN_IMAGE_PREFIX', process.env.FRONTEND_CDN_IMAGE_PREFIX);
 
 if (process.env.ANALYZE === 'true') {
   console.log('ANALYZE is enabled.');
