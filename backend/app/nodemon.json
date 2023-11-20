@@ -4,5 +4,5 @@
   ],
   "ext": "ts",
   "ignore": [],
-  "exec": "yarn run build && yarn run start"
+  "exec": "yarn run start:bun"
 }

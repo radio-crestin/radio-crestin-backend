@@ -4,8 +4,23 @@ import {PROJECT_ENV} from "@/env";
 import * as http from "http";
 import * as https from "https";
 import {Logger} from "tslog";
+import {setupCache} from "axios-cache-adapter";
 
 const logger: Logger = new Logger({ name: "authorizationService", minLevel: PROJECT_ENV.APP_DEBUG? "debug": "info" });
+
+const axiosCache = setupCache({
+  maxAge: 15 * 60 * 1000,
+});
+
+const axiosCached = axios.create({
+  adapter: axiosCache.adapter,
+  cache: {
+    exclude: {
+      // Only exclude PUT, PATCH and DELETE methods from cache
+      methods: ["put", "patch", "delete"],
+    },
+  },
+});
 
 export const authorizationService = (req: Request): Promise<any> => {
 
@@ -51,7 +66,7 @@ export const authorizationService = (req: Request): Promise<any> => {
       },
     };
 
-    const userId = await axios.request(options).then(function (response) {
+    const userId = await axiosCached.request(options).then(function (response) {
       if (!response.data?.data) {
         throw new Error(`Invalid response: ${JSON.stringify(response.data)}`);
       }

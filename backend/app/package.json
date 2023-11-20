@@ -5,13 +5,8 @@
   "author": "Nicolae Iosif",
   "license": "UNLICENSED",
   "scripts": {
-    "compile": "tsc --project tsconfig.json && tsc-alias -p tsconfig.json",
-    "build": "rimraf ./build && yarn run compile",
     "test": "echo 'no tests'",
     "dev": "nodemon",
-    "start:debug": "node --inspect=0.0.0.0:8029 ./dist/index.js",
-    "start:debug-ts": "node --inspect=0.0.0.0:8029 -r ts-node/register ./src/index.ts",
-    "start:prod-build": "yarn run build && yarn run start:debug",
     "start:bun": "bun run ./src/index.ts"
   },
   "dependencies": {
@@ -19,6 +14,7 @@
     "@types/node-cron": "^3.0.1",
     "@types/uuid": "^9.0.4",
     "axios": "^0.26.0",
+    "axios-cache-adapter": "^2.7.3",
     "axios-request-throttle": "^1.0.0",
     "bluebird": "^3.7.2",
     "cookie-parser": "^1.4.6",
