@@ -23,4 +23,4 @@ EXPOSE 8080
 
 USER app
 
-ENTRYPOINT ["yarn", "run", "start"]
+ENTRYPOINT ["yarn", "run", "start:prod"]

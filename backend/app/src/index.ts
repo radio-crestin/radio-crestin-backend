@@ -5,20 +5,20 @@ import { PROJECT_ENV } from "./env";
 import * as cron from "node-cron";
 import { refreshStationsRssFeed } from "./services/stationRssFeedScrape";
 import axios from "axios";
-import axiosThrottle from "axios-request-throttle";
-import {authenticationService} from "./services/authorizationService";
+import {authorizationService} from "./services/authorizationService";
 import cookieParser from "cookie-parser";
 
 const app = express();
 
 const port = PROJECT_ENV.APP_SERVER_PORT;
 
-const logger: Logger = new Logger({ name: "index" });
+const logger: Logger = new Logger({ name: "index", minLevel: PROJECT_ENV.APP_DEBUG? "debug": "info" });
 
 // Axios config
 axios.defaults.timeout = 10 * 1000;
 
-axiosThrottle.use(axios, { requestsPerSecond: 60 });
+// This might consume a lot of memory if axios has to buffer a lot of requests
+// axiosThrottle.use(axios, { requestsPerSecond: 60 });
 
 // TODO: this might introduce a memory leak..
 // TODO: also, we might need to disable this for local requests..
@@ -89,7 +89,7 @@ app.get(
 app.use(
   "/api/v1/webhook/authentication",
   async (request: Request, response: Response, next: NextFunction) => {
-    authenticationService(request)
+    authorizationService(request)
       .then((r) => {
         response.status(200).json(r);
       })
@@ -128,45 +128,45 @@ app.get(
   }
 );
 
-if (PROJECT_ENV.APP_REFRESH_STATIONS_METADATA_CRON !== "") {
-  logger.info(
-    "APP_REFRESH_STATIONS_METADATA_CRON: ",
-    PROJECT_ENV.APP_REFRESH_STATIONS_METADATA_CRON
-  );
-
-  cron.schedule(PROJECT_ENV.APP_REFRESH_STATIONS_METADATA_CRON, () => {
-    logger.info("Starting to refresh stations metadata..");
-
-    refreshStationsMetadata()
-      .then((result) => {
-        logger.info("Stations metadata have been refreshed.", result);
-      })
-      .catch((error) => {
-        logger.info("Stations metadata refresh has encountered an error:");
-        logger.error(error.toString());
-      });
-  });
-}
-
-if (PROJECT_ENV.APP_REFRESH_STATIONS_RSS_FEED_CRON !== "") {
-  logger.info(
-    "APP_REFRESH_STATIONS_RSS_FEED_CRON: ",
-    PROJECT_ENV.APP_REFRESH_STATIONS_RSS_FEED_CRON
-  );
-
-  cron.schedule(PROJECT_ENV.APP_REFRESH_STATIONS_RSS_FEED_CRON, () => {
-    logger.info("Starting to refresh stations rss feed..");
-
-    refreshStationsRssFeed()
-      .then((result) => {
-        logger.info("Stations rss feed have been refreshed.", result);
-      })
-      .catch((error) => {
-        logger.info("Stations rss feed refresh has encountered an error:");
-        logger.error(error.toString());
-      });
-  });
-}
+// if (PROJECT_ENV.APP_REFRESH_STATIONS_METADATA_CRON !== "") {
+//   logger.info(
+//     "APP_REFRESH_STATIONS_METADATA_CRON: ",
+//     PROJECT_ENV.APP_REFRESH_STATIONS_METADATA_CRON
+//   );
+//
+//   cron.schedule(PROJECT_ENV.APP_REFRESH_STATIONS_METADATA_CRON, () => {
+//     logger.info("Starting to refresh stations metadata..");
+//
+//     refreshStationsMetadata()
+//       .then((result) => {
+//         logger.info("Stations metadata have been refreshed.", result);
+//       })
+//       .catch((error) => {
+//         logger.info("Stations metadata refresh has encountered an error:");
+//         logger.error(error.toString());
+//       });
+//   });
+// }
+//
+// if (PROJECT_ENV.APP_REFRESH_STATIONS_RSS_FEED_CRON !== "") {
+//   logger.info(
+//     "APP_REFRESH_STATIONS_RSS_FEED_CRON: ",
+//     PROJECT_ENV.APP_REFRESH_STATIONS_RSS_FEED_CRON
+//   );
+//
+//   cron.schedule(PROJECT_ENV.APP_REFRESH_STATIONS_RSS_FEED_CRON, () => {
+//     logger.info("Starting to refresh stations rss feed..");
+//
+//     refreshStationsRssFeed()
+//       .then((result) => {
+//         logger.info("Stations rss feed have been refreshed.", result);
+//       })
+//       .catch((error) => {
+//         logger.info("Stations rss feed refresh has encountered an error:");
+//         logger.error(error.toString());
+//       });
+//   });
+// }
 
 app.listen(port, () => {
   logger.info(`Server is running on port ${port}.`);

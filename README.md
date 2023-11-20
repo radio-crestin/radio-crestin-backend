@@ -28,16 +28,6 @@ cp ../.env.example .env
 make start-dev
 sleep 10s
 make fresh-install
-
-cd frontend
-# Make sure to use local(dev) FRONTEND variables
-cp ../.env.example .env.local
-make install
-make start-dev
-# open localhost:3000
-# or in docker
-make start-dev-docker
-# open localhost:8085
 ```
 
 #### Production

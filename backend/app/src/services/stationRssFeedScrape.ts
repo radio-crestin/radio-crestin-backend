@@ -6,7 +6,7 @@ import { PROJECT_ENV } from "@/env";
 import { getStations } from "@/services/getStations";
 import { Logger } from "tslog";
 
-const logger: Logger = new Logger({ name: "stationRssFeedScrape" });
+const logger: Logger = new Logger({ name: "stationRssFeedScrape", minLevel: PROJECT_ENV.APP_DEBUG? "debug": "info" });
 
 const getStationRssFeed = ({
   station,

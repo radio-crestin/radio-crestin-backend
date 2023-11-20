@@ -93,5 +93,6 @@ load-admin-fixtures:
 	cat admin/fixtures/$$model.yaml | docker exec -i "$$(docker ps | grep -E "radio.+admin" | cut -d " " -f1)" bash -c "python manage.py loaddata --format=yaml -"
 
 
-
+stress-test-auth-webhook:
+	./scripts/stress-test-auth-webhook.sh
 

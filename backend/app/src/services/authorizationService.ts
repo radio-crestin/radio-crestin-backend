@@ -1,10 +1,15 @@
 import { Request } from "express";
 import axios, {AxiosRequestConfig} from "axios";
 import {PROJECT_ENV} from "@/env";
+import * as http from "http";
+import * as https from "https";
+import {Logger} from "tslog";
 
-export const authenticationService = (req: Request): Promise<any> => {
+const logger: Logger = new Logger({ name: "authorizationService", minLevel: PROJECT_ENV.APP_DEBUG? "debug": "info" });
 
-  console.log("request:", {
+export const authorizationService = (req: Request): Promise<any> => {
+
+  logger.debug("request:", {
     cookies: req.cookies,
     headers: req.headers,
     body: req.body,
@@ -26,6 +31,8 @@ export const authenticationService = (req: Request): Promise<any> => {
     const options: AxiosRequestConfig = {
       method: "POST",
       url: PROJECT_ENV.APP_GRAPHQL_ENDPOINT_URI,
+      httpAgent: new http.Agent({ keepAlive: true, keepAliveMsecs: 60 * 1000 }),
+      httpsAgent: new https.Agent({ keepAlive: true, keepAliveMsecs: 60 * 1000 }),
       headers: {
         "content-type": "application/json",
         "x-hasura-admin-secret": PROJECT_ENV.APP_GRAPHQL_ADMIN_SECRET,

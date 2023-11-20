@@ -5,7 +5,7 @@ import { PROJECT_ENV } from "@/env";
 import { Logger } from "tslog";
 import { getStations } from "@/services/getStations";
 
-const logger: Logger = new Logger({ name: "stationScrape" });
+const logger: Logger = new Logger({ name: "stationScrape", minLevel: PROJECT_ENV.APP_DEBUG? "debug": "info" });
 
 const statsFormatter = (stats: StationNowPlaying) => {
   if (stats.current_song !== null) {
