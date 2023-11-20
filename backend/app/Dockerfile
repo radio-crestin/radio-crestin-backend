@@ -1,26 +1,39 @@
-FROM node:16.14.0-alpine3.14
+# use the official Bun image
+# see all versions at https://hub.docker.com/r/oven/bun/tags
+FROM oven/bun:1 as base
+WORKDIR /usr/src/app
 
-RUN apk add --no-cache --update bash\
-   && rm -rf /var/cache/apk/*
+# install dependencies into temp directory
+# this will cache them and speed up future builds
+FROM base AS install
+RUN mkdir -p /temp/dev
+COPY package.json bun.lockb /temp/dev/
+RUN cd /temp/dev && bun install --frozen-lockfile
 
-WORKDIR /home/node/app
+# install with --production (exclude devDependencies)
+RUN mkdir -p /temp/prod
+COPY package.json bun.lockb /temp/prod/
+RUN cd /temp/prod && bun install --frozen-lockfile --production
 
-COPY package.json package.json
-COPY yarn.lock yarn.lock
-RUN yarn install
+# copy node_modules from temp directory
+# then copy all (non-ignored) project files into the image
+FROM install AS prerelease
+COPY --from=install /temp/dev/node_modules node_modules
+COPY . .
 
-COPY . /home/node/app
+# [optional] tests & build
+ENV NODE_ENV=production
+RUN bun test
+RUN bun run build
 
-RUN yarn run test
+# copy production dependencies and source code into final image
+FROM base AS release
+COPY --from=install /temp/prod/node_modules node_modules
+COPY --from=prerelease /usr/src/app/src ./src
+COPY --from=prerelease /usr/src/app/package.json .
+COPY --from=prerelease /usr/src/app/tsconfig.json .
 
-ENV NODE_ENV production
-RUN yarn run build
-
-RUN addgroup -g 1001 -S app
-RUN adduser -S app -u 1001
-
-EXPOSE 8080
-
-USER app
-
-ENTRYPOINT ["yarn", "run", "start:prod"]
+# run the app
+USER bun
+EXPOSE 8080/tcp
+ENTRYPOINT [ "bun", "run", "src/index.ts" ]

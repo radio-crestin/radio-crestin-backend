@@ -9,7 +9,6 @@
     "build": "rimraf ./build && yarn run compile",
     "test": "echo 'no tests'",
     "dev": "nodemon",
-    "start:prod": "bun run ./src/index.ts",
     "start:debug": "node --inspect=0.0.0.0:8029 ./dist/index.js",
     "start:debug-ts": "node --inspect=0.0.0.0:8029 -r ts-node/register ./src/index.ts",
     "start:prod-build": "yarn run build && yarn run start:debug",
