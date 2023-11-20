@@ -128,45 +128,45 @@ app.get(
   }
 );
 
-// if (PROJECT_ENV.APP_REFRESH_STATIONS_METADATA_CRON !== "") {
-//   logger.info(
-//     "APP_REFRESH_STATIONS_METADATA_CRON: ",
-//     PROJECT_ENV.APP_REFRESH_STATIONS_METADATA_CRON
-//   );
-//
-//   cron.schedule(PROJECT_ENV.APP_REFRESH_STATIONS_METADATA_CRON, () => {
-//     logger.info("Starting to refresh stations metadata..");
-//
-//     refreshStationsMetadata()
-//       .then((result) => {
-//         logger.info("Stations metadata have been refreshed.", result);
-//       })
-//       .catch((error) => {
-//         logger.info("Stations metadata refresh has encountered an error:");
-//         logger.error(error.toString());
-//       });
-//   });
-// }
-//
-// if (PROJECT_ENV.APP_REFRESH_STATIONS_RSS_FEED_CRON !== "") {
-//   logger.info(
-//     "APP_REFRESH_STATIONS_RSS_FEED_CRON: ",
-//     PROJECT_ENV.APP_REFRESH_STATIONS_RSS_FEED_CRON
-//   );
-//
-//   cron.schedule(PROJECT_ENV.APP_REFRESH_STATIONS_RSS_FEED_CRON, () => {
-//     logger.info("Starting to refresh stations rss feed..");
-//
-//     refreshStationsRssFeed()
-//       .then((result) => {
-//         logger.info("Stations rss feed have been refreshed.", result);
-//       })
-//       .catch((error) => {
-//         logger.info("Stations rss feed refresh has encountered an error:");
-//         logger.error(error.toString());
-//       });
-//   });
-// }
+if (PROJECT_ENV.APP_REFRESH_STATIONS_METADATA_CRON !== "") {
+  logger.info(
+    "APP_REFRESH_STATIONS_METADATA_CRON: ",
+    PROJECT_ENV.APP_REFRESH_STATIONS_METADATA_CRON
+  );
+
+  cron.schedule(PROJECT_ENV.APP_REFRESH_STATIONS_METADATA_CRON, () => {
+    logger.info("Starting to refresh stations metadata..");
+
+    refreshStationsMetadata()
+      .then((result) => {
+        logger.info("Stations metadata have been refreshed.", result);
+      })
+      .catch((error) => {
+        logger.info("Stations metadata refresh has encountered an error:");
+        logger.error(error.toString());
+      });
+  });
+}
+
+if (PROJECT_ENV.APP_REFRESH_STATIONS_RSS_FEED_CRON !== "") {
+  logger.info(
+    "APP_REFRESH_STATIONS_RSS_FEED_CRON: ",
+    PROJECT_ENV.APP_REFRESH_STATIONS_RSS_FEED_CRON
+  );
+
+  cron.schedule(PROJECT_ENV.APP_REFRESH_STATIONS_RSS_FEED_CRON, () => {
+    logger.info("Starting to refresh stations rss feed..");
+
+    refreshStationsRssFeed()
+      .then((result) => {
+        logger.info("Stations rss feed have been refreshed.", result);
+      })
+      .catch((error) => {
+        logger.info("Stations rss feed refresh has encountered an error:");
+        logger.error(error.toString());
+      });
+  });
+}
 
 app.listen(port, () => {
   logger.info(`Server is running on port ${port}.`);
