@@ -457,78 +457,93 @@ const getStationUptime = ({
   logger.info("Checking uptime of station: ", station.title);
 
   const start = process.hrtime();
-  let responseStatus = -1;
-  let latency_ms = -1;
-  let responseHeaders: any = {};
 
-  const options: AxiosRequestConfig = {
-    method: "GET",
-    url: station.stream_url,
-    timeout: 5000,
-    responseType: "stream",
-    headers: {
-      accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-      "accept-language": "en-US,en;q=0.9,ro;q=0.8",
-      "cache-control": "no-cache",
-      pragma: "no-cache",
-      "sec-ch-ua":
-        "\" Not;A Brand\";v=\"99\", \"Google Chrome\";v=\"97\", \"Chromium\";v=\"97\"",
-      "sec-ch-ua-mobile": "?0",
-      "sec-ch-ua-platform": "\"Linux\"",
-      "sec-fetch-dest": "document",
-      "sec-fetch-mode": "navigate",
-      "sec-fetch-site": "cross-site",
-      "sec-fetch-user": "?1",
-      "upgrade-insecure-requests": "1",
-    },
-  };
+  const responseStatus = -1;
 
-  return axios
-    .request(options)
-    .then(async (response) => {
-      responseStatus = response.status;
-      responseHeaders = response.headers;
+  const latency_ms = -1;
 
-      // TODO: check if the audio volume is not 0 for at least 5-10 seconds
+  const responseHeaders: any = {};
 
-      latency_ms = Math.round(process.hrtime(start)[1] / 1000000);
+  // const options: AxiosRequestConfig = {
+  //   method: "GET",
+  //   url: station.stream_url,
+  //   timeout: 5000,
+  //   responseType: "stream",
+  //   headers: {
+  //     accept:
+  //       "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+  //     "accept-language": "en-US,en;q=0.9,ro;q=0.8",
+  //     "cache-control": "no-cache",
+  //     pragma: "no-cache",
+  //     "sec-ch-ua":
+  //       "\" Not;A Brand\";v=\"99\", \"Google Chrome\";v=\"97\", \"Chromium\";v=\"97\"",
+  //     "sec-ch-ua-mobile": "?0",
+  //     "sec-ch-ua-platform": "\"Linux\"",
+  //     "sec-fetch-dest": "document",
+  //     "sec-fetch-mode": "navigate",
+  //     "sec-fetch-site": "cross-site",
+  //     "sec-fetch-user": "?1",
+  //     "upgrade-insecure-requests": "1",
+  //   },
+  // };
+  //
+  // return axios
+  //   .request(options)
+  //   .then(async (response) => {
+  //     responseStatus = response.status;
+  //     responseHeaders = response.headers;
+  //
+  //     // TODO: check if the audio volume is not 0 for at least 5-10 seconds
+  //
+  //     latency_ms = Math.round(process.hrtime(start)[1] / 1000000);
+  //
+  //     if (responseStatus !== 200) {
+  //       return {
+  //         timestamp: new Date().toISOString(),
+  //         is_up: false,
+  //         latency_ms,
+  //         raw_data: {
+  //           responseHeaders,
+  //           responseStatus,
+  //         },
+  //       };
+  //     }
+  //
+  //     return {
+  //       timestamp: new Date().toISOString(),
+  //       is_up: true,
+  //       latency_ms,
+  //       raw_data: {
+  //         responseHeaders,
+  //         responseStatus,
+  //       },
+  //     };
+  //   })
+  //   .catch((error) => {
+  //     logger.error(error.toString());
+  //     return {
+  //       timestamp: new Date().toISOString(),
+  //       is_up: false,
+  //       latency_ms: latency_ms,
+  //       raw_data: {
+  //         responseHeaders,
+  //         responseStatus,
+  //         error: error,
+  //       },
+  //     };
+  //   });
 
-      if (responseStatus !== 200) {
-        return {
-          timestamp: new Date().toISOString(),
-          is_up: false,
-          latency_ms,
-          raw_data: {
-            responseHeaders,
-            responseStatus,
-          },
-        };
-      }
-
-      return {
-        timestamp: new Date().toISOString(),
-        is_up: true,
-        latency_ms,
-        raw_data: {
-          responseHeaders,
-          responseStatus,
-        },
-      };
-    })
-    .catch((error) => {
-      logger.error(error.toString());
-      return {
-        timestamp: new Date().toISOString(),
-        is_up: false,
-        latency_ms: latency_ms,
-        raw_data: {
-          responseHeaders,
-          responseStatus,
-          error: error,
-        },
-      };
+  return new Promise(resolve => {
+    resolve({
+      timestamp: new Date().toISOString(),
+      is_up: true,
+      latency_ms,
+      raw_data: {
+        responseHeaders,
+        responseStatus,
+      },
     });
+  });
 };
 
 const getStationNowPlaying = async ({
