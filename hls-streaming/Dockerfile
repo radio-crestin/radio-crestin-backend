@@ -4,7 +4,7 @@ RUN apk add --update \
   bash \
   curl
 
-RUN apk add rav1e-libs --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testing
+RUN apk add rav1e-libs --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community
 
 RUN curl -Lf# https://github.com/homebridge/ffmpeg-for-homebridge/releases/latest/download/ffmpeg-alpine-x86_64.tar.gz | tar xzf - -C / --no-same-owner
 
