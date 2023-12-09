@@ -5,6 +5,20 @@ object_relationships:
   - name: now_playing
     using:
       foreign_key_constraint_on: latest_station_now_playing_id
+  - name: stations_now_playing
+    using:
+      foreign_key_constraint_on:
+        column: station_id
+        table:
+          name: stations_now_playing
+          schema: public
+  - name: stations_uptime
+    using:
+      foreign_key_constraint_on:
+        column: station_id
+        table:
+          name: stations_uptime
+          schema: public
   - name: uptime
     using:
       foreign_key_constraint_on: latest_station_uptime_id
@@ -105,5 +119,6 @@ select_permissions:
       computed_fields:
         - hls_stream_url
         - proxy_stream_url
+        - radio_crestin_listeners
         - total_listeners
       filter: {}
