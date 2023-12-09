@@ -1,5 +1,4 @@
 - "!include public_artists.yaml"
-- "!include public_hasura_authorization_table.yaml"
 - "!include public_listening_events.yaml"
 - "!include public_posts.yaml"
 - "!include public_reviews.yaml"
