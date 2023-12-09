@@ -109,7 +109,7 @@ class Stations(models.Model):
     order = models.FloatField()
     slug = models.SlugField()
     title = models.TextField()
-    website = models.URLField(blank=True, null=True, )
+    website = models.URLField()
     email = models.TextField(blank=True, null=True, )
     stream_url = models.URLField()
     thumbnail = models.ImageField(blank=True, null=True,)
@@ -171,7 +171,7 @@ class Posts(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     title = models.TextField()
     link = models.TextField()
-    description = models.TextField()
+    description = models.TextField(null=True, blank=True)
     published = models.DateTimeField()
     station = models.ForeignKey('Stations', models.CASCADE)
 

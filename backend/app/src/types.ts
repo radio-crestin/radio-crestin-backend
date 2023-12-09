@@ -9,6 +9,7 @@ export interface StationMetadataFetcher {
 }
 
 export interface Song {
+  raw_title?: string | null;
   name: string | null;
   artist: string | null;
   thumbnail_url: string | null;

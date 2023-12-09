@@ -4,6 +4,7 @@ import axios, { AxiosRequestConfig } from "axios";
 import { PROJECT_ENV } from "../env";
 import { Logger } from "tslog";
 import { getStations } from "../services/getStations";
+import _ from "lodash";
 
 const logger: Logger<any> = new Logger({ name: "stationScrape", minLevel: PROJECT_ENV.APP_DEBUG? 2:3 });
 
@@ -60,7 +61,26 @@ const statsFormatter = (stats: StationNowPlaying) => {
         .replace(/^[a-z]/, function (m) {
           return m.toUpperCase();
         });
+
+      // replace \uXXXX with diacritics
+      stats.current_song.artist = decodeURIComponent(
+        (stats.current_song.artist || "").toString()
+      );
+
+      if(stats.current_song.artist?.length < 2) {
+        stats.current_song.artist = null;
+      }
     } else {
+      stats.current_song.artist = null;
+    }
+
+    if(!stats?.current_song?.name || stats.current_song?.name?.length < 2) {
+      stats.current_song.name = stats?.current_song?.artist || null;
+      stats.current_song.artist = null;
+    }
+
+    if(!stats?.current_song?.name) {
+      stats.current_song.name = stats?.current_song?.raw_title || null;
       stats.current_song.artist = null;
     }
 
@@ -103,7 +123,7 @@ const extractNowPlaying = async ({
     .then(async (data) => {
       return {
         ...statsFormatter(statsExtractor(data)),
-        raw_data: data,
+        raw_data: [data],
       };
     })
     .catch((error) => {
@@ -115,10 +135,10 @@ const extractNowPlaying = async ({
         timestamp: new Date().toISOString(),
         current_song: null,
         listeners: null,
-        raw_data: {},
-        error: JSON.parse(
+        raw_data: [],
+        error: [JSON.parse(
           JSON.stringify(error, Object.getOwnPropertyNames(error))
-        ),
+        )],
       };
     });
 };
@@ -129,7 +149,9 @@ const extractId3NowPlaying = async ({
   stream_url: string;
 }): Promise<StationNowPlaying> => {
   const statsExtractor = (data: any) => {
-    const [firstPart, lastPart] = data["title"]?.split(" - ") || ["", ""];
+    const raw_title = data["title"];
+
+    const [firstPart, lastPart] = raw_title?.split(" - ") || ["", ""];
     let songName, artist;
 
     if (firstPart && lastPart) {
@@ -143,11 +165,12 @@ const extractId3NowPlaying = async ({
       timestamp: new Date().toISOString(),
       current_song:
           {
+            raw_title,
             name: songName?.trim(),
             artist: artist?.trim(),
             thumbnail_url: null,
           } || null,
-      listeners: data["currentlisteners"] || null,
+      listeners: data["listeners"] || null,
     };
   };
 
@@ -155,7 +178,7 @@ const extractId3NowPlaying = async ({
     .then(async (data: any) => {
       return {
         ...statsFormatter(statsExtractor(data)),
-        raw_data: data,
+        raw_data: [data],
       };
     })
     .catch((error: any) => {
@@ -167,10 +190,10 @@ const extractId3NowPlaying = async ({
         timestamp: new Date().toISOString(),
         current_song: null,
         listeners: null,
-        raw_data: {},
-        error: JSON.parse(
+        raw_data: [],
+        error: [JSON.parse(
           JSON.stringify(error, Object.getOwnPropertyNames(error))
-        ),
+        )],
       };
     });
 };
@@ -692,10 +715,10 @@ const getStationUptime = ({
       timestamp: new Date().toISOString(),
       is_up: true,
       latency_ms,
-      raw_data: {
+      raw_data: [{
         responseHeaders,
         responseStatus,
-      },
+      }],
     });
   });
 };
@@ -705,12 +728,12 @@ const getStationNowPlaying = async ({
 }: {
   station: Station;
 }): Promise<StationNowPlaying> => {
-  const mergedStats: any = {
+  let mergedStats: any = {
     timestamp: new Date().toISOString(),
     current_song: null,
     listeners: null,
-    raw_data: {},
-    error: null,
+    raw_data: [],
+    error: [],
   };
 
   const station_metadata_fetches = station.station_metadata_fetches.sort(
@@ -809,11 +832,13 @@ const getStationNowPlaying = async ({
       });
     }
 
-    for(const[key, value] of Object.entries(stats)) {
-      if(value != null) {
-        mergedStats[key] = value;
+    mergedStats = _.mergeWith(mergedStats, stats, (objValue, srcValue) => {
+      if (_.isNull(srcValue)) {
+        return objValue; // Exclude null values from merging
+      } else if (_.isArray(objValue)) {
+        return objValue.concat(srcValue);
       }
-    }
+    });
   }
   return mergedStats;
 };
