@@ -1,12 +1,12 @@
-import { Station, StationRssFeed } from "@/types";
+import { Station, StationRssFeed } from "../types";
 import { read as rssReader } from "feed-reader";
 import { Promise as BluebirdPromise } from "bluebird";
 import axios, { AxiosRequestConfig } from "axios";
-import { PROJECT_ENV } from "@/env";
-import { getStations } from "@/services/getStations";
+import { PROJECT_ENV } from "../env";
+import { getStations } from "../services/getStations";
 import { Logger } from "tslog";
 
-const logger: Logger = new Logger({ name: "stationRssFeedScrape", minLevel: PROJECT_ENV.APP_DEBUG? "debug": "info" });
+const logger: Logger<any> = new Logger({ name: "stationRssFeedScrape", minLevel: PROJECT_ENV.APP_DEBUG? 2:3 });
 
 const getStationRssFeed = ({
   station,
@@ -16,7 +16,7 @@ const getStationRssFeed = ({
   if (typeof station.rss_feed === "string" && !!station.rss_feed) {
     return rssReader(station.rss_feed).then((feed) => {
       return {
-        posts: feed.entries.map((e: any) => {
+        posts: feed?.entries?.map((e: any) => {
           return {
             title: e.title,
             link: e.link,

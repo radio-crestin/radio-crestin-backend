@@ -1,6 +1,6 @@
-import { Station } from "@/types";
+import { Station } from "../types";
 import axios, { AxiosRequestConfig } from "axios";
-import { PROJECT_ENV } from "@/env";
+import { PROJECT_ENV } from "../env";
 
 export const getStations = (): Promise<Station[]> => {
   const options: AxiosRequestConfig = {

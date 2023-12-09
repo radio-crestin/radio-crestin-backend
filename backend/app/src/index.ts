@@ -12,7 +12,7 @@ const app = express();
 
 const port = PROJECT_ENV.APP_SERVER_PORT;
 
-const logger: Logger = new Logger({ name: "index", minLevel: PROJECT_ENV.APP_DEBUG? "debug": "info" });
+const logger: Logger<any> = new Logger({ name: "index", minLevel: PROJECT_ENV.APP_DEBUG? 2: 3 });
 
 // Axios config
 axios.defaults.timeout = 10 * 1000;
@@ -167,6 +167,19 @@ if (PROJECT_ENV.APP_REFRESH_STATIONS_RSS_FEED_CRON !== "") {
       });
   });
 }
+
+new Promise(async () => {
+  while(true) {
+    await refreshStationsRssFeed()
+      .then((result) => {
+        logger.info("Stations rss feed have been refreshed.", result);
+      })
+      .catch((error) => {
+        logger.info("Stations rss feed refresh has encountered an error:");
+        logger.error(error.toString());
+      });
+  }
+});
 
 app.listen(port, () => {
   logger.info(`Server is running on port ${port}.`);

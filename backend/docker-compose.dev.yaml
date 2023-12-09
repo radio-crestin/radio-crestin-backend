@@ -2,7 +2,7 @@ version: '3.6'
 services:
   postgres:
     image: postgres:13
-    restart: always
+    restart: unless-stopped
     ports:
       - "8543:5432"
     volumes:
@@ -19,7 +19,7 @@ services:
       context: ./app
     depends_on:
       - graphql-engine
-    restart: always
+    restart: unless-stopped
     ports:
       - "8085:8080"
       - "8029:8029"
@@ -37,7 +37,7 @@ services:
       - "8545:8080"
     depends_on:
       - postgres
-    restart: always
+    restart: unless-stopped
     env_file:
       - .env
     logging:
@@ -51,7 +51,7 @@ services:
       - "8080:8080"
     depends_on:
       - "postgres"
-    restart: always
+    restart: unless-stopped
     env_file:
       - .env
     logging:
@@ -63,7 +63,7 @@ services:
     image: dperson/torproxy
     ports:
       - "9050:9050"
-    restart: always
+    restart: unless-stopped
     environment:
       LOCATION: DE
     logging:

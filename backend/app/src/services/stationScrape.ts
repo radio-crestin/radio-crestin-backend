@@ -1,11 +1,11 @@
 import { Promise as BluebirdPromise } from "bluebird";
-import { Station, StationNowPlaying, StationUptime } from "@/types";
+import { Station, StationNowPlaying, StationUptime } from "../types";
 import axios, { AxiosRequestConfig } from "axios";
-import { PROJECT_ENV } from "@/env";
+import { PROJECT_ENV } from "../env";
 import { Logger } from "tslog";
-import { getStations } from "@/services/getStations";
+import { getStations } from "../services/getStations";
 
-const logger: Logger = new Logger({ name: "stationScrape", minLevel: PROJECT_ENV.APP_DEBUG? "debug": "info" });
+const logger: Logger<any> = new Logger({ name: "stationScrape", minLevel: PROJECT_ENV.APP_DEBUG? 2:3 });
 
 const statsFormatter = (stats: StationNowPlaying) => {
   if (stats.current_song !== null) {

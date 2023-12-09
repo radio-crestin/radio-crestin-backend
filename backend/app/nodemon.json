@@ -1,8 +1,9 @@
 {
   "watch": [
-    "src"
+    ".env",
+    "src/*"
   ],
   "ext": "ts",
   "ignore": [],
-  "exec": "yarn run start:bun"
+  "exec": "yarn run build && node --max-old-space-size=4096 ./dist/index.js"
 }

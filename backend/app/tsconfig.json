@@ -23,11 +23,6 @@
     "moduleResolution": "node",
     "baseUrl": "./src",
     "rootDir": "./src",
-    "paths": {
-      "@/*": [
-        "./*"
-      ]
-    },
     "esModuleInterop": true,
     "experimentalDecorators": true,
     "skipLibCheck": true

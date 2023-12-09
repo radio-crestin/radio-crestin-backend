@@ -1,12 +1,12 @@
 import { Request } from "express";
 import axios, {AxiosRequestConfig} from "axios";
-import {PROJECT_ENV} from "@/env";
+import {PROJECT_ENV} from "../env";
 import * as http from "http";
 import * as https from "https";
 import {Logger} from "tslog";
 import {setupCache} from "axios-cache-adapter";
 
-const logger: Logger = new Logger({ name: "authorizationService", minLevel: PROJECT_ENV.APP_DEBUG? "debug": "info" });
+const logger: Logger<any> = new Logger({ name: "authorizationService", minLevel: PROJECT_ENV.APP_DEBUG? 2:3 });
 
 const axiosCache = setupCache({
   maxAge: 15 * 60 * 1000,
