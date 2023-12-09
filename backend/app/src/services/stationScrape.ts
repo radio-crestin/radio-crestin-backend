@@ -7,6 +7,8 @@ import { getStations } from "../services/getStations";
 
 const logger: Logger<any> = new Logger({ name: "stationScrape", minLevel: PROJECT_ENV.APP_DEBUG? 2:3 });
 
+const { parseRadioID3 } = require("radio-id3");
+
 const statsFormatter = (stats: StationNowPlaying) => {
   if (stats.current_song !== null) {
     const allowedCharacters = /[^a-zA-ZÀ-žaâăáeéèiîoóöőøsșşșştțţțţ\-\s?'&]/g;
@@ -28,12 +30,16 @@ const statsFormatter = (stats: StationNowPlaying) => {
         .replace("undefined", "")
         .replace(/^[a-z]/, function (m) {
           return m.toUpperCase();
-        });
+        }).trim().replace(/^-+|-+$/g, "");
 
       // replace \uXXXX with diacritics
       stats.current_song.name = decodeURIComponent(
         (stats.current_song.name || "").toString()
       );
+
+      if(stats.current_song.name?.length < 2) {
+        stats.current_song.name = null;
+      }
     } else {
       stats.current_song.name = null;
     }
@@ -103,6 +109,58 @@ const extractNowPlaying = async ({
     .catch((error) => {
       logger.error(
         `Cannot extract stats from ${url}. error:`,
+        error.toString()
+      );
+      return {
+        timestamp: new Date().toISOString(),
+        current_song: null,
+        listeners: null,
+        raw_data: {},
+        error: JSON.parse(
+          JSON.stringify(error, Object.getOwnPropertyNames(error))
+        ),
+      };
+    });
+};
+
+const extractId3NowPlaying = async ({
+  stream_url,
+}: {
+  stream_url: string;
+}): Promise<StationNowPlaying> => {
+  const statsExtractor = (data: any) => {
+    const [firstPart, lastPart] = data["title"]?.split(" - ") || ["", ""];
+    let songName, artist;
+
+    if (firstPart && lastPart) {
+      songName = lastPart;
+      artist = firstPart;
+    } else {
+      songName = firstPart;
+      artist = "";
+    }
+    return {
+      timestamp: new Date().toISOString(),
+      current_song:
+          {
+            name: songName?.trim(),
+            artist: artist?.trim(),
+            thumbnail_url: null,
+          } || null,
+      listeners: data["currentlisteners"] || null,
+    };
+  };
+
+  return parseRadioID3(stream_url)
+    .then(async (data: any) => {
+      return {
+        ...statsFormatter(statsExtractor(data)),
+        raw_data: data,
+      };
+    })
+    .catch((error: any) => {
+      logger.error(
+        `Cannot extract stats from ${stream_url}. error:`,
         error.toString()
       );
       return {
@@ -730,6 +788,15 @@ const getStationNowPlaying = async ({
     ) {
       stats = await extractRadioFiladelfiaNowPlaying({
         radio_filadelfia_api_url: stationMetadataFetcher.url,
+      });
+    }
+
+    if (
+      stationMetadataFetcher.station_metadata_fetch_category.slug ===
+      "stream_id3"
+    ) {
+      stats = await extractId3NowPlaying({
+        stream_url: stationMetadataFetcher.url,
       });
     }
 

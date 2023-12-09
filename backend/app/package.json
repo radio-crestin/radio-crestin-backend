@@ -26,6 +26,7 @@
     "express": "^4.18.2",
     "feed-reader": "^6.1.3",
     "node-cron": "^3.0.3",
+    "radio-id3": "^1.0.1",
     "tslog": "^4.9.2",
     "uuid": "^9.0.1"
   },
