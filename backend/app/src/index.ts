@@ -171,3 +171,21 @@ if (PROJECT_ENV.APP_REFRESH_STATIONS_RSS_FEED_CRON !== "") {
 app.listen(port, () => {
   logger.info(`Server is running on port ${port}.`);
 });
+
+refreshStationsMetadata()
+  .then((result) => {
+    logger.info("Stations metadata have been refreshed.", result);
+  })
+  .catch((error) => {
+    logger.info("Stations metadata refresh has encountered an error:");
+    logger.error(error.toString());
+  });
+
+refreshStationsRssFeed()
+  .then((result) => {
+    logger.info("Stations rss feed have been refreshed.", result);
+  })
+  .catch((error) => {
+    logger.info("Stations rss feed refresh has encountered an error:");
+    logger.error(error.toString());
+  });
