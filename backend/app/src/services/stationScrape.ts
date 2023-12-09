@@ -29,6 +29,11 @@ const statsFormatter = (stats: StationNowPlaying) => {
         .replace(/^[a-z]/, function (m) {
           return m.toUpperCase();
         });
+
+      // replace \uXXXX with diacritics
+      stats.current_song.name = decodeURIComponent(
+        (stats.current_song.name || "").toString()
+      );
     } else {
       stats.current_song.name = null;
     }
@@ -69,15 +74,17 @@ const extractNowPlaying = async ({
   url,
   headers,
   statsExtractor,
+  method,
 }: {
   url: string;
+  method?: string;
   headers?: any;
   statsExtractor: (data: any) => StationNowPlaying;
 }): Promise<StationNowPlaying> => {
   logger.info("Extracting now playing: ", url);
 
   const options: AxiosRequestConfig = {
-    method: "GET",
+    method: method? method: "GET",
     url,
     headers,
   };
@@ -197,8 +204,16 @@ const extractIcecastNowPlaying = async ({
         /listen_url=(?<listen_url>.+)/gim.exec(icecast_stats_url)?.groups
           ?.listen_url || "";
 
-      const source = data["icestats"]["source"].find((source: any) =>
-        source.listenurl.includes(listenurl)
+      const server_url =
+        /server_url=(?<server_url>.+)/gim.exec(icecast_stats_url)?.groups
+          ?.server_url || "";
+
+      const source = (Array.isArray(data["icestats"]["source"]))? (
+        data["icestats"]["source"].find((source: any) =>
+          source?.listenurl?.includes(listenurl) || source?.server_url?.includes(server_url)
+        )
+      ): (
+        data["icestats"]["source"]
       );
 
       const [firstPart, lastPart] = source["title"]?.split(" - ") || ["", ""];
@@ -449,6 +464,87 @@ const extractAripiSpreCerNowPlaying = async ({
   });
 };
 
+const extractRadioFiladelfiaNowPlaying = async ({
+  radio_filadelfia_api_url,
+}: {
+  radio_filadelfia_api_url: string;
+}): Promise<StationNowPlaying> => {
+  return extractNowPlaying({
+    url: radio_filadelfia_api_url,
+    headers: {
+      accept:
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+      "accept-language": "en-GB,en-US;q=0.9,en;q=0.8",
+      "cache-control": "max-age=0",
+      "sec-fetch-dest": "document",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-site": "none",
+      "sec-fetch-user": "?1",
+      "sec-gpc": "1",
+      "upgrade-insecure-requests": "1",
+    },
+    statsExtractor: (json_response) => {
+      return {
+        timestamp: new Date().toISOString(),
+        current_song:
+          {
+            name: json_response.Title,
+            artist: json_response.Artist,
+            thumbnail_url:
+              json_response.Picture !== "" ? `https://asculta.radiofiladelfia.ro:8500/meta/albumart/${json_response.Picture}` : null,
+          } || null,
+        listeners: null,
+      };
+    },
+  });
+};
+
+const extractSonicPanelNowPlaying = async ({
+  sonicpanel_url,
+}: {
+  sonicpanel_url: string;
+}): Promise<StationNowPlaying> => {
+  return extractNowPlaying({
+    url: sonicpanel_url,
+    headers: {
+      accept:
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+      "accept-language": "en-GB,en-US;q=0.9,en;q=0.8",
+      "cache-control": "max-age=0",
+      "sec-fetch-dest": "document",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-site": "none",
+      "sec-fetch-user": "?1",
+      "sec-gpc": "1",
+      "upgrade-insecure-requests": "1",
+    },
+    statsExtractor: (json_response) => {
+
+      const [firstPart, lastPart] = json_response.title?.split(" - ") || ["", ""];
+      let songName, artist;
+
+      if (firstPart && lastPart) {
+        songName = lastPart;
+        artist = firstPart;
+      } else {
+        songName = firstPart;
+        artist = "";
+      }
+
+      return {
+        timestamp: new Date().toISOString(),
+        current_song:
+          {
+            name: songName,
+            artist: artist,
+            thumbnail_url: null, // json_response.art does not work all the time
+          } || null,
+        listeners: json_response.listeners,
+      };
+    },
+  });
+};
+
 const getStationUptime = ({
   station,
 }: {
@@ -628,6 +724,24 @@ const getStationNowPlaying = async ({
       });
     }
 
+    if (
+      stationMetadataFetcher.station_metadata_fetch_category.slug ===
+      "radio_filadelfia_api"
+    ) {
+      stats = await extractRadioFiladelfiaNowPlaying({
+        radio_filadelfia_api_url: stationMetadataFetcher.url,
+      });
+    }
+
+    if (
+      stationMetadataFetcher.station_metadata_fetch_category.slug ===
+      "sonicpanel"
+    ) {
+      stats = await extractSonicPanelNowPlaying({
+        sonicpanel_url: stationMetadataFetcher.url,
+      });
+    }
+
     for(const[key, value] of Object.entries(stats)) {
       if(value != null) {
         mergedStats[key] = value;
@@ -780,6 +894,9 @@ export const refreshStationsMetadata = async () => {
       return {
         stationId: station.id,
         done: done,
+        station,
+        stationNowPlaying,
+        stationUptime,
       };
     },
     {
