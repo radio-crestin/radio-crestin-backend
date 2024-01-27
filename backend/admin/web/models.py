@@ -147,6 +147,30 @@ class Stations(models.Model):
         super(Stations, self).save(*args, **kwargs)
 
 
+
+class StationStreams(models.Model):
+    STREAM_TYPES = [
+        ('HLS', 'HLS'),
+        ('proxied_stream', 'Proxied Stream'),
+        ('direct_stream', 'Direct Stream'),
+    ]
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    station = models.ForeignKey('Stations', null=True, on_delete=models.SET_NULL)
+    stream_url = models.TextField()
+    order = models.FloatField(blank=True, null=True, default=0)
+    type = models.TextField(choices=STREAM_TYPES)
+
+    class Meta:
+        managed = False
+        db_table = 'station_streams'
+        unique_together = (('station', 'stream_url'),)
+        ordering = ('station', 'order',)
+
+    def __str__(self):
+        return f"{self.station}->{self.stream_url}"
+
 class StationsMetadataFetch(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

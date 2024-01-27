@@ -2,7 +2,7 @@ from django.contrib import admin
 from import_export.admin import ImportExportModelAdmin
 
 from .models import Songs, StationGroups, StationMetadataFetchCategories, StationToStationGroup, Stations, \
-    StationsMetadataFetch, StationsNowPlaying, StationsUptime, Artists, Posts
+    StationsMetadataFetch, StationsNowPlaying, StationsUptime, Artists, Posts, StationStreams
 
 
 @admin.register(Posts)
@@ -34,6 +34,13 @@ class StationsMetadataFetchInline(admin.TabularInline):
     readonly_fields = ['created_at', 'updated_at', ]
 
 
+class StationStreamsInline(admin.TabularInline):
+    model = StationStreams
+    extra = 0
+    show_change_link = True
+    readonly_fields = ['created_at', 'updated_at', ]
+
+
 @admin.register(Stations)
 class StationsAdmin(ImportExportModelAdmin):
     search_fields = ['title', 'website', 'email', 'stream_url']
@@ -41,6 +48,7 @@ class StationsAdmin(ImportExportModelAdmin):
     list_display = ('title',  'latest_station_now_playing',)
     readonly_fields = ('created_at', 'updated_at', 'thumbnail_url', 'latest_station_uptime', 'latest_station_now_playing',)
     inlines = [
+        StationStreamsInline,
         StationGroupsInline,
         StationsMetadataFetchInline,
         PostsInline,
@@ -119,4 +127,11 @@ class ArtistsAdmin(ImportExportModelAdmin):
 class SongsAdmin(ImportExportModelAdmin):
     search_fields = ['name', 'artist__name']
     list_filter = ('artist',)
+    readonly_fields = ('created_at', 'updated_at',)
+
+
+@admin.register(StationStreams)
+class StationStreamsAdmin(ImportExportModelAdmin):
+    search_fields = ['station', 'stream_url']
+    list_filter = ('station',)
     readonly_fields = ('created_at', 'updated_at',)

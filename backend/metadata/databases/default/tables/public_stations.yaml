@@ -58,6 +58,13 @@ array_relationships:
         table:
           name: stations_metadata_fetch
           schema: public
+  - name: station_streams
+    using:
+      foreign_key_constraint_on:
+        column: station_id
+        table:
+          name: station_streams
+          schema: public
   - name: station_to_station_groups
     using:
       foreign_key_constraint_on:
