@@ -36,7 +36,7 @@ def generate_deployment():
                     "driver": "json-file",
                     "options": {
                         "max-file": "5",
-                        "max-size": "100m"
+                        "max-size": "100k"
                     }
                 }
             },
@@ -59,7 +59,7 @@ def generate_deployment():
                 "driver": "json-file",
                 "options": {
                     "max-file": "5",
-                    "max-size": "100m"
+                    "max-size": "100k"
                 }
             }
 
