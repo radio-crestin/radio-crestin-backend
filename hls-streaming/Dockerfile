@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 alpine:3.13
+FROM alpine:3.13
 
 RUN apk add --update \
   bash \
