@@ -41,11 +41,8 @@ cd radio-crestin.com/
   
 # Installing Docker
 apt update
-apt install -y apt-transport-https ca-certificates curl software-properties-common
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"
-apt update
-apt install -y docker-ce docker-compose
+curl https://releases.rancher.com/install-docker/20.10.sh | sh
+apt install -y docker-compose
 
 # Configuration (make sure to update all the secrets)
 cp ./nginx/nginx.conf.example ./nginx/nginx.conf
