@@ -40,7 +40,9 @@ git clone git@github.com:iosifnicolae2/radio-crestin.com.git
 cd radio-crestin.com/
   
 # Installing Docker
+apt update
 curl https://releases.rancher.com/install-docker/20.10.sh | sh
+apt install -y docker-compose
 
 # Configuration (make sure to update all the secrets)
 cp ./nginx/nginx.conf.example ./nginx/nginx.conf
