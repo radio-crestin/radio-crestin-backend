@@ -9,7 +9,7 @@ object_relationships:
     using:
       foreign_key_constraint_on: user_id
 insert_permissions:
-  - role: user
+  - role: authenticated
     permission:
       check: {}
       set:
@@ -31,7 +31,7 @@ select_permissions:
         - verified
       filter: {}
 update_permissions:
-  - role: user
+  - role: authenticated
     permission:
       columns:
         - message
