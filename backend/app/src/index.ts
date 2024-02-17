@@ -5,7 +5,6 @@ import { PROJECT_ENV } from "./env";
 import * as cron from "node-cron";
 import { refreshStationsRssFeed } from "./services/stationRssFeedScrape";
 import axios from "axios";
-import {authorizationService} from "./services/authorizationService";
 import cookieParser from "cookie-parser";
 
 const app = express();
@@ -63,40 +62,10 @@ axios.defaults.timeout = 10 * 1000;
 
 app.use(cookieParser() as any);
 
-app.use((req, res, next) => {
-  (req as any).user_ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || "";
-
-  // TODO: in the future, we might use a signed session id here, for now it's ok like this
-  (req as any).session_id = (
-    req.cookies["Session-Id"]
-      || req.headers["session-id"]
-      || req.body?.session_id
-      || req.query?.session_id
-      || req.cookies["Device-Id"]
-      || req.headers["device-id"]
-  );
-
-  next();
-});
-
 app.get(
   "/",
   async (request: Request, response: Response, next: NextFunction) => {
     response.status(200).json({ up: true });
-  }
-);
-
-app.use(
-  "/api/v1/webhook/authentication",
-  async (request: Request, response: Response, next: NextFunction) => {
-    authorizationService(request)
-      .then((r) => {
-        response.status(200).json(r);
-      })
-      .catch((error) => {
-        logger.error(error.toString());
-        response.status(500).json({ error });
-      });
   }
 );
 
