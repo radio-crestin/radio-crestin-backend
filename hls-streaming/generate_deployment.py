@@ -5,7 +5,7 @@ import yaml
 def get_stations():
     conn = http.client.HTTPSConnection("graphql.radio-crestin.com")
 
-    payload = "{\"operationName\":\"GetStations\",\"query\":\"query GetStations {\\n  stations {\\n    id\\n    title\\n    stream_url \\n    slug\\n  }\\n}\\n\",\"variables\":{}}"
+    payload = "{\"operationName\":\"GetStations\",\"query\":\"query GetStations {\\n  stations(where: {generate_hls_stream: {_eq: true}}) {\\n    id\\n    title\\n    stream_url \\n    slug\\n  }\\n}\\n\",\"variables\":{}}"
 
     headers = {
         'content-type': "application/json",

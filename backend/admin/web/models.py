@@ -111,6 +111,7 @@ class Stations(models.Model):
     title = models.TextField()
     website = models.URLField()
     email = models.TextField(blank=True, null=True, )
+    generate_hls_stream = models.BooleanField(default=True)
     stream_url = models.URLField()
     thumbnail = models.ImageField(blank=True, null=True,)
     thumbnail_url = models.URLField(blank=True, null=True,)

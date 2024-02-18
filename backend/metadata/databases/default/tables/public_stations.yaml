@@ -111,6 +111,7 @@ select_permissions:
         - email
         - facebook_page_id
         - feature_latest_post
+        - generate_hls_stream
         - id
         - latest_station_now_playing_id
         - latest_station_uptime_id
