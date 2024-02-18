@@ -255,3 +255,6 @@ DEFAULT_FILE_STORAGE = 'web.storage_backends.PublicMediaStorage'
 
 AWS_PRIVATE_MEDIA_LOCATION = 'media/private'
 PRIVATE_FILE_STORAGE = 'web.storage_backends.PrivateMediaStorage'
+
+
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 2147483647
