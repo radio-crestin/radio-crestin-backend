@@ -40,6 +40,27 @@ services:
           memory: 300M
         reservations:
           memory: 80M
+  auth:
+    build:
+      context: backend/auth
+    depends_on:
+      - graphql-engine
+    restart: always
+    env_file:
+      - .env
+    networks:
+      - app_network
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "5"   # number of files or file count
+        max-size: "100m" # file size
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+        reservations:
+          memory: 80M
   admin:
     build:
       context: backend/admin

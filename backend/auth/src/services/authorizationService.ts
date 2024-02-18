@@ -1,26 +1,11 @@
-import { Request } from "express";
+import {Request} from "express";
 import axios, {AxiosRequestConfig} from "axios";
 import {PROJECT_ENV} from "../env";
 import * as http from "http";
 import * as https from "https";
 import {Logger} from "tslog";
-import {setupCache} from "axios-cache-adapter";
 
-const logger: Logger<any> = new Logger({ name: "authorizationService", minLevel: PROJECT_ENV.APP_DEBUG? 2:3 });
-
-const axiosCache = setupCache({
-  maxAge: 15 * 60 * 1000,
-});
-
-const axiosCached = axios.create({
-  adapter: axiosCache.adapter,
-  cache: {
-    exclude: {
-      // Only exclude PUT, PATCH and DELETE methods from cache
-      methods: ["put", "patch", "delete"],
-    },
-  },
-});
+const logger: Logger<any> = new Logger({name: "authorizationService", minLevel: PROJECT_ENV.AUTH_DEBUG ? 2 : 3});
 
 export const authorizationService = (req: Request): Promise<any> => {
 
@@ -36,7 +21,7 @@ export const authorizationService = (req: Request): Promise<any> => {
   }).then(async () => {
     const {user_ip, session_id} = req as any;
 
-    if(!session_id) {
+    if (!session_id) {
       return {
         "X-Hasura-Role": "public",
         "X-Hasura-User-Ip": user_ip,
@@ -45,12 +30,12 @@ export const authorizationService = (req: Request): Promise<any> => {
 
     const options: AxiosRequestConfig = {
       method: "POST",
-      url: PROJECT_ENV.APP_GRAPHQL_ENDPOINT_URI,
-      httpAgent: new http.Agent({ keepAlive: true, keepAliveMsecs: 60 * 1000 }),
-      httpsAgent: new https.Agent({ keepAlive: true, keepAliveMsecs: 60 * 1000 }),
+      url: PROJECT_ENV.AUTH_GRAPHQL_ENDPOINT_URI,
+      httpAgent: new http.Agent({keepAlive: true, keepAliveMsecs: 60 * 1000}),
+      httpsAgent: new https.Agent({keepAlive: true, keepAliveMsecs: 60 * 1000}),
       headers: {
         "content-type": "application/json",
-        "x-hasura-admin-secret": PROJECT_ENV.APP_GRAPHQL_ADMIN_SECRET,
+        "x-hasura-admin-secret": PROJECT_ENV.AUTH_GRAPHQL_ADMIN_SECRET,
       },
       data: {
         operationName: "UpsertUser",
@@ -66,7 +51,7 @@ export const authorizationService = (req: Request): Promise<any> => {
       },
     };
 
-    const userId = await axiosCached.request(options).then(function (response) {
+    const userId = await axios.request(options).then(function (response) {
       if (!response.data?.data) {
         throw new Error(`Invalid response: ${JSON.stringify(response.data)}`);
       }

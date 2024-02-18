@@ -1,6 +1,6 @@
 start-dev:
 	docker-compose -f docker-compose.dev.yaml --project-name radio_crestin_dev up  --build --force-recreate -d
-	docker-compose logs -f
+	docker-compose  -f docker-compose.dev.yaml logs -f
 
 start-dev-fast:
 	docker-compose -f docker-compose.dev.yaml --project-name radio_crestin_dev up  --build -d
