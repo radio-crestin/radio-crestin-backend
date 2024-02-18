@@ -44,7 +44,7 @@ class StationStreamsInline(admin.TabularInline):
 @admin.register(Stations)
 class StationsAdmin(ImportExportModelAdmin):
     search_fields = ['title', 'website', 'email', 'stream_url']
-    list_filter = ('latest_station_uptime__is_up', 'groups', )
+    list_filter = ('disabled', 'generate_hls_stream', 'latest_station_uptime__is_up', 'groups', )
     list_display = ('title',  'latest_station_now_playing',)
     readonly_fields = ('created_at', 'updated_at', 'thumbnail_url', 'latest_station_uptime', 'latest_station_now_playing',)
     inlines = [

@@ -129,4 +129,6 @@ select_permissions:
         - proxy_stream_url
         - radio_crestin_listeners
         - total_listeners
-      filter: {}
+      filter:
+        disabled:
+          _eq: false

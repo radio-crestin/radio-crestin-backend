@@ -106,6 +106,7 @@ class StationToStationGroup(models.Model):
 class Stations(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    disabled = models.BooleanField(default=False)
     order = models.FloatField()
     slug = models.SlugField()
     title = models.TextField()
