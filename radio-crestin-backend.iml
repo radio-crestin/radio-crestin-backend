@@ -13,9 +13,11 @@
       <excludeFolder url="file://$MODULE_DIR$/android/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/android/build" />
       <excludeFolder url="file://$MODULE_DIR$/backend/admin/venv" />
+      <excludeFolder url="file://$MODULE_DIR$/.idea/copilot/chatSessions" />
     </content>
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="beacon" level="application" />
     <orderEntry type="library" name="beacon" level="application" />
+    <orderEntry type="library" name="Python 3.8 interpreter library" level="application" />
   </component>
 </module>
