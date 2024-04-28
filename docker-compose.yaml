@@ -2,7 +2,7 @@ version: '3.6'
 services:
   postgres:
     image: postgres:13
-    restart: always
+    restart: unless-stopped
     volumes:
       - db_data:/var/lib/postgresql/data
     env_file:
@@ -24,7 +24,7 @@ services:
       context: backend/app
     depends_on:
       - graphql-engine
-    restart: always
+    restart: unless-stopped
     env_file:
       - .env
     networks:
@@ -45,7 +45,7 @@ services:
       context: backend/auth
     depends_on:
       - graphql-engine
-    restart: always
+    restart: unless-stopped
     env_file:
       - .env
     networks:
@@ -66,7 +66,7 @@ services:
       context: backend/admin
     depends_on:
       - postgres
-    restart: always
+    restart: unless-stopped
     env_file:
       - .env
     healthcheck:
@@ -86,7 +86,7 @@ services:
     image: hasura/graphql-engine:v2.33.4.cli-migrations-v3
     depends_on:
       - postgres
-    restart: always
+    restart: unless-stopped
     env_file:
       - .env
     volumes:
@@ -107,7 +107,7 @@ services:
         max-size: "100m" # file size
   graphql-viewer:
     image: ghcr.io/iosifnicolae2/graphql-viewer:latest
-    restart: always
+    restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/" ]
       interval: 30s
@@ -123,7 +123,7 @@ services:
         max-size: "100m" # file size
   tor-proxy:
     image: dperson/torproxy
-    restart: always
+    restart: unless-stopped
     environment:
       LOCATION: DE
     networks:
@@ -136,7 +136,7 @@ services:
   nginx:
     build:
       context: nginx
-    restart: always
+    restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

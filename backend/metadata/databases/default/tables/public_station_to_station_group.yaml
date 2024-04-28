@@ -16,4 +16,7 @@ select_permissions:
         - id
         - order
         - station_id
-      filter: {}
+      filter:
+        station:
+          disabled:
+            _eq: false
