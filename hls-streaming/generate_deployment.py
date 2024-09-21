@@ -58,7 +58,7 @@ def generate_deployment():
             # aac-64 -c:a:0 libfdk_aac -profile:a:0 aac_he_v2 -b:a:0 64k
             # "command": f"bash -c \"ffmpeg -y -abort_on empty_output_stream -i '{station_stream}' -c:a:0 copy -async 1 -ac 2 -r 44100 -map 0:a:0 -f hls -hls_init_time 2 -hls_time 6 -hls_list_size 5 -hls_delete_threshold 10 -master_pl_name index.m3u8 -var_stream_map 'a:0,name:original,default:yes' -hls_flags delete_segments+omit_endlist -hls_start_number_source epoch -master_pl_publish_rate 2 -sc_threshold 0 /data/%v/index.m3u8 || (rm -rf /data/* && kill 1)\"",
             # with aac
-            "command": f"bash -c \"ffmpeg -y -abort_on empty_output_stream -i '{station_stream}' -c:a libfdk_aac -profile:a aac_he -b:a 64k -flags +global_header -async 1 -ac 2 -ar 44100 -map 0:a:0 -f hls -hls_init_time 2 -hls_time 15 -hls_list_size 10 -hls_delete_threshold 30 -hls_flags delete_segments+omit_endlist -hls_start_number_source epoch -hls_segment_filename /data/segment_%d.ts -master_pl_publish_rate 1 -sc_threshold 0 /data/index.m3u8 || (rm -rf /data/* && kill 1)\"",
+            "command": f"bash -c \"ffmpeg -y -abort_on empty_output_stream -i '{station_stream}' -c:a libfdk_aac -profile:a aac_he -b:a 64k -flags +global_header -async 1 -ac 2 -ar 44100 -map 0:a:0 -f hls -hls_init_time 7 -hls_time 15 -hls_list_size 10 -hls_delete_threshold 30 -hls_flags delete_segments+omit_endlist -hls_start_number_source epoch -hls_segment_filename /data/segment_%d.ts -master_pl_publish_rate 1 -sc_threshold 0 /data/index.m3u8 || (rm -rf /data/* && kill 1)\"",
 
             "logging": {
                 "driver": "json-file",
