@@ -25,7 +25,7 @@ def generate_deployment():
         "version": "3.3",
         "services": {
             "hls_nginx": {
-                "image": "nginx:1.21-alpine",
+                "image": "kiweeteam/nginx-brotli:latest",
                 "restart": "always",
                 "ports": [
                     "80:80"
