@@ -1,10 +1,16 @@
 import { Promise as BluebirdPromise } from "bluebird";
 import { Station, StationNowPlaying, StationUptime } from "../types";
 import axios, { AxiosRequestConfig } from "axios";
+import https from "https";
 import { PROJECT_ENV } from "../env";
 import { Logger } from "tslog";
 import { getStations } from "../services/getStations";
 import _ from "lodash";
+
+// Create an https agent that doesn't verify certificates
+const httpsAgent = new https.Agent({
+  rejectUnauthorized: false
+});
 
 const logger: Logger<any> = new Logger({ name: "stationScrape", minLevel: PROJECT_ENV.APP_DEBUG? 2:3 });
 
@@ -113,6 +119,7 @@ const extractNowPlaying = async ({
     method: method? method: "GET",
     url,
     headers,
+    httpsAgent, // Use the agent that doesn't verify certificates
   };
 
   return axios
@@ -941,6 +948,7 @@ const updateStationMetadata = async ({
       "x-hasura-admin-secret": PROJECT_ENV.APP_GRAPHQL_ADMIN_SECRET,
     },
     timeout: 5000,
+    httpsAgent, // Use the agent that doesn't verify certificates
     data: {
       operationName: "UpdateStationMetadata",
       query: query,
