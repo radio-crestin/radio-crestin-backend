@@ -1,3 +1,10 @@
+### Backend TODO
+- [ ] converteste proiectul la superapp
+- [ ] renunta la hasura si pune toata logica in superapp
+- [ ] creaza engine-ul care colecteaza date despre numarul de ascultatori HLS
+- [ ] 
+
+
 Frontend:
 - [ ] header-ul trebuie sa fie rendered server-side
 - [X] make the play button & volume icon a bit smaller && make the volume slider width constant
