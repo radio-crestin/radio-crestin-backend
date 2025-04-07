@@ -2,11 +2,40 @@ import { Station, StationRssFeed } from "../types";
 import { read as rssReader } from "feed-reader";
 import { Promise as BluebirdPromise } from "bluebird";
 import axios, { AxiosRequestConfig } from "axios";
+import https from "https";
 import { PROJECT_ENV } from "../env";
 import { getStations } from "../services/getStations";
 import { Logger } from "tslog";
 
+// Create an https agent that doesn't verify certificates
+const httpsAgent = new https.Agent({
+  rejectUnauthorized: false
+});
+
 const logger: Logger<any> = new Logger({ name: "stationRssFeedScrape", minLevel: PROJECT_ENV.APP_DEBUG? 2:3 });
+
+// Custom RSS reader function that ignores certificate errors
+const secureRssReader = (url: string) => {
+  // The feed-reader package uses axios internally, so we need to patch axios globally
+  // just for this call to ignore certificate errors
+  const originalCreate = axios.create;
+  axios.create = function(...args) {
+    const instance = originalCreate.apply(this, args);
+    instance.defaults.httpsAgent = httpsAgent;
+    return instance;
+  };
+  
+  // Call the original rssReader
+  return rssReader(url).then((feed) => {
+    // Restore the original axios.create
+    axios.create = originalCreate;
+    return feed;
+  }).catch((error) => {
+    // Restore the original axios.create even if there's an error
+    axios.create = originalCreate;
+    throw error;
+  });
+};
 
 const getStationRssFeed = ({
   station,
@@ -14,7 +43,7 @@ const getStationRssFeed = ({
   station: Station;
 }): Promise<StationRssFeed> => {
   if (typeof station.rss_feed === "string" && !!station.rss_feed) {
-    return rssReader(station.rss_feed).then((feed) => {
+    return secureRssReader(station.rss_feed).then((feed) => {
       return {
         posts: feed?.entries?.map((e: any) => {
           return {
@@ -52,6 +81,7 @@ const updateStationPosts = async ({
       "x-hasura-admin-secret": PROJECT_ENV.APP_GRAPHQL_ADMIN_SECRET,
     },
     timeout: 10000,
+    httpsAgent, // Use the agent that doesn't verify certificates
     data: {
       operationName: "UpdateStationPosts",
       query: `mutation UpdateStationPosts($objects: [posts_insert_input!]!) {
