@@ -87,6 +87,26 @@ generate_translation_values:
 create-fixtures:
 	docker-compose exec web python3 manage.py dumpdata --natural-foreign --natural-primary --indent 2 --output fixtures/fixtures.json
 
+create-fixtures-all:
+	mkdir -p fixtures/tables
+	docker-compose exec web python3 manage.py dumpdata radio_crestin.posts --natural-foreign --natural-primary --indent 2 --output fixtures/tables/posts.json
+	docker-compose exec web python3 manage.py dumpdata radio_crestin.stationsnowplaying --natural-foreign --natural-primary --indent 2 --output fixtures/tables/stations_now_playing.json
+	docker-compose exec web python3 manage.py dumpdata radio_crestin.stationsuptime --natural-foreign --natural-primary --indent 2 --output fixtures/tables/stations_uptime.json
+	docker-compose exec web python3 manage.py dumpdata radio_crestin.stations --natural-foreign --natural-primary --indent 2 --output fixtures/tables/stations.json
+	docker-compose exec web python3 manage.py dumpdata auth.user --natural-foreign --natural-primary --indent 2 --output fixtures/tables/auth_user.json
+	docker-compose exec web python3 manage.py dumpdata radio_crestin.stationgroups --natural-foreign --natural-primary --indent 2 --output fixtures/tables/station_groups.json
+	docker-compose exec web python3 manage.py dumpdata radio_crestin.stationstreams --natural-foreign --natural-primary --indent 2 --output fixtures/tables/station_streams.json
+	docker-compose exec web python3 manage.py dumpdata radio_crestin.reviews --natural-foreign --natural-primary --indent 2 --output fixtures/tables/reviews.json
+	docker-compose exec web python3 manage.py dumpdata auth.permission --natural-foreign --natural-primary --indent 2 --output fixtures/tables/auth_permission.json
+	docker-compose exec web python3 manage.py dumpdata radio_crestin.stationtostationgroup --natural-foreign --natural-primary --indent 2 --output fixtures/tables/station_to_station_group.json
+	docker-compose exec web python3 manage.py dumpdata radio_crestin.stationmetadatafetchcategories --natural-foreign --natural-primary --indent 2 --output fixtures/tables/station_metadata_fetch_categories.json
+	docker-compose exec web python3 manage.py dumpdata radio_crestin.stationsmetadatafetch --natural-foreign --natural-primary --indent 2 --output fixtures/tables/stations_metadata_fetch.json
+	docker-compose exec web python3 manage.py dumpdata auth.group_permissions --natural-foreign --natural-primary --indent 2 --output fixtures/tables/auth_group_permissions.json
+	docker-compose exec web python3 manage.py dumpdata auth.user_groups --natural-foreign --natural-primary --indent 2 --output fixtures/tables/auth_user_groups.json
+	docker-compose exec web python3 manage.py dumpdata auth.user_user_permissions --natural-foreign --natural-primary --indent 2 --output fixtures/tables/auth_user_user_permissions.json
+	docker-compose exec web python3 manage.py dumpdata auth.group --natural-foreign --natural-primary --indent 2 --output fixtures/tables/auth_group.json
+	docker-compose exec web python3 manage.py dumpdata --natural-foreign --natural-primary --indent 2 --output fixtures/all_tables.json
+
 load-fixtures:
 	docker-compose exec web python3 manage.py loaddata \
 		fixtures/fixtures
