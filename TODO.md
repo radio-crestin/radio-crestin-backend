@@ -3,6 +3,7 @@
 - [ ] renunta la hasura si pune toata logica in superapp
 - [ ] creaza engine-ul care colecteaza date despre numarul de ascultatori HLS
 - [ ] implementeaza metadata scraping pentru Radio King (https://radio.voceacrestinilor.com/ - https://api.radioking.io/widget/radio/radio-vocea-crestinilor/track/current)
+- [ ] adauga scraping pentru https://www.philadelphiachurch.com.au/radio-philadelphia
 
 
 Frontend:
