@@ -5,13 +5,18 @@ import strawberry_django
 from typing import List, Optional
 from django.db.models import Prefetch
 
-from .types import StationType, StationGroupType
+from .types import StationType, StationGroupType, GetStationsResponse, OrderDirection, OrderDirectionEnum, PostOrderBy
 from ..models import Stations, StationGroups, StationStreams, Posts, StationsUptime, StationsNowPlaying, StationToStationGroup
+
+@strawberry.input
+class StationOrderBy:
+    order: Optional[OrderDirectionEnum] = None
+    title: Optional[OrderDirectionEnum] = None
 
 
 @strawberry.type
 class Query:
-    
+
     @strawberry.field
     def get_stations(self) -> 'GetStationsResponse':
         """
@@ -19,16 +24,16 @@ class Query:
         Returns both stations and station_groups in a single optimized query.
         """
         from .resolvers import get_optimized_stations_queryset, get_optimized_station_groups_queryset
-        
+
         return GetStationsResponse(
             stations=list(get_optimized_stations_queryset()),
             station_groups=list(get_optimized_station_groups_queryset())
         )
-    
+
     @strawberry_django.field
     def stations(
         self,
-        order_by: Optional[str] = None,
+        order_by: Optional[StationOrderBy] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
     ) -> List[StationType]:
@@ -56,37 +61,41 @@ class Query:
                 queryset=Posts.objects.order_by('-published')[:1]
             )
         ).filter(disabled=False)
-        
+
         # Apply ordering - default to order asc, title asc for Hasura compatibility
         if order_by:
-            # Parse order_by string (e.g., "order:asc,title:asc")
             order_fields = []
-            for field in order_by.split(','):
-                if ':' in field:
-                    field_name, direction = field.strip().split(':')
-                    if direction.lower() == 'desc':
-                        order_fields.append(f'-{field_name}')
-                    else:
-                        order_fields.append(field_name)
+            if order_by.order:
+                if order_by.order == OrderDirection.DESC:
+                    order_fields.append('-order')
                 else:
-                    order_fields.append(field.strip())
-            queryset = queryset.order_by(*order_fields)
+                    order_fields.append('order')
+            if order_by.title:
+                if order_by.title == OrderDirection.DESC:
+                    order_fields.append('-title')
+                else:
+                    order_fields.append('title')
+            if order_fields:
+                queryset = queryset.order_by(*order_fields)
+            else:
+                # Default Hasura ordering if no specific fields provided
+                queryset = queryset.order_by('order', 'title')
         else:
             # Default Hasura ordering
             queryset = queryset.order_by('order', 'title')
-        
+
         # Apply pagination
         if offset:
             queryset = queryset[offset:]
         if limit:
             queryset = queryset[:limit]
-            
+
         return queryset
 
-    @strawberry_django.field  
+    @strawberry_django.field
     def station_groups(
         self,
-        order_by: Optional[str] = None,
+        order_by: Optional[StationOrderBy] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
     ) -> List[StationGroupType]:
@@ -102,28 +111,34 @@ class Query:
                 queryset=StationToStationGroup.objects.select_related('station').order_by('order', 'station__title')
             )
         )
-        
+
         # Apply ordering - default to order asc for Hasura compatibility  
         if order_by:
             order_fields = []
-            for field in order_by.split(','):
-                if ':' in field:
-                    field_name, direction = field.strip().split(':')
-                    if direction.lower() == 'desc':
-                        order_fields.append(f'-{field_name}')
-                    else:
-                        order_fields.append(field_name)
+            if order_by.order:
+                if order_by.order == OrderDirection.DESC:
+                    order_fields.append('-order')
                 else:
-                    order_fields.append(field.strip())
-            queryset = queryset.order_by(*order_fields)
+                    order_fields.append('order')
+            if order_by.title:  # Station groups use title field for name ordering
+                if order_by.title == OrderDirection.DESC:
+                    order_fields.append('-name')
+                else:
+                    order_fields.append('name')
+            if order_fields:
+                queryset = queryset.order_by(*order_fields)
+            else:
+                # Default ordering if no specific fields provided
+                queryset = queryset.order_by('order', 'name')
         else:
             # Default ordering
             queryset = queryset.order_by('order', 'name')
-            
+
         # Apply pagination
         if offset:
             queryset = queryset[offset:]
         if limit:
             queryset = queryset[:limit]
-            
+
         return queryset
+

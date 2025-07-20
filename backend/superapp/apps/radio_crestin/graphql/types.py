@@ -4,6 +4,17 @@ import strawberry
 import strawberry_django
 from typing import Optional, List
 from datetime import datetime
+from enum import Enum
+
+class OrderDirection(Enum):
+    ASC = "asc"
+    DESC = "desc"
+
+OrderDirectionEnum = strawberry.enum(OrderDirection)
+
+@strawberry.input
+class PostOrderBy:
+    published: Optional[OrderDirectionEnum] = None
 
 from ..models import (
     Artists,
@@ -40,7 +51,9 @@ class PostType:
 
 @strawberry_django.type(model=StationsUptime, fields="__all__")
 class StationUptimeType:
-    pass
+    # Add snake_case aliases for backward compatibility  
+    is_up: bool = strawberry_django.field()
+    latency_ms: Optional[int] = strawberry_django.field()
 
 
 @strawberry_django.type(model=StationsNowPlaying, fields="__all__")
@@ -50,16 +63,51 @@ class StationNowPlayingType:
 
 @strawberry_django.type(model=StationToStationGroup, fields="__all__")
 class StationToStationGroupType:
-    pass
+    # Add snake_case aliases for backward compatibility
+    station_id: Optional[int] = strawberry_django.field(field_name="station_id")
 
 
 @strawberry_django.type(model=Stations, fields="__all__")
 class StationType:
     # Related fields optimized for the Hasura query
-    station_streams: List[StationStreamType] = strawberry_django.field()
-    posts: List[PostType] = strawberry_django.field()
+    station_streams: List[StationStreamType] = strawberry_django.field(field_name="stationstreams_set")
     uptime: Optional[StationUptimeType] = strawberry_django.field(field_name="latest_station_uptime")
     now_playing: Optional[StationNowPlayingType] = strawberry_django.field(field_name="latest_station_now_playing")
+    
+    # Add snake_case aliases for backward compatibility
+    thumbnail_url: Optional[str] = strawberry_django.field()
+    description_action_title: Optional[str] = strawberry_django.field()
+    description_link: Optional[str] = strawberry_django.field()
+    feature_latest_post: bool = strawberry_django.field()
+    facebook_page_id: Optional[str] = strawberry_django.field()
+    
+    # Custom posts resolver to handle limit and order_by
+    @strawberry.field
+    def posts(
+        self, 
+        limit: Optional[int] = None, 
+        order_by: Optional[PostOrderBy] = None
+    ) -> List[PostType]:
+        """Get posts with limit and ordering support"""
+        from ..models import Posts
+        
+        queryset = Posts.objects.filter(station=self)
+        
+        # Apply ordering
+        if order_by and order_by.published:
+            if order_by.published == OrderDirection.DESC:
+                queryset = queryset.order_by('-published')
+            else:
+                queryset = queryset.order_by('published')
+        else:
+            # Default ordering
+            queryset = queryset.order_by('-published')
+        
+        # Apply limit
+        if limit:
+            queryset = queryset[:limit]
+            
+        return list(queryset)
     
     # Additional computed fields for backward compatibility
     @strawberry.field

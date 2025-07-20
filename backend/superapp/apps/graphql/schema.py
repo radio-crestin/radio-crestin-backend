@@ -92,9 +92,14 @@ Mutation = merge_types(
     tuple(all_mutations)
 )
 
+from strawberry.schema.config import StrawberryConfig
+
 schema = strawberry.Schema(
     query=Query,
     mutation=Mutation,
+    config=StrawberryConfig(
+        auto_camel_case=False,  # Keep snake_case field names
+    ),
     extensions=[
         DjangoValidationCache(
             timeout=7 * 24 * 60 * 60,  # Cache for 7 days
