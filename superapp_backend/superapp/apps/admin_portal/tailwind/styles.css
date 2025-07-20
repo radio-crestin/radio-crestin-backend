@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.selector {
+    @apply flex flex-col flex-grow items-center max-w-full md:flex-row !important;
+}
+.selector select {
+    min-height: 350px !important;
+}
+
+.column-employee_category {
+    width: 18rem;
+}

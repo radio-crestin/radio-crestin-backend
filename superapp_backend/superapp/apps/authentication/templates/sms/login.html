@@ -1,0 +1,22 @@
+{% extends "account/login.html" %}
+{% load i18n %}
+{% load allauth_ui %}
+{% load widget_tweaks %}
+{% block content %}
+{% trans "Sign in with SMS" as heading %}
+{% #container heading=heading  %}
+<div class="py-3">
+    {% blocktranslate %}You will receive an sms containing a special code for a password-free sign-in.{% endblocktranslate %}
+</div>
+
+{% url 'sms_login' as action_url %}
+{% #form form=form url=action_url button_text=heading %}
+<div class="flex items-center justify-between mb-4" style="margin-top: -1rem">
+    {{ redirect_field }}
+    {% csrf_token %}
+    {{ redirect_field }}
+</div>
+{% /form %}
+
+{% /container %}
+{% endblock content %}

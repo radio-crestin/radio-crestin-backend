@@ -1,0 +1,135 @@
+{# djlint:off H006 #}
+{% load i18n %}
+{% load static %}
+{% load allauth_ui %}
+<!DOCTYPE html>
+<html class="dark">
+    <head>
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>
+            {% block head_title %}
+            {% endblock head_title %}
+        </title>
+        {% block extra_head %}
+            <link href="{% static "unfold/fonts/inter/styles.css" %}" rel="stylesheet">
+            <link href="{% static "unfold/fonts/material-symbols/styles.css" %}" rel="stylesheet">
+
+            {% for style in styles %}
+            <link href="{{ style }}" rel="stylesheet">
+            {% endfor %}
+
+            {% for favicon in site_favicons %}
+            <link {% if favicon.rel %}rel="{{ favicon.rel }}"{% endif %} {% if favicon.href %}href="{{ favicon.href }}"{% endif %} {% if favicon.type %}type="{{ favicon.type }}"{% endif %} {% if favicon.sizes %}sizes="{{ favicon.sizes }}"{% endif %}>
+            {% endfor %}
+
+            <link href="{% static 'admin_portal/css/styles.css' %}" rel="stylesheet">
+            <link href="{% static 'admin_portal/css/custom.css' %}" rel="stylesheet">
+
+            <link href="{% static 'unfold/css/styles.css' %}" rel="stylesheet">
+            <link href="{% static 'unfold/css/simplebar.css' %}" rel="stylesheet">
+
+            <script src="{% static 'unfold/js/alpine.anchor.js' %}" defer></script>
+            <script src="{% static 'unfold/js/alpine.persist.js' %}" defer></script>
+            <script src="{% static 'unfold/js/alpine.sort.js' %}" defer></script>
+            <script src="{% static 'unfold/js/alpine.resize.js' %}" defer></script>
+            <script src="{% static 'unfold/js/alpine.js' %}" defer></script>
+            <script src="{% static 'unfold/js/htmx.js' %}"></script>
+            <script src="{% static 'unfold/js/chart.js' %}"></script>
+
+            {% for script in scripts %}
+            <script src="{{ script }}"></script>
+            {% endfor %}
+
+            {% block extrastyle %}{% endblock %}
+
+            {% block extrahead %}{% endblock %}
+
+            <script src="{% static 'unfold/js/app.js' %}"></script>
+
+            {% block responsive %}
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            {% endblock %}
+
+            {% block blockbots %}
+            <meta name="robots" content="NONE,NOARCHIVE">
+            {% endblock %}
+        {% endblock extra_head %}
+    </head>
+    <body class="antialiased bg-white font-sans text-font-default-light text-sm dark:bg-base-900 dark:text-font-default-dark bg-base-50 login dark:bg-base-900">
+
+    <style id="unfold-theme-colors">
+        :root {
+            --color-base-50: 249 250 251;
+            --color-base-100: 243 244 246;
+            --color-base-200: 229 231 235;
+            --color-base-300: 209 213 219;
+            --color-base-400: 156 163 175;
+            --color-base-500: 107 114 128;
+            --color-base-600: 75 85 99;
+            --color-base-700: 55 65 81;
+            --color-base-800: 31 41 55;
+            --color-base-900: 17 24 39;
+            --color-base-950: 3 7 18;
+            --color-primary-50: 238 242 255;
+            --color-primary-100: 224 231 255;
+            --color-primary-200: 199 210 254;
+            --color-primary-300: 165 180 252;
+            --color-primary-400: 129 140 248;
+            --color-primary-500: 99 102 241;
+            --color-primary-600: 79 70 229;
+            --color-primary-700: 67 56 202;
+            --color-primary-800: 55 48 163;
+            --color-primary-900: 49 46 129;
+            --color-primary-950: 30 27 75;
+            --color-font-subtle-light: var(--color-base-500);
+            --color-font-subtle-dark: var(--color-base-400);
+            --color-font-default-light: var(--color-base-600);
+            --color-font-default-dark: var(--color-base-300);
+            --color-font-important-light: var(--color-base-900);
+            --color-font-important-dark: var(--color-base-100);
+        }
+    </style>
+
+        {% block body %}
+            {% block content %}
+            {% endblock content %}
+<!--            TODO: we might need to display these settings in another place -->
+<!--            <div class="mx-auto [&_a]:link text-sm flex flex-col md:flex-row items-center justify-center gap-3 mt-3">-->
+<!--                {% if user.is_authenticated %}-->
+<!--                    {% url 'account_email' as email_url %}-->
+<!--                    {% if email_url %}-->
+<!--                        <a href="{{ email_url }}">{% trans "Change Email" %}</a>-->
+<!--                    {% endif %}-->
+<!--                    {% url 'account_change_password' as change_password_url %}-->
+<!--                    {% if change_password_url %}-->
+<!--                        <a href="{{ change_password_url }}">{% trans "Change Password" %}</a>-->
+<!--                    {% endif %}-->
+<!--                    {% url 'mfa_index' as mfa_url %}-->
+<!--                    {% if mfa_url %}-->
+<!--                        <a href="{{ mfa_url }}">{% trans "Two-Factor Authentication" %}</a>-->
+<!--                    {% endif %}-->
+<!--                    {% url 'usersessions_list' as usersessions_list_url %}-->
+<!--                    {% if usersessions_list_url %}-->
+<!--                        <a href="{{ usersessions_list_url }}">{% trans "Sessions" %}</a>-->
+<!--                    {% endif %}-->
+<!--                    {% url 'account_logout' as logout_url %}-->
+<!--                    {% if logout_url %}-->
+<!--                        <a href="{{ logout_url }}">{% trans "Sign Out" %}</a>-->
+<!--                    {% endif %}-->
+<!--                {% else %}-->
+<!--                    {% url 'account_login' as login_url %}-->
+<!--                    {% if login_url %}-->
+<!--                        <a href="{{ login_url }}">{% trans "Sign In" %}</a>-->
+<!--                    {% endif %}-->
+<!--                    {% url 'account_signup' as signup_url %}-->
+<!--                    {% if signup_url %}-->
+<!--                        <a href="{{ signup_url }}">{% trans "Sign Up" %}</a>-->
+<!--                    {% endif %}-->
+<!--                {% endif %}-->
+<!--            </div>-->
+        {% endblock body %}
+        {% block extra_body %}
+        {% endblock extra_body %}
+    </body>
+</html>

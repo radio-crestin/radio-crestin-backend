@@ -1,0 +1,14 @@
+{% load widget_tweaks %}
+
+<div class="flex flex-col group mb-6 last:mb-4">
+    <label for="{{ field.id_for_label }}" class="block text-font-important-light dark:text-font-important-dark font-semibold mb-2"> {{ field.label }} <span class="text-red-600">*</span>
+    </label>
+    {% if field.errors %}
+    {% render_field field placeholder="" class="border border-base-200 bg-white font-medium min-w-20 placeholder-base-400 rounded shadow-sm text-font-default-light text-sm focus:ring focus:ring-primary-300 focus:border-primary-600 focus:outline-none group-[.errors]:border-red-600 group-[.errors]:focus:ring-red-200 dark:bg-base-900 dark:border-base-700 dark:text-font-default-dark dark:focus:border-primary-600 dark:focus:ring-primary-700 dark:focus:ring-opacity-50 dark:group-[.errors]:border-red-500 dark:group-[.errors]:focus:ring-red-600/40 px-3 py-2 w-full input-error" %}
+    {% else %}
+    {% render_field field class="border border-base-200 bg-white font-medium min-w-20 placeholder-base-400 rounded shadow-sm text-font-default-light text-sm focus:ring focus:ring-primary-300 focus:border-primary-600 focus:outline-none group-[.errors]:border-red-600 group-[.errors]:focus:ring-red-200 dark:bg-base-900 dark:border-base-700 dark:text-font-default-dark dark:focus:border-primary-600 dark:focus:ring-primary-700 dark:focus:ring-opacity-50 dark:group-[.errors]:border-red-500 dark:group-[.errors]:focus:ring-red-600/40 px-3 py-2 w-full" %}
+    {% endif %}
+    {% for error in field.errors %}
+    <span class="flex items-center max-w-xs mt-1 ml-1 text-xs font-medium tracking-wide text-error">{{ error }}</span>
+    {% endfor %}
+</div>

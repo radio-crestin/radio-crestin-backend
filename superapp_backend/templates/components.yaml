@@ -1,0 +1,5 @@
+# Django Slippers components configuration
+version: 1
+
+# Define your components here (can be empty if you're not using components)
+components: {}

@@ -1,0 +1,25 @@
+{% extends "account/login.html" %}
+{% load i18n %}
+{% load allauth %}
+{% load allauth_ui %}
+{% load account %}
+{% load widget_tweaks %}
+{% block content %}
+    {% trans "Enter Sign-In Code" as heading %}
+    {% trans "Sign In" as confirm_button %}
+    {% #container heading=heading  %}
+        <div class="py-3">
+            {% blocktranslate %}We’ve sent a code to {{ email_link }}. The code expires shortly, so please enter it soon.{% endblocktranslate %}
+         </div>
+
+    {% url 'account_confirm_login_code' as action_url %}
+     {% #form form=form url=action_url button_text=confirm_button %}
+        <div class="flex items-center justify-between mb-4" style="margin-top: -1rem">
+            {{ redirect_field }}
+            {% csrf_token %}
+            {{ redirect_field }}
+        </div>
+        {% /form %}
+
+    {% /container %}
+{% endblock content %}

@@ -1,0 +1,55 @@
+{% extends "socialaccount/connections.html" %}
+{% load i18n %}
+{% load allauth_ui %}
+{% load widget_tweaks %}
+{% load slippers %}
+{% block content %}
+    {% trans "Account Connections" as heading %}
+    {% if form.accounts %}
+        {% blocktrans asvar subheading %}
+        You can sign in to your account using any of the following third-party accounts:
+        {% endblocktrans %}
+    {% else %}
+        {% trans "You currently have no third-party accounts connected to this account." as subheading %}
+    {% endif %}
+    {% #container heading=heading subheading=subheading %}
+    {% if form.accounts %}
+        {% url 'socialaccount_connections' as action_url %}
+        {% #form form=form url=action_url render_fields="false" use_default_button="false" %}
+        {% csrf_token %}
+        {% for acc in form.fields.account.choices %}
+            {% var account=acc.0.instance.get_provider_account %}
+            <div class="form-control">
+                <label class="cursor-pointer label border p-3 rounded">
+                    <span class="label-text">{{ account.get_brand.name }}</span>
+                    <input type="radio"
+                           id="id_account_{{ account.account.pk }}"
+                           name="account"
+                           value="{{ account.account.pk }}"
+                           class="radio checked:bg-primary"
+                           {% if radio.checked %}checked{% endif %} />
+                </label>
+            </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-warning my-3">
+            {% trans "Remove" %}
+        </button>
+        {% /form %}
+    {% endif %}
+
+    {% if messages %}
+    <div class="mt-4">
+        {% for message in messages %}
+        <div class="errornote text-start mb-3 px-3 py-3 rounded group-[.inline-tabular]:mb-0 group-[.inline-tabular]:mt-3 group-[.inline-tabular]:mx-3 group-[.inline-stacked]:mb-3 group-[.inline-stacked]:mt-3 group-[.inline-stacked]:mx-3 bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400 alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <h2 class="py-3 text-lg">{% trans "Add a Third-Party Account" %}</h2>
+
+    {% include "socialaccount/snippets/provider_list.html" with process="connect" %}
+    {% include "socialaccount/snippets/login_extra.html" %}
+    {% /container %}
+{% endblock content %}

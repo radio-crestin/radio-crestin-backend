@@ -1,0 +1,29 @@
+{% load slippers %}
+{% load allauth_ui %}
+{% load widget_tweaks %}
+{% var render_fields=render_fields|default:"true" %}
+{% var use_default_button=use_default_button|default:"true" %}
+<form class="py-3" method="post" action="{{ url }}">
+
+    {% include "unfold/helpers/messages/errornote.html" with errors=form.errors %}
+    {% include "unfold/helpers/messages/error.html" with errors=form.non_field_errors %}
+
+    {% if render_fields == "true" %}
+        {% for field in form.visible_fields %}
+            {% if field.name != "remember" %}
+                {% #form_field field=field %}
+                {% /form_field %}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+    {{ children }}
+    {% if use_default_button == "true" %}
+    <div class="submit-row">
+        <button type="submit" class="bg-primary-600 border border-transparent flex flex-row font-semibold group items-center justify-center py-2 rounded text-sm text-white w-full">
+            {{ button_text }}
+
+            <i class="material-symbols-outlined ml-2 relative right-0 text-lg transition-all group-hover:-right-1">arrow_forward</i>
+        </button>
+    </div>
+    {% endif %}
+</form>

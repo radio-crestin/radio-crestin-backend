@@ -1,0 +1,6 @@
+django-unfold==0.53.*
+django-svelte-jsoneditor==0.4.*
+django-import-export==4.3.*
+django-admin-confirm==1.0.*
+django-mass-edit==3.5.*
+django-cleanup==9.0.*

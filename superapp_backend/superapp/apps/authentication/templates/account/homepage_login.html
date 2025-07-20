@@ -1,0 +1,54 @@
+{% extends "account/login.html" %}
+{% load i18n %}
+{% load allauth_ui %}
+{% load widget_tweaks %}
+{% block content %}
+    {% trans "Sign In" as heading %}
+    {% #container heading=heading  %}
+    {% if not SOCIALACCOUNT_ONLY %}
+        <div class="py-3">
+            {{ form.form_description }}
+        </div>
+        {% url 'account_login' as action_url %}
+        {% #form form=form url=form.action_url|default:action_url button_text=form.submit_btn_label|default:heading %}
+        <div class="flex items-center justify-between mb-4" style="margin-top: -1rem">
+            {% if form.remember %}
+            <div class="flex items-center">
+                {% render_field form.remember class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" %}
+                <label class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">
+                    {% trans "Remember me" %}
+                </label>
+            </div>
+            {% endif %}
+            {{ redirect_field }}
+            {% csrf_token %}
+        </div>
+        {% /form %}
+    {% endif %}
+    {% if SOCIALACCOUNT_ENABLED %}
+        {% include "socialaccount/snippets/login.html" with page_layout="entrance" %}
+    {% endif %}
+    {% if LOGIN_BY_CODE_ENABLED %}
+    <a class="inline-flex w-full items-center justify-center gap-2 mt-3 rounded-md border border-base-200 bg-white px-4 py-2 text-sm font-medium text-base-500 shadow-sm transition-all hover:bg-base-50 dark:border-base-700 dark:bg-base-800 dark:text-base-400 dark:hover:bg-base-700"
+       href="{{ request_login_code_url }}">
+                <span class="material-symbols-outlined">
+                    mail
+                </span>
+        <span>{% trans "Sign in with email code" %}</span>
+    </a>
+    {% endif %}
+
+    {% if LOGIN_BY_ACCOUNT_PASSWORD_ENABLED %}
+    {% url 'account_login' as login_url %}
+    <a class="inline-flex w-full items-center justify-center gap-2 mt-3 rounded-md border border-base-200 bg-white px-4 py-2 text-sm font-medium text-base-500 shadow-sm transition-all hover:bg-base-50 dark:border-base-700 dark:bg-base-800 dark:text-base-400 dark:hover:bg-base-700"
+       href="{{ login_url }}">
+                        <span class="material-symbols-outlined">
+                            lock_open
+                        </span>
+        <span>{% trans "Sign in with email and password" %}</span>
+    </a>
+    {% endif %}
+
+
+    {% /container %}
+{% endblock content %}
