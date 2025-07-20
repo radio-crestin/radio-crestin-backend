@@ -66,12 +66,12 @@ class Query:
         if order_by:
             order_fields = []
             if order_by.order:
-                if order_by.order == OrderDirection.DESC:
+                if order_by.order == OrderDirection.desc:
                     order_fields.append('-order')
                 else:
                     order_fields.append('order')
             if order_by.title:
-                if order_by.title == OrderDirection.DESC:
+                if order_by.title == OrderDirection.desc:
                     order_fields.append('-title')
                 else:
                     order_fields.append('title')
@@ -116,12 +116,12 @@ class Query:
         if order_by:
             order_fields = []
             if order_by.order:
-                if order_by.order == OrderDirection.DESC:
+                if order_by.order == OrderDirection.desc:
                     order_fields.append('-order')
                 else:
                     order_fields.append('order')
             if order_by.title:  # Station groups use title field for name ordering
-                if order_by.title == OrderDirection.DESC:
+                if order_by.title == OrderDirection.desc:
                     order_fields.append('-name')
                 else:
                     order_fields.append('name')

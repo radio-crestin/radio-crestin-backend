@@ -7,8 +7,8 @@ from datetime import datetime
 from enum import Enum
 
 class OrderDirection(Enum):
-    ASC = "asc"
-    DESC = "desc"
+    asc = "asc"
+    desc = "desc"
 
 OrderDirectionEnum = strawberry.enum(OrderDirection)
 
@@ -95,7 +95,7 @@ class StationType:
         
         # Apply ordering
         if order_by and order_by.published:
-            if order_by.published == OrderDirection.DESC:
+            if order_by.published == OrderDirection.desc:
                 queryset = queryset.order_by('-published')
             else:
                 queryset = queryset.order_by('published')
