@@ -4,6 +4,7 @@
     <modules>
       <module fileurl="file://$PROJECT_DIR$/deploy/deploy.iml" filepath="$PROJECT_DIR$/deploy/deploy.iml" />
       <module fileurl="file://$PROJECT_DIR$/radio-crestin-backend.iml" filepath="$PROJECT_DIR$/radio-crestin-backend.iml" />
+      <module fileurl="file://$PROJECT_DIR$/superapp_backend/superapp_backend.iml" filepath="$PROJECT_DIR$/superapp_backend/superapp_backend.iml" />
     </modules>
   </component>
 </project>
