@@ -1,0 +1,14 @@
+# HTTP client for async requests
+httpx>=0.24.0
+
+# RSS/Atom feed parsing
+feedparser>=6.0.0
+
+# Optional: Radio ID3 metadata parsing (would need to be installed separately)
+# radio-id3
+
+# Celery for async task processing (should already be in main requirements)
+# celery>=5.2.0
+
+# Django (should already be in main requirements)
+# django>=4.0.0
