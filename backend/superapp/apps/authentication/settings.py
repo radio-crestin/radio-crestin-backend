@@ -10,15 +10,15 @@ def reverse_lazy_with_params(viewname, urlconf=None, args=None, kwargs=None, cur
     Both the URL and the parameters are evaluated lazily.
     """
     lazy_url = reverse_lazy(viewname, urlconf, args, kwargs, current_app)
-    
+
     if params is None:
         return lazy_url
-    
+
     def _add_params():
         url = lazy_url.__str__()
         param_string = '&'.join(f"{k}={v}" for k, v in params.items())
         return f"{url}?{param_string}" if param_string else url
-    
+
     # Create a lazy object that will evaluate the URL with parameters when needed
     from django.utils.functional import lazy
     return lazy(_add_params, str)()
@@ -34,7 +34,7 @@ def extend_superapp_settings(main_settings):
         'allauth.usersessions',
         'allauth.socialaccount',
         'allauth.socialaccount.providers.google',
-        'allauth.socialaccount.providers.sms',
+        # 'allauth.socialaccount.providers.sms',
         "widget_tweaks",
         "slippers",
         "turnstile",
@@ -82,7 +82,7 @@ def extend_superapp_settings(main_settings):
             },
         ],
     })
-    
+
     main_settings['UNFOLD']['SIDEBAR']['navigation'] += [
         {
             "title": _("Users"),
@@ -117,15 +117,15 @@ def extend_superapp_settings(main_settings):
     main_settings['ACCOUNT_EMAIL_VERIFICATION'] = 'optional'
     main_settings['ACCOUNT_LOGIN_BY_ACCOUNT_PASSWORD_VISIBLE'] = False
     main_settings['ACCOUNT_LOGIN_BY_ACCOUNT_PASSWORD_ENABLED'] = True
-    main_settings['ACCOUNT_LOGIN_BY_CODE_ENABLED'] = True
+    main_settings['ACCOUNT_LOGIN_BY_CODE_ENABLED'] = False
 
     main_settings['ACCOUNT_FORMS'] = {
-        'homepage_login': 'superapp.apps.authentication.forms.TurnstailSMSLoginForm',
+        # 'homepage_login': 'superapp.apps.authentication.forms.TurnstailSMSLoginForm',
         'request_login_code': 'superapp.apps.authentication.forms.TurnstailRequestLoginCodeForm',
         'confirm_login_code': 'superapp.apps.authentication.forms.TurnstailConfirmLoginCodeForm',
         'confirm_email_verification_code': 'superapp.apps.authentication.forms.TurnstailConfirmEmailVerificationCodeForm',
-        'sms_login': 'superapp.apps.authentication.forms.TurnstailSMSLoginForm',
-        'sms_verify': 'superapp.apps.authentication.forms.TurnstailSMSVerifyForm',
+        # 'sms_login': 'superapp.apps.authentication.forms.TurnstailSMSLoginForm',
+        # 'sms_verify': 'superapp.apps.authentication.forms.TurnstailSMSVerifyForm',
     }
 
     main_settings['ACCOUNT_SESSION_REMEMBER'] = True
@@ -133,46 +133,46 @@ def extend_superapp_settings(main_settings):
     main_settings['SOCIALACCOUNT_EMAIL_VERIFICATION'] = 'optional'
     main_settings['SOCIALACCOUNT_AUTO_SIGNUP'] = True
     main_settings['SOCIALACCOUNT_PROVIDERS'] = {
-        'google': {
-            'FETCH_USERINFO': True,
-            'SCOPE': [
-                # 'profile',
-                'email',
-            ],
-            'AUTH_PARAMS': {
-                'access_type': 'online',
-            },
-            # 'OAUTH_PKCE_ENABLED': True,
-            'EMAIL_AUTHENTICATION': True,
-            'EMAIL_AUTHENTICATION_AUTO_CONNECT': True,
-            "APP": {
-                'client_id': os.environ['AUTH_GOOGLE_ID'],
-                'secret': os.environ['AUTH_GOOGLE_SECRET'],
-                "key": "",
-                "settings": {
-                    # You can fine tune these settings per app:
-                    "scope": [
-                        "profile",
-                        "email",
-                    ],
-                    "auth_params": {
-                        "access_type": "online",
-                    },
-                    'FETCH_USERINFO' : True,
-                    'OAUTH_PKCE_ENABLED': True,
-                },
-            },
-        } if 'AUTH_GOOGLE_ID' in os.environ else {},
-        'sms': {
-            'SMS_VERIFICATION_HANDLER': 'superapp.apps.prelude_sms.authentication_handlers.PreludeSMSVerificationHandler',
-            "LOGIN_FORM_CLASS": "superapp.apps.authentication.forms.TurnstailSMSLoginForm",
-            "VERIFY_FORM_CLASS": "superapp.apps.authentication.forms.TurnstailSMSVerifyForm",
-            "APP": {
-               "settings": {
-                   "hidden": True,
-               },
-            }
-        }
+        # 'google': {
+        #     'FETCH_USERINFO': True,
+        #     'SCOPE': [
+        #         # 'profile',
+        #         'email',
+        #     ],
+        #     'AUTH_PARAMS': {
+        #         'access_type': 'online',
+        #     },
+        #     # 'OAUTH_PKCE_ENABLED': True,
+        #     'EMAIL_AUTHENTICATION': True,
+        #     'EMAIL_AUTHENTICATION_AUTO_CONNECT': True,
+        #     "APP": {
+        #         'client_id': os.environ['AUTH_GOOGLE_ID'],
+        #         'secret': os.environ['AUTH_GOOGLE_SECRET'],
+        #         "key": "",
+        #         "settings": {
+        #             # You can fine tune these settings per app:
+        #             "scope": [
+        #                 "profile",
+        #                 "email",
+        #             ],
+        #             "auth_params": {
+        #                 "access_type": "online",
+        #             },
+        #             'FETCH_USERINFO' : True,
+        #             'OAUTH_PKCE_ENABLED': True,
+        #         },
+        #     },
+        # } if 'AUTH_GOOGLE_ID' in os.environ else {},
+        # 'sms': {
+        #     'SMS_VERIFICATION_HANDLER': 'superapp.apps.prelude_sms.authentication_handlers.PreludeSMSVerificationHandler',
+        #     "LOGIN_FORM_CLASS": "superapp.apps.authentication.forms.TurnstailSMSLoginForm",
+        #     "VERIFY_FORM_CLASS": "superapp.apps.authentication.forms.TurnstailSMSVerifyForm",
+        #     "APP": {
+        #        "settings": {
+        #            "hidden": True,
+        #        },
+        #     }
+        # }
     }
     main_settings['USERSESSIONS_TRACK_ACTIVITY'] = True
     main_settings['MIDDLEWARE'] += [

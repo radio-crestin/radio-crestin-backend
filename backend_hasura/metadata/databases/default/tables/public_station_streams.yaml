@@ -1,0 +1,20 @@
+table:
+  name: station_streams
+  schema: public
+object_relationships:
+  - name: station
+    using:
+      foreign_key_constraint_on: station_id
+select_permissions:
+  - role: public
+    permission:
+      columns:
+        - id
+        - order
+        - station_id
+        - stream_url
+        - type
+        - created_at
+        - updated_at
+      filter: {}
+    comment: ""
