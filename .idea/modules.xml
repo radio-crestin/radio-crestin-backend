@@ -2,9 +2,9 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/backend/backend.iml" filepath="$PROJECT_DIR$/backend/backend.iml" />
       <module fileurl="file://$PROJECT_DIR$/deploy/deploy.iml" filepath="$PROJECT_DIR$/deploy/deploy.iml" />
       <module fileurl="file://$PROJECT_DIR$/radio-crestin-backend.iml" filepath="$PROJECT_DIR$/radio-crestin-backend.iml" />
-      <module fileurl="file://$PROJECT_DIR$/superapp_backend/superapp_backend.iml" filepath="$PROJECT_DIR$/superapp_backend/superapp_backend.iml" />
     </modules>
   </component>
 </project>
