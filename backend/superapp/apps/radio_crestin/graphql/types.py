@@ -2,59 +2,58 @@ from __future__ import annotations
 
 import strawberry
 import strawberry_django
-from typing import Optional, List, TYPE_CHECKING
+from typing import Optional, List
 from datetime import datetime
 
-if TYPE_CHECKING:
-    from ..models import (
-        Artists,
-        Songs, 
-        Stations,
-        Posts,
-        StationStreams,
-        StationsUptime,
-        StationsNowPlaying,
-        StationGroups,
-        StationToStationGroup,
-    )
+from ..models import (
+    Artists,
+    Songs, 
+    Stations,
+    Posts,
+    StationStreams,
+    StationsUptime,
+    StationsNowPlaying,
+    StationGroups,
+    StationToStationGroup,
+)
 
 
-@strawberry_django.type(model="radio_crestin.Artists", fields="__all__")
+@strawberry_django.type(model=Artists, fields="__all__")
 class ArtistType:
     pass
 
 
-@strawberry_django.type(model="radio_crestin.Songs", fields="__all__")
+@strawberry_django.type(model=Songs, fields="__all__")
 class SongType:
     artist: Optional[ArtistType] = strawberry_django.field()
 
 
-@strawberry_django.type(model="radio_crestin.StationStreams", fields="__all__")
+@strawberry_django.type(model=StationStreams, fields="__all__")
 class StationStreamType:
     pass
 
 
-@strawberry_django.type(model="radio_crestin.Posts", fields="__all__")
+@strawberry_django.type(model=Posts, fields="__all__")
 class PostType:
     pass
 
 
-@strawberry_django.type(model="radio_crestin.StationsUptime", fields="__all__")
+@strawberry_django.type(model=StationsUptime, fields="__all__")
 class StationUptimeType:
     pass
 
 
-@strawberry_django.type(model="radio_crestin.StationsNowPlaying", fields="__all__")
+@strawberry_django.type(model=StationsNowPlaying, fields="__all__")
 class StationNowPlayingType:
     song: Optional[SongType] = strawberry_django.field()
 
 
-@strawberry_django.type(model="radio_crestin.StationToStationGroup", fields="__all__")
+@strawberry_django.type(model=StationToStationGroup, fields="__all__")
 class StationToStationGroupType:
     pass
 
 
-@strawberry_django.type(model="radio_crestin.Stations", fields="__all__")
+@strawberry_django.type(model=Stations, fields="__all__")
 class StationType:
     # Related fields optimized for the Hasura query
     station_streams: List[StationStreamType] = strawberry_django.field()
@@ -76,7 +75,7 @@ class StationType:
         return []
 
 
-@strawberry_django.type(model="radio_crestin.StationGroups", fields="__all__")
+@strawberry_django.type(model=StationGroups, fields="__all__")
 class StationGroupType:
     station_to_station_groups: List[StationToStationGroupType] = strawberry_django.field(field_name="stationtostationgroup_set")
 
