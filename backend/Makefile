@@ -91,11 +91,6 @@ load-fixtures:
 	docker-compose exec web python3 manage.py loaddata \
 		fixtures/fixtures
 
-truncate-songs:
-	@echo "Truncating only songs table and related references..."
-	@psql postgres://postgres:postgrespassword@127.0.0.1:5432/postgres -c "\
-		UPDATE stations_now_playing SET song_id = NULL WHERE song_id IS NOT NULL; \
-		TRUNCATE TABLE songs CASCADE;"
 
 sync-prod-db-clean:
 	@echo "Creating backup of local database..."
