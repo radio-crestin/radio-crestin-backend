@@ -18,18 +18,18 @@ class StationOrderBy:
 @strawberry.type
 class Query:
 
-    @strawberry.field
-    def get_stations(self) -> 'GetStationsResponse':
-        """
-        Exact replica of the Hasura GetStations query for backward compatibility.
-        Returns both stations and station_groups in a single optimized query.
-        """
-        from .resolvers import get_optimized_stations_queryset, get_optimized_station_groups_queryset
-
-        return GetStationsResponse(
-            stations=list(get_optimized_stations_queryset()),
-            station_groups=list(get_optimized_station_groups_queryset())
-        )
+    # @strawberry.field
+    # def get_stations(self) -> 'GetStationsResponse':
+    #     """
+    #     Exact replica of the Hasura GetStations query for backward compatibility.
+    #     Returns both stations and station_groups in a single optimized query.
+    #     """
+    #     from .resolvers import get_optimized_stations_queryset, get_optimized_station_groups_queryset
+    #
+    #     return GetStationsResponse(
+    #         stations=list(get_optimized_stations_queryset()),
+    #         station_groups=list(get_optimized_station_groups_queryset())
+    #     )
 
     @strawberry_django.field
     def stations(
@@ -111,7 +111,7 @@ class Query:
             )
         )
 
-        # Apply ordering - default to order asc for Hasura compatibility  
+        # Apply ordering - default to order asc for Hasura compatibility
         if order_by:
             order_fields = []
             if order_by.order:
@@ -163,12 +163,12 @@ class Query:
     ) -> List[ArtistType]:
         """Get artists with pagination"""
         queryset = Artists.objects.all()
-        
+
         if offset:
             queryset = queryset[offset:]
         if limit:
             queryset = queryset[:limit]
-            
+
         return queryset
 
     @strawberry_django.field
@@ -187,15 +187,15 @@ class Query:
     ) -> List[SongType]:
         """Get songs with pagination"""
         queryset = Songs.objects.select_related('artist')
-        
+
         if offset:
             queryset = queryset[offset:]
         if limit:
             queryset = queryset[:limit]
-            
+
         return queryset
 
-    @strawberry_django.field 
+    @strawberry_django.field
     def songs_by_pk(self, id: int) -> Optional[SongType]:
         """Get song by primary key"""
         try:
@@ -211,12 +211,12 @@ class Query:
     ) -> List[PostType]:
         """Get posts with pagination"""
         queryset = Posts.objects.select_related('station').order_by('-published')
-        
+
         if offset:
             queryset = queryset[offset:]
         if limit:
             queryset = queryset[:limit]
-            
+
         return queryset
 
     @strawberry_django.field

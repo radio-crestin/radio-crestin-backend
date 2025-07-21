@@ -71,7 +71,7 @@ class StationToStationGroupType:
 @strawberry_django.type(model=Stations, fields="__all__")
 class StationType:
     # Related fields optimized for the Hasura query
-    station_streams: List[StationStreamType] = strawberry_django.field(field_name="stationstreams_set")
+    station_streams: List[StationStreamType] = strawberry_django.field(field_name="station_streams")
     uptime: Optional[StationUptimeType] = strawberry_django.field(field_name="latest_station_uptime")
     now_playing: Optional[StationNowPlayingType] = strawberry_django.field(field_name="latest_station_now_playing")
     
@@ -148,7 +148,7 @@ class StationType:
 
 @strawberry_django.type(model=StationGroups, fields="__all__")
 class StationGroupType:
-    station_to_station_groups: List[StationToStationGroupType] = strawberry_django.field(field_name="stationtostationgroup_set")
+    station_to_station_groups: List[StationToStationGroupType] = strawberry_django.field(field_name="station_to_station_groups")
 
 
 # Placeholder for reviews type since it's not in the current Django schema

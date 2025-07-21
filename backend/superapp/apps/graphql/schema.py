@@ -1,5 +1,6 @@
 import importlib
 import os
+import traceback
 from typing import List, Type
 
 import strawberry
@@ -18,6 +19,25 @@ class SQLPrintingExtension(Extension):
             print(f"Query: {query['sql']}")
             print(f"Time: {query['time']}")
             print("---")
+
+
+class GraphQLExceptionHandlingExtension(Extension):
+    def on_operation_end(self):
+        # Check if there are any errors in the execution context
+        if hasattr(self.execution_context, 'errors') and self.execution_context.errors:
+            for error in self.execution_context.errors:
+                print(f"GraphQL Error: {error}")
+                if hasattr(error, '__cause__') and error.__cause__:
+                    print("Exception traceback:")
+                    traceback.print_exception(type(error.__cause__), error.__cause__, error.__cause__.__traceback__)
+                elif hasattr(error, 'original_error') and error.original_error:
+                    print("Exception traceback:")
+                    traceback.print_exception(type(error.original_error), error.original_error, error.original_error.__traceback__)
+                else:
+                    # Try to get the traceback from the error itself
+                    print("Exception traceback:")
+                    traceback.print_exc()
+                print("---")
 
 
 def import_field_types():
@@ -128,6 +148,7 @@ schema = strawberry.Schema(
             prefetch_custom_queryset = True,
         ),
         SQLPrintingExtension,
+        GraphQLExceptionHandlingExtension,
     ]
 )
 
