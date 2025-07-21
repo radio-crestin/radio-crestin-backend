@@ -31,11 +31,11 @@ class BaseScraper(ABC):
         pass
 
     @abstractmethod
-    def extract_data(self, response_data: Any) -> StationNowPlayingData:
+    def extract_data(self, response_data: Any, config=None) -> StationNowPlayingData:
         """Extract and format data from the API response"""
         pass
 
-    async def scrape(self, url: str, **kwargs) -> StationNowPlayingData:
+    async def scrape(self, url: str, config=None, **kwargs) -> StationNowPlayingData:
         """Main scraping method"""
         logger.info(f"Scraping {self.get_scraper_type()} from: {url}")
 
@@ -46,7 +46,7 @@ class BaseScraper(ABC):
             ) as client:
                 response = await self._make_request(client, url, **kwargs)
                 data = await self._process_response(response)
-                result = self.extract_data(data)
+                result = self.extract_data(data, config)
                 return DataFormatter.format_station_data(result)
 
         except Exception as error:

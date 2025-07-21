@@ -12,7 +12,7 @@ class ShoutcastXmlScraper(BaseScraper):
     def get_scraper_type(self) -> str:
         return "shoutcast_xml"
     
-    def extract_data(self, response_data: Any) -> StationNowPlayingData:
+    def extract_data(self, response_data: Any, config=None) -> StationNowPlayingData:
         """Extract data from Shoutcast XML response"""
         if not isinstance(response_data, str):
             return StationNowPlayingData(current_song=None, listeners=None)
@@ -21,7 +21,7 @@ class ShoutcastXmlScraper(BaseScraper):
         parsed_data = self._parse_xml(response_data)
         
         raw_title = parsed_data.get("SONGTITLE", "")
-        song_name, artist = DataFormatter.parse_title_artist(raw_title)
+        song_name, artist = DataFormatter.parse_title_artist(raw_title, config)
         
         song_data = self._create_song_data(
             name=song_name,
