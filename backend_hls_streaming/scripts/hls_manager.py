@@ -33,14 +33,17 @@ class HLSManager:
         self.log_ffmpeg = os.getenv('LOG_FFMPEG', 'true').lower() == 'true'
         
         self.setup_logging()
+        
+        # Initialize cache settings before load_config() since it references them in logging
+        self.cache_file = Path('/tmp/data/stations_cache.json')
+        self.cache_ttl_hours = int(os.getenv('CACHE_TTL_HOURS', '24'))
+        
         self.load_config()
         self.active_processes: Dict[str, dict] = {}  # Store process info and metadata
         self.station_metadata: Dict[str, dict] = {}
         self.last_station_fetch = datetime.min
         self.running = True
-        self.cache_file = Path('/tmp/data/stations_cache.json')
         self.cached_stations: List[dict] = []
-        self.cache_ttl_hours = int(os.getenv('CACHE_TTL_HOURS', '24'))
         
     def setup_logging(self):
         """Configure logging for the HLS manager."""
