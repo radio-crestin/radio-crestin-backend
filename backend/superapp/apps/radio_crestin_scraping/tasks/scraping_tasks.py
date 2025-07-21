@@ -250,8 +250,21 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
                     ssl_context.check_hostname = False
                     ssl_context.verify_mode = ssl.CERT_NONE
 
-                    # Use synchronous httpx client with increased timeout
-                    with httpx.Client(timeout=60, verify=False) as client:
+                    # Use synchronous httpx client with 5 second timeout for non-stream scrapers
+                    timeout = httpx.Timeout(connect=5.0, read=5.0, write=5.0, pool=5.0)
+                    with httpx.Client(timeout=timeout, verify=False) as client:
+                        # First check content type with HEAD request to avoid downloading streams
+                        try:
+                            head_response = client.head(fetcher.url)
+                            content_type = head_response.headers.get('content-type', '').lower()
+                            
+                            # Skip if this is audio content being passed to HTML scraper
+                            if 'audio' in content_type and hasattr(scraper, 'get_scraper_type') and 'html' in scraper.get_scraper_type():
+                                logger.warning(f"Skipping HTML scraper {scraper.get_scraper_type()} for audio content from {fetcher.url} (content-type: {content_type})")
+                                continue
+                        except Exception as head_error:
+                            logger.debug(f"HEAD request failed for {fetcher.url}: {head_error}, proceeding with GET")
+                        
                         response = client.get(fetcher.url)
                         response.raise_for_status()
                         scrape_result = scraper.extract_data(response.text, config=fetcher)
