@@ -317,6 +317,31 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
             scraped_count += 1
             logger.info(f"Successfully scraped fetcher {fetcher.id} for station {station.id}")
 
+            # Check if we have complete song data (both name and artist)
+            if (data_dict and 'current_song' in data_dict and data_dict['current_song'] and
+                data_dict['current_song'].get('name') and data_dict['current_song'].get('artist')):
+                logger.info(f"Found complete song data, stopping after first successful fetch for station {station.id}")
+                
+                # Create final merged data with just this successful fetch
+                final_merged_data = _merge_fetcher_states_by_priority(fetcher_states, current_data, task_start_time)
+                
+                # Save final merged data
+                final_success = False
+                if final_merged_data:
+                    final_merged_data.raw_data = fetcher_states
+                    has_dirty_metadata = fetcher.dirty_metadata
+                    final_success = StationService.upsert_station_now_playing(station.id, final_merged_data, dirty_metadata=has_dirty_metadata)
+                
+                return {
+                    "success": final_success or scraped_count > 0,
+                    "station_id": station.id,
+                    "scraped_count": scraped_count,
+                    "errors": errors,
+                    "task_id": task_id,
+                    "fetcher_states": fetcher_states,
+                    "early_return": True
+                }
+
         except Exception as error:
             logger.error(f"Error scraping {fetcher.url}: {error}")
             error_msg = f"Error scraping {fetcher.url}: {str(error)}"
