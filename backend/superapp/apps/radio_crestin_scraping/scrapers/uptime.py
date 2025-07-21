@@ -24,9 +24,21 @@ class UptimeScraper(BaseScraper):
         from superapp.apps.radio_crestin.models import Stations
 
         try:
-            station = Stations.objects.get(id=station_id, disabled=False)
+            station = Stations.objects.get(id=station_id)
+            if station.disabled:
+                logger.info(f"Station {station_id} is disabled - returning success with is_up=False")
+                return {
+                    "success": True,
+                    "station_id": station.id,
+                    "station_title": station.title,
+                    "stream_url": station.stream_url,
+                    "is_up": False,
+                    "latency_ms": 0,
+                    "error": "Station is disabled",
+                    "raw_data": {"method": "disabled", "reason": "station_disabled"}
+                }
         except Stations.DoesNotExist:
-            error_msg = f"Station {station_id} not found or disabled"
+            error_msg = f"Station {station_id} not found"
             logger.error(error_msg)
             return {"success": False, "error": error_msg}
 
