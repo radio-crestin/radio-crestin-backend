@@ -57,6 +57,45 @@ class GraphQLProxyView(GraphQLView):
                 
         return False
 
+    def get_client_ip(self, request):
+        """Extract client IP address from request"""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
+
+    def log_hasura_proxy_request(self, request: HttpRequest, request_data: dict, hasura_url: str):
+        """Log Hasura proxy request details to PostHog"""
+        try:
+            properties = {
+                'event_type': 'hasura_proxy_request',
+                'graphql_query': request_data.get('query', ''),
+                'graphql_variables': request_data.get('variables', {}),
+                'graphql_operation_name': request_data.get('operationName', ''),
+                'request_body': json.dumps(request_data),
+                'hasura_url': hasura_url,
+                'client_ip': self.get_client_ip(request),
+                'user_agent': request.META.get('HTTP_USER_AGENT', ''),
+                'referer': request.META.get('HTTP_REFERER', ''),
+                'request_method': request.method,
+                'content_type': request.META.get('CONTENT_TYPE', ''),
+                'has_auth': bool(request.META.get('HTTP_AUTHORIZATION')),
+                'proxy_version': 'v1'
+            }
+            
+            # Add user info if available
+            if hasattr(request, 'user') and request.user.is_authenticated:
+                properties['user_id'] = str(request.user.id)
+                properties['user_email'] = getattr(request.user, 'email', '')
+                track_event(str(request.user.id), 'graphql_hasura_proxy_request', properties)
+            else:
+                track_event('anonymous', 'graphql_hasura_proxy_request', properties)
+                
+        except Exception as e:
+            logger.error(f"Failed to log Hasura proxy request to PostHog: {str(e)}")
+
     def attempt_hasura_fallback(self, request: HttpRequest) -> GraphQLHTTPResponse:
         """Attempt to forward request to Hasura"""
         try:
@@ -68,6 +107,12 @@ class GraphQLProxyView(GraphQLView):
                 
             request_data = json.loads(request_body) if request_body else {}
             query = request_data.get('query', '')
+
+            # Get Hasura URL
+            hasura_url = self.get_hasura_url()
+            
+            # Log the proxy request to PostHog
+            self.log_hasura_proxy_request(request, request_data, hasura_url)
 
             # Prepare headers for Hasura
             headers = {
@@ -81,7 +126,6 @@ class GraphQLProxyView(GraphQLView):
                 headers['Authorization'] = auth_header
 
             # Make request to Hasura
-            hasura_url = self.get_hasura_url()
             response = requests.post(
                 hasura_url,
                 json=request_data,
@@ -101,7 +145,10 @@ class GraphQLProxyView(GraphQLView):
                 self.log_error_to_posthog('hasura_http_error', query, f"HTTP {response.status_code}", hasura_url)
 
         except requests.RequestException as e:
-            query = request_data.get('query', '') if 'request_data' in locals() else ''
+            try:
+                query = request_data.get('query', '') if 'request_data' in locals() else ''
+            except NameError:
+                query = ''
             self.log_error_to_posthog('hasura_connection_error', query, str(e), self.get_hasura_url())
             logger.error(f"Hasura fallback failed: {str(e)}")
         except Exception as e:
