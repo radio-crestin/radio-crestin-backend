@@ -47,6 +47,7 @@ def extend_superapp_settings(main_settings):
     # PostHog configuration
     posthog_api_key = os.environ.get('POSTHOG_API_KEY', '')
     posthog_host = os.environ.get('POSTHOG_HOST', 'https://eu.i.posthog.com')
+    posthog_project_id = os.environ.get('POSTHOG_PROJECT_ID', '')
     
     if posthog_api_key:
         # Add PostHog Django middleware for automatic context and exception tracking
@@ -75,13 +76,13 @@ def extend_superapp_settings(main_settings):
             {
                 "title": _("Error Tracking"),
                 "icon": "bug_report",
-                "link": f"{posthog_host}/project/1/errors" if posthog_api_key else "#",
+                "link": f"{posthog_host}/project/{posthog_project_id}/errors" if posthog_api_key and posthog_project_id else "#",
                 "permission": lambda request: request.user.is_staff,
             },
             {
                 "title": _("Analytics Dashboard"),
                 "icon": "dashboard",
-                "link": f"{posthog_host}/project/1/dashboard" if posthog_api_key else "#", 
+                "link": f"{posthog_host}/project/{posthog_project_id}/dashboard" if posthog_api_key and posthog_project_id else "#", 
                 "permission": lambda request: request.user.is_staff,
             },
         ]
