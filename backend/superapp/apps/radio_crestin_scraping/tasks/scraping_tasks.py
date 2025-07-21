@@ -254,7 +254,7 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
             fetcher_states[str(fetcher.id)] = {
                 'fetcher_id': fetcher.id,
                 'category_slug': category_slug,
-                'priority': fetcher.order,
+                'priority': fetcher.priority,
                 'status': 'completed',
                 'data': data_dict,
                 'timestamp': task_start_time.isoformat(),
@@ -272,7 +272,7 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
             fetcher_states[str(fetcher.id)] = {
                 'fetcher_id': fetcher.id,
                 'category_slug': fetcher.station_metadata_fetch_category.slug,
-                'priority': fetcher.order,
+                'priority': fetcher.priority,
                 'status': 'failed',
                 'error': error_msg,
                 'timestamp': task_start_time.isoformat(),
