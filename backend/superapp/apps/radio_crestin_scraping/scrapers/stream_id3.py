@@ -46,19 +46,24 @@ class StreamId3Scraper(BaseScraper):
     def _probe_stream(self, url: str) -> Dict[str, Any]:
         """Probe stream metadata using ffmpeg-python"""
         try:
-            # Use ffmpeg.probe to get metadata with TLS certificate verification disabled
+            # Use ffmpeg.probe to get metadata with improved connection handling
             probe_data = ffmpeg.probe(
                 url,
                 v='quiet',  # Reduce verbose output
                 print_format='json',  # Ensure JSON output
                 show_format=None,
                 show_streams=None,
-                timeout=5.0,
+                timeout=10.0,  # Increased timeout
                 analyzeduration=1000000,  # 1 second in microseconds
                 probesize=32768,  # 32KB
                 **{
-                    'tls_verify': '0',  # Skip TLS certificate verification
-                    'user_agent': 'ffprobe/radio-crestin-scraper'  # Custom user agent
+                    'user_agent': 'Mozilla/5.0 (compatible; radio-crestin-scraper)',  # More standard user agent
+                    'rw_timeout': '10000000',  # 10 second read/write timeout in microseconds
+                    'reconnect': '1',  # Enable reconnection
+                    'reconnect_streamed': '1',  # Reconnect on streamed content
+                    'reconnect_delay_max': '4',  # Max delay between reconnection attempts
+                    'multiple_requests': '1',  # Allow multiple HTTP requests
+                    'seekable': '0'  # Don't try to seek (for live streams)
                 }
             )
             

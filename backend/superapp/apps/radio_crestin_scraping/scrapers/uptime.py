@@ -204,19 +204,24 @@ class UptimeScraper(BaseScraper):
     def _probe_stream(self, url: str) -> Dict[str, Any]:
         """Probe stream using ffmpeg-python"""
         try:
-            # Use ffmpeg.probe with TLS certificate verification disabled
+            # For HTTPS streams, add protocol-specific options to bypass TLS verification issues  
             probe_data = ffmpeg.probe(
                 url,
-                v='debug',  # Debug verbosity for better error messages
+                v='quiet',  # Reduce verbosity to avoid overwhelming logs
                 print_format='json',
                 show_format=None,
                 show_streams=None,
                 analyzeduration=500000,  # 0.5 seconds in microseconds - quick check
                 probesize=16384,  # 16KB - minimal data needed
-                timeout=8.0,  # Conservative timeout
+                timeout=15.0,  # Increased timeout for TLS handshake
                 **{
-                    'tls_verify': '0',  # Skip TLS certificate verification
-                    'user_agent': 'ffprobe/radio-crestin-scraper'  # Custom user agent
+                    'user_agent': 'Mozilla/5.0 (compatible; radio-crestin-scraper)',  # More standard user agent
+                    'rw_timeout': '15000000',  # 15 second read/write timeout in microseconds  
+                    'reconnect': '1',  # Enable reconnection
+                    'reconnect_streamed': '1',  # Reconnect on streamed content
+                    'reconnect_delay_max': '4',  # Max delay between reconnection attempts
+                    'multiple_requests': '1',  # Allow multiple HTTP requests
+                    'seekable': '0'  # Don't try to seek (for live streams)
                 }
             )
             
