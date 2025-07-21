@@ -86,15 +86,23 @@ class HLSManager:
         """
         query = """
         query GetHLSStations {
-            stations(where: {generate_hls_stream: {_eq: true}, disabled: {_eq: false}}) {
+            stations {
                 id
                 title
                 slug
                 stream_url
-                latest_station_metadata_fetch {
+                generate_hls_stream
+                disabled
+                now_playing {
                     id
-                    artist
-                    title
+                    song {
+                        id
+                        name
+                        artist {
+                            id
+                            name
+                        }
+                    }
                     updated_at
                 }
             }
@@ -120,7 +128,28 @@ class HLSManager:
                 if 'errors' in data:
                     self.logger.error(f"GraphQL errors: {data['errors']}")
                     return []
-                return data.get('data', {}).get('stations', [])
+                
+                # Get all stations from response
+                all_stations = data.get('data', {}).get('stations', [])
+                
+                # Filter for stations that need HLS streaming and are not disabled
+                hls_stations = [
+                    station for station in all_stations
+                    if station.get('generate_hls_stream', False) and not station.get('disabled', False)
+                ]
+                
+                if self.detailed_logging:
+                    self.logger.debug(f"📊 Retrieved {len(all_stations)} total stations, {len(hls_stations)} require HLS streaming")
+                    for station in hls_stations:
+                        metadata_info = ""
+                        if station.get('now_playing') and station['now_playing'].get('song'):
+                            song = station['now_playing']['song']
+                            artist_name = song.get('artist', {}).get('name', 'Unknown') if song.get('artist') else 'Unknown'
+                            song_name = song.get('name', 'Unknown')
+                            metadata_info = f" (Now: {artist_name} - {song_name})"
+                        self.logger.debug(f"  🎵 {station['title']} ({station['slug']}): {station['stream_url']}{metadata_info}")
+                
+                return hls_stations
             else:
                 self.logger.error(f"GraphQL request failed: {response.status_code} - {response.text}")
                 return []
