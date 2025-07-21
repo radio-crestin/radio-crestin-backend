@@ -56,6 +56,48 @@ def extend_superapp_settings(main_settings):
                     "link": reverse_lazy("admin:radio_crestin_posts_changelist"),
                     "permission": lambda request: request.user.has_perm("radio_crestin.view_posts"),
                 },
+                {
+                    "title": lambda request: _("Station Streams"),
+                    "icon": "stream",
+                    "link": reverse_lazy("admin:radio_crestin_stationstreams_changelist"),
+                    "permission": lambda request: request.user.has_perm("radio_crestin.view_stationstreams"),
+                },
+                {
+                    "title": lambda request: _("Metadata Categories"),
+                    "icon": "category",
+                    "link": reverse_lazy("admin:radio_crestin_stationmetadatafetchcategories_changelist"),
+                    "permission": lambda request: request.user.has_perm("radio_crestin.view_stationmetadatafetchcategories"),
+                },
+                {
+                    "title": lambda request: _("Station to Group"),
+                    "icon": "link",
+                    "link": reverse_lazy("admin:radio_crestin_stationtostationgroup_changelist"),
+                    "permission": lambda request: request.user.has_perm("radio_crestin.view_stationtostationgroup"),
+                },
+                {
+                    "title": lambda request: _("Metadata Fetch"),
+                    "icon": "sync",
+                    "link": reverse_lazy("admin:radio_crestin_stationsmetadatafetch_changelist"),
+                    "permission": lambda request: request.user.has_perm("radio_crestin.view_stationsmetadatafetch"),
+                },
+                {
+                    "title": lambda request: _("Listening Events"),
+                    "icon": "headphones",
+                    "link": reverse_lazy("admin:radio_crestin_listeningevents_changelist"),
+                    "permission": lambda request: request.user.has_perm("radio_crestin.view_listeningevents"),
+                },
+                {
+                    "title": lambda request: _("Reviews"),
+                    "icon": "star",
+                    "link": reverse_lazy("admin:radio_crestin_reviews_changelist"),
+                    "permission": lambda request: request.user.has_perm("radio_crestin.view_reviews"),
+                },
+                {
+                    "title": lambda request: _("App Users"),
+                    "icon": "people",
+                    "link": reverse_lazy("admin:radio_crestin_appusers_changelist"),
+                    "permission": lambda request: request.user.has_perm("radio_crestin.view_appusers"),
+                },
             ]
         },
     ]
