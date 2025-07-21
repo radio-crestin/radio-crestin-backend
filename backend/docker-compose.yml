@@ -132,15 +132,22 @@ services:
       - ../backend_hls_streaming:/app:delegated
     environment:
       # HLS Manager configuration
-      - GRAPHQL_ENDPOINT=http://web:8000/graphql/
+      - GRAPHQL_ENDPOINT=http://web:8080/graphql
       - GRAPHQL_TOKEN=${HLS_GRAPHQL_TOKEN:-}
       - STREAM_REFRESH_INTERVAL=60
-      - LOG_LEVEL=INFO
+      - LOG_LEVEL=DEBUG
       - MAX_LOG_SIZE_MB=20
       # Log Monitor configuration
       - NGINX_LOG_PATH=/var/log/nginx/session_access.log
       - BATCH_INTERVAL_SECONDS=10
       - SESSION_TIMEOUT_MINUTES=5
+      # Enhanced Logging Configuration
+      - DETAILED_LOGGING=true
+      - VERBOSE_LOGGING=false
+      - LOG_PROCESSES=true
+      - LOG_FFMPEG=true
+      - LOG_NGINX=true
+      - LOG_FORMAT=%(asctime)s - %(name)s - %(levelname)s - %(message)s
     healthcheck:
       test: ["CMD", "python3", "scripts/health_check.py"]
       interval: 30s

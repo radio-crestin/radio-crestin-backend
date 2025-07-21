@@ -23,13 +23,18 @@ from datetime import datetime, timedelta
 import ffmpeg
 import psutil
 from pathlib import Path
+import signal
 
 class HLSManager:
     def __init__(self):
         """Initialize HLS Manager with configuration and logging."""
+        # Set logging configuration first
+        self.detailed_logging = os.getenv('DETAILED_LOGGING', 'false').lower() == 'true'
+        self.log_ffmpeg = os.getenv('LOG_FFMPEG', 'true').lower() == 'true'
+        
         self.setup_logging()
         self.load_config()
-        self.active_processes: Dict[str, subprocess.Popen] = {}
+        self.active_processes: Dict[str, dict] = {}  # Store process info and metadata
         self.station_metadata: Dict[str, dict] = {}
         self.last_station_fetch = datetime.min
         self.running = True
@@ -37,11 +42,22 @@ class HLSManager:
     def setup_logging(self):
         """Configure logging for the HLS manager."""
         log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
+        log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        
+        # Enable more verbose logging if requested
+        if os.getenv('VERBOSE_LOGGING', 'false').lower() == 'true':
+            log_format = '%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
+        
         logging.basicConfig(
             level=getattr(logging, log_level),
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            format=log_format,
+            force=True
         )
         self.logger = logging.getLogger(__name__)
+        
+        # Log configuration
+        self.logger.info(f"HLS Manager logging configured - Level: {log_level}")
+        self.logger.info(f"Environment: LOG_FFMPEG={os.getenv('LOG_FFMPEG', 'true')}, DETAILED_LOGGING={os.getenv('DETAILED_LOGGING', 'false')}")
         
     def load_config(self):
         """Load configuration from environment variables."""
@@ -57,6 +73,9 @@ class HLSManager:
         self.base_log_dir.mkdir(parents=True, exist_ok=True)
         
         self.logger.info(f"HLS Manager configured - GraphQL: {self.graphql_endpoint}")
+        if self.detailed_logging:
+            self.logger.debug(f"Configuration: refresh_interval={self.refresh_interval}s, max_log_size={self.max_log_size}B")
+            self.logger.debug(f"Directories: data={self.base_data_dir}, logs={self.base_log_dir}")
         
     def get_stations_from_graphql(self) -> List[dict]:
         """
@@ -272,13 +291,28 @@ class HLSManager:
                     process.wait(timeout=10)
                 except subprocess.TimeoutExpired:
                     # Force kill if graceful shutdown failed
+                    self.logger.warning(f"Force killing FFmpeg process for {station_slug} (PID: {process.pid})")
                     process.kill()
                     process.wait()
                 
-                self.logger.info(f"Stopped FFmpeg process for {station_slug}")
+                runtime = datetime.now() - process_info['start_time'] if isinstance(self.active_processes[station_slug], dict) else 'unknown'
+                self.logger.info(f"✓ Stopped FFmpeg process for {station_slug} (Runtime: {runtime})")
+                
+                # Log final status to station log if enabled
+                if (self.log_ffmpeg and isinstance(self.active_processes[station_slug], dict) 
+                    and 'log_file' in self.active_processes[station_slug]):
+                    try:
+                        with open(self.active_processes[station_slug]['log_file'], 'a') as log_f:
+                            log_f.write(f"\n=== FFmpeg process stopped at {datetime.now()} (Runtime: {runtime}) ===\n")
+                            log_f.flush()
+                    except Exception:
+                        pass  # Don't let logging errors break the stop process
                 
             except Exception as e:
-                self.logger.error(f"Error stopping FFmpeg process for {station_slug}: {e}")
+                self.logger.error(f"✗ Error stopping FFmpeg process for {station_slug}: {e}")
+                if self.detailed_logging:
+                    import traceback
+                    self.logger.debug(f"Traceback: {traceback.format_exc()}")
             
             finally:
                 del self.active_processes[station_slug]
@@ -294,14 +328,26 @@ class HLSManager:
             True if process is healthy, False otherwise
         """
         if station_slug not in self.active_processes:
+            if self.detailed_logging:
+                self.logger.debug(f"No active process found for {station_slug}")
             return False
             
-        process = self.active_processes[station_slug]
+        process_info = self.active_processes[station_slug]
+        process = process_info['process'] if isinstance(process_info, dict) else process_info
         
         # Check if process is still running
         if process.poll() is not None:
-            self.logger.warning(f"FFmpeg process for {station_slug} has terminated")
+            exit_code = process.returncode
+            runtime = datetime.now() - process_info['start_time'] if isinstance(process_info, dict) else 'unknown'
+            self.logger.warning(f"⚠️  FFmpeg process for {station_slug} has terminated (exit code: {exit_code}, runtime: {runtime})")
             return False
+        
+        # Get process info for detailed logging
+        if isinstance(process_info, dict):
+            start_time = process_info['start_time']
+            runtime = datetime.now() - start_time
+        else:
+            runtime = 'unknown'
         
         # Check if HLS playlist exists and is recent
         playlist_file = self.base_data_dir / station_slug / 'index.m3u8'
@@ -309,25 +355,96 @@ class HLSManager:
             # Check if file was modified in the last 60 seconds
             file_age = time.time() - playlist_file.stat().st_mtime
             if file_age > 60:
-                self.logger.warning(f"HLS playlist for {station_slug} is stale ({file_age:.1f}s old)")
+                self.logger.warning(f"⚠️  HLS playlist for {station_slug} is stale ({file_age:.1f}s old, runtime: {runtime})")
                 return False
+            elif self.detailed_logging:
+                self.logger.debug(f"✓ {station_slug}: playlist fresh ({file_age:.1f}s old, runtime: {runtime})")
         else:
             # Allow 30 seconds for initial playlist creation
-            process_age = time.time() - process.create_time()
+            if isinstance(process_info, dict):
+                process_age = (datetime.now() - process_info['start_time']).total_seconds()
+            else:
+                try:
+                    p = psutil.Process(process.pid)
+                    process_age = time.time() - p.create_time()
+                except (psutil.NoSuchProcess, AttributeError):
+                    process_age = 30  # Assume it's been running long enough
+                    
             if process_age > 30:
-                self.logger.warning(f"No HLS playlist found for {station_slug} after {process_age:.1f}s")
+                self.logger.warning(f"⚠️  No HLS playlist found for {station_slug} after {process_age:.1f}s")
                 return False
+            elif self.detailed_logging:
+                self.logger.debug(f"⏳ {station_slug}: waiting for playlist (process age: {process_age:.1f}s)")
+        
+        if self.detailed_logging:
+            try:
+                # Get memory and CPU usage
+                p = psutil.Process(process.pid)
+                memory_mb = p.memory_info().rss / 1024 / 1024
+                cpu_percent = p.cpu_percent()
+                self.logger.debug(f"✓ {station_slug}: healthy (PID: {process.pid}, RAM: {memory_mb:.1f}MB, CPU: {cpu_percent:.1f}%, Runtime: {runtime})")
+            except (psutil.NoSuchProcess, AttributeError):
+                pass  # Process might have just terminated
         
         return True
     
+    def report_process_status(self):
+        """Report detailed status of all FFmpeg processes."""
+        if not self.active_processes:
+            self.logger.info("📊 No active FFmpeg processes")
+            return
+        
+        status_lines = []
+        total_memory = 0
+        
+        for station_slug, process_info in self.active_processes.items():
+            try:
+                process = process_info['process'] if isinstance(process_info, dict) else process_info
+                
+                if process.poll() is None:
+                    # Process is running
+                    p = psutil.Process(process.pid)
+                    memory_mb = p.memory_info().rss / 1024 / 1024
+                    total_memory += memory_mb
+                    cpu_percent = p.cpu_percent()
+                    
+                    if isinstance(process_info, dict):
+                        runtime = datetime.now() - process_info['start_time']
+                        station_title = process_info['station']['title'][:20] + '...' if len(process_info['station']['title']) > 20 else process_info['station']['title']
+                    else:
+                        runtime = 'unknown'
+                        station_title = station_slug
+                    
+                    playlist_file = self.base_data_dir / station_slug / 'index.m3u8'
+                    playlist_status = "📺" if playlist_file.exists() else "⏳"
+                    
+                    status_lines.append(
+                        f"  {playlist_status} {station_slug} ({station_title}): "
+                        f"PID {process.pid}, RAM {memory_mb:.1f}MB, CPU {cpu_percent:.1f}%, Runtime {runtime}"
+                    )
+                else:
+                    status_lines.append(f"  ❌ {station_slug}: DEAD (exit: {process.returncode})")
+                    
+            except (psutil.NoSuchProcess, AttributeError) as e:
+                status_lines.append(f"  ⚠️  {station_slug}: Process info unavailable ({e})")
+        
+        self.logger.info(f"📊 FFmpeg Process Status ({len(self.active_processes)} processes, {total_memory:.1f}MB total):")
+        for line in status_lines:
+            self.logger.info(line)
+    
     def update_stations(self):
         """Update the list of active stations and manage ffmpeg processes."""
-        self.logger.info("Fetching updated station list from GraphQL...")
+        self.logger.info("🔄 Fetching updated station list from GraphQL...")
         current_stations = self.get_stations_from_graphql()
         
         if not current_stations:
-            self.logger.warning("No stations retrieved from GraphQL")
+            self.logger.warning("⚠️  No stations retrieved from GraphQL")
             return
+        
+        self.logger.info(f"📋 Found {len(current_stations)} stations requiring HLS streaming")
+        if self.detailed_logging:
+            for station in current_stations:
+                self.logger.debug(f"  - {station['title']} ({station['slug']}): {station['stream_url']}")
         
         current_slugs = {station['slug'] for station in current_stations}
         active_slugs = set(self.active_processes.keys())
