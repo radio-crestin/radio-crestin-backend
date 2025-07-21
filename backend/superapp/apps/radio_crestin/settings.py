@@ -4,10 +4,10 @@ from django.urls import reverse_lazy
 
 def extend_superapp_settings(main_settings):
     """Extend main SuperApp settings with radio_crestin app configuration."""
-    
+
     # Add this app to INSTALLED_APPS
     main_settings['INSTALLED_APPS'] += ['superapp.apps.radio_crestin']
-    
+
     # Add app-specific navigation to the admin sidebar
     main_settings['UNFOLD']['SIDEBAR']['navigation'] += [
         {
