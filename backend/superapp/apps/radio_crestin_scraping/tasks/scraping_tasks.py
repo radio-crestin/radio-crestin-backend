@@ -217,6 +217,8 @@ def _scrape_rss_sync(station) -> Dict[str, Any]:
         # Simple synchronous RSS scraping
         import httpx
         import feedparser
+        from datetime import datetime
+        from email.utils import parsedate_to_datetime
         from ..utils.data_types import StationRssFeedData, RssFeedPost
 
         if not station.rss_feed:
@@ -246,12 +248,23 @@ def _scrape_rss_sync(station) -> Dict[str, Any]:
 
         posts = []
         for entry in feed.entries:
+            # Parse and convert date format from RFC 2822 to ISO format
+            published_raw = getattr(entry, 'published', '')
+            published_iso = ''
+            if published_raw:
+                try:
+                    parsed_date = parsedate_to_datetime(published_raw)
+                    published_iso = parsed_date.isoformat()
+                except (ValueError, TypeError):
+                    # Fallback to raw string if parsing fails
+                    published_iso = published_raw
+            
             # Simple RSS entry parsing
             post = RssFeedPost(
                 title=getattr(entry, 'title', ''),
                 description=getattr(entry, 'description', ''),
                 link=getattr(entry, 'link', ''),
-                published=getattr(entry, 'published', '')
+                published=published_iso
             )
             posts.append(post)
 
