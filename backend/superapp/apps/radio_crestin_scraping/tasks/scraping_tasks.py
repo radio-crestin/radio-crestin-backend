@@ -4,6 +4,7 @@ from typing import List, Dict, Any
 from celery import shared_task
 from datetime import datetime
 from asgiref.sync import sync_to_async
+from django.conf import settings
 
 from ..scrapers.factory import ScraperFactory
 from ..scrapers.rss_feed import RssFeedScraper
@@ -11,8 +12,6 @@ from ..services.station_service import StationService
 from ..utils.data_types import StationUptimeData
 
 logger = logging.getLogger(__name__)
-
-print("Radio Crestin Scraping Tasks Loaded")
 
 @shared_task
 def scrape_station_metadata(station_id: int) -> Dict[str, Any]:
@@ -87,6 +86,8 @@ def scrape_all_stations_metadata() -> Dict[str, Any]:
 
     except Exception as error:
         logger.error(f"Error queuing station metadata tasks: {error}")
+        if settings.DEBUG:
+            raise  # Re-raise the exception in debug mode for better debugging
         return {"success": False, "error": str(error)}
 
 
@@ -116,6 +117,8 @@ def scrape_all_stations_rss_feeds() -> Dict[str, Any]:
 
     except Exception as error:
         logger.error(f"Error queuing RSS tasks: {error}")
+        if settings.DEBUG:
+            raise  # Re-raise the exception in debug mode for better debugging
         return {"success": False, "error": str(error)}
 
 
@@ -134,6 +137,8 @@ def cleanup_old_scraped_data(days_to_keep: int = 30) -> Dict[str, Any]:
 
     except Exception as error:
         logger.error(f"Error during data cleanup: {error}")
+        if settings.DEBUG:
+            raise  # Re-raise the exception in debug mode for better debugging
         return {"success": False, "error": str(error)}
 
 
@@ -167,6 +172,8 @@ async def _scrape_station_async(station, metadata_fetchers) -> Dict[str, Any]:
 
         except Exception as error:
             logger.error(f"Error scraping {fetcher.url}: {error}")
+            if settings.DEBUG:
+                raise  # Re-raise the exception in debug mode for better debugging
             errors.append(str(error))
 
     # Save merged data to database
@@ -207,6 +214,8 @@ async def _scrape_rss_async(station) -> Dict[str, Any]:
 
     except Exception as error:
         logger.error(f"Error scraping RSS for station {station.id}: {error}")
+        if settings.DEBUG:
+            raise  # Re-raise the exception in debug mode for better debugging
         return {
             "success": False,
             "station_id": station.id,

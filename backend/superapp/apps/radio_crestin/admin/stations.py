@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
+from django.conf import settings
 import unfold.decorators
 
 from superapp.apps.admin_portal.admin import SuperAppModelAdmin, SuperAppTabularInline
@@ -194,6 +195,8 @@ class StationsAdmin(SuperAppModelAdmin):
                 scrape_all_stations_metadata()
                 successes.append("Metadata scraping completed")
             except Exception as e:
+                if settings.DEBUG:
+                    raise  # Re-raise the exception in debug mode for better debugging
                 errors.append(f"Metadata scraping failed: {str(e)}")
             
             # Execute RSS scraping synchronously
@@ -201,6 +204,8 @@ class StationsAdmin(SuperAppModelAdmin):
                 scrape_all_stations_rss_feeds()
                 successes.append("RSS scraping completed")
             except Exception as e:
+                if settings.DEBUG:
+                    raise  # Re-raise the exception in debug mode for better debugging
                 errors.append(f"RSS scraping failed: {str(e)}")
             
             # Execute cleanup synchronously
@@ -208,6 +213,8 @@ class StationsAdmin(SuperAppModelAdmin):
                 cleanup_old_scraped_data(days_to_keep=30)
                 successes.append("Data cleanup completed")
             except Exception as e:
+                if settings.DEBUG:
+                    raise  # Re-raise the exception in debug mode for better debugging
                 errors.append(f"Data cleanup failed: {str(e)}")
             
             # Show results to user
@@ -250,6 +257,8 @@ class StationsAdmin(SuperAppModelAdmin):
                     error_msg = result.get('error', 'Unknown error') if isinstance(result, dict) else 'Unknown error'
                     errors.append(f"Metadata scraping failed for {station_name}: {error_msg}")
             except Exception as e:
+                if settings.DEBUG:
+                    raise  # Re-raise the exception in debug mode for better debugging
                 errors.append(f"Metadata scraping failed for {station_name}: {str(e)}")
             
             # Execute RSS scraping for this station using delay() for async execution
@@ -262,6 +271,8 @@ class StationsAdmin(SuperAppModelAdmin):
                     error_msg = result.get('error', 'Unknown error') if isinstance(result, dict) else 'Unknown error'
                     errors.append(f"RSS scraping failed for {station_name}: {error_msg}")
             except Exception as e:
+                if settings.DEBUG:
+                    raise  # Re-raise the exception in debug mode for better debugging
                 errors.append(f"RSS scraping failed for {station_name}: {str(e)}")
             
             # Show results to user
