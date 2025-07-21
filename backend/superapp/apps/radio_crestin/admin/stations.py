@@ -177,7 +177,8 @@ class StationsAdmin(SuperAppModelAdmin):
 
     # Detail actions for individual stations
     actions_detail = [
-
+        'scrape_single_station_sync',
+        'scrape_single_station_async'
     ]
 
     def _execute_sync_station_tasks_return_results(self, request, station_id):
@@ -319,3 +320,60 @@ class StationsAdmin(SuperAppModelAdmin):
 
         return HttpResponseRedirect(request.get_full_path())
     scrape_metadata_rss_async.short_description = _("⚡ Scrape metadata, RSS feeds & check uptime (async)")
+
+    def scrape_single_station_sync(self, request, obj):
+        """Scrape metadata, RSS feeds, and check uptime for single station (synchronous)"""
+        station_successes, station_errors = self._execute_sync_station_tasks_return_results(request, obj.id)
+
+        # Show results
+        if station_successes:
+            messages.success(
+                request, 
+                f"Successfully completed {len(station_successes)} tasks for '{obj.title}': " + 
+                "; ".join(station_successes)
+            )
+
+        if station_errors:
+            messages.error(
+                request, 
+                f"Errors occurred for '{obj.title}': " + "; ".join(station_errors)
+            )
+
+        return HttpResponseRedirect(request.get_full_path())
+    scrape_single_station_sync.short_description = _("📡 Scrape metadata, RSS & check uptime (sync)")
+    scrape_single_station_sync.attrs = {"class": "btn btn-success"}
+
+    def scrape_single_station_async(self, request, obj):
+        """Scrape metadata, RSS feeds, and check uptime for single station (asynchronous)"""
+        try:
+            from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import (
+                scrape_station_metadata,
+                scrape_station_rss_feed,
+                check_station_uptime
+            )
+
+            # Queue all types of tasks for this single station
+            uptime_task = check_station_uptime.delay(obj.id)
+            metadata_task = scrape_station_metadata.delay(obj.id)
+            rss_task = scrape_station_rss_feed.delay(obj.id)
+
+            messages.success(
+                request,
+                f"Successfully queued 3 background tasks for '{obj.title}': "
+                f"uptime check, metadata scraping, and RSS scraping. "
+                f"Tasks are running in the background."
+            )
+
+        except ImportError:
+            messages.error(
+                request,
+                _("Scraping tasks are not available. Make sure radio_crestin_scraping app is installed.")
+            )
+        except Exception as e:
+            if settings.DEBUG:
+                raise
+            messages.error(request, f"Error queuing async tasks for '{obj.title}': {str(e)}")
+
+        return HttpResponseRedirect(request.get_full_path())
+    scrape_single_station_async.short_description = _("⚡ Scrape metadata, RSS & check uptime (async)")
+    scrape_single_station_async.attrs = {"class": "btn btn-primary"}
