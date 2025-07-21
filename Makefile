@@ -33,3 +33,6 @@ create-superuser:
 
 load-admin-fixtures:
 	cd backend && make load-admin-fixtures
+
+run-all-scrapers:
+	docker-compose exec web python manage.py test_scraping
