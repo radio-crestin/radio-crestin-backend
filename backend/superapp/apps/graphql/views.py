@@ -29,15 +29,55 @@ class GraphQLProxyView(View):
         host = request.get_host()
         return f"{scheme}://{host}/v2/graphql"
 
-    def forward_request(self, url, data, headers):
-        """Forward GraphQL request to specified URL"""
+    def forward_request(self, url, data, headers, method='POST'):
+        """Forward GraphQL request to specified URL with proper HTTP method"""
         try:
-            response = requests.post(
-                url,
-                json=data,
-                headers=headers,
-                timeout=30
-            )
+            method = method.upper()
+            
+            if method == 'GET':
+                response = requests.get(
+                    url,
+                    params=data if isinstance(data, dict) else None,
+                    headers=headers,
+                    timeout=30
+                )
+            elif method == 'POST':
+                response = requests.post(
+                    url,
+                    json=data,
+                    headers=headers,
+                    timeout=30
+                )
+            elif method == 'HEAD':
+                response = requests.head(
+                    url,
+                    headers=headers,
+                    timeout=30
+                )
+            elif method == 'PUT':
+                response = requests.put(
+                    url,
+                    json=data,
+                    headers=headers,
+                    timeout=30
+                )
+            elif method == 'PATCH':
+                response = requests.patch(
+                    url,
+                    json=data,
+                    headers=headers,
+                    timeout=30
+                )
+            elif method == 'DELETE':
+                response = requests.delete(
+                    url,
+                    headers=headers,
+                    timeout=30
+                )
+            else:
+                logger.error(f"Unsupported HTTP method: {method}")
+                return None
+                
             return response
         except requests.RequestException as e:
             logger.error(f"Request failed to {url}: {str(e)}")
@@ -84,7 +124,7 @@ class GraphQLProxyView(View):
 
             # Try v2/graphql first
             v2_url = self.get_v2_url(request)
-            v2_response = self.forward_request(v2_url, data, forward_headers)
+            v2_response = self.forward_request(v2_url, data, forward_headers, 'POST')
 
             if v2_response and v2_response.status_code == 200:
                 try:
@@ -105,7 +145,7 @@ class GraphQLProxyView(View):
 
             # Fall back to Hasura
             hasura_url = self.get_hasura_url()
-            hasura_response = self.forward_request(hasura_url, data, forward_headers)
+            hasura_response = self.forward_request(hasura_url, data, forward_headers, 'POST')
 
             if hasura_response:
                 try:
@@ -133,36 +173,75 @@ class GraphQLProxyView(View):
                 'errors': [{'message': 'Internal server error'}]
             }, status=500)
 
+    def handle_non_post_request(self, request, method):
+        """Handle non-POST requests (GET, HEAD, PUT, PATCH, DELETE)"""
+        # Prepare headers for forwarding
+        forward_headers = {
+            'Accept': 'application/json'
+        }
+        
+        # Forward auth headers if present
+        auth_header = request.META.get('HTTP_AUTHORIZATION')
+        if auth_header:
+            forward_headers['Authorization'] = auth_header
+        
+        # For GET requests, use query parameters; for others, try to parse body
+        if method == 'GET':
+            data = dict(request.GET) if request.GET else None
+        else:
+            try:
+                if request.content_type == 'application/json' and request.body:
+                    data = json.loads(request.body)
+                    forward_headers['Content-Type'] = 'application/json'
+                else:
+                    data = None
+            except json.JSONDecodeError:
+                return JsonResponse({
+                    'errors': [{'message': 'Invalid JSON in request body'}]
+                }, status=400)
+        
+        # Try v2/graphql first
+        v2_url = self.get_v2_url(request)
+        v2_response = self.forward_request(v2_url, data, forward_headers, method)
+        
+        if v2_response and v2_response.status_code < 400:
+            return HttpResponse(
+                v2_response.content,
+                content_type=v2_response.headers.get('content-type', 'application/json'),
+                status=v2_response.status_code
+            )
+        
+        # Fall back to Hasura
+        hasura_url = self.get_hasura_url()
+        hasura_response = self.forward_request(hasura_url, data, forward_headers, method)
+        
+        if hasura_response:
+            return HttpResponse(
+                hasura_response.content,
+                content_type=hasura_response.headers.get('content-type', 'application/json'),
+                status=hasura_response.status_code
+            )
+        else:
+            return JsonResponse({
+                'errors': [{'message': 'GraphQL services are unavailable'}]
+            }, status=503)
+
     def get(self, request):
         """Handle GraphQL GET requests (for GraphiQL introspection)"""
-        # Forward GET requests to v2 by default
-        v2_url = self.get_v2_url(request)
-        try:
-            response = requests.get(
-                v2_url,
-                params=request.GET,
-                timeout=30
-            )
-            return HttpResponse(
-                response.content,
-                content_type=response.headers.get('content-type', 'text/html'),
-                status=response.status_code
-            )
-        except requests.RequestException:
-            # Fall back to Hasura for GET requests
-            hasura_url = self.get_hasura_url()
-            try:
-                response = requests.get(
-                    hasura_url,
-                    params=request.GET,
-                    timeout=30
-                )
-                return HttpResponse(
-                    response.content,
-                    content_type=response.headers.get('content-type', 'text/html'),
-                    status=response.status_code
-                )
-            except requests.RequestException:
-                return JsonResponse({
-                    'errors': [{'message': 'GraphQL services are unavailable'}]
-                }, status=503)
+        return self.handle_non_post_request(request, 'GET')
+
+    def head(self, request):
+        """Handle GraphQL HEAD requests"""
+        return self.handle_non_post_request(request, 'HEAD')
+
+    def put(self, request):
+        """Handle GraphQL PUT requests"""
+        return self.handle_non_post_request(request, 'PUT')
+
+    def patch(self, request):
+        """Handle GraphQL PATCH requests"""
+        return self.handle_non_post_request(request, 'PATCH')
+
+    def delete(self, request):
+        """Handle GraphQL DELETE requests"""
+        return self.handle_non_post_request(request, 'DELETE')
