@@ -36,8 +36,13 @@ class StationService:
         ).exclude(rss_feed='')
 
     @staticmethod
+    def get_all_active_stations():
+        """Get all active stations"""
+        return Stations.objects.filter(disabled=False)
+
+    @staticmethod
     @transaction.atomic
-    def upsert_station_now_playing(station_id: int, data: StationNowPlayingData, dirty_metadata: bool = False) -> bool:
+    def upsert_station_now_playing(station_id: int, data: StationNowPlayingData, dirty_metadata: bool = True) -> bool:
         """Upsert station now playing data"""
         try:
             # Get or create song if we have song data
@@ -162,7 +167,7 @@ class StationService:
             return False
 
     @staticmethod
-    def _upsert_song(song_data: SongData, dirty_metadata: bool = False) -> Optional[Songs]:
+    def _upsert_song(song_data: SongData, dirty_metadata: bool = True) -> Optional[Songs]:
         """Upsert song and artist data with dirty metadata tracking"""
         try:
             # Get or create artist if we have artist name

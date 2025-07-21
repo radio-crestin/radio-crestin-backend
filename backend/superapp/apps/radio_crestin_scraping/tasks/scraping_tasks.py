@@ -343,14 +343,8 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
         
         final_success = StationService.upsert_station_now_playing(station.id, final_merged_data, dirty_metadata=has_dirty_metadata)
         
-        # Also update uptime data (simplified - always mark as up for now)
-        uptime_data = StationUptimeData(
-            timestamp=datetime.now().isoformat(),
-            is_up=True,
-            latency_ms=0,
-            raw_data=[]
-        )
-        StationService.upsert_station_uptime(station.id, uptime_data)
+        # Note: Station uptime monitoring is now handled by a separate scheduled task
+        # that runs every 5 minutes and performs proper HTTP requests to check stream availability
 
     return {
         "success": final_success or scraped_count > 0,
@@ -606,3 +600,171 @@ def _merge_station_data_simple(base_data, new_data):
         base_data.timestamp = new_data.timestamp
 
     return base_data
+
+
+@shared_task
+def check_station_uptime(station_id: int = None) -> Dict[str, Any]:
+    """Check uptime and calculate latency for a single station or all stations"""
+    import httpx
+    import time
+    from django.utils import timezone
+    
+    # Get stations to check
+    if station_id:
+        stations = StationService.get_all_active_stations().filter(id=station_id)
+        if not stations.exists():
+            error_msg = f"Station {station_id} not found or disabled"
+            logger.error(error_msg)
+            return {"success": False, "error": error_msg}
+    else:
+        stations = StationService.get_all_active_stations()
+    
+    results = []
+    total_checked = 0
+    total_up = 0
+    
+    for station in stations:
+        total_checked += 1
+        result = _check_single_station_uptime(station)
+        results.append(result)
+        if result["is_up"]:
+            total_up += 1
+        
+        logger.info(f"Station {station.id} ({station.title}): UP={result['is_up']}, Latency={result['latency_ms']}ms")
+    
+    summary = {
+        "success": True,
+        "total_checked": total_checked,
+        "total_up": total_up,
+        "total_down": total_checked - total_up,
+        "results": results
+    }
+    
+    logger.info(f"Uptime check complete: {total_up}/{total_checked} stations up")
+    return summary
+
+
+def _check_single_station_uptime(station) -> Dict[str, Any]:
+    """Check uptime for a single station and save the result"""
+    import httpx
+    import time
+    from django.utils import timezone
+    
+    start_time = time.time()
+    is_up = False
+    latency_ms = 0
+    error_msg = None
+    raw_data = {}
+    
+    try:
+        # Configure headers to mimic a media player
+        headers = {
+            'User-Agent': 'RadioCrestinApp/1.0 (Uptime Monitor)',
+            'Accept': 'audio/*,*/*;q=0.9',
+            'Connection': 'close',
+            'Icy-MetaData': '1'  # Request metadata for streams
+        }
+        
+        # Use a reasonable timeout - not too short to avoid false negatives
+        timeout = httpx.Timeout(connect=10.0, read=15.0, write=5.0, pool=10.0)
+        
+        with httpx.Client(timeout=timeout, headers=headers, verify=False) as client:
+            # Make a HEAD request first to check availability without downloading content
+            response = client.head(station.stream_url)
+            
+            # Calculate latency
+            end_time = time.time()
+            latency_ms = int((end_time - start_time) * 1000)
+            
+            # Check if response is successful
+            if response.status_code == 200:
+                is_up = True
+                raw_data = {
+                    'status_code': response.status_code,
+                    'headers': dict(response.headers),
+                    'method': 'HEAD'
+                }
+            elif response.status_code in [405, 501]:  # Method not allowed - try GET with range
+                # Some streaming servers don't support HEAD, try GET with range
+                range_headers = headers.copy()
+                range_headers['Range'] = 'bytes=0-1023'  # Only download first 1KB
+                
+                get_response = client.get(station.stream_url, headers=range_headers)
+                end_time = time.time()
+                latency_ms = int((end_time - start_time) * 1000)
+                
+                if get_response.status_code in [200, 206, 416]:  # 416 = range not satisfiable, but server is up
+                    is_up = True
+                    raw_data = {
+                        'status_code': get_response.status_code,
+                        'headers': dict(get_response.headers),
+                        'method': 'GET_RANGE',
+                        'content_length': len(get_response.content) if get_response.content else 0
+                    }
+                else:
+                    error_msg = f"GET request failed with status {get_response.status_code}"
+                    raw_data = {
+                        'status_code': get_response.status_code,
+                        'headers': dict(get_response.headers),
+                        'method': 'GET_RANGE',
+                        'error': error_msg
+                    }
+            else:
+                error_msg = f"HEAD request failed with status {response.status_code}"
+                raw_data = {
+                    'status_code': response.status_code,
+                    'headers': dict(response.headers),
+                    'method': 'HEAD',
+                    'error': error_msg
+                }
+                
+    except httpx.TimeoutException:
+        end_time = time.time()
+        latency_ms = int((end_time - start_time) * 1000)
+        error_msg = f"Request timeout after {latency_ms}ms"
+        raw_data = {'error': error_msg, 'type': 'timeout'}
+        
+    except httpx.ConnectError as e:
+        end_time = time.time()
+        latency_ms = int((end_time - start_time) * 1000)
+        error_msg = f"Connection error: {str(e)}"
+        raw_data = {'error': error_msg, 'type': 'connection_error'}
+        
+    except Exception as e:
+        end_time = time.time()
+        latency_ms = int((end_time - start_time) * 1000)
+        error_msg = f"Unexpected error: {str(e)}"
+        raw_data = {'error': error_msg, 'type': 'unexpected_error'}
+        
+        # Log unexpected errors for debugging
+        logger.exception(f"Unexpected error checking station {station.id} ({station.title})")
+    
+    # Create uptime data
+    uptime_data = StationUptimeData(
+        timestamp=timezone.now().isoformat(),
+        is_up=is_up,
+        latency_ms=latency_ms,
+        raw_data=[raw_data]
+    )
+    
+    # Save to database
+    try:
+        StationService.upsert_station_uptime(station.id, uptime_data)
+    except Exception as e:
+        logger.error(f"Failed to save uptime data for station {station.id}: {e}")
+    
+    return {
+        "station_id": station.id,
+        "station_title": station.title,
+        "stream_url": station.stream_url,
+        "is_up": is_up,
+        "latency_ms": latency_ms,
+        "error": error_msg,
+        "raw_data": raw_data
+    }
+
+
+@shared_task
+def check_all_stations_uptime() -> Dict[str, Any]:
+    """Check uptime for all active stations"""
+    return check_station_uptime()

@@ -49,6 +49,10 @@ def extend_superapp_settings(main_settings):
                 'schedule': crontab(hour=2, minute=0),  # Daily at 2 AM UTC
                 'kwargs': {'days_to_keep': 30},
             },
+            'check-stations-uptime': {
+                'task': 'superapp.apps.radio_crestin_scraping.tasks.scraping_tasks.check_all_stations_uptime',
+                'schedule': 300.0,  # Every 5 minutes (300 seconds)
+            },
         }
 
         # Add beat schedule to Celery configuration
