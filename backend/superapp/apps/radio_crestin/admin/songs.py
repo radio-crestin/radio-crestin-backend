@@ -11,18 +11,18 @@ from ..models import Songs
 @admin.register(Songs, site=superapp_admin_site)
 class SongsAdmin(SuperAppModelAdmin):
     list_display = ['name', 'artist_link', 'thumbnail_preview', 'created_at']
-    list_filter = ['created_at', 'updated_at', 'artist']
+    list_filter = ['dirty_metadata', 'created_at', 'updated_at', 'artist']
     search_fields = ['name', 'artist__name']
     autocomplete_fields = ['artist']
     readonly_fields = ['thumbnail_url', 'created_at', 'updated_at', 'thumbnail_preview']
-    fields = ['name', 'artist', 'thumbnail', 'thumbnail_preview', 'thumbnail_url', 'created_at', 'updated_at']
-    
+    fields = ['dirty_metadata', 'name', 'artist', 'thumbnail', 'thumbnail_preview', 'thumbnail_url', 'created_at', 'updated_at']
+
     # Optimization for large datasets
     list_per_page = 25
     list_max_show_all = 100
     show_full_result_count = False
     list_select_related = ['artist']
-    
+
     def artist_link(self, obj):
         if obj.artist:
             url = reverse('admin:radio_crestin_artists_change', args=[obj.artist.pk])

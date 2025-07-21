@@ -10,16 +10,16 @@ from ..models import Artists
 @admin.register(Artists, site=superapp_admin_site)
 class ArtistsAdmin(SuperAppModelAdmin):
     list_display = ['name', 'thumbnail_preview', 'created_at', 'updated_at']
-    list_filter = ['created_at', 'updated_at']
+    list_filter = ['dirty_metadata', 'created_at', 'updated_at']
     search_fields = ['name']
     readonly_fields = ['thumbnail_url', 'created_at', 'updated_at', 'thumbnail_preview']
-    fields = ['name', 'thumbnail', 'thumbnail_preview', 'thumbnail_url', 'created_at', 'updated_at']
-    
+    fields = ['dirty_metadata', 'name', 'thumbnail', 'thumbnail_preview', 'thumbnail_url', 'created_at', 'updated_at']
+
     # Optimization for large datasets
     list_per_page = 25
     list_max_show_all = 100
     show_full_result_count = False
-    
+
     def thumbnail_preview(self, obj):
         if obj.thumbnail_url:
             return format_html(
