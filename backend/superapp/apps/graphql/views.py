@@ -3,85 +3,24 @@ import logging
 from os import environ
 
 import requests
-from django.http import HttpResponse, JsonResponse
-from django.views import View
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
+from django.http import HttpRequest, HttpResponse
+from strawberry.django.views import GraphQLView
+from strawberry.http import GraphQLHTTPResponse
+from strawberry.types import ExecutionResult
 
 from superapp.apps.posthog_error_tracking.utils import track_event
 
 logger = logging.getLogger(__name__)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
-class GraphQLProxyView(View):
+class GraphQLProxyView(GraphQLView):
     """
-    GraphQL v1 proxy that forwards requests to v2/graphql and falls back to Hasura on failure
+    GraphQL proxy that extends Strawberry's GraphQLView and falls back to Hasura on error
     """
 
     def get_hasura_url(self):
-        """Get Hasura URL from environment variable with fallback"""
+        """Get Hasura URL from environment variable"""
         return environ.get('ADMIN_HASURA_GRAPHQL_URL', '')
-
-    def get_v2_url(self, request):
-        """Build v2/graphql URL based on current request"""
-        scheme = 'https' if request.is_secure() else 'http'
-        host = request.get_host()
-        return f"{scheme}://{host}/v2/graphql"
-
-    def forward_request(self, url, data, headers, method='POST'):
-        """Forward GraphQL request to specified URL with proper HTTP method"""
-        try:
-            method = method.upper()
-            
-            if method == 'GET':
-                response = requests.get(
-                    url,
-                    params=data if isinstance(data, dict) else None,
-                    headers=headers,
-                    timeout=30
-                )
-            elif method == 'POST':
-                response = requests.post(
-                    url,
-                    json=data,
-                    headers=headers,
-                    timeout=30
-                )
-            elif method == 'HEAD':
-                response = requests.head(
-                    url,
-                    headers=headers,
-                    timeout=30
-                )
-            elif method == 'PUT':
-                response = requests.put(
-                    url,
-                    json=data,
-                    headers=headers,
-                    timeout=30
-                )
-            elif method == 'PATCH':
-                response = requests.patch(
-                    url,
-                    json=data,
-                    headers=headers,
-                    timeout=30
-                )
-            elif method == 'DELETE':
-                response = requests.delete(
-                    url,
-                    headers=headers,
-                    timeout=30
-                )
-            else:
-                logger.error(f"Unsupported HTTP method: {method}")
-                return None
-                
-            return response
-        except requests.RequestException as e:
-            logger.error(f"Request failed to {url}: {str(e)}")
-            return None
 
     def log_error_to_posthog(self, error_type, query, error_message, url):
         """Log error to PostHog with query details"""
@@ -97,22 +36,41 @@ class GraphQLProxyView(View):
         except Exception as e:
             logger.error(f"Failed to log to PostHog: {str(e)}")
 
-    def post(self, request):
-        """Handle GraphQL POST requests"""
+    def should_fallback_to_hasura(self, result: ExecutionResult) -> bool:
+        """Determine if we should fallback to Hasura based on errors"""
+        if not result.errors:
+            return False
+
+        # Check for critical errors that warrant fallback
+        critical_error_keywords = [
+            'field',  # Field not found, might exist in Hasura
+            'type',   # Type not found, might exist in Hasura
+            'query',  # Query parsing errors
+            'schema', # Schema-related errors
+            'resolver', # Resolver errors
+        ]
+        
+        for error in result.errors:
+            error_message = str(error).lower()
+            if any(keyword in error_message for keyword in critical_error_keywords):
+                return True
+                
+        return False
+
+    def attempt_hasura_fallback(self, request: HttpRequest) -> GraphQLHTTPResponse:
+        """Attempt to forward request to Hasura"""
         try:
-            # Parse request body
-            if request.content_type == 'application/json':
-                data = json.loads(request.body)
+            # Get request data
+            if hasattr(request, '_body'):
+                request_body = request._body
             else:
-                return JsonResponse({
-                    'errors': [{'message': 'Content-Type must be application/json'}]
-                }, status=400)
+                request_body = request.body
+                
+            request_data = json.loads(request_body) if request_body else {}
+            query = request_data.get('query', '')
 
-            # Extract query for logging
-            query = data.get('query', '')
-
-            # Prepare headers for forwarding
-            forward_headers = {
+            # Prepare headers for Hasura
+            headers = {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             }
@@ -120,128 +78,71 @@ class GraphQLProxyView(View):
             # Forward auth headers if present
             auth_header = request.META.get('HTTP_AUTHORIZATION')
             if auth_header:
-                forward_headers['Authorization'] = auth_header
+                headers['Authorization'] = auth_header
 
-            # Try v2/graphql first
-            v2_url = self.get_v2_url(request)
-            v2_response = self.forward_request(v2_url, data, forward_headers, 'POST')
-
-            if v2_response and v2_response.status_code == 200:
-                try:
-                    v2_data = v2_response.json()
-                    # Check if response contains errors
-                    if 'errors' not in v2_data or not v2_data['errors']:
-                        return JsonResponse(v2_data, status=200)
-                    else:
-                        # Log v2 GraphQL errors to PostHog
-                        error_message = v2_data['errors'][0].get('message', 'Unknown GraphQL error')
-                        self.log_error_to_posthog('v2_graphql_error', query, error_message, v2_url)
-                except json.JSONDecodeError:
-                    self.log_error_to_posthog('v2_json_decode_error', query, 'Invalid JSON response', v2_url)
-            else:
-                # Log v2 HTTP error to PostHog
-                error_message = f"HTTP {v2_response.status_code if v2_response else 'Connection failed'}"
-                self.log_error_to_posthog('v2_http_error', query, error_message, v2_url)
-
-            # Fall back to Hasura
+            # Make request to Hasura
             hasura_url = self.get_hasura_url()
-            hasura_response = self.forward_request(hasura_url, data, forward_headers, 'POST')
+            response = requests.post(
+                hasura_url,
+                json=request_data,
+                headers=headers,
+                timeout=30
+            )
 
-            if hasura_response:
+            if response.status_code == 200:
                 try:
-                    hasura_data = hasura_response.json()
-                    return JsonResponse(hasura_data, status=hasura_response.status_code)
+                    hasura_data = response.json()
+                    logger.info(f"Successfully fell back to Hasura for query: {query[:100]}...")
+                    return hasura_data
                 except json.JSONDecodeError:
                     self.log_error_to_posthog('hasura_json_decode_error', query, 'Invalid JSON response', hasura_url)
-                    return JsonResponse({
-                        'errors': [{'message': 'Invalid response from Hasura service'}]
-                    }, status=502)
+                    
             else:
-                self.log_error_to_posthog('hasura_connection_error', query, 'Connection failed', hasura_url)
-                return JsonResponse({
-                    'errors': [{'message': 'Both v2 GraphQL and Hasura services are unavailable'}]
-                }, status=503)
+                self.log_error_to_posthog('hasura_http_error', query, f"HTTP {response.status_code}", hasura_url)
 
-        except json.JSONDecodeError:
-            return JsonResponse({
-                'errors': [{'message': 'Invalid JSON in request body'}]
-            }, status=400)
+        except requests.RequestException as e:
+            query = request_data.get('query', '') if 'request_data' in locals() else ''
+            self.log_error_to_posthog('hasura_connection_error', query, str(e), self.get_hasura_url())
+            logger.error(f"Hasura fallback failed: {str(e)}")
         except Exception as e:
-            logger.error(f"Unexpected error in GraphQL proxy: {str(e)}")
-            self.log_error_to_posthog('proxy_internal_error', '', str(e), '')
-            return JsonResponse({
-                'errors': [{'message': 'Internal server error'}]
-            }, status=500)
+            logger.error(f"Unexpected error during Hasura fallback: {str(e)}")
 
-    def handle_non_post_request(self, request, method):
-        """Handle non-POST requests (GET, HEAD, PUT, PATCH, DELETE)"""
-        # Prepare headers for forwarding
-        forward_headers = {
-            'Accept': 'application/json'
-        }
+        return None
+
+    def process_result(self, request: HttpRequest, result: ExecutionResult) -> GraphQLHTTPResponse:
+        """Process GraphQL result with Hasura fallback on errors"""
         
-        # Forward auth headers if present
-        auth_header = request.META.get('HTTP_AUTHORIZATION')
-        if auth_header:
-            forward_headers['Authorization'] = auth_header
-        
-        # For GET requests, use query parameters; for others, try to parse body
-        if method == 'GET':
-            data = dict(request.GET) if request.GET else None
-        else:
+        # Check if we should attempt Hasura fallback
+        if self.should_fallback_to_hasura(result):
+            # Extract query for logging
             try:
-                if request.content_type == 'application/json' and request.body:
-                    data = json.loads(request.body)
-                    forward_headers['Content-Type'] = 'application/json'
-                else:
-                    data = None
-            except json.JSONDecodeError:
-                return JsonResponse({
-                    'errors': [{'message': 'Invalid JSON in request body'}]
-                }, status=400)
+                request_data = json.loads(request.body) if request.body else {}
+                query = request_data.get('query', '')
+            except:
+                query = ''
+
+            # Log the errors that triggered fallback
+            for error in result.errors:
+                self.log_error_to_posthog('strawberry_error', query, str(error), 'local_strawberry')
+                logger.warning(f"GraphQL error triggering Hasura fallback: {error}")
+
+            # Attempt Hasura fallback
+            hasura_response = self.attempt_hasura_fallback(request)
+            if hasura_response:
+                logger.info("Successfully used Hasura fallback")
+                return hasura_response
+
+            # If fallback fails, log additional error
+            self.log_error_to_posthog('fallback_failed', query, 'Both Strawberry and Hasura failed', '')
+            logger.error("Both Strawberry GraphQL and Hasura fallback failed")
+
+        # Standard response processing (either no errors or fallback failed)
+        data: GraphQLHTTPResponse = {"data": result.data}
         
-        # Try v2/graphql first
-        v2_url = self.get_v2_url(request)
-        v2_response = self.forward_request(v2_url, data, forward_headers, method)
-        
-        if v2_response and v2_response.status_code < 400:
-            return HttpResponse(
-                v2_response.content,
-                content_type=v2_response.headers.get('content-type', 'application/json'),
-                status=v2_response.status_code
-            )
-        
-        # Fall back to Hasura
-        hasura_url = self.get_hasura_url()
-        hasura_response = self.forward_request(hasura_url, data, forward_headers, method)
-        
-        if hasura_response:
-            return HttpResponse(
-                hasura_response.content,
-                content_type=hasura_response.headers.get('content-type', 'application/json'),
-                status=hasura_response.status_code
-            )
-        else:
-            return JsonResponse({
-                'errors': [{'message': 'GraphQL services are unavailable'}]
-            }, status=503)
+        if result.errors:
+            data["errors"] = [err.formatted for err in result.errors]
+            # Log remaining errors
+            for error in result.errors:
+                logger.error(f"GraphQL Error (no fallback): {error}")
 
-    def get(self, request):
-        """Handle GraphQL GET requests (for GraphiQL introspection)"""
-        return self.handle_non_post_request(request, 'GET')
-
-    def head(self, request):
-        """Handle GraphQL HEAD requests"""
-        return self.handle_non_post_request(request, 'HEAD')
-
-    def put(self, request):
-        """Handle GraphQL PUT requests"""
-        return self.handle_non_post_request(request, 'PUT')
-
-    def patch(self, request):
-        """Handle GraphQL PATCH requests"""
-        return self.handle_non_post_request(request, 'PATCH')
-
-    def delete(self, request):
-        """Handle GraphQL DELETE requests"""
-        return self.handle_non_post_request(request, 'DELETE')
+        return data
