@@ -111,6 +111,50 @@ services:
       options:
         max-size: "100m"
         max-file: "3"
+  backend-hls-streaming:
+    build:
+      context: backend_hls_streaming
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - "web"
+      - "postgres"
+      - "redis"
+    ports:
+      - "8082:80"  # NGINX HLS serving port
+    volumes:
+      # HLS data directory (shared with NGINX)
+      - hls_data:/tmp/data
+      # Log directories
+      - hls_logs:/tmp/logs
+      - nginx_logs:/var/log/nginx
+      # Mount backend_hls_streaming directory for development
+      - ./backend_hls_streaming:/app:delegated
+    environment:
+      # HLS Manager configuration
+      - GRAPHQL_ENDPOINT=http://web:8000/graphql/
+      - GRAPHQL_TOKEN=${HLS_GRAPHQL_TOKEN:-}
+      - STREAM_REFRESH_INTERVAL=60
+      - LOG_LEVEL=INFO
+      - MAX_LOG_SIZE_MB=20
+      # Log Monitor configuration
+      - NGINX_LOG_PATH=/var/log/nginx/session_access.log
+      - BATCH_INTERVAL_SECONDS=10
+      - SESSION_TIMEOUT_MINUTES=5
+    healthcheck:
+      test: ["CMD", "python3", "scripts/health_check.py"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "5"
+        max-size: "100m"
 volumes:
   db_data:
   redis:
+  hls_data:
+  hls_logs:
+  nginx_logs:

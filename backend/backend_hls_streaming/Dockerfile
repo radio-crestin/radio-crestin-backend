@@ -1,6 +1,6 @@
 FROM alpine:3.19
 
-# Install required packages
+# Install required packages including NGINX
 RUN apk add --update \
     bash \
     curl \
@@ -9,7 +9,8 @@ RUN apk add --update \
     python3-dev \
     gcc \
     musl-dev \
-    linux-headers
+    linux-headers \
+    nginx
 
 # Install additional codec support
 RUN apk add rav1e-libs --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community
@@ -22,7 +23,7 @@ COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 # Create directories
-RUN mkdir -p /app/logs /tmp/logs /data
+RUN mkdir -p /app/logs /tmp/logs /data /var/log/nginx /var/cache/nginx /var/lib/nginx /tmp/client_temp
 
 # Copy application files
 COPY scripts/ /app/scripts/

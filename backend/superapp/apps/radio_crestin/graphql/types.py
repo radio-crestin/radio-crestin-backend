@@ -27,6 +27,7 @@ from ..models import (
     StationsNowPlaying,
     StationGroups,
     StationToStationGroup,
+    ListeningSessions,
 )
 
 
@@ -112,11 +113,14 @@ class StationType:
     
     @strawberry.field
     def radio_crestin_listeners(self) -> Optional[int]:
-        """Get listener count specific to radio-crestin platform"""
-        if hasattr(self, 'latest_station_now_playing') and self.latest_station_now_playing:
-            # Assume this is radio-crestin specific count
-            return self.latest_station_now_playing.listeners
-        return None
+        """Get listener count specific to radio-crestin platform from real-time analytics"""
+        try:
+            # Get count of unique active listeners from ListeningSessions
+            # Active = had activity in the last 60 seconds
+            return ListeningSessions.get_active_listeners_count(station=self, minutes=1)
+        except Exception:
+            # Fallback to 0 if there's an error accessing the sessions
+            return 0
     
     # Custom posts resolver to handle limit and order_by
     @strawberry.field
@@ -165,10 +169,26 @@ class StationType:
     # Additional computed fields for backward compatibility
     @strawberry.field
     def total_listeners(self) -> Optional[int]:
-        """Get current listener count from latest now playing data"""
-        if hasattr(self, 'latest_station_now_playing') and self.latest_station_now_playing:
-            return self.latest_station_now_playing.listeners
-        return None
+        """Get total listener count from both now playing data and radio-crestin analytics"""
+        try:
+            # Get radio-crestin specific listeners from real-time analytics
+            radio_crestin_count = self.radio_crestin_listeners() or 0
+            
+            # Get external listeners from latest now playing data
+            external_count = 0
+            if hasattr(self, 'latest_station_now_playing') and self.latest_station_now_playing:
+                external_count = self.latest_station_now_playing.listeners or 0
+            
+            # Return the combined count
+            # Note: This assumes external sources don't overlap with radio-crestin listeners
+            total = radio_crestin_count + external_count
+            return total if total > 0 else None
+            
+        except Exception:
+            # Fallback to just external count if there's an error
+            if hasattr(self, 'latest_station_now_playing') and self.latest_station_now_playing:
+                return self.latest_station_now_playing.listeners
+            return None
     
     @strawberry.field
     def reviews(self) -> List[ReviewType]:

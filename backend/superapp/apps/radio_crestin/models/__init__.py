@@ -9,7 +9,7 @@ from .stations_metadata_fetch import StationsMetadataFetch
 from .posts import Posts
 from .stations_now_playing import StationsNowPlaying
 from .stations_uptime import StationsUptime
-from .listening_events import ListeningEvents
+from .listening_events import ListeningEvents, ListeningSessions
 from .reviews import Reviews
 from .users import AppUsers
 
@@ -26,6 +26,7 @@ __all__ = [
     'StationsNowPlaying',
     'StationsUptime',
     'ListeningEvents',
+    'ListeningSessions',
     'Reviews',
     'AppUsers',
 ]

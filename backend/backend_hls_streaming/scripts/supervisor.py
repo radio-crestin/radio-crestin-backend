@@ -170,13 +170,22 @@ class ProcessSupervisor:
         # Wait a bit for HLS manager to initialize
         time.sleep(5)
         
+        # Start NGINX
+        nginx_cmd = ['nginx', '-g', 'daemon off;', '-c', '/app/nginx/nginx.conf']
+        if not self.start_process('nginx', nginx_cmd):
+            self.logger.error("Failed to start NGINX")
+            return False
+        
+        # Wait for NGINX to start
+        time.sleep(3)
+        
         # Start Log Monitor
         log_monitor_cmd = ['python3', str(script_dir / 'log_monitor.py')]
         if not self.start_process('log_monitor', log_monitor_cmd):
             self.logger.error("Failed to start Log Monitor")
             return False
         
-        self.logger.info("Both processes started successfully")
+        self.logger.info("All processes started successfully")
         
         try:
             # Main monitoring loop
