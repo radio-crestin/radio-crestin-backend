@@ -71,7 +71,7 @@ class StationsAdmin(SuperAppModelAdmin):
             'fields': ('rss_feed', 'feature_latest_post', 'facebook_page_id')
         }),
         (_("Status"), {
-            'fields': ('latest_station_uptime', 'latest_station_now_playing', 'now_playing_display')
+            'fields': ('check_uptime', 'latest_station_uptime', 'latest_station_now_playing', 'now_playing_display')
         }),
         (_("Timestamps"), {
             'fields': ('created_at', 'updated_at'),
@@ -187,14 +187,6 @@ class StationsAdmin(SuperAppModelAdmin):
         errors = []
 
         try:
-            from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import (
-                _scrape_rss_sync,
-                _scrape_station_sync,
-            )
-            from superapp.apps.radio_crestin_scraping.scrapers.uptime import UptimeScraper
-            from superapp.apps.radio_crestin_scraping.services.station_service import StationService
-            from superapp.apps.radio_crestin.models import Stations
-
             # Get the station object
             try:
                 station = Stations.objects.get(id=station_id, disabled=False)
@@ -202,52 +194,56 @@ class StationsAdmin(SuperAppModelAdmin):
                 errors.append(f"Station {station_id} not found or is disabled")
                 return successes, errors
 
-            # 1. Check station uptime first using new uptime scraper
+            # 1. Check station uptime using Celery task
             try:
-                # Create uptime scraper and run sync method
-                uptime_scraper = UptimeScraper()
-                uptime_result = uptime_scraper._check_single_station_uptime(station)
-                
-                if uptime_result.get('success'):
-                    status = "UP" if uptime_result.get('is_up') else "DOWN"
-                    latency = uptime_result.get('latency_ms', 0)
+                from superapp.apps.radio_crestin_scraping.tasks.uptime_tasks import check_station_uptime_ffmpeg
+                uptime_result = check_station_uptime_ffmpeg.apply(args=[station.id])
+                uptime_data = uptime_result.get()
+
+                if uptime_data.get('success'):
+                    status = "UP" if uptime_data.get('is_up') else "DOWN"
+                    latency = uptime_data.get('latency_ms', 0)
                     successes.append(f"Uptime check for '{station.title}': {status} ({latency}ms)")
                 else:
-                    errors.append(f"Uptime check failed for '{station.title}': {uptime_result.get('error', 'Unknown error')}")
+                    errors.append(f"Uptime check failed for '{station.title}': {uptime_data.get('error', 'Unknown error')}")
             except Exception as e:
                 errors.append(f"Uptime check error for '{station.title}': {str(e)}")
                 if settings.DEBUG:
                     raise
 
-            # 2. RSS scraping
+            # 2. RSS scraping using Celery task
             if station.rss_feed:
                 try:
-                    rss_result = _scrape_rss_sync(station)
+                    from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import scrape_station_rss_feed
+                    rss_result = scrape_station_rss_feed.apply(args=[station.id])
+                    rss_data = rss_result.get()
 
-                    if rss_result.get('success'):
-                        successes.append(f"RSS feed scraped for '{station.title}': {rss_result.get('posts_count', 0)} posts")
+                    if rss_data.get('success'):
+                        successes.append(f"RSS feed scraped for '{station.title}': {rss_data.get('posts_count', 0)} posts")
                     else:
-                        errors.append(f"RSS scraping failed for '{station.title}': {rss_result.get('error', 'Unknown error')}")
+                        errors.append(f"RSS scraping failed for '{station.title}': {rss_data.get('error', 'Unknown error')}")
                 except Exception as e:
                     errors.append(f"RSS scraping error for '{station.title}': {str(e)}")
                     if settings.DEBUG:
                         raise
 
-            # 3. Metadata scraping
+            # 3. Metadata scraping using Celery task
             metadata_fetchers = station.station_metadata_fetches.select_related(
                 'station_metadata_fetch_category'
             ).order_by('-priority')
 
             if metadata_fetchers.exists():
                 try:
-                    metadata_result = _scrape_station_sync(station, metadata_fetchers)
+                    from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import scrape_station_metadata
+                    metadata_result = scrape_station_metadata.apply(args=[station.id])
+                    metadata_data = metadata_result.get()
 
-                    if metadata_result.get('success'):
-                        successes.append(f"Metadata scraped for '{station.title}': {metadata_result.get('scraped_count', 0)} sources")
+                    if metadata_data.get('success'):
+                        successes.append(f"Metadata scraped for '{station.title}': {metadata_data.get('scraped_count', 0)} sources")
 
                     # Add specific errors from metadata scraping
-                    if metadata_result.get('errors'):
-                        for error in metadata_result['errors']:
+                    if metadata_data.get('errors'):
+                        for error in metadata_data['errors']:
                             errors.append(f"Metadata error for '{station.title}': {error}")
                 except Exception as e:
                     errors.append(f"Metadata scraping error for '{station.title}': {str(e)}")
@@ -297,8 +293,8 @@ class StationsAdmin(SuperAppModelAdmin):
             from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import (
                 scrape_station_metadata,
                 scrape_station_rss_feed,
-                check_station_uptime
             )
+            from superapp.apps.radio_crestin_scraping.tasks.uptime_tasks import check_station_uptime_ffmpeg
 
             # Queue all types of tasks
             metadata_tasks = []
@@ -307,7 +303,7 @@ class StationsAdmin(SuperAppModelAdmin):
 
             for station_id in station_ids:
                 # Queue uptime check first
-                uptime_tasks.append(check_station_uptime.delay(station_id))
+                uptime_tasks.append(check_station_uptime_ffmpeg.delay(station_id))
                 # Queue metadata scraping
                 metadata_tasks.append(scrape_station_metadata.delay(station_id))
                 # Queue RSS scraping
@@ -338,7 +334,6 @@ class StationsAdmin(SuperAppModelAdmin):
     def scrape_single_station_sync(self, request, object_id: int):
         """Scrape metadata, RSS feeds, and check uptime for single station (synchronous)"""
         try:
-            from superapp.apps.radio_crestin.models import Stations
             station = Stations.objects.get(pk=object_id, disabled=False)
         except Stations.DoesNotExist:
             messages.error(request, _("Station not found or is disabled."))
@@ -369,7 +364,6 @@ class StationsAdmin(SuperAppModelAdmin):
     def scrape_single_station_async(self, request, object_id: int):
         """Scrape metadata, RSS feeds, and check uptime for single station (asynchronous)"""
         try:
-            from superapp.apps.radio_crestin.models import Stations
             station = Stations.objects.get(pk=object_id, disabled=False)
         except Stations.DoesNotExist:
             messages.error(request, _("Station not found or is disabled."))
@@ -382,11 +376,11 @@ class StationsAdmin(SuperAppModelAdmin):
             from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import (
                 scrape_station_metadata,
                 scrape_station_rss_feed,
-                check_station_uptime
             )
+            from superapp.apps.radio_crestin_scraping.tasks.uptime_tasks import check_station_uptime_ffmpeg
 
             # Queue all types of tasks for this single station
-            check_station_uptime.delay(station.id)
+            check_station_uptime_ffmpeg.delay(station.id)
             scrape_station_metadata.delay(station.id)
             scrape_station_rss_feed.delay(station.id)
 
