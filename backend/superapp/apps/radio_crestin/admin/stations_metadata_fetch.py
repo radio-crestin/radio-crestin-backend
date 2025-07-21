@@ -9,16 +9,16 @@ from ..models import StationsMetadataFetch
 
 @admin.register(StationsMetadataFetch, site=superapp_admin_site)
 class StationsMetadataFetchAdmin(SuperAppModelAdmin):
-    list_display = ['station', 'station_metadata_fetch_category', 'url_preview', 'order', 'created_at']
+    list_display = ['station', 'station_metadata_fetch_category', 'url_preview', 'priority', 'created_at']
     list_filter = ['station_metadata_fetch_category', 'created_at']
     search_fields = ['station__title', 'url', 'station_metadata_fetch_category__name']
     autocomplete_fields = ['station', 'station_metadata_fetch_category']
     readonly_fields = ['created_at', 'updated_at']
-    ordering = ['station', 'order']
+    ordering = ['station', '-priority']
     
     fieldsets = (
         (_("Configuration"), {
-            'fields': ('station', 'station_metadata_fetch_category', 'url', 'order')
+            'fields': ('station', 'station_metadata_fetch_category', 'url', 'priority', 'split_character', 'station_name_regex', 'artist_regex', 'title_regex')
         }),
         (_("Timestamps"), {
             'fields': ('created_at', 'updated_at'),

@@ -25,10 +25,10 @@ def scrape_station_metadata(station_id: int) -> Dict[str, Any]:
 
     station = stations.first()
 
-    # Get metadata fetchers ordered by priority
+    # Get metadata fetchers ordered by priority (higher number = higher priority)
     metadata_fetchers = station.station_metadata_fetches.select_related(
         'station_metadata_fetch_category'
-    ).order_by('order')
+    ).order_by('-priority')
 
     if not metadata_fetchers.exists():
         logger.info(f"No metadata fetchers configured for station {station_id}")
@@ -173,7 +173,7 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
                 fetcher_states[str(fetcher.id)] = {
                     'fetcher_id': fetcher.id,
                     'category_slug': category_slug,
-                    'priority': fetcher.order,
+                    'priority': fetcher.priority,
                     'status': 'failed',
                     'error': error_msg,
                     'timestamp': task_start_time.isoformat(),
@@ -197,8 +197,8 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
                         loop = asyncio.new_event_loop()
                         asyncio.set_event_loop(loop)
                     
-                    # Run the async scrape method
-                    scrape_result = loop.run_until_complete(scraper.scrape(fetcher.url))
+                    # Run the async scrape method with config
+                    scrape_result = loop.run_until_complete(scraper.scrape(fetcher.url, config=fetcher))
                 else:
                     # Use the original HTTP client approach for other scrapers
                     import httpx
@@ -213,7 +213,7 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
                     with httpx.Client(timeout=60, verify=False) as client:
                         response = client.get(fetcher.url)
                         response.raise_for_status()
-                        scrape_result = scraper.extract_data(response.text)
+                        scrape_result = scraper.extract_data(response.text, config=fetcher)
             except Exception as scrape_error:
                 logger.error(f"Error making HTTP request to {fetcher.url}: {scrape_error}")
                 error_msg = f"HTTP request error for {fetcher.url}: {str(scrape_error)}"
@@ -222,7 +222,7 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
                 fetcher_states[str(fetcher.id)] = {
                     'fetcher_id': fetcher.id,
                     'category_slug': category_slug,
-                    'priority': fetcher.order,
+                    'priority': fetcher.priority,
                     'status': 'failed',
                     'error': error_msg,
                     'timestamp': task_start_time.isoformat(),
@@ -486,8 +486,8 @@ def _merge_fetcher_states_by_priority(fetcher_states, current_data, task_start_t
     if not completed_states:
         return None
     
-    # Sort by priority (lower order = higher priority)
-    completed_states.sort(key=lambda x: x[0])
+    # Sort by priority (higher number = higher priority)  
+    completed_states.sort(key=lambda x: x[0], reverse=True)
     
     # Start with the highest priority data
     base_data_dict = completed_states[0][1]
@@ -529,13 +529,25 @@ def _merge_station_data_simple(base_data, new_data):
             base_data.error = []
         base_data.error.extend(new_data.error)
 
-    # Only override if base data doesn't have the field or it's empty (preserve higher priority)
+    # NEVER override fields from higher priority data (base_data has highest priority)
+    # Only fill in missing fields that higher priority source doesn't have
+    
+    # Only fill current_song if base doesn't have it or has incomplete data
     if (hasattr(new_data, 'current_song') and new_data.current_song and 
-        hasattr(new_data.current_song, 'name') and new_data.current_song.name and
-        (not hasattr(base_data, 'current_song') or not base_data.current_song or 
-         not hasattr(base_data.current_song, 'name') or not base_data.current_song.name)):
+        (not hasattr(base_data, 'current_song') or not base_data.current_song)):
         base_data.current_song = new_data.current_song
+    elif (hasattr(base_data, 'current_song') and base_data.current_song and
+          hasattr(new_data, 'current_song') and new_data.current_song):
+        # Fill in missing artist/name from lower priority if higher priority is missing them
+        if (not hasattr(base_data.current_song, 'artist') or not base_data.current_song.artist) and \
+           (hasattr(new_data.current_song, 'artist') and new_data.current_song.artist):
+            base_data.current_song.artist = new_data.current_song.artist
+        
+        if (not hasattr(base_data.current_song, 'name') or not base_data.current_song.name) and \
+           (hasattr(new_data.current_song, 'name') and new_data.current_song.name):
+            base_data.current_song.name = new_data.current_song.name
 
+    # Only fill listeners if base doesn't have it
     if (hasattr(new_data, 'listeners') and new_data.listeners is not None and 
         (not hasattr(base_data, 'listeners') or base_data.listeners is None)):
         base_data.listeners = new_data.listeners

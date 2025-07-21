@@ -10,7 +10,7 @@ from django.urls import reverse_lazy
 from django.conf import settings
 import unfold.decorators
 
-from superapp.apps.admin_portal.admin import SuperAppModelAdmin, SuperAppTabularInline
+from superapp.apps.admin_portal.admin import SuperAppModelAdmin, SuperAppTabularInline, SuperAppStackedInline
 from superapp.apps.admin_portal.sites import superapp_admin_site
 from ..models import Stations, StationToStationGroup, StationStreams, StationsMetadataFetch
 
@@ -30,7 +30,7 @@ class StationStreamsInline(SuperAppTabularInline):
     fields = ['stream_url', 'type', 'order']
 
 
-class StationsMetadataFetchInline(SuperAppTabularInline):
+class StationsMetadataFetchInline(SuperAppStackedInline):
     model = StationsMetadataFetch
     fk_name = 'station'
     extra = 0
