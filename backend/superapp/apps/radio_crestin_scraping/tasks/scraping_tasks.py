@@ -1,4 +1,5 @@
 import logging
+import uuid
 from typing import Dict, Any
 from celery import shared_task
 from datetime import datetime
@@ -6,6 +7,7 @@ from django.conf import settings
 
 from ..scrapers.factory import ScraperFactory
 from ..services.station_service import StationService
+from ..services.task_state_service import TaskStateService
 from ..utils.data_types import StationUptimeData
 
 logger = logging.getLogger(__name__)
@@ -142,10 +144,25 @@ def cleanup_old_scraped_data(days_to_keep: int = 30) -> Dict[str, Any]:
 # Synchronous helper functions
 
 def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
-    """Synchronous function to scrape station metadata"""
-    merged_data = None
+    """Synchronous function to scrape station metadata with individual fetcher processing"""
+    task_id = str(uuid.uuid4())
     scraped_count = 0
     errors = []
+    
+    # Initialize task state
+    task_init_result = TaskStateService.initialize_task_state(station.id, task_id)
+    if not task_init_result['should_continue']:
+        logger.info(f"Skipping station {station.id}: {task_init_result['reason']}")
+        return {
+            "success": False,
+            "station_id": station.id,
+            "scraped_count": 0,
+            "errors": [task_init_result['reason']],
+            "skipped": True
+        }
+    
+    task_state = task_init_result['task_state']
+    final_merged_data = None
 
     for fetcher in metadata_fetchers:
         try:
@@ -154,6 +171,11 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
 
             if not scraper:
                 logger.warning(f"No scraper available for category: {category_slug}")
+                error_msg = f"No scraper available for category: {category_slug}"
+                TaskStateService.mark_fetcher_failed(
+                    task_state, fetcher.id, fetcher.order, error_msg, task_id
+                )
+                errors.append(error_msg)
                 continue
 
             # Scrape data synchronously
@@ -189,29 +211,62 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
                         scrape_result = scraper.extract_data(response.text)
             except Exception as scrape_error:
                 logger.error(f"Error making HTTP request to {fetcher.url}: {scrape_error}")
+                error_msg = f"HTTP request error for {fetcher.url}: {str(scrape_error)}"
+                TaskStateService.mark_fetcher_failed(
+                    task_state, fetcher.id, fetcher.order, error_msg, task_id
+                )
+                errors.append(error_msg)
                 if settings.DEBUG:
                     raise
                 continue
 
-            if scraped_count == 0:
-                merged_data = scrape_result
+            # Process individual fetcher result and save to database immediately
+            process_result = TaskStateService.process_fetcher_result(
+                task_state, fetcher.id, fetcher.order, scrape_result, task_id
+            )
+            
+            if process_result.get('should_abort'):
+                logger.warning(f"Task {task_id} aborted: {process_result['reason']}")
+                return {
+                    "success": False,
+                    "station_id": station.id,
+                    "scraped_count": scraped_count,
+                    "errors": errors + [process_result['reason']],
+                    "aborted": True
+                }
+            
+            if process_result['success']:
+                # Save individual result to database immediately
+                individual_success = StationService.upsert_station_now_playing(station.id, scrape_result)
+                if individual_success:
+                    scraped_count += 1
+                    # Update final merged data
+                    final_merged_data = process_result.get('merged_data')
+                    logger.info(f"Successfully processed fetcher {fetcher.id} for station {station.id}")
+                else:
+                    error_msg = f"Failed to save data from fetcher {fetcher.id}"
+                    errors.append(error_msg)
+                    logger.error(error_msg)
             else:
-                # Merge data (prefer non-null values from new data)
-                merged_data = _merge_station_data(merged_data, scrape_result)
-
-            scraped_count += 1
+                error_msg = process_result.get('reason', f'Unknown error processing fetcher {fetcher.id}')
+                errors.append(error_msg)
+                logger.error(error_msg)
 
         except Exception as error:
             logger.error(f"Error scraping {fetcher.url}: {error}")
+            error_msg = f"Error scraping {fetcher.url}: {str(error)}"
+            TaskStateService.mark_fetcher_failed(
+                task_state, fetcher.id, fetcher.order, error_msg, task_id
+            )
+            errors.append(error_msg)
             if settings.DEBUG:
                 raise  # Re-raise the exception in debug mode for better debugging
-            errors.append(str(error))
 
-    # Save merged data to database
-    success = False
-    if merged_data:
-        success = StationService.upsert_station_now_playing(station.id, merged_data)
-
+    # Save final merged data if available
+    final_success = False
+    if final_merged_data:
+        final_success = StationService.upsert_station_now_playing(station.id, final_merged_data)
+        
         # Also update uptime data (simplified - always mark as up for now)
         uptime_data = StationUptimeData(
             timestamp=datetime.now().isoformat(),
@@ -221,11 +276,15 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
         )
         StationService.upsert_station_uptime(station.id, uptime_data)
 
+    # Finalize task state
+    TaskStateService.finalize_task(task_state, task_id, final_success or scraped_count > 0, final_merged_data)
+
     return {
-        "success": success,
+        "success": final_success or scraped_count > 0,
         "station_id": station.id,
         "scraped_count": scraped_count,
-        "errors": errors
+        "errors": errors,
+        "task_id": task_id
     }
 
 
