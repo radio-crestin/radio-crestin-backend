@@ -35,7 +35,14 @@ class StationsMetadataFetchInline(SuperAppStackedInline):
     fk_name = 'station'
     extra = 0
     autocomplete_fields = ['station_metadata_fetch_category']
-    fields = ['station_metadata_fetch_category', 'url', 'priority', 'dirty_metadata', 'split_character', 'station_name_regex', 'artist_regex', 'title_regex']
+    readonly_fields = ['url_link']
+    fields = ['station_metadata_fetch_category', 'url', 'url_link', 'priority', 'dirty_metadata', 'split_character', 'station_name_regex', 'artist_regex', 'title_regex']
+    
+    def url_link(self, obj):
+        if obj.url:
+            return format_html('<a href="{}" target="_blank" rel="noopener noreferrer">{}</a>', obj.url, obj.url[:50] + '...' if len(obj.url) > 50 else obj.url)
+        return _("No URL")
+    url_link.short_description = _("URL Link")
 
 
 @admin.register(Stations, site=superapp_admin_site)
@@ -132,7 +139,7 @@ class StationsAdmin(SuperAppModelAdmin):
                         song_info += f" - {now_playing.song.artist.name}"
                     return format_html(
                         '<div class="p-2.5 bg-gray-100 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">'
-                        '<strong class="text-gray-900 dark:text-gray-100">{}</strong><br>'
+                        '<strong class="text-gray-900 dark:text-white">{}</strong><br>'
                         '<small class="text-gray-600 dark:text-gray-400">Listeners: {}</small><br>'
                         '<small class="text-gray-600 dark:text-gray-400">Updated: {}</small>'
                         '</div>',
