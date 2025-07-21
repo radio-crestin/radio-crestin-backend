@@ -8,6 +8,7 @@ class Artists(models.Model):
     name = models.TextField(_("Name"))
     thumbnail = models.ImageField(_("Thumbnail"), blank=True, null=True)
     thumbnail_url = models.URLField(_("Thumbnail URL"), blank=True, null=True)
+    dirty_metadata = models.BooleanField(_("Dirty Metadata"), default=False, help_text=_("Created from automatic metadata scraping (eligible for cleanup)"))
 
     class Meta:
         managed = True

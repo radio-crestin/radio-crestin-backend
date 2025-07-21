@@ -17,8 +17,12 @@ class StationsMetadataFetchAdmin(SuperAppModelAdmin):
     ordering = ['station', '-priority']
     
     fieldsets = (
-        (_("Configuration"), {
-            'fields': ('station', 'station_metadata_fetch_category', 'url', 'priority', 'split_character', 'station_name_regex', 'artist_regex', 'title_regex')
+        (_("Basic Configuration"), {
+            'fields': ('station', 'station_metadata_fetch_category', 'url', 'priority', 'dirty_metadata')
+        }),
+        (_("Regex Configuration"), {
+            'fields': ('split_character', 'station_name_regex', 'artist_regex', 'title_regex'),
+            'classes': ('collapse',)
         }),
         (_("Timestamps"), {
             'fields': ('created_at', 'updated_at'),

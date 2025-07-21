@@ -10,6 +10,7 @@ class Songs(models.Model):
     artist = models.ForeignKey(Artists, verbose_name=_("Artist"), on_delete=models.CASCADE, null=True, blank=True)
     thumbnail = models.ImageField(_("Thumbnail"), blank=True, null=True)
     thumbnail_url = models.URLField(_("Thumbnail URL"), blank=True, null=True)
+    dirty_metadata = models.BooleanField(_("Dirty Metadata"), default=False, help_text=_("Created from automatic metadata scraping (eligible for cleanup)"))
 
     class Meta:
         managed = True

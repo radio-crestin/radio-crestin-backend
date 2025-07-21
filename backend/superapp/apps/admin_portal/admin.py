@@ -23,9 +23,9 @@ from .widgets import ChainedAdminSelect
 class SuperAppModelAdmin(AdminConfirmMixin, ModelAdmin, ImportExportModelAdmin):
     actions_hidden = ()
     formfield_overrides = {
-        models.TextField: {
-            "widget": WysiwygWidget,
-        },
+        # models.TextField: {
+        #     "widget": WysiwygWidget,
+        # },
         models.JSONField: {
             "widget": SvelteJSONEditorWidget,
         },

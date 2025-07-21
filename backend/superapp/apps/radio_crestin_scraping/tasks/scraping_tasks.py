@@ -142,6 +142,47 @@ def cleanup_old_scraped_data(days_to_keep: int = 30) -> Dict[str, Any]:
         return {"success": False, "error": str(error)}
 
 
+@shared_task
+def cleanup_old_dirty_metadata(days_to_keep: int = 7) -> Dict[str, Any]:
+    """Clean up old songs and artists marked as dirty metadata"""
+    from datetime import timedelta
+    from django.utils import timezone
+    from superapp.apps.radio_crestin.models import Songs, Artists
+
+    logger.info(f"Starting cleanup of dirty metadata older than {days_to_keep} days")
+
+    try:
+        cutoff_date = timezone.now() - timedelta(days=days_to_keep)
+        
+        # Delete old dirty songs
+        songs_deleted = Songs.objects.filter(
+            dirty_metadata=True,
+            created_at__lt=cutoff_date
+        ).delete()
+        
+        # Delete old dirty artists that are no longer referenced by any songs
+        artists_deleted = Artists.objects.filter(
+            dirty_metadata=True,
+            created_at__lt=cutoff_date,
+            songs__isnull=True  # Not referenced by any songs
+        ).delete()
+        
+        logger.info(f"Deleted {songs_deleted[0]} dirty songs and {artists_deleted[0]} dirty artists")
+        
+        return {
+            "success": True,
+            "days_kept": days_to_keep,
+            "songs_deleted": songs_deleted[0],
+            "artists_deleted": artists_deleted[0]
+        }
+
+    except Exception as error:
+        logger.error(f"Error during dirty metadata cleanup: {error}")
+        if settings.DEBUG:
+            raise  # Re-raise the exception in debug mode for better debugging
+        return {"success": False, "error": str(error)}
+
+
 # Synchronous helper functions
 
 def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
@@ -292,7 +333,15 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
         # Update raw_data to include all fetcher states for this task
         final_merged_data.raw_data = fetcher_states
         
-        final_success = StationService.upsert_station_now_playing(station.id, final_merged_data)
+        # Determine if any successful fetcher has dirty_metadata=True
+        has_dirty_metadata = False
+        for fetcher in metadata_fetchers:
+            fetcher_state = fetcher_states.get(str(fetcher.id))
+            if fetcher_state and fetcher_state.get('status') == 'completed' and fetcher.dirty_metadata:
+                has_dirty_metadata = True
+                break
+        
+        final_success = StationService.upsert_station_now_playing(station.id, final_merged_data, dirty_metadata=has_dirty_metadata)
         
         # Also update uptime data (simplified - always mark as up for now)
         uptime_data = StationUptimeData(

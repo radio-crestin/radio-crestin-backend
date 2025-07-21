@@ -37,13 +37,13 @@ class StationService:
 
     @staticmethod
     @transaction.atomic
-    def upsert_station_now_playing(station_id: int, data: StationNowPlayingData) -> bool:
+    def upsert_station_now_playing(station_id: int, data: StationNowPlayingData, dirty_metadata: bool = False) -> bool:
         """Upsert station now playing data"""
         try:
             # Get or create song if we have song data
             song = None
             if data.current_song and (data.current_song.name or data.current_song.artist):
-                song = StationService._upsert_song(data.current_song)
+                song = StationService._upsert_song(data.current_song, dirty_metadata)
 
             # Upsert station now playing record
             now_playing, created = StationsNowPlaying.objects.update_or_create(
@@ -162,17 +162,25 @@ class StationService:
             return False
 
     @staticmethod
-    def _upsert_song(song_data: SongData) -> Optional[Songs]:
-        """Upsert song and artist data"""
+    def _upsert_song(song_data: SongData, dirty_metadata: bool = False) -> Optional[Songs]:
+        """Upsert song and artist data with dirty metadata tracking"""
         try:
             # Get or create artist if we have artist name
             artist = None
             if song_data.artist:
                 try:
-                    artist, _ = Artists.objects.get_or_create(
-                        name=song_data.artist,
-                        defaults={'name': song_data.artist}
-                    )
+                    # Check if artist already exists (don't override dirty_metadata=False)
+                    try:
+                        artist = Artists.objects.get(name=song_data.artist)
+                    except Artists.DoesNotExist:
+                        # Create new artist with dirty_metadata flag
+                        artist, _ = Artists.objects.get_or_create(
+                            name=song_data.artist,
+                            defaults={
+                                'name': song_data.artist,
+                                'dirty_metadata': dirty_metadata
+                            }
+                        )
                 except IntegrityError:
                     # Handle race condition - artist was created by another process
                     artist = Artists.objects.get(name=song_data.artist)
@@ -186,16 +194,21 @@ class StationService:
             if song_data.thumbnail_url:
                 song_defaults['thumbnail_url'] = song_data.thumbnail_url
 
-            # Use name and artist_id as unique constraint
+            # Check if song already exists (don't override dirty_metadata=False)
             try:
-                song, created = Songs.objects.update_or_create(
-                    name=song_data.name or '',
-                    artist=artist,
-                    defaults=song_defaults
-                )
-            except IntegrityError:
-                # Handle race condition - song was created by another process
                 song = Songs.objects.get(name=song_data.name or '', artist=artist)
+            except Songs.DoesNotExist:
+                # Create new song with dirty_metadata flag
+                song_defaults['dirty_metadata'] = dirty_metadata
+                try:
+                    song, created = Songs.objects.update_or_create(
+                        name=song_data.name or '',
+                        artist=artist,
+                        defaults=song_defaults
+                    )
+                except IntegrityError:
+                    # Handle race condition - song was created by another process
+                    song = Songs.objects.get(name=song_data.name or '', artist=artist)
 
             return song
 

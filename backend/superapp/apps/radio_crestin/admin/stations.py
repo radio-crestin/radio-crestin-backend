@@ -35,7 +35,7 @@ class StationsMetadataFetchInline(SuperAppStackedInline):
     fk_name = 'station'
     extra = 0
     autocomplete_fields = ['station_metadata_fetch_category']
-    fields = ['station_metadata_fetch_category', 'url', 'priority']
+    fields = ['station_metadata_fetch_category', 'url', 'priority', 'dirty_metadata', 'split_character', 'station_name_regex', 'artist_regex', 'title_regex']
 
 
 @admin.register(Stations, site=superapp_admin_site)
