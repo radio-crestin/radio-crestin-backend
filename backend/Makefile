@@ -90,3 +90,20 @@ create-fixtures:
 load-fixtures:
 	docker-compose exec web python3 manage.py loaddata \
 		fixtures/fixtures
+
+sync-prod-db-clean:
+	@echo "Creating backup of local database..."
+	@docker exec -i radio-crestin-backend-db-1 pg_dump -U postgres -d postgres > backup_$(shell date +%Y%m%d_%H%M%S).sql
+	@echo "Truncating local tables..."
+	@psql postgres://postgres:postgrespassword@127.0.0.1:5432/postgres -c "TRUNCATE TABLE stations_now_playing CASCADE;"
+	@echo "Exporting data from production database..."
+	@ssh root@168.119.107.195 "docker exec ab370527d2bb pg_dump -U postgres -d postgres \
+		--data-only \
+		-t posts -t stations_now_playing -t stations_uptime -t stations -t auth_user \
+		-t station_groups -t station_streams -t reviews -t auth_permission \
+		-t station_to_station_group -t station_metadata_fetch_categories \
+		-t django_content_type -t stations_metadata_fetch -t django_migrations \
+		-t auth_group_permissions -t auth_user_groups -t auth_user_user_permissions \
+		-t auth_group" | psql postgres://postgres:postgrespassword@127.0.0.1:5432/postgres
+	@echo "Database sync completed!"
+
