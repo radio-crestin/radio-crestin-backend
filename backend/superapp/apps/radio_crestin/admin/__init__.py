@@ -1,6 +1,6 @@
 from .app_users import AppUsersAdmin
 from .artists import ArtistsAdmin
-from .listening_events import ListeningEventsAdmin
+from .listening_sessions import ListeningSessionsAdmin
 from .posts import PostsAdmin
 from .reviews import ReviewsAdmin
 from .songs import SongsAdmin
@@ -16,7 +16,7 @@ from .stations_uptime import StationsUptimeAdmin
 __all__ = [
     'AppUsersAdmin',
     'ArtistsAdmin',
-    'ListeningEventsAdmin',
+    'ListeningSessionsAdmin',
     'PostsAdmin',
     'ReviewsAdmin',
     'SongsAdmin',

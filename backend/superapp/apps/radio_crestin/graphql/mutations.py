@@ -7,7 +7,7 @@ from datetime import datetime
 import logging
 
 from .types import StationType, ListeningEventInput, SubmitListeningEventsResponse
-from ..models import Stations, AppUsers, ListeningEvents
+from ..models import Stations, AppUsers, ListeningSessions
 
 
 @strawberry.type
@@ -56,21 +56,21 @@ class Mutation:
                             last_name=''
                         )
                     
-                    # Create listening event record
-                    listening_event = ListeningEvents.objects.create(
+                    # Get or create listening session and update activity
+                    session, created = ListeningSessions.get_or_create_session(
                         user=anonymous_user,
                         station=station,
-                        session_id=event_input.anonymous_session_id,
-                        start_time=timestamp,
-                        duration_seconds=int(event_input.request_duration),
+                        anonymous_session_id=event_input.anonymous_session_id,
                         ip_address=event_input.ip_address,
-                        user_agent=event_input.user_agent,
-                        info={
-                            'event_type': event_input.event_type,
-                            'bytes_transferred': event_input.bytes_transferred,
-                            'status_code': event_input.status_code,
-                            'request_count': getattr(event_input, 'request_count', 1)
-                        }
+                        user_agent=event_input.user_agent
+                    )
+                    
+                    # Update session activity with new event data
+                    is_playlist = event_input.event_type == 'playlist_request'
+                    session.update_activity(
+                        timestamp=timestamp,
+                        bytes_sent=event_input.bytes_transferred,
+                        is_playlist=is_playlist
                     )
                     
                     processed_count += 1

@@ -10,7 +10,7 @@ from .admin.stations_metadata_fetch import StationsMetadataFetchAdmin
 from .admin.posts import PostsAdmin
 from .admin.stations_now_playing import StationsNowPlayingAdmin
 from .admin.stations_uptime import StationsUptimeAdmin
-from .admin.listening_events import ListeningEventsAdmin
+from .admin.listening_sessions import ListeningSessionsAdmin
 from .admin.reviews import ReviewsAdmin
 from .admin.app_users import AppUsersAdmin
 
@@ -26,7 +26,7 @@ __all__ = [
     'PostsAdmin',
     'StationsNowPlayingAdmin',
     'StationsUptimeAdmin',
-    'ListeningEventsAdmin',
+    'ListeningSessionsAdmin',
     'ReviewsAdmin',
     'AppUsersAdmin',
 ]
