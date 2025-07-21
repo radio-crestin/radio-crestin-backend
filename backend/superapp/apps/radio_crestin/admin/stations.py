@@ -181,6 +181,30 @@ class StationsAdmin(SuperAppModelAdmin):
         'scrape_single_station_async'
     ]
 
+    def _execute_station_tasks(self, station_id, sync=True):
+        """Execute station tasks either synchronously (.apply) or asynchronously (.delay)"""
+        from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import (
+            scrape_station_metadata,
+            scrape_station_rss_feed,
+        )
+        from superapp.apps.radio_crestin_scraping.tasks.uptime_tasks import check_station_uptime_ffmpeg
+        
+        if sync:
+            # Execute synchronously and return results
+            results = {
+                'uptime': check_station_uptime_ffmpeg.apply(args=[station_id]),
+                'metadata': scrape_station_metadata.apply(args=[station_id]),
+                'rss': scrape_station_rss_feed.apply(args=[station_id])
+            }
+            return {task: result.get() for task, result in results.items()}
+        else:
+            # Execute asynchronously and return task objects
+            return {
+                'uptime': check_station_uptime_ffmpeg.delay(station_id),
+                'metadata': scrape_station_metadata.delay(station_id),
+                'rss': scrape_station_rss_feed.delay(station_id)
+            }
+
     def _execute_sync_station_tasks_return_results(self, request, station_id):
         """Execute RSS scraping, metadata scraping, and uptime checking synchronously for a single station"""
         successes = []
@@ -189,66 +213,43 @@ class StationsAdmin(SuperAppModelAdmin):
         try:
             # Get the station object
             try:
-                station = Stations.objects.get(id=station_id, disabled=False)
+                station = Stations.objects.get(id=station_id)
+                if station.disabled:
+                    successes.append(f"Station '{station.title}' is disabled - marked as successful")
+                    return successes, errors
             except Stations.DoesNotExist:
-                errors.append(f"Station {station_id} not found or is disabled")
+                errors.append(f"Station {station_id} not found")
                 return successes, errors
 
-            # 1. Check station uptime using Celery task
-            try:
-                from superapp.apps.radio_crestin_scraping.tasks.uptime_tasks import check_station_uptime_ffmpeg
-                uptime_result = check_station_uptime_ffmpeg.apply(args=[station.id])
-                uptime_data = uptime_result.get()
+            # Execute all tasks synchronously using shared method
+            task_results = self._execute_station_tasks(station_id, sync=True)
 
-                if uptime_data.get('success'):
-                    status = "UP" if uptime_data.get('is_up') else "DOWN"
-                    latency = uptime_data.get('latency_ms', 0)
-                    successes.append(f"Uptime check for '{station.title}': {status} ({latency}ms)")
-                else:
-                    errors.append(f"Uptime check failed for '{station.title}': {uptime_data.get('error', 'Unknown error')}")
-            except Exception as e:
-                errors.append(f"Uptime check error for '{station.title}': {str(e)}")
-                if settings.DEBUG:
-                    raise
+            # Process uptime results
+            uptime_data = task_results.get('uptime', {})
+            if uptime_data.get('success'):
+                status = "UP" if uptime_data.get('is_up') else "DOWN"
+                latency = uptime_data.get('latency_ms', 0)
+                successes.append(f"Uptime check for '{station.title}': {status} ({latency}ms)")
+            else:
+                errors.append(f"Uptime check failed for '{station.title}': {uptime_data.get('error', 'Unknown error')}")
 
-            # 2. RSS scraping using Celery task
+            # Process RSS results
             if station.rss_feed:
-                try:
-                    from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import scrape_station_rss_feed
-                    rss_result = scrape_station_rss_feed.apply(args=[station.id])
-                    rss_data = rss_result.get()
+                rss_data = task_results.get('rss', {})
+                if rss_data.get('success'):
+                    successes.append(f"RSS feed scraped for '{station.title}': {rss_data.get('posts_count', 0)} posts")
+                else:
+                    errors.append(f"RSS scraping failed for '{station.title}': {rss_data.get('error', 'Unknown error')}")
 
-                    if rss_data.get('success'):
-                        successes.append(f"RSS feed scraped for '{station.title}': {rss_data.get('posts_count', 0)} posts")
-                    else:
-                        errors.append(f"RSS scraping failed for '{station.title}': {rss_data.get('error', 'Unknown error')}")
-                except Exception as e:
-                    errors.append(f"RSS scraping error for '{station.title}': {str(e)}")
-                    if settings.DEBUG:
-                        raise
+            # Process metadata results
+            metadata_data = task_results.get('metadata', {})
+            if metadata_data.get('success'):
+                successes.append(f"Metadata scraped for '{station.title}': {metadata_data.get('scraped_count', 0)} sources")
 
-            # 3. Metadata scraping using Celery task
-            metadata_fetchers = station.station_metadata_fetches.select_related(
-                'station_metadata_fetch_category'
-            ).order_by('-priority')
-
-            if metadata_fetchers.exists():
-                try:
-                    from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import scrape_station_metadata
-                    metadata_result = scrape_station_metadata.apply(args=[station.id])
-                    metadata_data = metadata_result.get()
-
-                    if metadata_data.get('success'):
-                        successes.append(f"Metadata scraped for '{station.title}': {metadata_data.get('scraped_count', 0)} sources")
-
-                    # Add specific errors from metadata scraping
-                    if metadata_data.get('errors'):
-                        for error in metadata_data['errors']:
-                            errors.append(f"Metadata error for '{station.title}': {error}")
-                except Exception as e:
-                    errors.append(f"Metadata scraping error for '{station.title}': {str(e)}")
-                    if settings.DEBUG:
-                        raise
+            # Add specific errors from metadata scraping
+            if metadata_data.get('errors'):
+                for error in metadata_data['errors']:
+                    errors.append(f"Metadata error for '{station.title}': {error}")
 
         except ImportError as e:
             errors.append("Scraping tasks are not available. Make sure radio_crestin_scraping app is installed.")
@@ -290,31 +291,18 @@ class StationsAdmin(SuperAppModelAdmin):
         station_ids = list(queryset.values_list('id', flat=True))
 
         try:
-            from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import (
-                scrape_station_metadata,
-                scrape_station_rss_feed,
-            )
-            from superapp.apps.radio_crestin_scraping.tasks.uptime_tasks import check_station_uptime_ffmpeg
-
-            # Queue all types of tasks
-            metadata_tasks = []
-            rss_tasks = []
-            uptime_tasks = []
-
+            # Queue tasks for all stations using shared method
+            all_tasks = []
             for station_id in station_ids:
-                # Queue uptime check first
-                uptime_tasks.append(check_station_uptime_ffmpeg.delay(station_id))
-                # Queue metadata scraping
-                metadata_tasks.append(scrape_station_metadata.delay(station_id))
-                # Queue RSS scraping
-                rss_tasks.append(scrape_station_rss_feed.delay(station_id))
+                station_tasks = self._execute_station_tasks(station_id, sync=False)
+                all_tasks.extend(station_tasks.values())
 
-            total_tasks = len(uptime_tasks) + len(metadata_tasks) + len(rss_tasks)
+            total_tasks = len(all_tasks)
             messages.success(
                 request,
                 f"Successfully queued {total_tasks} tasks for {total_stations} stations: "
-                f"{len(uptime_tasks)} uptime checks, {len(metadata_tasks)} metadata tasks, "
-                f"and {len(rss_tasks)} RSS tasks. All tasks are running in the background."
+                f"{total_stations} uptime checks, {total_stations} metadata tasks, "
+                f"and {total_stations} RSS tasks. All tasks are running in the background."
             )
 
         except ImportError:
@@ -334,9 +322,12 @@ class StationsAdmin(SuperAppModelAdmin):
     def scrape_single_station_sync(self, request, object_id: int):
         """Scrape metadata, RSS feeds, and check uptime for single station (synchronous)"""
         try:
-            station = Stations.objects.get(pk=object_id, disabled=False)
+            station = Stations.objects.get(pk=object_id)
+            if station.disabled:
+                messages.success(request, _(f"Station '{station.title}' is disabled - marked as successful"))
+                return redirect(reverse_lazy("admin:radio_crestin_stations_change", args=(object_id,)))
         except Stations.DoesNotExist:
-            messages.error(request, _("Station not found or is disabled."))
+            messages.error(request, _("Station not found."))
             return redirect(reverse_lazy("admin:radio_crestin_stations_change", args=(object_id,)))
         except Exception as e:
             messages.error(request, f"Error retrieving station: {str(e)}")
@@ -364,29 +355,25 @@ class StationsAdmin(SuperAppModelAdmin):
     def scrape_single_station_async(self, request, object_id: int):
         """Scrape metadata, RSS feeds, and check uptime for single station (asynchronous)"""
         try:
-            station = Stations.objects.get(pk=object_id, disabled=False)
+            station = Stations.objects.get(pk=object_id)
+            if station.disabled:
+                messages.success(request, _(f"Station '{station.title}' is disabled - marked as successful"))
+                return redirect(reverse_lazy("admin:radio_crestin_stations_change", args=(object_id,)))
         except Stations.DoesNotExist:
-            messages.error(request, _("Station not found or is disabled."))
+            messages.error(request, _("Station not found."))
             return redirect(reverse_lazy("admin:radio_crestin_stations_change", args=(object_id,)))
         except Exception as e:
             messages.error(request, f"Error retrieving station: {str(e)}")
             return redirect(reverse_lazy("admin:radio_crestin_stations_change", args=(object_id,)))
 
         try:
-            from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import (
-                scrape_station_metadata,
-                scrape_station_rss_feed,
-            )
-            from superapp.apps.radio_crestin_scraping.tasks.uptime_tasks import check_station_uptime_ffmpeg
-
-            # Queue all types of tasks for this single station
-            check_station_uptime_ffmpeg.delay(station.id)
-            scrape_station_metadata.delay(station.id)
-            scrape_station_rss_feed.delay(station.id)
+            # Queue all types of tasks for this single station using shared method
+            station_tasks = self._execute_station_tasks(station.id, sync=False)
+            total_tasks = len(station_tasks)
 
             messages.success(
                 request,
-                f"Successfully queued 3 background tasks for '{station.title}': "
+                f"Successfully queued {total_tasks} background tasks for '{station.title}': "
                 f"uptime check, metadata scraping, and RSS scraping. "
                 f"Tasks are running in the background."
             )
