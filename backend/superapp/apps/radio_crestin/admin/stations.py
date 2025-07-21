@@ -174,8 +174,26 @@ class StationsAdmin(SuperAppModelAdmin):
     ]
 
     def sync_all_tasks_bulk(self, request, queryset):
-        """Trigger all scraping tasks for comprehensive sync"""
-        return self._execute_sync_all_tasks(request)
+        """Trigger all scraping tasks for selected stations"""
+        total_stations = queryset.count()
+        processed_stations = 0
+        all_successes = []
+        all_errors = []
+        
+        for station in queryset:
+            processed_stations += 1
+            station_successes, station_errors = self._execute_sync_station_tasks_return_results(request, station.id)
+            all_successes.extend(station_successes)
+            all_errors.extend(station_errors)
+        
+        # Show summary results
+        if all_successes:
+            messages.success(request, f"Processed {processed_stations}/{total_stations} stations successfully. Completed tasks: {len(all_successes)}")
+        
+        if all_errors:
+            messages.error(request, f"Errors occurred during processing: {len(all_errors)} errors across {processed_stations} stations")
+            
+        return HttpResponseRedirect(request.get_full_path())
     sync_all_tasks_bulk.short_description = _("🔄 Sync All Tasks")
 
     def _execute_sync_all_tasks(self, request):
@@ -234,8 +252,8 @@ class StationsAdmin(SuperAppModelAdmin):
                 raise
             messages.error(request, _(f"Error executing sync tasks: {str(e)}"))
 
-    def _execute_sync_station_tasks(self, request, station_id: int):
-        """Execute all scraping tasks for a specific station synchronously"""
+    def _execute_sync_station_tasks_return_results(self, request, station_id: int):
+        """Execute all scraping tasks for a specific station and return results"""
         errors = []
         successes = []
 
@@ -251,7 +269,7 @@ class StationsAdmin(SuperAppModelAdmin):
 
             # Execute metadata scraping for this station synchronously
             try:
-                result = scrape_station_metadata.apply(args=[station_id])
+                result = scrape_station_metadata.apply(args=[station_id]).get(timeout=60)
                 if isinstance(result, dict) and result.get('success', False):
                     successes.append(f"Metadata scraping completed for {station_name}")
                 else:
@@ -264,7 +282,7 @@ class StationsAdmin(SuperAppModelAdmin):
 
             # Execute RSS scraping for this station synchronously
             try:
-                result = scrape_station_rss_feed.apply(args=[station_id])
+                result = scrape_station_rss_feed.apply(args=[station_id]).get(timeout=60)
                 if isinstance(result, dict) and result.get('success', False):
                     successes.append(f"RSS scraping completed for {station_name}")
                 else:
@@ -275,24 +293,27 @@ class StationsAdmin(SuperAppModelAdmin):
                     raise  # Re-raise the exception in debug mode for better debugging
                 errors.append(f"RSS scraping failed for {station_name}: {str(e)}")
 
-            # Show results to user
-            if successes:
-                messages.success(request, f"Station sync completed: {'; '.join(successes)}")
-
-            if errors:
-                messages.error(request, f"Station sync errors: {'; '.join(errors)}")
-
         except Stations.DoesNotExist:
-            messages.error(request, f"Station with ID {station_id} not found")
+            errors.append(f"Station with ID {station_id} not found")
         except ImportError:
-            messages.error(
-                request,
-                _("Scraping tasks are not available. Make sure radio_crestin_scraping app is installed.")
-            )
+            errors.append("Scraping tasks are not available. Make sure radio_crestin_scraping app is installed.")
         except Exception as e:
             if settings.DEBUG:
                 raise
-            messages.error(request, _(f"Error executing station sync tasks: {str(e)}"))
+            errors.append(f"Error executing station sync tasks: {str(e)}")
+
+        return successes, errors
+
+    def _execute_sync_station_tasks(self, request, station_id: int):
+        """Execute all scraping tasks for a specific station synchronously"""
+        successes, errors = self._execute_sync_station_tasks_return_results(request, station_id)
+        
+        # Show results to user
+        if successes:
+            messages.success(request, f"Station sync completed: {'; '.join(successes)}")
+
+        if errors:
+            messages.error(request, f"Station sync errors: {'; '.join(errors)}")
 
     # Detail action for comprehensive sync
     @unfold.decorators.action(description=_("🔄 Sync All Tasks"))
