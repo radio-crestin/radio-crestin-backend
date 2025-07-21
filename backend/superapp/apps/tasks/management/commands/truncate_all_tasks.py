@@ -14,7 +14,7 @@ def drop_all_tasks():
         host=url.hostname,
         port=url.port,
         password=url.password,
-        db=int(url.path[1:])
+        db=int(url.path[1:]) if url.path and len(url.path) > 1 else 0
     )
     redis_client.flushall()
 
