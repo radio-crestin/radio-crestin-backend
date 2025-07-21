@@ -46,7 +46,7 @@ class StreamId3Scraper(BaseScraper):
     def _probe_stream(self, url: str) -> Dict[str, Any]:
         """Probe stream metadata using ffmpeg-python"""
         try:
-            # Use ffmpeg.probe to get metadata with modern parameters
+            # Use ffmpeg.probe to get metadata with TLS certificate verification disabled
             probe_data = ffmpeg.probe(
                 url,
                 v='quiet',  # Reduce verbose output
@@ -55,7 +55,11 @@ class StreamId3Scraper(BaseScraper):
                 show_streams=None,
                 timeout=5.0,
                 analyzeduration=1000000,  # 1 second in microseconds
-                probesize=32768  # 32KB
+                probesize=32768,  # 32KB
+                **{
+                    'tls_verify': '0',  # Skip TLS certificate verification
+                    'user_agent': 'ffprobe/radio-crestin-scraper'  # Custom user agent
+                }
             )
             
             metadata = {}
@@ -114,10 +118,13 @@ class StreamId3Scraper(BaseScraper):
             if hasattr(e, 'stderr') and e.stderr:
                 stderr_output = e.stderr.decode('utf-8') if isinstance(e.stderr, bytes) else str(e.stderr)
             
-            logger.error(f"FFmpeg error probing stream {url}: {stderr_output or str(e)}")
+            error_msg = f"FFmpeg error probing stream {url}: {stderr_output or str(e)}"
+            logger.error(error_msg)
             
             if settings.DEBUG:
                 logger.debug(f"FFmpeg command that failed: {getattr(e, 'cmd', 'unknown')}")
+                # Re-raise with detailed error message in debug mode
+                raise Exception(error_msg) from e
                 
             return {}
         except TimeoutError as e:
