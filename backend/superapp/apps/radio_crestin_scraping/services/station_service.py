@@ -22,7 +22,7 @@ class StationService:
     def get_stations_with_metadata_fetchers():
         """Get all stations with their metadata fetch configurations"""
         return Stations.objects.select_related().prefetch_related(
-            'stationsmetadatafetch_set__station_metadata_fetch_category'
+            'station_metadata_fetches__station_metadata_fetch_category'
         ).filter(disabled=False)
     
     @staticmethod

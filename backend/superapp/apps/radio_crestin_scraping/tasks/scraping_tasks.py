@@ -26,7 +26,7 @@ def scrape_station_metadata(self, station_id: int) -> Dict[str, Any]:
         station = stations.first()
 
         # Get metadata fetchers ordered by priority
-        metadata_fetchers = station.stationsmetadatafetch_set.select_related(
+        metadata_fetchers = station.station_metadata_fetches.select_related(
             'station_metadata_fetch_category'
         ).order_by('order')
 
