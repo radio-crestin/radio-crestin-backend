@@ -7,7 +7,7 @@ from django.shortcuts import redirect
 
 from superapp.apps.admin_portal.admin import SuperAppModelAdmin
 from superapp.apps.admin_portal.sites import superapp_admin_site
-from superapp.apps.backups.models.backup import Backup
+from superapp.apps.backups.models.backup import Backup, MULTI_TENANT_ENABLED
 from superapp.apps.backups.tasks.backup import process_backup
 import unfold.decorators
 from django.utils.translation import gettext_lazy as _
@@ -18,7 +18,7 @@ class BackupAdmin(SuperAppModelAdmin):
     list_display = ['name', 'created_at', 'type', 'file', 'done']
     list_filter = ['created_at', 'type', 'done']
     search_fields = ['name', 'created_at', 'file']
-    autocomplete_fields = ['tenant']
+    autocomplete_fields = ['tenant'] if MULTI_TENANT_ENABLED else []
     actions = []
     actions_detail = [
         "retry_backup",
@@ -30,9 +30,15 @@ class BackupAdmin(SuperAppModelAdmin):
         Show all fields when editing an existing backup.
         """
         if obj is None:  # Adding a new object
-            return ['name', 'tenant', 'type']
+            fields = ['name', 'type']
+            if MULTI_TENANT_ENABLED:
+                fields.insert(1, 'tenant')
+            return fields
         # Editing an existing object
-        return ['name', 'tenant', 'type', 'file', 'done', 'started_at', 'finished_at', 'created_at', 'updated_at']
+        fields = ['name', 'type', 'file', 'done', 'started_at', 'finished_at', 'created_at', 'updated_at']
+        if MULTI_TENANT_ENABLED:
+            fields.insert(1, 'tenant')
+        return fields
 
     def get_readonly_fields(self, request, obj=None):
         """
@@ -42,7 +48,10 @@ class BackupAdmin(SuperAppModelAdmin):
         if obj is None:  # Adding a new object
             return []
         # Editing an existing object
-        return ['name', 'tenant', 'type', 'created_at', 'updated_at', 'file', 'done', 'started_at', 'finished_at']
+        readonly_fields = ['name', 'type', 'created_at', 'updated_at', 'file', 'done', 'started_at', 'finished_at']
+        if MULTI_TENANT_ENABLED:
+            readonly_fields.insert(1, 'tenant')
+        return readonly_fields
 
     @unfold.decorators.action(description=_("Retry Backup"))
     def retry_backup(self, request, object_id: int):

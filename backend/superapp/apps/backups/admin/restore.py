@@ -7,7 +7,7 @@ from django.shortcuts import redirect
 
 from superapp.apps.admin_portal.admin import SuperAppModelAdmin
 from superapp.apps.admin_portal.sites import superapp_admin_site
-from superapp.apps.backups.models.restore import Restore
+from superapp.apps.backups.models.restore import Restore, MULTI_TENANT_ENABLED
 from superapp.apps.backups.tasks.restore import process_restore
 import unfold.decorators
 from django.utils.translation import gettext_lazy as _
@@ -18,7 +18,7 @@ class RestoreAdmin(SuperAppModelAdmin):
     list_display = ['name', 'created_at', 'file', 'backup', 'done']
     list_filter = ['created_at', 'done']
     search_fields = ['name', 'created_at', 'file']
-    autocomplete_fields = ['tenant', 'backup']
+    autocomplete_fields = ['backup'] + (['tenant'] if MULTI_TENANT_ENABLED else [])
     actions = []
     actions_detail = [
         "retry_restore",
@@ -30,9 +30,15 @@ class RestoreAdmin(SuperAppModelAdmin):
         Show all fields when editing an existing restore.
         """
         if obj is None:  # Adding a new object
-            return ['name', 'tenant', 'file', 'backup', 'type', 'cleanup_existing_data']
+            fields = ['name', 'file', 'backup', 'type', 'cleanup_existing_data']
+            if MULTI_TENANT_ENABLED:
+                fields.insert(1, 'tenant')
+            return fields
         # Editing an existing object
-        return ['name', 'tenant', 'file', 'backup', 'done', 'started_at', 'finished_at', 'created_at', 'updated_at']
+        fields = ['name', 'file', 'backup', 'done', 'started_at', 'finished_at', 'created_at', 'updated_at']
+        if MULTI_TENANT_ENABLED:
+            fields.insert(1, 'tenant')
+        return fields
 
     def get_readonly_fields(self, request, obj=None):
         """
@@ -41,7 +47,10 @@ class RestoreAdmin(SuperAppModelAdmin):
         if obj is None:  # Adding a new object
             return []
         # Editing an existing object
-        return ['name', 'tenant', 'type', 'file', 'backup', 'created_at', 'updated_at', 'done', 'started_at', 'finished_at', 'cleanup_existing_data']
+        readonly_fields = ['name', 'type', 'file', 'backup', 'created_at', 'updated_at', 'done', 'started_at', 'finished_at', 'cleanup_existing_data']
+        if MULTI_TENANT_ENABLED:
+            readonly_fields.insert(1, 'tenant')
+        return readonly_fields
 
     @unfold.decorators.action(description=_("Retry Restore"))
     def retry_restore(self, request, object_id: int):
