@@ -9,3 +9,4 @@ django-storages[s3]==1.14.*
 boto3==1.37.*
 beautifulsoup4==4.12.*
 django-regex-field==3.1.*
+ffmpeg-python==0.2.*
