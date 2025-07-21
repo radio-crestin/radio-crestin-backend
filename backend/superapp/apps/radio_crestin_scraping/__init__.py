@@ -1,2 +1,2 @@
-# Import tasks to ensure they are registered with Celery
-from .tasks import scraping_tasks
+# Tasks will be auto-discovered by Celery
+# No need to import tasks here as it causes AppRegistryNotReady errors
