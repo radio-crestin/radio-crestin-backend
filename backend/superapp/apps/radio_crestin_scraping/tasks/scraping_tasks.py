@@ -3,6 +3,7 @@ import logging
 from typing import List, Dict, Any
 from celery import shared_task
 from datetime import datetime
+from asgiref.sync import sync_to_async
 
 from ..scrapers.factory import ScraperFactory
 from ..scrapers.rss_feed import RssFeedScraper
@@ -171,7 +172,7 @@ async def _scrape_station_async(station, metadata_fetchers) -> Dict[str, Any]:
     # Save merged data to database
     success = False
     if merged_data:
-        success = StationService.upsert_station_now_playing(station.id, merged_data)
+        success = await sync_to_async(StationService.upsert_station_now_playing)(station.id, merged_data)
 
         # Also update uptime data (simplified - always mark as up for now)
         uptime_data = StationUptimeData(
@@ -180,7 +181,7 @@ async def _scrape_station_async(station, metadata_fetchers) -> Dict[str, Any]:
             latency_ms=0,
             raw_data=[]
         )
-        StationService.upsert_station_uptime(station.id, uptime_data)
+        await sync_to_async(StationService.upsert_station_uptime)(station.id, uptime_data)
 
     return {
         "success": success,
@@ -196,7 +197,7 @@ async def _scrape_rss_async(station) -> Dict[str, Any]:
         rss_scraper = RssFeedScraper()
         rss_data = await rss_scraper.scrape_rss_feed(station.rss_feed)
 
-        success = StationService.upsert_station_posts(station.id, rss_data)
+        success = await sync_to_async(StationService.upsert_station_posts)(station.id, rss_data)
 
         return {
             "success": success,
