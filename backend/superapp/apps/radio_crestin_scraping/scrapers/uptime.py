@@ -204,16 +204,20 @@ class UptimeScraper(BaseScraper):
     def _probe_stream(self, url: str) -> Dict[str, Any]:
         """Probe stream using ffmpeg-python"""
         try:
-            # Use ffmpeg.probe with conservative parameters for uptime checking
+            # Use ffmpeg.probe with TLS certificate verification disabled
             probe_data = ffmpeg.probe(
                 url,
-                v='error',  # Only show errors
+                v='debug',  # Debug verbosity for better error messages
                 print_format='json',
                 show_format=None,
                 show_streams=None,
                 analyzeduration=500000,  # 0.5 seconds in microseconds - quick check
                 probesize=16384,  # 16KB - minimal data needed
-                timeout=8.0  # Conservative timeout
+                timeout=8.0,  # Conservative timeout
+                **{
+                    'tls_verify': '0',  # Skip TLS certificate verification
+                    'user_agent': 'ffprobe/radio-crestin-scraper'  # Custom user agent
+                }
             )
             
             return probe_data
