@@ -179,20 +179,20 @@ class StationsAdmin(SuperAppModelAdmin):
         processed_stations = 0
         all_successes = []
         all_errors = []
-        
+
         for station in queryset:
             processed_stations += 1
             station_successes, station_errors = self._execute_sync_station_tasks_return_results(request, station.id)
             all_successes.extend(station_successes)
             all_errors.extend(station_errors)
-        
+
         # Show summary results
         if all_successes:
             messages.success(request, f"Processed {processed_stations}/{total_stations} stations successfully. Completed tasks: {len(all_successes)}")
-        
+
         if all_errors:
             messages.error(request, f"Errors occurred during processing: {len(all_errors)} errors across {processed_stations} stations")
-            
+
         return HttpResponseRedirect(request.get_full_path())
     scrape_metadata_rss_sync.short_description = _("📡 Scrape metadata and RSS feeds (sync)")
 
@@ -200,27 +200,27 @@ class StationsAdmin(SuperAppModelAdmin):
         """Scrape metadata and RSS feeds for selected stations (asynchronous)"""
         total_stations = queryset.count()
         station_ids = list(queryset.values_list('id', flat=True))
-        
+
         try:
             from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import (
                 scrape_station_metadata,
                 scrape_station_rss_feed
             )
-            
+
             # Queue metadata scraping tasks
             metadata_tasks = []
             rss_tasks = []
-            
+
             for station_id in station_ids:
                 metadata_tasks.append(scrape_station_metadata.delay(station_id))
                 rss_tasks.append(scrape_station_rss_feed.delay(station_id))
-            
+
             messages.success(
-                request, 
+                request,
                 f"Successfully queued {len(metadata_tasks)} metadata tasks and {len(rss_tasks)} RSS tasks "
                 f"for {total_stations} stations. Tasks are running in the background."
             )
-            
+
         except ImportError:
             messages.error(
                 request,
@@ -230,7 +230,7 @@ class StationsAdmin(SuperAppModelAdmin):
             if settings.DEBUG:
                 raise
             messages.error(request, f"Error queuing async tasks: {str(e)}")
-            
+
         return HttpResponseRedirect(request.get_full_path())
     scrape_metadata_rss_async.short_description = _("⚡ Scrape metadata and RSS feeds (async)")
 
@@ -311,8 +311,9 @@ class StationsAdmin(SuperAppModelAdmin):
                 if isinstance(result, dict) and result.get('success', False):
                     successes.append(f"Metadata scraping completed for {station_name}")
                 else:
-                    error_msg = result.get('error', 'Unknown error') if isinstance(result, dict) else 'Unknown error'
-                    errors.append(f"Metadata scraping failed for {station_name}: {error_msg}")
+                    for error in result.get('errors', []):
+                        errors.append(f"Metadata scraping error for {station_name}: {error}")
+                    raise Exception("Metadata scraping failed with errors: " + ", ".join(result.get('errors', [])))
             except Exception as e:
                 if settings.DEBUG:
                     raise  # Re-raise the exception in debug mode for better debugging
@@ -325,7 +326,7 @@ class StationsAdmin(SuperAppModelAdmin):
                     successes.append(f"RSS scraping completed for {station_name}")
                 else:
                     error_msg = result.get('error', 'Unknown error') if isinstance(result, dict) else 'Unknown error'
-                    errors.append(f"RSS scraping failed for {station_name}: {error_msg}")
+                    raise Exception(error_msg)
             except Exception as e:
                 if settings.DEBUG:
                     raise  # Re-raise the exception in debug mode for better debugging
@@ -345,7 +346,7 @@ class StationsAdmin(SuperAppModelAdmin):
     def _execute_sync_station_tasks(self, request, station_id: int):
         """Execute all scraping tasks for a specific station synchronously"""
         successes, errors = self._execute_sync_station_tasks_return_results(request, station_id)
-        
+
         # Show results to user
         if successes:
             messages.success(request, f"Station sync completed: {'; '.join(successes)}")
