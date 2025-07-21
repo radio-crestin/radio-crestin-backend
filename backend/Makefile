@@ -94,6 +94,9 @@ load-fixtures:
 sync-prod-db-clean:
 	@echo "Creating backup of local database..."
 	@docker-compose exec -T postgres pg_dump -U postgres -d postgres > backup_$(shell date +%Y%m%d_%H%M%S).sql
+	@echo "Preparing database for import..."
+	@psql postgres://postgres:postgrespassword@127.0.0.1:5432/postgres -c "\
+		ALTER TABLE songs ALTER COLUMN thumbnail_url TYPE text;"
 	@echo "Truncating local tables..."
 	@psql postgres://postgres:postgrespassword@127.0.0.1:5432/postgres -c "\
 		TRUNCATE TABLE \
@@ -112,11 +115,16 @@ sync-prod-db-clean:
 		CASCADE;"
 	@echo "Exporting data from production database..."
 	@ssh root@168.119.107.195 "docker exec ab370527d2bb pg_dump -U postgres -d postgres \
-		--data-only --disable-triggers \
+		--data-only --disable-triggers --no-comments \
+		--exclude-table-data='*_id_seq' \
 		-t posts -t stations_now_playing -t stations_uptime -t stations  \
 		-t station_groups -t station_streams -t reviews  \
 		-t station_to_station_group -t station_metadata_fetch_categories \
 		-t stations_metadata_fetch  \
-		-t songs -t artists" | psql postgres://postgres:postgrespassword@127.0.0.1:5432/postgres
+		-t songs -t artists" | grep -v "^SELECT pg_catalog.setval" | psql postgres://postgres:postgrespassword@127.0.0.1:5432/postgres
+	@echo "Fixing data constraints..."
+	@psql postgres://postgres:postgrespassword@127.0.0.1:5432/postgres -c "\
+		UPDATE songs SET thumbnail_url = LEFT(thumbnail_url, 200) WHERE LENGTH(thumbnail_url) > 200; \
+		ALTER TABLE songs ALTER COLUMN thumbnail_url TYPE varchar(200);"
 	@echo "Database sync completed!"
 
