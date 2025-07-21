@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "whitenoise.runserver_nostatic",
     "django.contrib.staticfiles",
+    "posthog_error_tracking.apps.PosthogErrorTrackingConfig",
 ]
 
 ######################################################################
@@ -70,6 +71,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "posthog_error_tracking.middleware.PostHogErrorTrackingMiddleware",
 ]
 
 ######################################################################
