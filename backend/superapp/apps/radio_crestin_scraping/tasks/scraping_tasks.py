@@ -251,8 +251,7 @@ def _scrape_rss_sync(station) -> Dict[str, Any]:
                 title=getattr(entry, 'title', ''),
                 description=getattr(entry, 'description', ''),
                 link=getattr(entry, 'link', ''),
-                pub_date=getattr(entry, 'published', ''),
-                guid=getattr(entry, 'id', getattr(entry, 'link', ''))
+                published=getattr(entry, 'published', '')
             )
             posts.append(post)
 
