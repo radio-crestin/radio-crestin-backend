@@ -113,7 +113,7 @@ services:
         max-file: "3"
   backend-hls-streaming:
     build:
-      context: backend_hls_streaming
+      context: ../backend_hls_streaming
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
@@ -129,7 +129,7 @@ services:
       - hls_logs:/tmp/logs
       - nginx_logs:/var/log/nginx
       # Mount backend_hls_streaming directory for development
-      - ./backend_hls_streaming:/app:delegated
+      - ../backend_hls_streaming:/app:delegated
     environment:
       # HLS Manager configuration
       - GRAPHQL_ENDPOINT=http://web:8000/graphql/
