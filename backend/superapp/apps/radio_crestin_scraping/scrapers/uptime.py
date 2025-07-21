@@ -24,7 +24,7 @@ class UptimeScraper(BaseScraper):
     async def check_station_uptime(self, station_id: int) -> Dict[str, Any]:
         """Check uptime for a single station"""
         from superapp.apps.radio_crestin.models import Stations
-        
+
         try:
             station = await sync_to_async(Stations.objects.get)(id=station_id, disabled=False)
         except Stations.DoesNotExist:
@@ -38,7 +38,7 @@ class UptimeScraper(BaseScraper):
     async def check_all_stations_uptime(self) -> Dict[str, Any]:
         """Check uptime for all active stations"""
         stations = await sync_to_async(UptimeService.get_all_active_stations)()
-        
+
         results = []
         total_checked = 0
         total_up = 0
@@ -74,7 +74,7 @@ class UptimeScraper(BaseScraper):
         try:
             # Use ffmpeg to probe the stream with timeout
             probe_data = await self._probe_stream_async(station.stream_url)
-            
+
             # Calculate latency
             end_time = time.time()
             latency_ms = int((end_time - start_time) * 1000)
@@ -82,7 +82,7 @@ class UptimeScraper(BaseScraper):
             if probe_data and 'streams' in probe_data:
                 # Check if we have any audio streams
                 audio_streams = [s for s in probe_data['streams'] if s.get('codec_type') == 'audio']
-                
+
                 if audio_streams:
                     is_up = True
                     raw_data = {
@@ -118,11 +118,11 @@ class UptimeScraper(BaseScraper):
         except ffmpeg.Error as e:
             end_time = time.time()
             latency_ms = int((end_time - start_time) * 1000)
-            
+
             stderr_output = ""
             if hasattr(e, 'stderr') and e.stderr:
                 stderr_output = e.stderr.decode('utf-8') if isinstance(e.stderr, bytes) else str(e.stderr)
-            
+
             error_msg = f"FFmpeg error: {stderr_output or str(e)}"
             raw_data = {
                 'method': 'ffmpeg_probe',
@@ -130,7 +130,7 @@ class UptimeScraper(BaseScraper):
                 'type': 'ffmpeg_error',
                 'stderr': stderr_output
             }
-            
+
             if settings.DEBUG:
                 logger.debug(f"FFmpeg command that failed: {getattr(e, 'cmd', 'unknown')}")
                 raise
@@ -189,7 +189,7 @@ class UptimeScraper(BaseScraper):
     async def _probe_stream_async(self, url: str, timeout: float = 10.0) -> Optional[Dict[str, Any]]:
         """Probe stream using ffmpeg asynchronously with timeout"""
         loop = asyncio.get_event_loop()
-        
+
         try:
             # Run with timeout to prevent hanging
             probe_data = await asyncio.wait_for(
@@ -204,58 +204,56 @@ class UptimeScraper(BaseScraper):
     def _probe_stream(self, url: str) -> Dict[str, Any]:
         """Probe stream using ffmpeg-python"""
         try:
-            # For HTTPS streams, add protocol-specific options to bypass TLS verification issues  
+            # For HTTPS streams, add protocol-specific options to bypass TLS verification issues
             probe_data = ffmpeg.probe(
                 url,
                 v='quiet',  # Reduce verbosity to avoid overwhelming logs
-                print_format='json',
-                show_format=None,
-                show_streams=None,
+                format='json',
                 analyzeduration=500000,  # 0.5 seconds in microseconds - quick check
                 probesize=16384,  # 16KB - minimal data needed
-                timeout=15.0,  # Increased timeout for TLS handshake
+                timeout=15,  # Timeout in seconds
                 **{
                     'user_agent': 'Mozilla/5.0 (compatible; radio-crestin-scraper)',  # More standard user agent
-                    'rw_timeout': '15000000',  # 15 second read/write timeout in microseconds  
-                    'reconnect': '1',  # Enable reconnection
-                    'reconnect_streamed': '1',  # Reconnect on streamed content
-                    'reconnect_delay_max': '4',  # Max delay between reconnection attempts
-                    'multiple_requests': '1',  # Allow multiple HTTP requests
-                    'seekable': '0'  # Don't try to seek (for live streams)
+                    'rw_timeout': 15000000,  # 15 second read/write timeout in microseconds
+                    'reconnect': 1,  # Enable reconnection
+                    'reconnect_streamed': 1,  # Reconnect on streamed content
+                    'reconnect_delay_max': 4,  # Max delay between reconnection attempts
+                    'multiple_requests': 1,  # Allow multiple HTTP requests
+                    'seekable': 0  # Don't try to seek (for live streams)
                 }
             )
-            
+
             return probe_data
-            
+
         except ffmpeg.Error as e:
             # Extract all available error information
             stderr_output = 'No stderr output'
             stdout_output = 'No stdout output'
-            
+
             # Try different ways to extract stderr
             if hasattr(e, 'stderr') and e.stderr:
                 if isinstance(e.stderr, bytes):
                     stderr_output = e.stderr.decode('utf-8', errors='replace')
                 else:
                     stderr_output = str(e.stderr)
-                    
+
             if hasattr(e, 'stdout') and e.stdout:
                 if isinstance(e.stdout, bytes):
                     stdout_output = e.stdout.decode('utf-8', errors='replace')
                 else:
                     stdout_output = str(e.stdout)
-            
+
             # Additional error details
             cmd_info = getattr(e, 'cmd', 'unknown command')
             returncode = getattr(e, 'returncode', 'unknown')
-            
+
             error_msg = f"""FFprobe error for stream {url}:
 Command: {cmd_info}
 Return code: {returncode}
 Stdout: {stdout_output}
 Stderr: {stderr_output}
 Original error: {str(e)}"""
-            
+
             logger.error(error_msg)
             # Create new exception with detailed error information
             raise Exception(error_msg) from e
