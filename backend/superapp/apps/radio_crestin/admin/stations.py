@@ -166,15 +166,15 @@ class StationsAdmin(SuperAppModelAdmin):
         ).prefetch_related('groups')
 
     # Admin actions for manual scraping
-    actions = ['sync_all_tasks_bulk']
+    actions = ['scrape_metadata_rss_sync', 'scrape_metadata_rss_async']
 
     # Detail actions for individual stations
     actions_detail = [
         "sync_all_tasks"
     ]
 
-    def sync_all_tasks_bulk(self, request, queryset):
-        """Trigger all scraping tasks for selected stations"""
+    def scrape_metadata_rss_sync(self, request, queryset):
+        """Scrape metadata and RSS feeds for selected stations (synchronous)"""
         total_stations = queryset.count()
         processed_stations = 0
         all_successes = []
@@ -194,7 +194,45 @@ class StationsAdmin(SuperAppModelAdmin):
             messages.error(request, f"Errors occurred during processing: {len(all_errors)} errors across {processed_stations} stations")
             
         return HttpResponseRedirect(request.get_full_path())
-    sync_all_tasks_bulk.short_description = _("🔄 Sync All Tasks")
+    scrape_metadata_rss_sync.short_description = _("📡 Scrape metadata and RSS feeds (sync)")
+
+    def scrape_metadata_rss_async(self, request, queryset):
+        """Scrape metadata and RSS feeds for selected stations (asynchronous)"""
+        total_stations = queryset.count()
+        station_ids = list(queryset.values_list('id', flat=True))
+        
+        try:
+            from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import (
+                scrape_station_metadata,
+                scrape_station_rss_feed
+            )
+            
+            # Queue metadata scraping tasks
+            metadata_tasks = []
+            rss_tasks = []
+            
+            for station_id in station_ids:
+                metadata_tasks.append(scrape_station_metadata.delay(station_id))
+                rss_tasks.append(scrape_station_rss_feed.delay(station_id))
+            
+            messages.success(
+                request, 
+                f"Successfully queued {len(metadata_tasks)} metadata tasks and {len(rss_tasks)} RSS tasks "
+                f"for {total_stations} stations. Tasks are running in the background."
+            )
+            
+        except ImportError:
+            messages.error(
+                request,
+                _("Scraping tasks are not available. Make sure radio_crestin_scraping app is installed.")
+            )
+        except Exception as e:
+            if settings.DEBUG:
+                raise
+            messages.error(request, f"Error queuing async tasks: {str(e)}")
+            
+        return HttpResponseRedirect(request.get_full_path())
+    scrape_metadata_rss_async.short_description = _("⚡ Scrape metadata and RSS feeds (async)")
 
     def _execute_sync_all_tasks(self, request):
         """Execute all scraping tasks synchronously and return errors"""
