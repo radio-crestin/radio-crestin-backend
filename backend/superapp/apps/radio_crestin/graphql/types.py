@@ -125,26 +125,42 @@ class StationType:
         limit: Optional[int] = None, 
         order_by: Optional[PostOrderBy] = None
     ) -> List[PostType]:
-        """Get posts with limit and ordering support"""
+        """Get posts with limit and ordering support, optimized to use prefetched data when available"""
         from ..models import Posts
         
-        queryset = Posts.objects.filter(station=self)
-        
-        # Apply ordering
-        if order_by and order_by.published:
-            if order_by.published == OrderDirection.desc:
-                queryset = queryset.order_by('-published')
-            else:
-                queryset = queryset.order_by('published')
-        else:
-            # Default ordering
-            queryset = queryset.order_by('-published')
-        
-        # Apply limit
-        if limit:
-            queryset = queryset[:limit]
+        # Check if posts are already prefetched to avoid N+1 queries
+        if hasattr(self, '_prefetched_objects_cache') and 'posts' in self._prefetched_objects_cache:
+            # Use prefetched data - it's already ordered by -published from the main query
+            posts = list(self._prefetched_objects_cache['posts'])
             
-        return list(queryset)
+            # Apply custom ordering if different from default
+            if order_by and order_by.published and order_by.published != OrderDirection.desc:
+                posts.sort(key=lambda p: p.published)
+            
+            # Apply limit
+            if limit:
+                posts = posts[:limit]
+                
+            return posts
+        else:
+            # Fallback to individual query if not prefetched
+            queryset = Posts.objects.filter(station=self)
+            
+            # Apply ordering
+            if order_by and order_by.published:
+                if order_by.published == OrderDirection.desc:
+                    queryset = queryset.order_by('-published')
+                else:
+                    queryset = queryset.order_by('published')
+            else:
+                # Default ordering
+                queryset = queryset.order_by('-published')
+            
+            # Apply limit
+            if limit:
+                queryset = queryset[:limit]
+                
+            return list(queryset)
     
     # Additional computed fields for backward compatibility
     @strawberry.field
