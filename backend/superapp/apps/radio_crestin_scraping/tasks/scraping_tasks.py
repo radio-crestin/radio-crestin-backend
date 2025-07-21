@@ -160,12 +160,12 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
             try:
                 import httpx
                 import ssl
-                
+
                 # Create SSL context that doesn't verify certificates
                 ssl_context = ssl.create_default_context()
                 ssl_context.check_hostname = False
                 ssl_context.verify_mode = ssl.CERT_NONE
-                
+
                 # Use synchronous httpx client
                 with httpx.Client(timeout=10, verify=False) as client:
                     response = client.get(fetcher.url)
@@ -218,21 +218,32 @@ def _scrape_rss_sync(station) -> Dict[str, Any]:
         import httpx
         import feedparser
         from ..utils.data_types import StationRssFeedData, RssFeedPost
-        
+
         if not station.rss_feed:
             return {"success": True, "station_id": station.id, "posts_count": 0}
-        
+
         logger.info(f"Scraping RSS feed: {station.rss_feed}")
-        
-        # Download the RSS content synchronously
-        with httpx.Client(timeout=10, verify=False) as client:
+
+        # Download the RSS content synchronously with browser headers
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none'
+        }
+        with httpx.Client(timeout=10, verify=False, headers=headers) as client:
             response = client.get(station.rss_feed)
             response.raise_for_status()
             rss_content = response.text
-        
+
         # Parse the RSS content
         feed = feedparser.parse(rss_content)
-        
+
         posts = []
         for entry in feed.entries:
             # Simple RSS entry parsing
@@ -244,7 +255,7 @@ def _scrape_rss_sync(station) -> Dict[str, Any]:
                 guid=getattr(entry, 'id', getattr(entry, 'link', ''))
             )
             posts.append(post)
-        
+
         rss_data = StationRssFeedData(posts=posts)
         success = StationService.upsert_station_posts(station.id, rss_data)
 
