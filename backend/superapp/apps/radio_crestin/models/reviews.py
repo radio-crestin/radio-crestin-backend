@@ -11,7 +11,7 @@ class Reviews(models.Model):
     updated_at = models.DateTimeField(_("Updated at"), auto_now=True)
     
     user = models.ForeignKey(
-        'authentication.User',
+        'radio_crestin.Users',
         verbose_name=_("User"),
         on_delete=models.CASCADE,
         related_name='radio_reviews'

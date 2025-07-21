@@ -11,6 +11,7 @@ from .stations_now_playing import StationsNowPlaying
 from .stations_uptime import StationsUptime
 from .listening_events import ListeningEvents
 from .reviews import Reviews
+from .users import Users
 
 __all__ = [
     'Artists',
@@ -26,4 +27,5 @@ __all__ = [
     'StationsUptime',
     'ListeningEvents',
     'Reviews',
+    'Users',
 ]

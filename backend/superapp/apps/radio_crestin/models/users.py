@@ -30,8 +30,8 @@ class Users(models.Model):
     modified_at = models.DateTimeField(_("modified at"), auto_now=True)
 
     class Meta:
-        managed = False  # This tells Django not to manage this table
-        db_table = 'users'  # This will reference the users view
+        managed = True  # This is now a managed table that syncs with authentication_user
+        db_table = 'users'
         verbose_name = _("User")
         verbose_name_plural = _("Users")
 
