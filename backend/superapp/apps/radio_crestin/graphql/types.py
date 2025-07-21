@@ -17,6 +17,19 @@ OrderDirectionEnum = strawberry.enum(OrderDirection)
 class PostOrderBy:
     published: Optional[OrderDirectionEnum] = None
 
+@strawberry.input
+class ListeningEventInput:
+    anonymous_session_id: str
+    station_slug: str
+    ip_address: str
+    user_agent: str
+    timestamp: str  # ISO format string
+    event_type: str  # 'playlist_request' or 'segment_request'
+    bytes_transferred: int
+    request_duration: float
+    status_code: int
+    request_count: Optional[int] = None
+
 from ..models import (
     Artists,
     Songs, 
@@ -28,6 +41,7 @@ from ..models import (
     StationGroups,
     StationToStationGroup,
     ListeningSessions,
+    ListeningEvents,
 )
 
 
@@ -218,3 +232,9 @@ class GetStationsResponse:
     """
     stations: List[StationType]
     station_groups: List[StationGroupType]
+
+@strawberry.type
+class SubmitListeningEventsResponse:
+    success: bool
+    message: str
+    processed_count: int

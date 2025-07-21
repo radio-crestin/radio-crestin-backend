@@ -173,7 +173,7 @@ class LogMonitor:
             
         mutation = """
         mutation SubmitListeningEvents($events: [ListeningEventInput!]!) {
-            submitListeningEvents(events: $events) {
+            submit_listening_events(events: $events) {
                 success
                 message
                 processed_count
@@ -201,7 +201,7 @@ class LogMonitor:
             if response.status_code == 200:
                 data = response.json()
                 if 'errors' not in data:
-                    result = data.get('data', {}).get('submitListeningEvents', {})
+                    result = data.get('data', {}).get('submit_listening_events', {})
                     processed = result.get('processed_count', len(events))
                     self.logger.info(f"Submitted {processed}/{len(events)} listening events successfully")
                 else:
