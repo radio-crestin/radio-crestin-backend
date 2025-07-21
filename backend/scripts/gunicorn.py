@@ -50,7 +50,7 @@ umask = 0
 # certfile = "/path/to/certfile"
 
 # Worker process management
-worker_tmp_dir = "/dev/shm"
+worker_tmp_dir = "/tmp"
 enable_stdio_inheritance = True
 
 # Application

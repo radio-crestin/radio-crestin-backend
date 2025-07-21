@@ -169,9 +169,7 @@ class StationsAdmin(SuperAppModelAdmin):
     
     # Detail actions for individual stations
     actions_detail = [
-        "scrape_metadata_single",
-        "scrape_rss_single", 
-        "scrape_both_single"
+        "sync_all_tasks"
     ]
 
     def scrape_metadata_selected(self, request, queryset):
@@ -277,96 +275,33 @@ class StationsAdmin(SuperAppModelAdmin):
             )
     scrape_both_selected.short_description = _("🔄📰 Scrape both metadata and RSS for selected stations")
 
-    # Detail actions for individual stations
-    @unfold.decorators.action(description=_("🔄 Scrape metadata for this station"))
-    def scrape_metadata_single(self, request, object_id: int):
-        """Manually trigger metadata scraping for a single station"""
+    # Detail action for comprehensive sync
+    @unfold.decorators.action(description=_("🔄 Sync All Tasks"))
+    def sync_all_tasks(self, request, object_id: int):
+        """Trigger all scraping tasks for comprehensive sync"""
         try:
-            from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import scrape_station_metadata
+            from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import (
+                scrape_all_stations_metadata,
+                scrape_all_stations_rss_feeds,
+                cleanup_old_scraped_data
+            )
             
-            station = Stations.objects.get(pk=object_id)
-            scrape_station_metadata.delay(station.id)
+            # Trigger all sync tasks
+            scrape_all_stations_metadata.delay()
+            scrape_all_stations_rss_feeds.delay()
+            cleanup_old_scraped_data.delay(days_to_keep=30)
             
             messages.success(
                 request,
-                _(f"Successfully queued metadata scraping for station '{station.title}'. Task is running in the background.")
+                _("Successfully triggered comprehensive sync: metadata scraping, RSS scraping, and data cleanup. All tasks are running in the background.")
             )
-        except Stations.DoesNotExist:
-            messages.error(request, _("Station not found."))
+            
         except ImportError:
             messages.error(
                 request,
                 _("Scraping tasks are not available. Make sure radio_crestin_scraping app is installed.")
             )
         except Exception as e:
-            messages.error(request, _(f"Error queuing scraping task: {str(e)}"))
-        
-        return redirect(reverse_lazy("admin:radio_crestin_stations_change", args=(object_id,)))
-
-    @unfold.decorators.action(description=_("📰 Scrape RSS feed for this station"))
-    def scrape_rss_single(self, request, object_id: int):
-        """Manually trigger RSS scraping for a single station"""
-        try:
-            from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import scrape_station_rss_feed
-            
-            station = Stations.objects.get(pk=object_id)
-            
-            if not station.rss_feed:
-                messages.warning(
-                    request,
-                    _(f"Station '{station.title}' does not have an RSS feed configured.")
-                )
-            else:
-                scrape_station_rss_feed.delay(station.id)
-                messages.success(
-                    request,
-                    _(f"Successfully queued RSS scraping for station '{station.title}'. Task is running in the background.")
-                )
-        except Stations.DoesNotExist:
-            messages.error(request, _("Station not found."))
-        except ImportError:
-            messages.error(
-                request,
-                _("Scraping tasks are not available. Make sure radio_crestin_scraping app is installed.")
-            )
-        except Exception as e:
-            messages.error(request, _(f"Error queuing RSS scraping task: {str(e)}"))
-        
-        return redirect(reverse_lazy("admin:radio_crestin_stations_change", args=(object_id,)))
-
-    @unfold.decorators.action(description=_("🔄📰 Scrape both metadata and RSS for this station"))
-    def scrape_both_single(self, request, object_id: int):
-        """Manually trigger both metadata and RSS scraping for a single station"""
-        try:
-            from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import scrape_station_metadata, scrape_station_rss_feed
-            
-            station = Stations.objects.get(pk=object_id)
-            
-            # Queue metadata scraping
-            scrape_station_metadata.delay(station.id)
-            tasks_queued = ["metadata"]
-            
-            # Queue RSS scraping if station has RSS feed
-            if station.rss_feed:
-                scrape_station_rss_feed.delay(station.id)
-                tasks_queued.append("RSS")
-            
-            tasks_str = " and ".join(tasks_queued)
-            message = _(f"Successfully queued {tasks_str} scraping for station '{station.title}'. Tasks are running in the background.")
-            
-            if not station.rss_feed and len(tasks_queued) == 1:
-                message += _(" Note: RSS scraping was skipped as this station has no RSS feed configured.")
-            
-            messages.success(request, message)
-            
-        except Stations.DoesNotExist:
-            messages.error(request, _("Station not found."))
-        except ImportError:
-            messages.error(
-                request,
-                _("Scraping tasks are not available. Make sure radio_crestin_scraping app is installed.")
-            )
-        except Exception as e:
-            messages.error(request, _(f"Error queuing scraping tasks: {str(e)}"))
+            messages.error(request, _(f"Error triggering sync tasks: {str(e)}"))
         
         return redirect(reverse_lazy("admin:radio_crestin_stations_change", args=(object_id,)))

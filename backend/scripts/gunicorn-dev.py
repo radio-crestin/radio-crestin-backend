@@ -43,7 +43,7 @@ tmp_upload_dir = None
 umask = 0
 
 # Development performance settings
-worker_tmp_dir = "/dev/shm"
+worker_tmp_dir = "/tmp"
 enable_stdio_inheritance = True
 
 # Application

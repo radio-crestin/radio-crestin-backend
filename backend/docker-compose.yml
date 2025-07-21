@@ -28,35 +28,25 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
     volumes:
       - redis:/data
-    command: redis-server --requirepass ${REDIS_PASSWORD}
+    command: redis-server --requirepass ${REDIS_PASSWORD} --notify-keyspace-events Exe
   web:
     build:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
-    command: bash -c "./scripts/run-server.sh"
     depends_on:
       - "postgres"
     ports:
       - "8080:8080"
     volumes:
-      - .:/app
+      - .:/app:delegated
+      - /app/__pycache__
+      - /app/**/__pycache__
     env_file:
       - .env
-  graphql-engine:
-    image: hasura/graphql-engine:v2.33.4.cli-migrations-v3
-    ports:
-      - "8081:8080"
-    depends_on:
-      - "postgres"
-    restart: unless-stopped
-    env_file:
-      - .env
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "3"
+    stdin_open: true
+    tty: true
+    command: /app/scripts/run-server.sh
   priority-worker:
     build:
       context: .
