@@ -18,17 +18,17 @@ class GraphQLProxyView(View):
     """
     GraphQL v1 proxy that forwards requests to v2/graphql and falls back to Hasura on failure
     """
-    
+
     def get_hasura_url(self):
         """Get Hasura URL from environment variable with fallback"""
-        return environ.get('HASURA_GRAPHQL_URL', 'http://localhost:8081/graphql')
-    
+        return environ.get('ADMIN_HASURA_GRAPHQL_URL', '')
+
     def get_v2_url(self, request):
         """Build v2/graphql URL based on current request"""
         scheme = 'https' if request.is_secure() else 'http'
         host = request.get_host()
         return f"{scheme}://{host}/v2/graphql"
-    
+
     def forward_request(self, url, data, headers):
         """Forward GraphQL request to specified URL"""
         try:
@@ -42,7 +42,7 @@ class GraphQLProxyView(View):
         except requests.RequestException as e:
             logger.error(f"Request failed to {url}: {str(e)}")
             return None
-    
+
     def log_error_to_posthog(self, error_type, query, error_message, url):
         """Log error to PostHog with query details"""
         try:
@@ -56,7 +56,7 @@ class GraphQLProxyView(View):
             track_event('anonymous', 'graphql_proxy_error', properties)
         except Exception as e:
             logger.error(f"Failed to log to PostHog: {str(e)}")
-    
+
     def post(self, request):
         """Handle GraphQL POST requests"""
         try:
@@ -67,25 +67,25 @@ class GraphQLProxyView(View):
                 return JsonResponse({
                     'errors': [{'message': 'Content-Type must be application/json'}]
                 }, status=400)
-            
+
             # Extract query for logging
             query = data.get('query', '')
-            
+
             # Prepare headers for forwarding
             forward_headers = {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             }
-            
+
             # Forward auth headers if present
             auth_header = request.META.get('HTTP_AUTHORIZATION')
             if auth_header:
                 forward_headers['Authorization'] = auth_header
-            
+
             # Try v2/graphql first
             v2_url = self.get_v2_url(request)
             v2_response = self.forward_request(v2_url, data, forward_headers)
-            
+
             if v2_response and v2_response.status_code == 200:
                 try:
                     v2_data = v2_response.json()
@@ -102,11 +102,11 @@ class GraphQLProxyView(View):
                 # Log v2 HTTP error to PostHog
                 error_message = f"HTTP {v2_response.status_code if v2_response else 'Connection failed'}"
                 self.log_error_to_posthog('v2_http_error', query, error_message, v2_url)
-            
+
             # Fall back to Hasura
             hasura_url = self.get_hasura_url()
             hasura_response = self.forward_request(hasura_url, data, forward_headers)
-            
+
             if hasura_response:
                 try:
                     hasura_data = hasura_response.json()
@@ -121,7 +121,7 @@ class GraphQLProxyView(View):
                 return JsonResponse({
                     'errors': [{'message': 'Both v2 GraphQL and Hasura services are unavailable'}]
                 }, status=503)
-        
+
         except json.JSONDecodeError:
             return JsonResponse({
                 'errors': [{'message': 'Invalid JSON in request body'}]
@@ -132,7 +132,7 @@ class GraphQLProxyView(View):
             return JsonResponse({
                 'errors': [{'message': 'Internal server error'}]
             }, status=500)
-    
+
     def get(self, request):
         """Handle GraphQL GET requests (for GraphiQL introspection)"""
         # Forward GET requests to v2 by default

@@ -25,7 +25,7 @@ def extend_superapp_settings(main_settings):
         'CELERY_TASK_ACKS_LATE': True,
         'CELERY_WORKER_MAX_TASKS_PER_CHILD': 50,
     }
-    
+
     # Update main settings with Celery configuration
     main_settings.update(celery_settings)
 
@@ -49,31 +49,3 @@ def extend_superapp_settings(main_settings):
     # Add beat schedule to Celery configuration
     main_settings['CELERY_BEAT_SCHEDULE'] = main_settings.get('CELERY_BEAT_SCHEDULE', {})
     main_settings['CELERY_BEAT_SCHEDULE'].update(beat_schedule)
-
-    # Add app-specific navigation to the admin sidebar
-    main_settings['UNFOLD']['SIDEBAR']['navigation'] += [
-        {
-            "title": _("Radio Scraping"),
-            "icon": "sync",
-            "items": [
-                {
-                    "title": lambda request: _("Scraping Tasks"),
-                    "icon": "task_alt",
-                    "link": "/admin/django_celery_results/taskresult/",
-                    "permission": lambda request: request.user.is_staff,
-                },
-                {
-                    "title": lambda request: _("Periodic Tasks"),
-                    "icon": "schedule",
-                    "link": "/admin/django_celery_beat/periodictask/",
-                    "permission": lambda request: request.user.is_staff,
-                },
-                {
-                    "title": lambda request: _("Beat Schedule"),
-                    "icon": "access_time",
-                    "link": "/admin/django_celery_beat/crontabschedule/",
-                    "permission": lambda request: request.user.is_staff,
-                },
-            ]
-        },
-    ]

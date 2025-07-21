@@ -122,10 +122,12 @@ sync-prod-db-clean:
 		-t station_groups -t station_streams -t reviews  \
 		-t station_to_station_group -t station_metadata_fetch_categories \
 		-t stations_metadata_fetch  \
-		-t songs -t artists" | grep -v "^SELECT pg_catalog.setval" | psql postgres://postgres:postgrespassword@127.0.0.1:5432/postgres
+		" | grep -v "^SELECT pg_catalog.setval" | psql postgres://postgres:postgrespassword@127.0.0.1:5432/postgres
 	@echo "Fixing data constraints..."
 	@psql postgres://postgres:postgrespassword@127.0.0.1:5432/postgres -c "\
-		UPDATE songs SET thumbnail_url = LEFT(thumbnail_url, 200) WHERE LENGTH(thumbnail_url) > 200; \
-		ALTER TABLE songs ALTER COLUMN thumbnail_url TYPE varchar(200);"
+	    UPDATE stations_now_playing SET song_id = NULL WHERE song_id IS NOT NULL;"
 	@echo "Database sync completed!"
+
+run-all-scrapers:
+	docker-compose exec web python manage.py test_scraping
 
