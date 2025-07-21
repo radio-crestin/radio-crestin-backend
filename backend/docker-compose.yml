@@ -57,6 +57,56 @@ services:
       options:
         max-size: "100m"
         max-file: "3"
+  priority-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - "postgres"
+      - "redis"
+    volumes:
+      - .:/app:delegated
+      - /app/__pycache__
+      - /app/**/__pycache__
+    env_file:
+      - .env
+    command: ./scripts/run-priority-worker.sh
+    healthcheck:
+      test: ["CMD", "ps", "aux", "|", "grep", "[c]elery -A superapp worker"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "5"
+        max-size: "100m"
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - "postgres"
+      - "redis"
+    volumes:
+      - .:/app:delegated
+      - /app/__pycache__
+      - /app/**/__pycache__
+    env_file:
+      - .env
+    command: ./scripts/run-worker.sh
+    healthcheck:
+      test: ["CMD", "ps", "aux", "|", "grep", "[c]elery -A superapp worker"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "5"
+        max-size: "100m"
 volumes:
   db_data:
   redis:
