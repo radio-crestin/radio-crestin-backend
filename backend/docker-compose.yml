@@ -97,6 +97,20 @@ services:
       options:
         max-file: "5"
         max-size: "100m"
+  graphql-engine:
+    image: hasura/graphql-engine:v2.33.4.cli-migrations-v3
+    ports:
+      - "8081:8080"
+    depends_on:
+      - "postgres"
+    restart: unless-stopped
+    env_file:
+      - .env
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
 volumes:
   db_data:
   redis:

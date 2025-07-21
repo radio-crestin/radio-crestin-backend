@@ -9,8 +9,8 @@ from superapp.apps.graphql.views import GraphQLProxyView
 def extend_superapp_urlpatterns(main_urlpatterns):
     main_urlpatterns += [
         path('graphql', csrf_exempt(GraphQLView.as_view(schema=schema)), name='graphql'),
-        path('v1/graphql', csrf_exempt(GraphQLProxyView.as_view()), name='graphql_v1_proxy'),
-        path('v2/graphql', csrf_exempt(GraphQLView.as_view(schema=schema)), name='graphql'),
+        path('v1/graphql', csrf_exempt(GraphQLProxyView.as_view(schema=schema)), name='graphql_v1_proxy'),
+        path('v2/graphql', csrf_exempt(GraphQLView.as_view(schema=schema)), name='graphql_v2'),
     ]
 
 
