@@ -10,6 +10,9 @@ from .models.stations_metadata_fetch import StationsMetadataFetch
 from .models.posts import Posts
 from .models.stations_now_playing import StationsNowPlaying
 from .models.stations_uptime import StationsUptime
+from .models.listening_events import ListeningEvents
+from .models.reviews import Reviews
+from .models.users import Users
 
 __all__ = [
     'Artists',
@@ -23,4 +26,7 @@ __all__ = [
     'Posts',
     'StationsNowPlaying',
     'StationsUptime',
+    'ListeningEvents',
+    'Reviews',
+    'Users',
 ]
