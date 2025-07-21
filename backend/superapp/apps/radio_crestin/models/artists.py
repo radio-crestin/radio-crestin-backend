@@ -21,7 +21,6 @@ class Artists(models.Model):
         return self.name or f"no name - id: {self.id}"
 
     def save(self, *args, **kwargs):
-        super(Artists, self).save(*args, **kwargs)
         if self.thumbnail:
             self.thumbnail_url = self.thumbnail.url
         super(Artists, self).save(*args, **kwargs)
