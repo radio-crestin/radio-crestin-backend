@@ -13,59 +13,51 @@ logger = logging.getLogger(__name__)
 
 print("Radio Crestin Scraping Tasks Loaded")
 
-@shared_task(bind=True, max_retries=3)
-def scrape_station_metadata(self, station_id: int) -> Dict[str, Any]:
+@shared_task
+def scrape_station_metadata(station_id: int) -> Dict[str, Any]:
     """Scrape metadata for a single station"""
-    try:
-        # Get station with metadata fetchers
-        stations = StationService.get_stations_with_metadata_fetchers().filter(id=station_id)
-        if not stations.exists():
-            logger.warning(f"Station {station_id} not found or disabled")
-            return {"success": False, "error": "Station not found or disabled"}
+    # Get station with metadata fetchers
+    stations = StationService.get_stations_with_metadata_fetchers().filter(id=station_id)
+    if not stations.exists():
+        error_msg = f"Station {station_id} not found or disabled"
+        logger.error(error_msg)
+        raise ValueError(error_msg)
 
-        station = stations.first()
+    station = stations.first()
 
-        # Get metadata fetchers ordered by priority
-        metadata_fetchers = station.station_metadata_fetches.select_related(
-            'station_metadata_fetch_category'
-        ).order_by('order')
+    # Get metadata fetchers ordered by priority
+    metadata_fetchers = station.station_metadata_fetches.select_related(
+        'station_metadata_fetch_category'
+    ).order_by('order')
 
-        if not metadata_fetchers.exists():
-            logger.info(f"No metadata fetchers configured for station {station_id}")
-            return {"success": True, "scraped_count": 0}
+    if not metadata_fetchers.exists():
+        logger.info(f"No metadata fetchers configured for station {station_id}")
+        return {"success": True, "scraped_count": 0}
 
-        # Run async scraping
-        result = asyncio.run(_scrape_station_async(station, metadata_fetchers))
+    # Run async scraping
+    result = asyncio.run(_scrape_station_async(station, metadata_fetchers))
 
-        logger.info(f"Scraped metadata for station {station_id}: {result}")
-        return result
-
-    except Exception as error:
-        logger.error(f"Error scraping station {station_id}: {error}")
-        self.retry(countdown=60 * 2**self.request.retries)
+    logger.info(f"Scraped metadata for station {station_id}: {result}")
+    return result
 
 
-@shared_task(bind=True, max_retries=3)
-def scrape_station_rss_feed(self, station_id: int) -> Dict[str, Any]:
+@shared_task
+def scrape_station_rss_feed(station_id: int) -> Dict[str, Any]:
     """Scrape RSS feed for a single station"""
-    try:
-        # Get station with RSS feed
-        stations = StationService.get_stations_with_rss_feeds().filter(id=station_id)
-        if not stations.exists():
-            logger.warning(f"Station {station_id} not found, disabled, or no RSS feed")
-            return {"success": False, "error": "Station not found or no RSS feed"}
+    # Get station with RSS feed
+    stations = StationService.get_stations_with_rss_feeds().filter(id=station_id)
+    if not stations.exists():
+        error_msg = f"Station {station_id} not found, disabled, or no RSS feed"
+        logger.error(error_msg)
+        raise ValueError(error_msg)
 
-        station = stations.first()
+    station = stations.first()
 
-        # Run async RSS scraping
-        result = asyncio.run(_scrape_rss_async(station))
+    # Run async RSS scraping
+    result = asyncio.run(_scrape_rss_async(station))
 
-        logger.info(f"Scraped RSS for station {station_id}: {result}")
-        return result
-
-    except Exception as error:
-        logger.error(f"Error scraping RSS for station {station_id}: {error}")
-        self.retry(countdown=60 * 2**self.request.retries)
+    logger.info(f"Scraped RSS for station {station_id}: {result}")
+    return result
 
 
 @shared_task

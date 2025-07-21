@@ -150,7 +150,7 @@ class Query:
                 'latest_station_now_playing',
                 'latest_station_now_playing__song',
                 'latest_station_now_playing__song__artist'
-            ).prefetch_related('stationstreams_set').get(id=id, disabled=False)
+            ).prefetch_related('station_streams').get(id=id, disabled=False)
         except Stations.DoesNotExist:
             return None
 
