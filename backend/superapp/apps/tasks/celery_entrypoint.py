@@ -33,6 +33,10 @@ celery_app.conf.beat_schedule = {
         'schedule': crontab(hour=2, minute=0),  # Daily at 2 AM
         'kwargs': {'days_to_keep': 30},
     },
+    'weekly-essential-backup': {
+        'task': 'backups.automated_weekly_backup',
+        'schedule': crontab(hour=3, minute=0, day_of_week=1),  # Weekly on Monday at 3 AM
+    },
 }
 
 celery_app.conf.timezone = 'UTC'

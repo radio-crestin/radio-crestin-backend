@@ -137,3 +137,102 @@ def process_backup(self, backup_pk):
     except Exception as exc:
         self.retry(exc=exc)
         return None
+
+
+@shared_task(
+    bind=True,
+    name="backups.automated_weekly_backup",
+    max_retries=3,
+    default_retry_delay=60,
+)
+def automated_weekly_backup(self):
+    """
+    Automated weekly backup task for essential data.
+    
+    Creates a backup of essential data and triggers cleanup of old backups.
+    """
+    try:
+        logger.info("Starting automated weekly backup of essential data")
+        
+        # Create backup instance
+        backup = Backup.objects.create(
+            name=f"Weekly Essential Data Backup {timezone.now().strftime('%Y-%m-%d')}",
+            type='essential_data'
+        )
+        
+        # Process the backup
+        backup_id = process_backup.apply_async(args=[backup.pk]).get()
+        
+        if backup_id:
+            logger.info(f"Weekly backup created successfully with ID: {backup_id}")
+            
+            # Trigger cleanup of old backups
+            cleanup_old_backups.apply_async()
+            
+            return backup_id
+        else:
+            logger.error("Failed to create weekly backup")
+            return None
+            
+    except Exception as exc:
+        logger.error(f"Error in automated weekly backup: {exc}")
+        self.retry(exc=exc)
+        return None
+
+
+@shared_task(
+    bind=True,
+    name="backups.cleanup_old_backups",
+    max_retries=3,
+    default_retry_delay=60,
+)
+def cleanup_old_backups(self, backup_type='essential_data'):
+    """
+    Cleanup old backups to maintain retention limit.
+    
+    Args:
+        backup_type: The type of backups to cleanup (default: 'essential_data')
+    """
+    try:
+        max_backups = getattr(settings, 'BACKUPS', {}).get('RETENTION', {}).get('MAX_BACKUPS', 10)
+        
+        logger.info(f"Cleaning up old backups for type: {backup_type}, keeping {max_backups} most recent")
+        
+        # Get all completed backups of the specified type, ordered by creation date (newest first)
+        completed_backups = Backup.objects.filter(
+            type=backup_type,
+            done=True
+        ).order_by('-created_at')
+        
+        # Count total backups
+        total_backups = completed_backups.count()
+        
+        if total_backups > max_backups:
+            # Get backups to delete (everything beyond the retention limit)
+            backups_to_delete = completed_backups[max_backups:]
+            delete_count = backups_to_delete.count()
+            
+            logger.info(f"Found {total_backups} backups, will delete {delete_count} old backups")
+            
+            # Delete old backup files and records
+            for backup in backups_to_delete:
+                if backup.file:
+                    try:
+                        backup.file.delete(save=False)
+                        logger.info(f"Deleted backup file: {backup.file.name}")
+                    except Exception as e:
+                        logger.warning(f"Could not delete backup file {backup.file.name}: {e}")
+                
+                backup.delete()
+                logger.info(f"Deleted backup record: {backup.name}")
+            
+            logger.info(f"Cleanup completed. Deleted {delete_count} old backups")
+            return delete_count
+        else:
+            logger.info(f"No cleanup needed. Found {total_backups} backups, limit is {max_backups}")
+            return 0
+            
+    except Exception as exc:
+        logger.error(f"Error in backup cleanup: {exc}")
+        self.retry(exc=exc)
+        return None

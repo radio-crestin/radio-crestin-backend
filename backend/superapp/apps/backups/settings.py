@@ -19,6 +19,26 @@ def extend_superapp_settings(main_settings):
                             'models': '*',
                             'exclude_models_from_import': [],
                         },
+                        'essential_data': {
+                            'name': _('Essential Data'),
+                            'description': _('Backup essential data only'),
+                            'models': [
+                                'radio_crestin.stationsmetadatafetch',
+                                'radio_crestin.stationtostationgroup',
+                                'radio_crestin.stationstreams',
+                                'radio_crestin.reviews',
+                                'radio_crestin.posts',
+                                'radio_crestin.stationsuptime',
+                                'radio_crestin.stationsnowplaying',
+                                'radio_crestin.stations',
+                                'radio_crestin.stationgroups',
+                                'radio_crestin.stationmetadatafetchcategories',
+                            ],
+                            'exclude_models_from_import': [],
+                        },
+                    },
+                    'RETENTION': {
+                        'MAX_BACKUPS': 10,
                     },
                 }
             },
