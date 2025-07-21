@@ -1,6 +1,7 @@
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse_lazy
 from celery.schedules import crontab
+from os import environ
 
 
 def extend_superapp_settings(main_settings):
@@ -30,22 +31,26 @@ def extend_superapp_settings(main_settings):
     main_settings.update(celery_settings)
 
     # Configure Celery beat schedule for radio station scraping tasks
-    beat_schedule = {
-        'scrape-all-stations-metadata': {
-            'task': 'superapp.apps.radio_crestin_scraping.tasks.scraping_tasks.scrape_all_stations_metadata',
-            'schedule': 30.0,  # Every 30 seconds
-        },
-        'scrape-all-stations-rss-feeds': {
-            'task': 'superapp.apps.radio_crestin_scraping.tasks.scraping_tasks.scrape_all_stations_rss_feeds',
-            'schedule': crontab(minute=0, hour='*/6'),  # Every 6 hours
-        },
-        'cleanup-old-data': {
-            'task': 'superapp.apps.radio_crestin_scraping.tasks.scraping_tasks.cleanup_old_data',
-            'schedule': crontab(hour=2, minute=0),  # Daily at 2 AM UTC
-            'kwargs': {'days_to_keep': 30},
-        },
-    }
+    # Only create scheduled tasks in production (when DEBUG is False)
+    is_debug = environ.get("DEBUG", 'false') == 'true'
+    
+    if not is_debug:
+        beat_schedule = {
+            'scrape-all-stations-metadata': {
+                'task': 'superapp.apps.radio_crestin_scraping.tasks.scraping_tasks.scrape_all_stations_metadata',
+                'schedule': 30.0,  # Every 30 seconds
+            },
+            'scrape-all-stations-rss-feeds': {
+                'task': 'superapp.apps.radio_crestin_scraping.tasks.scraping_tasks.scrape_all_stations_rss_feeds',
+                'schedule': crontab(minute=0, hour='*/6'),  # Every 6 hours
+            },
+            'cleanup-old-data': {
+                'task': 'superapp.apps.radio_crestin_scraping.tasks.scraping_tasks.cleanup_old_scraped_data',
+                'schedule': crontab(hour=2, minute=0),  # Daily at 2 AM UTC
+                'kwargs': {'days_to_keep': 30},
+            },
+        }
 
-    # Add beat schedule to Celery configuration
-    main_settings['CELERY_BEAT_SCHEDULE'] = main_settings.get('CELERY_BEAT_SCHEDULE', {})
-    main_settings['CELERY_BEAT_SCHEDULE'].update(beat_schedule)
+        # Add beat schedule to Celery configuration
+        main_settings['CELERY_BEAT_SCHEDULE'] = main_settings.get('CELERY_BEAT_SCHEDULE', {})
+        main_settings['CELERY_BEAT_SCHEDULE'].update(beat_schedule)
