@@ -93,7 +93,7 @@ load-fixtures:
 
 sync-prod-db-clean:
 	@echo "Creating backup of local database..."
-	@docker exec -i radio-crestin-backend-db-1 pg_dump -U postgres -d postgres > backup_$(shell date +%Y%m%d_%H%M%S).sql
+	@docker-compose exec -T postgres pg_dump -U postgres -d postgres > backup_$(shell date +%Y%m%d_%H%M%S).sql
 	@echo "Truncating local tables..."
 	@psql postgres://postgres:postgrespassword@127.0.0.1:5432/postgres -c "TRUNCATE TABLE stations_now_playing CASCADE;"
 	@echo "Exporting data from production database..."
