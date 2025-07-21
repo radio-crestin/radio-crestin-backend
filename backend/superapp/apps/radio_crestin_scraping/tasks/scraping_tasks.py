@@ -1,13 +1,10 @@
-import asyncio
 import logging
-from typing import List, Dict, Any
+from typing import Dict, Any
 from celery import shared_task
 from datetime import datetime
-from asgiref.sync import sync_to_async
 from django.conf import settings
 
 from ..scrapers.factory import ScraperFactory
-from ..scrapers.rss_feed import RssFeedScraper
 from ..services.station_service import StationService
 from ..utils.data_types import StationUptimeData
 
@@ -34,8 +31,8 @@ def scrape_station_metadata(station_id: int) -> Dict[str, Any]:
         logger.info(f"No metadata fetchers configured for station {station_id}")
         return {"success": True, "scraped_count": 0}
 
-    # Run async scraping
-    result = asyncio.run(_scrape_station_async(station, metadata_fetchers))
+    # Run synchronous scraping
+    result = _scrape_station_sync(station, metadata_fetchers)
 
     logger.info(f"Scraped metadata for station {station_id}: {result}")
     return result
@@ -53,8 +50,8 @@ def scrape_station_rss_feed(station_id: int) -> Dict[str, Any]:
 
     station = stations.first()
 
-    # Run async RSS scraping
-    result = asyncio.run(_scrape_rss_async(station))
+    # Run synchronous RSS scraping
+    result = _scrape_rss_sync(station)
 
     logger.info(f"Scraped RSS for station {station_id}: {result}")
     return result
@@ -142,10 +139,10 @@ def cleanup_old_scraped_data(days_to_keep: int = 30) -> Dict[str, Any]:
         return {"success": False, "error": str(error)}
 
 
-# Async helper functions
+# Synchronous helper functions
 
-async def _scrape_station_async(station, metadata_fetchers) -> Dict[str, Any]:
-    """Async function to scrape station metadata"""
+def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
+    """Synchronous function to scrape station metadata"""
     merged_data = None
     scraped_count = 0
     errors = []
@@ -159,8 +156,24 @@ async def _scrape_station_async(station, metadata_fetchers) -> Dict[str, Any]:
                 logger.warning(f"No scraper available for category: {category_slug}")
                 continue
 
-            # Scrape data
-            scrape_result = await scraper.scrape(fetcher.url)
+            # Scrape data synchronously
+            try:
+                import httpx
+                import ssl
+                
+                # Create SSL context that doesn't verify certificates
+                ssl_context = ssl.create_default_context()
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+                
+                # Use synchronous httpx client
+                with httpx.Client(timeout=10, verify=False) as client:
+                    response = client.get(fetcher.url)
+                    response.raise_for_status()
+                    scrape_result = scraper.extract_data(response.text)
+            except Exception as scrape_error:
+                logger.error(f"Error making HTTP request to {fetcher.url}: {scrape_error}")
+                continue
 
             if scraped_count == 0:
                 merged_data = scrape_result
@@ -179,7 +192,7 @@ async def _scrape_station_async(station, metadata_fetchers) -> Dict[str, Any]:
     # Save merged data to database
     success = False
     if merged_data:
-        success = await sync_to_async(StationService.upsert_station_now_playing)(station.id, merged_data)
+        success = StationService.upsert_station_now_playing(station.id, merged_data)
 
         # Also update uptime data (simplified - always mark as up for now)
         uptime_data = StationUptimeData(
@@ -188,7 +201,7 @@ async def _scrape_station_async(station, metadata_fetchers) -> Dict[str, Any]:
             latency_ms=0,
             raw_data=[]
         )
-        await sync_to_async(StationService.upsert_station_uptime)(station.id, uptime_data)
+        StationService.upsert_station_uptime(station.id, uptime_data)
 
     return {
         "success": success,
@@ -198,13 +211,42 @@ async def _scrape_station_async(station, metadata_fetchers) -> Dict[str, Any]:
     }
 
 
-async def _scrape_rss_async(station) -> Dict[str, Any]:
-    """Async function to scrape station RSS feed"""
+def _scrape_rss_sync(station) -> Dict[str, Any]:
+    """Synchronous function to scrape station RSS feed"""
     try:
-        rss_scraper = RssFeedScraper()
-        rss_data = await rss_scraper.scrape_rss_feed(station.rss_feed)
-
-        success = await sync_to_async(StationService.upsert_station_posts)(station.id, rss_data)
+        # Simple synchronous RSS scraping
+        import httpx
+        import feedparser
+        from ..utils.data_types import StationRssFeedData, RssFeedPost
+        
+        if not station.rss_feed:
+            return {"success": True, "station_id": station.id, "posts_count": 0}
+        
+        logger.info(f"Scraping RSS feed: {station.rss_feed}")
+        
+        # Download the RSS content synchronously
+        with httpx.Client(timeout=10, verify=False) as client:
+            response = client.get(station.rss_feed)
+            response.raise_for_status()
+            rss_content = response.text
+        
+        # Parse the RSS content
+        feed = feedparser.parse(rss_content)
+        
+        posts = []
+        for entry in feed.entries:
+            # Simple RSS entry parsing
+            post = RssFeedPost(
+                title=getattr(entry, 'title', ''),
+                description=getattr(entry, 'description', ''),
+                link=getattr(entry, 'link', ''),
+                pub_date=getattr(entry, 'published', ''),
+                guid=getattr(entry, 'id', getattr(entry, 'link', ''))
+            )
+            posts.append(post)
+        
+        rss_data = StationRssFeedData(posts=posts)
+        success = StationService.upsert_station_posts(station.id, rss_data)
 
         return {
             "success": success,
