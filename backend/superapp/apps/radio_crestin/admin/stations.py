@@ -225,9 +225,63 @@ class StationsAdmin(SuperAppModelAdmin):
         except Exception as e:
             messages.error(request, _(f"Error executing sync tasks: {str(e)}"))
 
+    def _execute_sync_station_tasks(self, request, station_id: int):
+        """Execute all scraping tasks for a specific station synchronously"""
+        errors = []
+        successes = []
+        
+        try:
+            # Get station info for logging
+            station = Stations.objects.get(id=station_id)
+            station_name = station.title
+            
+            from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import (
+                scrape_station_metadata,
+                scrape_station_rss_feed
+            )
+            
+            # Execute metadata scraping for this station
+            try:
+                result = scrape_station_metadata(station_id)
+                if isinstance(result, dict) and result.get('success', False):
+                    successes.append(f"Metadata scraping completed for {station_name}")
+                else:
+                    error_msg = result.get('error', 'Unknown error') if isinstance(result, dict) else 'Unknown error'
+                    errors.append(f"Metadata scraping failed for {station_name}: {error_msg}")
+            except Exception as e:
+                errors.append(f"Metadata scraping failed for {station_name}: {str(e)}")
+            
+            # Execute RSS scraping for this station
+            try:
+                result = scrape_station_rss_feed(station_id)
+                if isinstance(result, dict) and result.get('success', False):
+                    successes.append(f"RSS scraping completed for {station_name}")
+                else:
+                    error_msg = result.get('error', 'Unknown error') if isinstance(result, dict) else 'Unknown error'
+                    errors.append(f"RSS scraping failed for {station_name}: {error_msg}")
+            except Exception as e:
+                errors.append(f"RSS scraping failed for {station_name}: {str(e)}")
+            
+            # Show results to user
+            if successes:
+                messages.success(request, f"Station sync completed: {'; '.join(successes)}")
+            
+            if errors:
+                messages.error(request, f"Station sync errors: {'; '.join(errors)}")
+                
+        except Stations.DoesNotExist:
+            messages.error(request, f"Station with ID {station_id} not found")
+        except ImportError:
+            messages.error(
+                request,
+                _("Scraping tasks are not available. Make sure radio_crestin_scraping app is installed.")
+            )
+        except Exception as e:
+            messages.error(request, _(f"Error executing station sync tasks: {str(e)}"))
+
     # Detail action for comprehensive sync
     @unfold.decorators.action(description=_("🔄 Sync All Tasks"))
     def sync_all_tasks(self, request, object_id: int):
-        """Trigger all scraping tasks for comprehensive sync"""
-        self._execute_sync_all_tasks(request)
+        """Trigger all scraping tasks for this specific station"""
+        self._execute_sync_station_tasks(request, object_id)
         return redirect(reverse_lazy("admin:radio_crestin_stations_change", args=(object_id,)))
