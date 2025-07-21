@@ -4,9 +4,7 @@ table:
 object_relationships:
   - name: song
     using:
-      foreign_key_constraint_on:
-        column: song_id
-        constraint: stations_now_playing_song_id_29de6a79_fk_songs_id
+      foreign_key_constraint_on: song_id
   - name: station
     using:
       foreign_key_constraint_on: station_id
