@@ -12,7 +12,7 @@ from ..services.station_service import StationService
 
 logger = logging.getLogger(__name__)
 
-@shared_task
+@shared_task(time_limit=30)
 def scrape_station_metadata(station_id: int) -> Dict[str, Any]:
     """Scrape metadata for a single station"""
     # Get station with metadata fetchers
@@ -40,7 +40,7 @@ def scrape_station_metadata(station_id: int) -> Dict[str, Any]:
     return result
 
 
-@shared_task
+@shared_task(time_limit=120)
 def scrape_station_rss_feed(station_id: int) -> Dict[str, Any]:
     """Scrape RSS feed for a single station"""
     # Get station with RSS feed
@@ -59,7 +59,7 @@ def scrape_station_rss_feed(station_id: int) -> Dict[str, Any]:
     return result
 
 
-@shared_task
+@shared_task(time_limit=30)
 def scrape_all_stations_metadata() -> Dict[str, Any]:
     """Scrape metadata for all enabled stations"""
     logger.info("Starting bulk station metadata scraping")
@@ -90,7 +90,7 @@ def scrape_all_stations_metadata() -> Dict[str, Any]:
         return {"success": False, "error": str(error)}
 
 
-@shared_task
+@shared_task(time_limit=30)
 def scrape_all_stations_rss_feeds() -> Dict[str, Any]:
     """Scrape RSS feeds for all stations that have them"""
     logger.info("Starting bulk station RSS feed scraping")
@@ -251,19 +251,19 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
 
                     # Use synchronous httpx client with 5 second timeout for non-stream scrapers
                     timeout = httpx.Timeout(connect=5.0, read=5.0, write=5.0, pool=5.0)
-                    with httpx.Client(timeout=timeout, verify=False) as client:
+                    with httpx.Client(timeout=timeout, verify=False, follow_redirects=True) as client:
                         # First check content type with HEAD request to avoid downloading streams
                         try:
                             head_response = client.head(fetcher.url)
                             content_type = head_response.headers.get('content-type', '').lower()
-                            
+
                             # Skip if this is audio content being passed to HTML scraper
                             if 'audio' in content_type and hasattr(scraper, 'get_scraper_type') and 'html' in scraper.get_scraper_type():
                                 logger.warning(f"Skipping HTML scraper {scraper.get_scraper_type()} for audio content from {fetcher.url} (content-type: {content_type})")
                                 continue
                         except Exception as head_error:
                             logger.debug(f"HEAD request failed for {fetcher.url}: {head_error}, proceeding with GET")
-                        
+
                         response = client.get(fetcher.url)
                         response.raise_for_status()
                         scrape_result = scraper.extract_data(response.text, config=fetcher)
@@ -321,17 +321,17 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
             if (data_dict and 'current_song' in data_dict and data_dict['current_song'] and
                 data_dict['current_song'].get('name') and data_dict['current_song'].get('artist')):
                 logger.info(f"Found complete song data, stopping after first successful fetch for station {station.id}")
-                
+
                 # Create final merged data with just this successful fetch
                 final_merged_data = _merge_fetcher_states_by_priority(fetcher_states, current_data, task_start_time)
-                
+
                 # Save final merged data
                 final_success = False
                 if final_merged_data:
                     final_merged_data.raw_data = fetcher_states
                     has_dirty_metadata = fetcher.dirty_metadata
                     final_success = StationService.upsert_station_now_playing(station.id, final_merged_data, dirty_metadata=has_dirty_metadata)
-                
+
                 return {
                     "success": final_success or scraped_count > 0,
                     "station_id": station.id,
@@ -420,7 +420,7 @@ def _scrape_rss_sync(station) -> Dict[str, Any]:
             'Sec-Fetch-Mode': 'navigate',
             'Sec-Fetch-Site': 'none'
         }
-        with httpx.Client(timeout=60, verify=False, headers=headers) as client:
+        with httpx.Client(timeout=60, verify=False, headers=headers, follow_redirects=True) as client:
             response = client.get(station.rss_feed)
             response.raise_for_status()
             rss_content = response.text
