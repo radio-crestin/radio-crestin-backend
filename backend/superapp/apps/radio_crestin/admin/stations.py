@@ -321,8 +321,17 @@ class StationsAdmin(SuperAppModelAdmin):
         return HttpResponseRedirect(request.get_full_path())
     scrape_metadata_rss_async.short_description = _("⚡ Scrape metadata, RSS feeds & check uptime (async)")
 
-    def scrape_single_station_sync(self, request, obj):
+    def scrape_single_station_sync(self, request, object_id):
         """Scrape metadata, RSS feeds, and check uptime for single station (synchronous)"""
+        try:
+            obj = self.get_object(request, object_id)
+            if not obj:
+                messages.error(request, _("Station not found."))
+                return HttpResponseRedirect(request.get_full_path())
+        except Exception as e:
+            messages.error(request, f"Error retrieving station: {str(e)}")
+            return HttpResponseRedirect(request.get_full_path())
+            
         station_successes, station_errors = self._execute_sync_station_tasks_return_results(request, obj.id)
 
         # Show results
@@ -343,8 +352,17 @@ class StationsAdmin(SuperAppModelAdmin):
     scrape_single_station_sync.short_description = _("📡 Scrape metadata, RSS & check uptime (sync)")
     scrape_single_station_sync.attrs = {"class": "btn btn-success"}
 
-    def scrape_single_station_async(self, request, obj):
+    def scrape_single_station_async(self, request, object_id):
         """Scrape metadata, RSS feeds, and check uptime for single station (asynchronous)"""
+        try:
+            obj = self.get_object(request, object_id)
+            if not obj:
+                messages.error(request, _("Station not found."))
+                return HttpResponseRedirect(request.get_full_path())
+        except Exception as e:
+            messages.error(request, f"Error retrieving station: {str(e)}")
+            return HttpResponseRedirect(request.get_full_path())
+
         try:
             from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import (
                 scrape_station_metadata,
@@ -353,9 +371,9 @@ class StationsAdmin(SuperAppModelAdmin):
             )
 
             # Queue all types of tasks for this single station
-            uptime_task = check_station_uptime.delay(obj.id)
-            metadata_task = scrape_station_metadata.delay(obj.id)
-            rss_task = scrape_station_rss_feed.delay(obj.id)
+            check_station_uptime.delay(obj.id)
+            scrape_station_metadata.delay(obj.id)
+            scrape_station_rss_feed.delay(obj.id)
 
             messages.success(
                 request,
