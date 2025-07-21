@@ -5,6 +5,9 @@ from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.contrib import messages
 from django.http import HttpResponseRedirect
+from django.shortcuts import redirect
+from django.urls import reverse_lazy
+import unfold.decorators
 
 from superapp.apps.admin_portal.admin import SuperAppModelAdmin, SuperAppTabularInline
 from superapp.apps.admin_portal.sites import superapp_admin_site
@@ -163,6 +166,13 @@ class StationsAdmin(SuperAppModelAdmin):
 
     # Admin actions for manual scraping
     actions = ['scrape_metadata_selected', 'scrape_rss_selected', 'scrape_both_selected']
+    
+    # Detail actions for individual stations
+    actions_detail = [
+        "scrape_metadata_single",
+        "scrape_rss_single", 
+        "scrape_both_single"
+    ]
 
     def scrape_metadata_selected(self, request, queryset):
         """Manually trigger metadata scraping for selected stations"""
@@ -266,3 +276,97 @@ class StationsAdmin(SuperAppModelAdmin):
                 messages.ERROR
             )
     scrape_both_selected.short_description = _("🔄📰 Scrape both metadata and RSS for selected stations")
+
+    # Detail actions for individual stations
+    @unfold.decorators.action(description=_("🔄 Scrape metadata for this station"))
+    def scrape_metadata_single(self, request, object_id: int):
+        """Manually trigger metadata scraping for a single station"""
+        try:
+            from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import scrape_station_metadata
+            
+            station = Stations.objects.get(pk=object_id)
+            scrape_station_metadata.delay(station.id)
+            
+            messages.success(
+                request,
+                _(f"Successfully queued metadata scraping for station '{station.title}'. Task is running in the background.")
+            )
+        except Stations.DoesNotExist:
+            messages.error(request, _("Station not found."))
+        except ImportError:
+            messages.error(
+                request,
+                _("Scraping tasks are not available. Make sure radio_crestin_scraping app is installed.")
+            )
+        except Exception as e:
+            messages.error(request, _(f"Error queuing scraping task: {str(e)}"))
+        
+        return redirect(reverse_lazy("admin:radio_crestin_stations_change", args=(object_id,)))
+
+    @unfold.decorators.action(description=_("📰 Scrape RSS feed for this station"))
+    def scrape_rss_single(self, request, object_id: int):
+        """Manually trigger RSS scraping for a single station"""
+        try:
+            from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import scrape_station_rss_feed
+            
+            station = Stations.objects.get(pk=object_id)
+            
+            if not station.rss_feed:
+                messages.warning(
+                    request,
+                    _(f"Station '{station.title}' does not have an RSS feed configured.")
+                )
+            else:
+                scrape_station_rss_feed.delay(station.id)
+                messages.success(
+                    request,
+                    _(f"Successfully queued RSS scraping for station '{station.title}'. Task is running in the background.")
+                )
+        except Stations.DoesNotExist:
+            messages.error(request, _("Station not found."))
+        except ImportError:
+            messages.error(
+                request,
+                _("Scraping tasks are not available. Make sure radio_crestin_scraping app is installed.")
+            )
+        except Exception as e:
+            messages.error(request, _(f"Error queuing RSS scraping task: {str(e)}"))
+        
+        return redirect(reverse_lazy("admin:radio_crestin_stations_change", args=(object_id,)))
+
+    @unfold.decorators.action(description=_("🔄📰 Scrape both metadata and RSS for this station"))
+    def scrape_both_single(self, request, object_id: int):
+        """Manually trigger both metadata and RSS scraping for a single station"""
+        try:
+            from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import scrape_station_metadata, scrape_station_rss_feed
+            
+            station = Stations.objects.get(pk=object_id)
+            
+            # Queue metadata scraping
+            scrape_station_metadata.delay(station.id)
+            tasks_queued = ["metadata"]
+            
+            # Queue RSS scraping if station has RSS feed
+            if station.rss_feed:
+                scrape_station_rss_feed.delay(station.id)
+                tasks_queued.append("RSS")
+            
+            tasks_str = " and ".join(tasks_queued)
+            message = _(f"Successfully queued {tasks_str} scraping for station '{station.title}'. Tasks are running in the background.")
+            
+            if not station.rss_feed and len(tasks_queued) == 1:
+                message += _(" Note: RSS scraping was skipped as this station has no RSS feed configured.")
+            
+            messages.success(request, message)
+            
+        except Stations.DoesNotExist:
+            messages.error(request, _("Station not found."))
+        except ImportError:
+            messages.error(
+                request,
+                _("Scraping tasks are not available. Make sure radio_crestin_scraping app is installed.")
+            )
+        except Exception as e:
+            messages.error(request, _(f"Error queuing scraping tasks: {str(e)}"))
+        
+        return redirect(reverse_lazy("admin:radio_crestin_stations_change", args=(object_id,)))
