@@ -29,10 +29,10 @@ web-logs:
 	docker-compose logs -f web -n 1000
 
 start-docker:
-	docker-compose up -d --build
+	docker-compose up -d --build --remove-orphans
 
 force-start-docker:
-	docker-compose up -d --build --force-recreate
+	docker-compose up -d --build --force-recreate --remove-orphans
 
 stop-docker:
 	docker-compose stop

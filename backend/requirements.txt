@@ -8,4 +8,3 @@ redis==5.2.*
 django-storages[s3]==1.14.*
 boto3==1.37.*
 beautifulsoup4==4.12.*
-id3parse==1.*

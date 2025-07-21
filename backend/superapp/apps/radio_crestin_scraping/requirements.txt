@@ -4,8 +4,7 @@ httpx>=0.24.0
 # RSS/Atom feed parsing
 feedparser>=6.0.0
 
-# Optional: Radio ID3 metadata parsing (would need to be installed separately)
-# radio-id3
+mutagen==1.47.0
 
 # Celery for async task processing (should already be in main requirements)
 # celery>=5.2.0
