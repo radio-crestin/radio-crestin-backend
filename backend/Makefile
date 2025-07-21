@@ -108,6 +108,8 @@ sync-prod-db-clean:
 		stations_uptime, \
 		stations_now_playing, \
 		stations, \
+		songs, \
+		artists, \
 		auth_user, \
 		auth_permission, \
 		auth_group, \
@@ -124,6 +126,6 @@ sync-prod-db-clean:
 		-t station_to_station_group -t station_metadata_fetch_categories \
 		-t django_content_type -t stations_metadata_fetch -t django_migrations \
 		-t auth_group_permissions -t auth_user_groups -t auth_user_user_permissions \
-		-t auth_group" | psql postgres://postgres:postgrespassword@127.0.0.1:5432/postgres
+		-t auth_group -t songs -t artists" | psql postgres://postgres:postgrespassword@127.0.0.1:5432/postgres
 	@echo "Database sync completed!"
 
