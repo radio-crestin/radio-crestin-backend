@@ -1,5 +1,5 @@
 table:
-  name: users
+  name: app_users
   schema: public
 array_relationships:
   - name: listening_events
