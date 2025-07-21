@@ -13,7 +13,7 @@ class IcecastScraper(BaseScraper):
     def get_scraper_type(self) -> str:
         return "icecast"
 
-    def extract_data(self, response_data: Any) -> StationNowPlayingData:
+    def extract_data(self, response_data: Any, config=None) -> StationNowPlayingData:
         """Extract data from Icecast JSON response"""
 
         # Convert JSON string to dict if needed
@@ -34,7 +34,7 @@ class IcecastScraper(BaseScraper):
             return StationNowPlayingData(current_song=None, listeners=None)
 
         raw_title = source.get("title", "")
-        song_name, artist = DataFormatter.parse_title_artist(raw_title)
+        song_name, artist = DataFormatter.parse_title_artist(raw_title, config)
 
         song_data = self._create_song_data(
             name=song_name,

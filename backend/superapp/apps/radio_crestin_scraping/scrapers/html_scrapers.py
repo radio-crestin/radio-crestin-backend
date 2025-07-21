@@ -13,7 +13,7 @@ class OldIcecastHtmlScraper(BaseScraper):
     def get_scraper_type(self) -> str:
         return "old_icecast_html"
 
-    def extract_data(self, response_data: Any) -> StationNowPlayingData:
+    def extract_data(self, response_data: Any, config=None) -> StationNowPlayingData:
         """Extract data from Icecast HTML page"""
         if not isinstance(response_data, str):
             return StationNowPlayingData(current_song=None, listeners=None)
@@ -22,7 +22,7 @@ class OldIcecastHtmlScraper(BaseScraper):
         parsed_data = self._parse_icecast_html(response_data)
 
         raw_title = parsed_data.get("Current Song", "")
-        song_name, artist = DataFormatter.parse_title_artist(raw_title)
+        song_name, artist = DataFormatter.parse_title_artist(raw_title, config)
 
         song_data = self._create_song_data(
             name=song_name,
@@ -66,7 +66,7 @@ class OldShoutcastHtmlScraper(BaseScraper):
     def get_scraper_type(self) -> str:
         return "old_shoutcast_html"
 
-    def extract_data(self, response_data: Any) -> StationNowPlayingData:
+    def extract_data(self, response_data: Any, config=None) -> StationNowPlayingData:
         """Extract data from Shoutcast HTML page"""
         if not isinstance(response_data, str):
             return StationNowPlayingData(current_song=None, listeners=None)
@@ -119,7 +119,7 @@ class AripiSpreCerScraper(BaseScraper):
     def get_scraper_type(self) -> str:
         return "aripisprecer_api"
 
-    def extract_data(self, response_data: Any) -> StationNowPlayingData:
+    def extract_data(self, response_data: Any, config=None) -> StationNowPlayingData:
         """Extract data from Aripi spre Cer JSON response"""
         # Convert JSON string to dict if needed
         if isinstance(response_data, str):
@@ -157,7 +157,7 @@ class RadioFiladelfiaScraper(BaseScraper):
     def get_scraper_type(self) -> str:
         return "radio_filadelfia_api"
 
-    def extract_data(self, response_data: Any) -> StationNowPlayingData:
+    def extract_data(self, response_data: Any, config=None) -> StationNowPlayingData:
         """Extract data from Radio Filadelfia JSON response"""
         # Convert JSON string to dict if needed
         if isinstance(response_data, str):
@@ -197,7 +197,7 @@ class SonicPanelScraper(BaseScraper):
     def get_scraper_type(self) -> str:
         return "sonicpanel"
 
-    def extract_data(self, response_data: Any) -> StationNowPlayingData:
+    def extract_data(self, response_data: Any, config=None) -> StationNowPlayingData:
         """Extract data from SonicPanel JSON response"""
 
         # Convert JSON string to dict if needed
@@ -211,7 +211,7 @@ class SonicPanelScraper(BaseScraper):
             return StationNowPlayingData(current_song=None, listeners=None)
 
         raw_title = response_data.get("title", "")
-        song_name, artist = DataFormatter.parse_title_artist(raw_title)
+        song_name, artist = DataFormatter.parse_title_artist(raw_title, config)
 
         song_data = self._create_song_data(
             name=song_name,

@@ -28,14 +28,14 @@ class StreamId3Scraper(BaseScraper):
     def get_scraper_type(self) -> str:
         return "stream_id3"
 
-    async def scrape(self, url: str, **kwargs) -> StationNowPlayingData:
+    async def scrape(self, url: str, config=None, **kwargs) -> StationNowPlayingData:
         """Override scrape method to use mutagen library"""
         logger.info(f"Scraping ID3 from stream: {url}")
 
         try:
             # Use mutagen library to parse stream
             data = await self._parse_stream_async(url)
-            result = self.extract_data(data)
+            result = self.extract_data(data, config)
             return DataFormatter.format_station_data(result)
 
         except Exception as error:
@@ -200,7 +200,7 @@ class StreamId3Scraper(BaseScraper):
             logger.error(f"Error parsing ID3 from stream {url}: {e}")
             return {}
 
-    def extract_data(self, response_data: Any) -> StationNowPlayingData:
+    def extract_data(self, response_data: Any, config=None) -> StationNowPlayingData:
         """Extract data from mutagen response"""
 
         if not isinstance(response_data, dict):
@@ -214,7 +214,7 @@ class StreamId3Scraper(BaseScraper):
             raw_title = response_data.get("TIT2", "")
         
         # Parse artist and song name
-        song_name, artist = DataFormatter.parse_title_artist(raw_title)
+        song_name, artist = DataFormatter.parse_title_artist(raw_title, config)
         
         # Also try to get artist directly from ID3 tags
         if not artist:

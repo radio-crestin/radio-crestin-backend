@@ -12,7 +12,7 @@ class ShoutcastScraper(BaseScraper):
     def get_scraper_type(self) -> str:
         return "shoutcast"
 
-    def extract_data(self, response_data: Any) -> StationNowPlayingData:
+    def extract_data(self, response_data: Any, config=None) -> StationNowPlayingData:
         """Extract data from Shoutcast JSON response"""
         # Convert JSON string to dict if needed
         if isinstance(response_data, str):
@@ -25,7 +25,7 @@ class ShoutcastScraper(BaseScraper):
             return StationNowPlayingData(current_song=None, listeners=None)
 
         raw_title = response_data.get("songtitle", "")
-        song_name, artist = DataFormatter.parse_title_artist(raw_title)
+        song_name, artist = DataFormatter.parse_title_artist(raw_title, config)
 
         song_data = self._create_song_data(
             name=song_name,

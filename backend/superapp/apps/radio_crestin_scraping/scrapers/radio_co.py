@@ -12,7 +12,7 @@ class RadioCoScraper(BaseScraper):
     def get_scraper_type(self) -> str:
         return "radio_co"
 
-    def extract_data(self, response_data: Any) -> StationNowPlayingData:
+    def extract_data(self, response_data: Any, config=None) -> StationNowPlayingData:
         """Extract data from Radio.co JSON response"""
         # Convert JSON string to dict if needed
         if isinstance(response_data, str):
@@ -29,7 +29,7 @@ class RadioCoScraper(BaseScraper):
             return StationNowPlayingData(current_song=None, listeners=None)
 
         raw_title = current_track.get("title", "")
-        song_name, artist = DataFormatter.parse_title_artist(raw_title)
+        song_name, artist = DataFormatter.parse_title_artist(raw_title, config)
 
         song_data = self._create_song_data(
             name=song_name,
