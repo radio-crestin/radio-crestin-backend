@@ -6,6 +6,7 @@ from typing import Dict, Any, Optional
 import ffmpeg
 from django.conf import settings
 from django.utils import timezone
+from asgiref.sync import sync_to_async
 
 from .base import BaseScraper
 from ..utils.data_types import StationUptimeData
@@ -25,7 +26,7 @@ class UptimeScraper(BaseScraper):
         from superapp.apps.radio_crestin.models import Stations
         
         try:
-            station = Stations.objects.get(id=station_id, disabled=False)
+            station = await sync_to_async(Stations.objects.get)(id=station_id, disabled=False)
         except Stations.DoesNotExist:
             error_msg = f"Station {station_id} not found or disabled"
             logger.error(error_msg)
@@ -36,7 +37,7 @@ class UptimeScraper(BaseScraper):
 
     async def check_all_stations_uptime(self) -> Dict[str, Any]:
         """Check uptime for all active stations"""
-        stations = UptimeService.get_all_active_stations()
+        stations = await sync_to_async(UptimeService.get_all_active_stations)()
         
         results = []
         total_checked = 0
@@ -168,7 +169,7 @@ class UptimeScraper(BaseScraper):
 
         # Save to database
         try:
-            UptimeService.upsert_station_uptime(station.id, uptime_data)
+            await sync_to_async(UptimeService.upsert_station_uptime)(station.id, uptime_data)
         except Exception as e:
             logger.error(f"Failed to save uptime data for station {station.id}: {e}")
             if settings.DEBUG:
