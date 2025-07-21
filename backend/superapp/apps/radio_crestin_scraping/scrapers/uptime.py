@@ -219,9 +219,12 @@ class UptimeScraper(BaseScraper):
             return probe_data
             
         except ffmpeg.Error as e:
-            # Log stderr output for debugging
-            logger.error(f"FFprobe error for stream {url}. Stderr: {e.stderr.decode('utf-8') if e.stderr else 'No stderr output'}")
-            raise
+            # Log and include stderr output for debugging
+            stderr_output = e.stderr.decode('utf-8') if e.stderr else 'No stderr output'
+            error_msg = f"FFprobe error for stream {url}. Stderr: {stderr_output}"
+            logger.error(error_msg)
+            # Create new exception with stderr details
+            raise Exception(error_msg) from e
         except Exception as e:
             logger.error(f"Unexpected error probing stream {url}: {e}")
             raise
