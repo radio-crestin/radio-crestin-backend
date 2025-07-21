@@ -204,19 +204,9 @@ class StationsAdmin(SuperAppModelAdmin):
 
             # 1. Check station uptime first using new uptime scraper
             try:
-                import asyncio
-                
-                # Create uptime scraper and run async method in sync context
+                # Create uptime scraper and run sync method
                 uptime_scraper = UptimeScraper()
-                
-                # Handle async operation in sync context
-                try:
-                    loop = asyncio.get_event_loop()
-                except RuntimeError:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                
-                uptime_result = loop.run_until_complete(uptime_scraper._check_single_station_uptime(station))
+                uptime_result = uptime_scraper._check_single_station_uptime(station)
                 
                 if uptime_result.get('success'):
                     status = "UP" if uptime_result.get('is_up') else "DOWN"
