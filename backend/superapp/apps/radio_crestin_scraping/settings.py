@@ -33,11 +33,11 @@ def extend_superapp_settings(main_settings):
     beat_schedule = {
         'scrape-all-stations-metadata': {
             'task': 'superapp.apps.radio_crestin_scraping.tasks.scraping_tasks.scrape_all_stations_metadata',
-            'schedule': crontab(minute='*/5'),  # Every 5 minutes
+            'schedule': 30.0,  # Every 30 seconds
         },
         'scrape-all-stations-rss-feeds': {
             'task': 'superapp.apps.radio_crestin_scraping.tasks.scraping_tasks.scrape_all_stations_rss_feeds',
-            'schedule': crontab(minute='*/30'),  # Every 30 minutes
+            'schedule': crontab(minute=0, hour='*/6'),  # Every 6 hours
         },
         'cleanup-old-data': {
             'task': 'superapp.apps.radio_crestin_scraping.tasks.scraping_tasks.cleanup_old_data',
