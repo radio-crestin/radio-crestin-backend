@@ -45,8 +45,8 @@ def scrape_station_rss_feed(station_id: int) -> Dict[str, Any]:
     stations = StationService.get_stations_with_rss_feeds().filter(id=station_id)
     if not stations.exists():
         error_msg = f"Station {station_id} not found, disabled, or no RSS feed"
-        logger.error(error_msg)
-        raise ValueError(error_msg)
+        logger.warning(error_msg)
+        return {"success": True, "error": error_msg}
 
     station = stations.first()
 
@@ -158,19 +158,35 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
 
             # Scrape data synchronously
             try:
-                import httpx
-                import ssl
+                # Check if this is a stream_id3 scraper that needs special handling
+                if hasattr(scraper, 'get_scraper_type') and scraper.get_scraper_type() == 'stream_id3':
+                    # Use the scraper's async scrape method in sync context
+                    import asyncio
+                    
+                    # Create event loop for sync context
+                    try:
+                        loop = asyncio.get_event_loop()
+                    except RuntimeError:
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                    
+                    # Run the async scrape method
+                    scrape_result = loop.run_until_complete(scraper.scrape(fetcher.url))
+                else:
+                    # Use the original HTTP client approach for other scrapers
+                    import httpx
+                    import ssl
 
-                # Create SSL context that doesn't verify certificates
-                ssl_context = ssl.create_default_context()
-                ssl_context.check_hostname = False
-                ssl_context.verify_mode = ssl.CERT_NONE
+                    # Create SSL context that doesn't verify certificates
+                    ssl_context = ssl.create_default_context()
+                    ssl_context.check_hostname = False
+                    ssl_context.verify_mode = ssl.CERT_NONE
 
-                # Use synchronous httpx client with increased timeout
-                with httpx.Client(timeout=60, verify=False) as client:
-                    response = client.get(fetcher.url)
-                    response.raise_for_status()
-                    scrape_result = scraper.extract_data(response.text)
+                    # Use synchronous httpx client with increased timeout
+                    with httpx.Client(timeout=60, verify=False) as client:
+                        response = client.get(fetcher.url)
+                        response.raise_for_status()
+                        scrape_result = scraper.extract_data(response.text)
             except Exception as scrape_error:
                 logger.error(f"Error making HTTP request to {fetcher.url}: {scrape_error}")
                 if settings.DEBUG:
