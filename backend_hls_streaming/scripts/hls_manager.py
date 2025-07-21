@@ -38,6 +38,9 @@ class HLSManager:
         self.station_metadata: Dict[str, dict] = {}
         self.last_station_fetch = datetime.min
         self.running = True
+        self.cache_file = Path('/tmp/data/stations_cache.json')
+        self.cached_stations: List[dict] = []
+        self.cache_ttl_hours = int(os.getenv('CACHE_TTL_HOURS', '24'))
         
     def setup_logging(self):
         """Configure logging for the HLS manager."""
@@ -76,7 +79,56 @@ class HLSManager:
         if self.detailed_logging:
             self.logger.debug(f"Configuration: refresh_interval={self.refresh_interval}s, max_log_size={self.max_log_size}B")
             self.logger.debug(f"Directories: data={self.base_data_dir}, logs={self.base_log_dir}")
+            self.logger.debug(f"Cache: file={self.cache_file}, ttl={self.cache_ttl_hours}h")
         
+        # Load cached stations on startup
+        self.load_cached_stations()
+        
+    def save_cached_stations(self, stations: List[dict]):
+        """Save successful station data to cache file."""
+        try:
+            cache_data = {
+                'timestamp': datetime.now().isoformat(),
+                'stations': stations
+            }
+            
+            # Ensure parent directory exists
+            self.cache_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            with open(self.cache_file, 'w') as f:
+                json.dump(cache_data, f, indent=2)
+            
+            self.cached_stations = stations
+            self.logger.info(f"Cached {len(stations)} stations to {self.cache_file}")
+            
+        except Exception as e:
+            self.logger.error(f"Error saving stations cache: {e}")
+    
+    def load_cached_stations(self):
+        """Load stations from cache file if available and valid."""
+        try:
+            if not self.cache_file.exists():
+                self.logger.info("No stations cache file found")
+                return
+            
+            with open(self.cache_file, 'r') as f:
+                cache_data = json.load(f)
+            
+            # Check cache age
+            cache_timestamp = datetime.fromisoformat(cache_data['timestamp'])
+            cache_age = datetime.now() - cache_timestamp
+            
+            if cache_age.total_seconds() / 3600 > self.cache_ttl_hours:
+                self.logger.warning(f"Stations cache is stale ({cache_age.total_seconds() / 3600:.1f}h old), ignoring")
+                return
+            
+            self.cached_stations = cache_data.get('stations', [])
+            self.logger.info(f"Loaded {len(self.cached_stations)} stations from cache (age: {cache_age.total_seconds() / 60:.1f}m)")
+            
+        except Exception as e:
+            self.logger.error(f"Error loading stations cache: {e}")
+            self.cached_stations = []
+    
     def get_stations_from_graphql(self) -> List[dict]:
         """
         Fetch stations that require HLS streaming from GraphQL endpoint.
@@ -149,14 +201,29 @@ class HLSManager:
                             metadata_info = f" (Now: {artist_name} - {song_name})"
                         self.logger.debug(f"  🎵 {station['title']} ({station['slug']}): {station['stream_url']}{metadata_info}")
                 
+                # Save successful response to cache
+                self.save_cached_stations(hls_stations)
+                
                 return hls_stations
             else:
                 self.logger.error(f"GraphQL request failed: {response.status_code} - {response.text}")
-                return []
+                # Fall back to cached data
+                if self.cached_stations:
+                    self.logger.warning(f"📋 Backend down, using {len(self.cached_stations)} cached stations as fallback")
+                    return self.cached_stations
+                else:
+                    self.logger.error("❌ No cached stations available for fallback")
+                    return []
                 
         except Exception as e:
             self.logger.error(f"Error fetching stations from GraphQL: {e}")
-            return []
+            # Fall back to cached data
+            if self.cached_stations:
+                self.logger.warning(f"📋 Backend unreachable, using {len(self.cached_stations)} cached stations as fallback")
+                return self.cached_stations
+            else:
+                self.logger.error("❌ No cached stations available for fallback")
+                return []
     
     def trigger_metadata_fetch(self, station_id: str):
         """
