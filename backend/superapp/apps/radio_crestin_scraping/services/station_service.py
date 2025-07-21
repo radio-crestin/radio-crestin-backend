@@ -187,11 +187,15 @@ class StationService:
                 song_defaults['thumbnail_url'] = song_data.thumbnail_url
 
             # Use name and artist_id as unique constraint
-            song, created = Songs.objects.update_or_create(
-                name=song_data.name or '',
-                artist=artist,
-                defaults=song_defaults
-            )
+            try:
+                song, created = Songs.objects.update_or_create(
+                    name=song_data.name or '',
+                    artist=artist,
+                    defaults=song_defaults
+                )
+            except IntegrityError:
+                # Handle race condition - song was created by another process
+                song = Songs.objects.get(name=song_data.name or '', artist=artist)
 
             return song
 

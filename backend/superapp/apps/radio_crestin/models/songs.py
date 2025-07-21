@@ -35,7 +35,6 @@ class Songs(models.Model):
         return f"{self.name} - {artist_name}"
 
     def save(self, *args, **kwargs):
-        super(Songs, self).save(*args, **kwargs)
         if self.thumbnail:
             self.thumbnail_url = self.thumbnail.url
         super(Songs, self).save(*args, **kwargs)
