@@ -56,7 +56,7 @@ class GetStationsQuery:
         return StationGroups.objects.prefetch_related(
             # Optimized prefetch for station-to-group relationships
             Prefetch(
-                'stationtostationgroup_set',
+                'station_to_station_groups',
                 queryset=StationToStationGroup.objects.select_related('station').order_by('order')
             )
         ).order_by('order', 'name')
@@ -102,7 +102,7 @@ def get_optimized_station_groups_queryset():
     """
     return StationGroups.objects.prefetch_related(
         Prefetch(
-            'stationtostationgroup_set',
+            'station_to_station_groups',
             queryset=StationToStationGroup.objects.select_related('station').order_by('order')
         )
     ).order_by('order', 'name')

@@ -106,7 +106,7 @@ class Query:
         queryset = StationGroups.objects.prefetch_related(
             # Prefetch station-to-group relationships with ordering
             Prefetch(
-                'stationtostationgroup_set',
+                'station_to_station_groups',
                 queryset=StationToStationGroup.objects.select_related('station').order_by('order', 'station__title')
             )
         )
