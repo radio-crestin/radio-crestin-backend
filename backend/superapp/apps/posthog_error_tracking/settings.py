@@ -2,6 +2,38 @@ import os
 from django.utils.translation import gettext_lazy as _
 
 
+def add_user_tags(request):
+    """
+    Add user tags for PostHog middleware tracking
+    
+    Args:
+        request: Django HttpRequest object
+        
+    Returns:
+        Dict[str, Any]: Dictionary of tags to add to PostHog events
+    """
+    tags = {}
+    if hasattr(request, 'user') and request.user.is_authenticated:
+        tags['user_id'] = str(request.user.id)
+        tags['email'] = getattr(request.user, 'email', '')
+        tags['username'] = getattr(request.user, 'username', '')
+        tags['is_staff'] = getattr(request.user, 'is_staff', False)
+        tags['is_superuser'] = getattr(request.user, 'is_superuser', False)
+        
+        # Add any custom user fields if they exist
+        if hasattr(request.user, 'first_name'):
+            tags['first_name'] = request.user.first_name
+        if hasattr(request.user, 'last_name'):
+            tags['last_name'] = request.user.last_name
+        if hasattr(request.user, 'date_joined'):
+            tags['date_joined'] = request.user.date_joined.isoformat()
+    else:
+        tags['user_id'] = 'anonymous'
+        tags['is_authenticated'] = False
+    
+    return tags
+
+
 def extend_superapp_settings(main_settings):
     """
     Extend main Django settings with PostHog error tracking configuration
@@ -24,6 +56,7 @@ def extend_superapp_settings(main_settings):
         
         # PostHog middleware settings
         main_settings['POSTHOG_MW_CAPTURE_EXCEPTIONS'] = True  # Capture exceptions automatically
+        main_settings['POSTHOG_MW_EXTRA_TAGS'] = add_user_tags  # Add custom user tags
         
         # PostHog configuration
         main_settings['POSTHOG_PROJECT_API_KEY'] = posthog_api_key

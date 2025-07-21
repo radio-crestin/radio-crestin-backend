@@ -74,15 +74,21 @@ docker-compose exec web python manage.py test_posthog_tracking --test-errors
 
 1. **PostHog Middleware**: The official `PosthogContextMiddleware` automatically:
    - Extracts session and user information from requests
-   - Tags all events with relevant metadata
-   - Captures exceptions automatically
+   - Tags all events with relevant metadata via `POSTHOG_MW_EXTRA_TAGS`
+   - Captures exceptions automatically with full user context
 
-2. **Global Error Handlers**: Custom Django error handlers that:
+2. **User Tagging**: Custom `add_user_tags()` function enriches all PostHog events with:
+   - User ID, email, username
+   - Staff/superuser status
+   - Authentication state
+   - User profile information (first_name, last_name, date_joined)
+
+3. **Global Error Handlers**: Custom Django error handlers that:
    - Capture HTTP errors (404, 500, etc.)
    - Extract user and request context
    - Send detailed error information to PostHog
 
-3. **Superapp Integration**: Follows the superapp pattern:
+4. **Superapp Integration**: Follows the superapp pattern:
    - Automatically registers with Django via `extend_superapp_settings()`
    - Adds required middleware and configuration
    - Integrates with admin interface
