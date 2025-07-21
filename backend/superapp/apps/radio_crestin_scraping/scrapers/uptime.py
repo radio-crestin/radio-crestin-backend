@@ -228,11 +228,36 @@ class UptimeScraper(BaseScraper):
             return probe_data
             
         except ffmpeg.Error as e:
-            # Log and include stderr output for debugging
-            stderr_output = e.stderr.decode('utf-8') if e.stderr else 'No stderr output'
-            error_msg = f"FFprobe error for stream {url}. Stderr: {stderr_output}"
+            # Extract all available error information
+            stderr_output = 'No stderr output'
+            stdout_output = 'No stdout output'
+            
+            # Try different ways to extract stderr
+            if hasattr(e, 'stderr') and e.stderr:
+                if isinstance(e.stderr, bytes):
+                    stderr_output = e.stderr.decode('utf-8', errors='replace')
+                else:
+                    stderr_output = str(e.stderr)
+                    
+            if hasattr(e, 'stdout') and e.stdout:
+                if isinstance(e.stdout, bytes):
+                    stdout_output = e.stdout.decode('utf-8', errors='replace')
+                else:
+                    stdout_output = str(e.stdout)
+            
+            # Additional error details
+            cmd_info = getattr(e, 'cmd', 'unknown command')
+            returncode = getattr(e, 'returncode', 'unknown')
+            
+            error_msg = f"""FFprobe error for stream {url}:
+Command: {cmd_info}
+Return code: {returncode}
+Stdout: {stdout_output}
+Stderr: {stderr_output}
+Original error: {str(e)}"""
+            
             logger.error(error_msg)
-            # Create new exception with stderr details
+            # Create new exception with detailed error information
             raise Exception(error_msg) from e
         except Exception as e:
             logger.error(f"Unexpected error probing stream {url}: {e}")

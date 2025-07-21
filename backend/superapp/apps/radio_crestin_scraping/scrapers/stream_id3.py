@@ -118,16 +118,37 @@ class StreamId3Scraper(BaseScraper):
             return metadata
             
         except ffmpeg.Error as e:
-            # ffmpeg errors contain stderr output with details
-            stderr_output = ""
-            if hasattr(e, 'stderr') and e.stderr:
-                stderr_output = e.stderr.decode('utf-8') if isinstance(e.stderr, bytes) else str(e.stderr)
+            # Extract all available error information
+            stderr_output = 'No stderr output'
+            stdout_output = 'No stdout output'
             
-            error_msg = f"FFmpeg error probing stream {url}: {stderr_output or str(e)}"
+            # Try different ways to extract stderr
+            if hasattr(e, 'stderr') and e.stderr:
+                if isinstance(e.stderr, bytes):
+                    stderr_output = e.stderr.decode('utf-8', errors='replace')
+                else:
+                    stderr_output = str(e.stderr)
+                    
+            if hasattr(e, 'stdout') and e.stdout:
+                if isinstance(e.stdout, bytes):
+                    stdout_output = e.stdout.decode('utf-8', errors='replace')
+                else:
+                    stdout_output = str(e.stdout)
+            
+            # Additional error details
+            cmd_info = getattr(e, 'cmd', 'unknown command')
+            returncode = getattr(e, 'returncode', 'unknown')
+            
+            error_msg = f"""FFmpeg error probing stream {url}:
+Command: {cmd_info}
+Return code: {returncode}
+Stdout: {stdout_output}
+Stderr: {stderr_output}
+Original error: {str(e)}"""
+            
             logger.error(error_msg)
             
             if settings.DEBUG:
-                logger.debug(f"FFmpeg command that failed: {getattr(e, 'cmd', 'unknown')}")
                 # Re-raise with detailed error message in debug mode
                 raise Exception(error_msg) from e
                 
