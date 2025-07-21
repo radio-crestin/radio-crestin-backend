@@ -307,7 +307,7 @@ class StationsAdmin(SuperAppModelAdmin):
 
             # Execute metadata scraping for this station synchronously
             try:
-                result = scrape_station_metadata.apply(args=[station_id]).get(timeout=60)
+                result = scrape_station_metadata.apply(args=[station_id]).get(timeout=180)
                 if isinstance(result, dict) and result.get('success', False):
                     successes.append(f"Metadata scraping completed for {station_name}")
                 else:
@@ -320,7 +320,7 @@ class StationsAdmin(SuperAppModelAdmin):
 
             # Execute RSS scraping for this station synchronously
             try:
-                result = scrape_station_rss_feed.apply(args=[station_id]).get(timeout=60)
+                result = scrape_station_rss_feed.apply(args=[station_id]).get(timeout=180)
                 if isinstance(result, dict) and result.get('success', False):
                     successes.append(f"RSS scraping completed for {station_name}")
                 else:

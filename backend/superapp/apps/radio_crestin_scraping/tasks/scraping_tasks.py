@@ -156,32 +156,49 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
                 logger.warning(f"No scraper available for category: {category_slug}")
                 continue
 
-            # Scrape data synchronously
-            try:
-                import httpx
-                import ssl
+            # Scrape data synchronously with retry mechanism
+            max_retries = 3
+            retry_delay = 2
+            scrape_result = None
+            
+            for attempt in range(max_retries):
+                try:
+                    import httpx
+                    import ssl
+                    import time
 
-                # Create SSL context that doesn't verify certificates
-                ssl_context = ssl.create_default_context()
-                ssl_context.check_hostname = False
-                ssl_context.verify_mode = ssl.CERT_NONE
+                    # Create SSL context that doesn't verify certificates
+                    ssl_context = ssl.create_default_context()
+                    ssl_context.check_hostname = False
+                    ssl_context.verify_mode = ssl.CERT_NONE
 
-                # Use synchronous httpx client
-                with httpx.Client(timeout=10, verify=False) as client:
-                    response = client.get(fetcher.url)
-                    response.raise_for_status()
-                    scrape_result = scraper.extract_data(response.text)
-            except Exception as scrape_error:
-                logger.error(f"Error making HTTP request to {fetcher.url}: {scrape_error}")
-                continue
+                    # Use synchronous httpx client with increased timeout
+                    with httpx.Client(timeout=60, verify=False) as client:
+                        response = client.get(fetcher.url)
+                        response.raise_for_status()
+                        scrape_result = scraper.extract_data(response.text)
+                        break  # Success, exit retry loop
+                        
+                except Exception as scrape_error:
+                    logger.warning(f"Attempt {attempt + 1}/{max_retries} failed for {fetcher.url}: {scrape_error}")
+                    if attempt < max_retries - 1:
+                        time.sleep(retry_delay)
+                        retry_delay *= 2  # Exponential backoff
+                    else:
+                        logger.error(f"All {max_retries} attempts failed for {fetcher.url}: {scrape_error}")
+                        if settings.DEBUG:
+                            raise
+                        continue
 
-            if scraped_count == 0:
-                merged_data = scrape_result
-            else:
-                # Merge data (prefer non-null values from new data)
-                merged_data = _merge_station_data(merged_data, scrape_result)
+            # Only process if we successfully scraped data
+            if scrape_result:
+                if scraped_count == 0:
+                    merged_data = scrape_result
+                else:
+                    # Merge data (prefer non-null values from new data)
+                    merged_data = _merge_station_data(merged_data, scrape_result)
 
-            scraped_count += 1
+                scraped_count += 1
 
         except Exception as error:
             logger.error(f"Error scraping {fetcher.url}: {error}")
@@ -226,7 +243,7 @@ def _scrape_rss_sync(station) -> Dict[str, Any]:
 
         logger.info(f"Scraping RSS feed: {station.rss_feed}")
 
-        # Download the RSS content synchronously with browser headers
+        # Download the RSS content synchronously with browser headers and retry mechanism
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
@@ -238,10 +255,27 @@ def _scrape_rss_sync(station) -> Dict[str, Any]:
             'Sec-Fetch-Mode': 'navigate',
             'Sec-Fetch-Site': 'none'
         }
-        with httpx.Client(timeout=10, verify=False, headers=headers) as client:
-            response = client.get(station.rss_feed)
-            response.raise_for_status()
-            rss_content = response.text
+        
+        max_retries = 3
+        retry_delay = 2
+        rss_content = None
+        
+        for attempt in range(max_retries):
+            try:
+                with httpx.Client(timeout=60, verify=False, headers=headers) as client:
+                    response = client.get(station.rss_feed)
+                    response.raise_for_status()
+                    rss_content = response.text
+                    break  # Success, exit retry loop
+            except Exception as rss_error:
+                logger.warning(f"RSS attempt {attempt + 1}/{max_retries} failed for {station.rss_feed}: {rss_error}")
+                if attempt < max_retries - 1:
+                    import time
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    logger.error(f"All {max_retries} RSS attempts failed for {station.rss_feed}: {rss_error}")
+                    raise rss_error  # Re-raise the last error
 
         # Parse the RSS content
         feed = feedparser.parse(rss_content)
@@ -258,7 +292,7 @@ def _scrape_rss_sync(station) -> Dict[str, Any]:
                 except (ValueError, TypeError):
                     # Fallback to raw string if parsing fails
                     published_iso = published_raw
-            
+
             # Simple RSS entry parsing
             post = RssFeedPost(
                 title=getattr(entry, 'title', ''),

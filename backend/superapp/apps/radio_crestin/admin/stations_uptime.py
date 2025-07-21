@@ -15,20 +15,20 @@ class StationsUptimeAdmin(SuperAppModelAdmin):
     list_filter = ['is_up', 'timestamp', 'station']
     search_fields = ['station__title']
     autocomplete_fields = ['station']
-    readonly_fields = ['created_at', 'updated_at', 'raw_data_preview']
+    readonly_fields = ['created_at', 'updated_at', 'raw_data']
     date_hierarchy = 'timestamp'
     list_select_related = ['station']
-    
+
     # Optimization for large datasets
     list_per_page = 25
     show_full_result_count = False
-    
+
     fieldsets = (
         (_("Basic Information"), {
             'fields': ('station', 'timestamp', 'is_up', 'latency_ms')
         }),
         (_("Data"), {
-            'fields': ('raw_data_preview',),
+            'fields': ('raw_data',),
             'classes': ('collapse',)
         }),
         (_("Timestamps"), {
@@ -51,9 +51,3 @@ class StationsUptimeAdmin(SuperAppModelAdmin):
         return format_html('<span style="color: red;">●</span> {}'.format(_("Down")))
     status_indicator.short_description = _("Status")
     status_indicator.admin_order_field = 'is_up'
-
-    def raw_data_preview(self, obj):
-        if obj.raw_data:
-            return format_html('<pre>{}</pre>', json.dumps(obj.raw_data, indent=2)[:500] + "...")
-        return _("No data")
-    raw_data_preview.short_description = _("Raw Data Preview")
