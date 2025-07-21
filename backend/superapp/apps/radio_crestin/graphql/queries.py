@@ -5,8 +5,9 @@ import strawberry_django
 from typing import List, Optional
 from django.db.models import Prefetch
 
-from .types import StationType, StationGroupType, GetStationsResponse, OrderDirection, OrderDirectionEnum, PostOrderBy
-from ..models import Stations, StationGroups, StationStreams, Posts, StationsUptime, StationsNowPlaying, StationToStationGroup
+from .types import StationType, StationGroupType, GetStationsResponse, OrderDirection, OrderDirectionEnum, PostOrderBy, ArtistType, SongType, PostType, ReviewType
+from .filters import stations_bool_exp, stations_order_by
+from ..models import Stations, StationGroups, StationStreams, Posts, StationsUptime, StationsNowPlaying, StationToStationGroup, Artists, Songs
 
 @strawberry.input
 class StationOrderBy:
@@ -141,4 +142,95 @@ class Query:
             queryset = queryset[:limit]
 
         return queryset
+
+    # Primary key lookups (Hasura-style)
+    @strawberry_django.field
+    def stations_by_pk(self, id: int) -> Optional[StationType]:
+        """Get station by primary key"""
+        try:
+            return Stations.objects.select_related(
+                'latest_station_uptime',
+                'latest_station_now_playing',
+                'latest_station_now_playing__song',
+                'latest_station_now_playing__song__artist'
+            ).prefetch_related('stationstreams_set').get(id=id, disabled=False)
+        except Stations.DoesNotExist:
+            return None
+
+    @strawberry_django.field
+    def artists(
+        self,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+    ) -> List[ArtistType]:
+        """Get artists with pagination"""
+        queryset = Artists.objects.all()
+        
+        if offset:
+            queryset = queryset[offset:]
+        if limit:
+            queryset = queryset[:limit]
+            
+        return queryset
+
+    @strawberry_django.field
+    def artists_by_pk(self, id: int) -> Optional[ArtistType]:
+        """Get artist by primary key"""
+        try:
+            return Artists.objects.get(id=id)
+        except Artists.DoesNotExist:
+            return None
+
+    @strawberry_django.field
+    def songs(
+        self,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+    ) -> List[SongType]:
+        """Get songs with pagination"""
+        queryset = Songs.objects.select_related('artist')
+        
+        if offset:
+            queryset = queryset[offset:]
+        if limit:
+            queryset = queryset[:limit]
+            
+        return queryset
+
+    @strawberry_django.field 
+    def songs_by_pk(self, id: int) -> Optional[SongType]:
+        """Get song by primary key"""
+        try:
+            return Songs.objects.select_related('artist').get(id=id)
+        except Songs.DoesNotExist:
+            return None
+
+    @strawberry_django.field
+    def posts(
+        self,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+    ) -> List[PostType]:
+        """Get posts with pagination"""
+        queryset = Posts.objects.select_related('station').order_by('-published')
+        
+        if offset:
+            queryset = queryset[offset:]
+        if limit:
+            queryset = queryset[:limit]
+            
+        return queryset
+
+    @strawberry_django.field
+    def posts_by_pk(self, id: int) -> Optional[PostType]:
+        """Get post by primary key"""
+        try:
+            return Posts.objects.select_related('station').get(id=id)
+        except Posts.DoesNotExist:
+            return None
+
+    @strawberry.field
+    def health(self) -> bool:
+        """Health check for GraphQL schema"""
+        return True
 

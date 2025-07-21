@@ -5,6 +5,7 @@ import strawberry_django
 from typing import Optional, List
 from datetime import datetime
 from enum import Enum
+from .scalars import timestamptz
 
 class OrderDirection(Enum):
     asc = "asc"
@@ -80,6 +81,28 @@ class StationType:
     description_link: Optional[str] = strawberry_django.field()
     feature_latest_post: bool = strawberry_django.field()
     facebook_page_id: Optional[str] = strawberry_django.field()
+    
+    # Hasura-compatible computed fields
+    @strawberry.field
+    def hls_stream_url(self) -> Optional[str]:
+        """Generate HLS stream URL for the station"""
+        if hasattr(self, 'generate_hls_stream') and self.generate_hls_stream:
+            # Generate HLS URL based on station slug or ID
+            return f"https://hls.radio-crestin.com/{self.slug}.m3u8"
+        return None
+    
+    @strawberry.field
+    def proxy_stream_url(self) -> Optional[str]:
+        """Generate proxy stream URL for the station"""
+        return f"https://proxy.radio-crestin.com/{self.slug}"
+    
+    @strawberry.field
+    def radio_crestin_listeners(self) -> Optional[int]:
+        """Get listener count specific to radio-crestin platform"""
+        if hasattr(self, 'latest_station_now_playing') and self.latest_station_now_playing:
+            # Assume this is radio-crestin specific count
+            return self.latest_station_now_playing.listeners
+        return None
     
     # Custom posts resolver to handle limit and order_by
     @strawberry.field

@@ -83,20 +83,33 @@ import_field_types()
 # Find and combine all queries and mutations
 all_queries, all_mutations = find_graphql_modules()
 
-Query = merge_types(
-    "Query",
+# Create root types with Hasura-compatible names
+query_root = merge_types(
+    "query_root",
     tuple(all_queries)
 )
-Mutation = merge_types(
-    "Mutation",
+mutation_root = merge_types(
+    "mutation_root", 
     tuple(all_mutations)
 )
 
+# Also create standard names for compatibility
+Query = query_root
+Mutation = mutation_root
+
 from strawberry.schema.config import StrawberryConfig
 
+# Import directives for Hasura compatibility
+try:
+    from superapp.apps.radio_crestin.graphql.directives import cached
+    directives = [cached]
+except ImportError:
+    directives = []
+
 schema = strawberry.Schema(
-    query=Query,
-    mutation=Mutation,
+    query=query_root,
+    mutation=mutation_root,
+    directives=directives,
     config=StrawberryConfig(
         auto_camel_case=False,  # Keep snake_case field names
     ),
