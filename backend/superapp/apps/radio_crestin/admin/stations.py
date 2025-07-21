@@ -240,9 +240,10 @@ class StationsAdmin(SuperAppModelAdmin):
                 scrape_station_rss_feed
             )
             
-            # Execute metadata scraping for this station
+            # Execute metadata scraping for this station using delay() for async execution
             try:
-                result = scrape_station_metadata(station_id)
+                metadata_task = scrape_station_metadata.delay(station_id)
+                result = metadata_task.get(timeout=60)  # Wait up to 60 seconds for result
                 if isinstance(result, dict) and result.get('success', False):
                     successes.append(f"Metadata scraping completed for {station_name}")
                 else:
@@ -251,9 +252,10 @@ class StationsAdmin(SuperAppModelAdmin):
             except Exception as e:
                 errors.append(f"Metadata scraping failed for {station_name}: {str(e)}")
             
-            # Execute RSS scraping for this station
+            # Execute RSS scraping for this station using delay() for async execution
             try:
-                result = scrape_station_rss_feed(station_id)
+                rss_task = scrape_station_rss_feed.delay(station_id)
+                result = rss_task.get(timeout=60)  # Wait up to 60 seconds for result
                 if isinstance(result, dict) and result.get('success', False):
                     successes.append(f"RSS scraping completed for {station_name}")
                 else:
