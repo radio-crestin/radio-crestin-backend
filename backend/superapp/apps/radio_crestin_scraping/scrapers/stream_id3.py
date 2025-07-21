@@ -46,14 +46,16 @@ class StreamId3Scraper(BaseScraper):
     def _probe_stream(self, url: str) -> Dict[str, Any]:
         """Probe stream metadata using ffmpeg-python"""
         try:
-            # Use ffmpeg.probe to get metadata
+            # Use ffmpeg.probe to get metadata with modern parameters
             probe_data = ffmpeg.probe(
                 url,
+                v='quiet',  # Reduce verbose output
+                print_format='json',  # Ensure JSON output
+                show_format=None,
+                show_streams=None,
                 timeout=5.0,
-                show_format=True,
-                show_streams=True,
-                analyzeduration='1000000',  # 1 second
-                probesize='32768'  # 32KB
+                analyzeduration=1000000,  # 1 second in microseconds
+                probesize=32768  # 32KB
             )
             
             metadata = {}
@@ -108,11 +110,23 @@ class StreamId3Scraper(BaseScraper):
             
         except ffmpeg.Error as e:
             # ffmpeg errors contain stderr output with details
-            stderr = e.stderr.decode('utf-8') if e.stderr else str(e)
-            logger.error(f"FFmpeg error probing stream {url}: {stderr}")
+            stderr_output = ""
+            if hasattr(e, 'stderr') and e.stderr:
+                stderr_output = e.stderr.decode('utf-8') if isinstance(e.stderr, bytes) else str(e.stderr)
+            
+            logger.error(f"FFmpeg error probing stream {url}: {stderr_output or str(e)}")
+            
+            if settings.DEBUG:
+                logger.debug(f"FFmpeg command that failed: {getattr(e, 'cmd', 'unknown')}")
+                
+            return {}
+        except TimeoutError as e:
+            logger.warning(f"Timeout probing stream {url}: {e}")
             return {}
         except Exception as e:
-            logger.error(f"Error probing stream {url}: {e}")
+            logger.error(f"Unexpected error probing stream {url}: {e}")
+            if settings.DEBUG:
+                logger.exception(f"Full exception for stream {url}")
             return {}
 
     def extract_data(self, response_data: Any, config=None) -> StationNowPlayingData:

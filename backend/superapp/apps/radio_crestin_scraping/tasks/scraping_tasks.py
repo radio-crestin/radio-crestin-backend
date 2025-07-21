@@ -9,6 +9,7 @@ from dateutil.parser import parse
 
 from ..scrapers.factory import ScraperFactory
 from ..services.station_service import StationService
+from ..services.uptime_service import UptimeService
 from ..utils.data_types import StationUptimeData
 
 logger = logging.getLogger(__name__)
@@ -624,13 +625,13 @@ def check_station_uptime(station_id: int = None) -> Dict[str, Any]:
 
     # Get stations to check
     if station_id:
-        stations = StationService.get_all_active_stations().filter(id=station_id)
+        stations = UptimeService.get_all_active_stations().filter(id=station_id)
         if not stations.exists():
             error_msg = f"Station {station_id} not found or disabled"
             logger.error(error_msg)
             return {"success": False, "error": error_msg}
     else:
-        stations = StationService.get_all_active_stations()
+        stations = UptimeService.get_all_active_stations()
 
     results = []
     total_checked = 0
@@ -768,7 +769,7 @@ def _check_single_station_uptime(station) -> Dict[str, Any]:
 
     # Save to database
     try:
-        StationService.upsert_station_uptime(station.id, uptime_data)
+        UptimeService.upsert_station_uptime(station.id, uptime_data)
     except Exception as e:
         logger.error(f"Failed to save uptime data for station {station.id}: {e}")
         if settings.DEBUG:
