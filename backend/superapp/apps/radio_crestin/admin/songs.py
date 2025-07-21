@@ -2,10 +2,13 @@ from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
 from django.urls import reverse
+from django.contrib.postgres.search import TrigramSimilarity
+from django.db.models import Q
 
 from superapp.apps.admin_portal.admin import SuperAppModelAdmin
 from superapp.apps.admin_portal.sites import superapp_admin_site
 from ..models import Songs
+from ..services import AutocompleteService
 
 
 @admin.register(Songs, site=superapp_admin_site)
@@ -43,3 +46,30 @@ class SongsAdmin(SuperAppModelAdmin):
     def get_queryset(self, request):
         # Optimize queryset for performance
         return super().get_queryset(request).select_related('artist')
+
+    def get_search_results(self, request, queryset, search_term):
+        """
+        Override search to use fast trigram-based search for better autocomplete performance
+        """
+        if not search_term or len(search_term.strip()) < 2:
+            return queryset, False
+
+        # Use the autocomplete service for fast trigram search
+        search_results = AutocompleteService.search_songs(
+            search_term.strip(), 
+            limit=100,  # Higher limit for admin interface
+            include_artist=True
+        )
+        
+        # Convert QuerySet to list of IDs to maintain compatibility with admin interface
+        result_ids = [song.id for song in search_results]
+        
+        if result_ids:
+            # Preserve ordering from the autocomplete service
+            queryset = queryset.filter(id__in=result_ids)
+            # Apply manual ordering to match the search result order
+            ordering = {id_: index for index, id_ in enumerate(result_ids)}
+            queryset = sorted(queryset, key=lambda x: ordering.get(x.id, 999))
+            return queryset, False
+        else:
+            return queryset.none(), False

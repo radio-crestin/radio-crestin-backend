@@ -7,6 +7,7 @@ from django.db.models import Prefetch
 
 from .types import StationType, StationGroupType, OrderDirection, OrderDirectionEnum, ArtistType, SongType, PostType
 from ..models import Stations, StationGroups, StationStreams, Posts, StationToStationGroup, Artists, Songs
+from ..services import AutocompleteService
 
 @strawberry.input
 class StationOrderBy:
@@ -159,8 +160,13 @@ class Query:
         self,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
+        search: Optional[str] = None,
     ) -> List[ArtistType]:
-        """Get artists with pagination"""
+        """Get artists with pagination and search support"""
+        if search:
+            # Use the autocomplete service for fast trigram-based search
+            return AutocompleteService.search_artists(search, limit or 10)
+        
         queryset = Artists.objects.all()
 
         if offset:
@@ -183,8 +189,13 @@ class Query:
         self,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
+        search: Optional[str] = None,
     ) -> List[SongType]:
-        """Get songs with pagination"""
+        """Get songs with pagination and search support"""
+        if search:
+            # Use the autocomplete service for fast trigram-based search
+            return AutocompleteService.search_songs(search, limit or 10)
+        
         queryset = Songs.objects.select_related('artist')
 
         if offset:
@@ -225,6 +236,30 @@ class Query:
             return Posts.objects.select_related('station').get(id=id)
         except Posts.DoesNotExist:
             return None
+
+    @strawberry.field
+    def autocomplete(
+        self,
+        query: str,
+        search_type: Optional[str] = "combined",
+        limit: Optional[int] = 10,
+    ) -> List[strawberry.scalars.JSON]:
+        """
+        Fast autocomplete search for songs and artists using trigram indexes
+        
+        Args:
+            query: Search query string
+            search_type: Type of search ('artists', 'songs', 'combined')  
+            limit: Maximum number of results to return
+            
+        Returns:
+            List of formatted autocomplete suggestions
+        """
+        return AutocompleteService.get_autocomplete_suggestions(
+            query=query,
+            search_type=search_type or "combined",
+            limit=limit or 10
+        )
 
     @strawberry.field
     def health(self) -> bool:
