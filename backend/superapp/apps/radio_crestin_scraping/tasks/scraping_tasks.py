@@ -16,22 +16,26 @@ logger = logging.getLogger(__name__)
 def scrape_station_metadata(station_id: int) -> Dict[str, Any]:
     """Scrape metadata for a single station"""
     # Get station with metadata fetchers
-    stations = StationService.get_stations_with_metadata_fetchers().filter(id=station_id)
-    if not stations.exists():
-        error_msg = f"Station {station_id} not found or disabled"
+    from superapp.apps.radio_crestin.models import Stations
+    try:
+        station = Stations.objects.get(id=station_id)
+        if station.disabled:
+            logger.info(f"Station {station_id} is disabled - skipping metadata scraping")
+            return {"success": True, "scraped_count": 0, "station_disabled": True}
+        
+        # Check if station has metadata fetchers
+        if not station.station_metadata_fetches.exists():
+            logger.info(f"No metadata fetchers configured for station {station_id}")
+            return {"success": True, "scraped_count": 0}
+    except Stations.DoesNotExist:
+        error_msg = f"Station {station_id} not found"
         logger.error(error_msg)
         raise ValueError(error_msg)
-
-    station = stations.first()
 
     # Get metadata fetchers ordered by priority (higher number = higher priority)
     metadata_fetchers = station.station_metadata_fetches.select_related(
         'station_metadata_fetch_category'
     ).order_by('-priority')
-
-    if not metadata_fetchers.exists():
-        logger.info(f"No metadata fetchers configured for station {station_id}")
-        return {"success": True, "scraped_count": 0}
 
     # Run synchronous scraping
     result = _scrape_station_sync(station, metadata_fetchers)
@@ -44,13 +48,21 @@ def scrape_station_metadata(station_id: int) -> Dict[str, Any]:
 def scrape_station_rss_feed(station_id: int) -> Dict[str, Any]:
     """Scrape RSS feed for a single station"""
     # Get station with RSS feed
-    stations = StationService.get_stations_with_rss_feeds().filter(id=station_id)
-    if not stations.exists():
-        error_msg = f"Station {station_id} not found, disabled, or no RSS feed"
-        logger.warning(error_msg)
+    from superapp.apps.radio_crestin.models import Stations
+    try:
+        station = Stations.objects.get(id=station_id)
+        if station.disabled:
+            logger.info(f"Station {station_id} is disabled - skipping RSS scraping")
+            return {"success": True, "posts_count": 0, "station_disabled": True}
+        
+        # Check if station has RSS feed
+        if not station.rss_feed:
+            logger.info(f"Station {station_id} has no RSS feed configured")
+            return {"success": True, "posts_count": 0}
+    except Stations.DoesNotExist:
+        error_msg = f"Station {station_id} not found"
+        logger.error(error_msg)
         return {"success": True, "error": error_msg}
-
-    station = stations.first()
 
     # Run synchronous RSS scraping
     result = _scrape_rss_sync(station)
