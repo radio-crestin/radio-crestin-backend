@@ -22,6 +22,7 @@ class Stations(models.Model):
     rss_feed = models.URLField(_("RSS Feed"), blank=True, null=True)
     feature_latest_post = models.BooleanField(_("Feature Latest Post"), default=True, blank=True, null=True)
     facebook_page_id = models.TextField(_("Facebook Page ID"), blank=True, null=True)
+    check_uptime = models.BooleanField(_("Check Uptime"), default=True)
 
     latest_station_uptime = models.ForeignKey('StationsUptime', verbose_name=_("Latest Station Uptime"), on_delete=models.SET_NULL, blank=True, null=True, related_name='latest_for_stations')
     latest_station_now_playing = models.ForeignKey('StationsNowPlaying', verbose_name=_("Latest Now Playing"), on_delete=models.SET_NULL, blank=True, null=True, related_name='latest_for_stations')

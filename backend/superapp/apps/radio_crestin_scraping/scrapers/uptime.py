@@ -63,6 +63,19 @@ class UptimeScraper(BaseScraper):
 
     def _check_single_station_uptime(self, station) -> Dict[str, Any]:
         """Check uptime for a single station using lightweight HTTP request and save the result"""
+        # If check_uptime is False, return True (station is considered up)
+        if not getattr(station, 'check_uptime', True):
+            return {
+                "success": True,
+                "station_id": station.id,
+                "station_title": station.title,
+                "stream_url": station.stream_url,
+                "is_up": True,
+                "latency_ms": 0,
+                "error": None,
+                "raw_data": {"method": "skipped", "reason": "check_uptime_disabled"}
+            }
+
         start_time = time.time()
         is_up = False
         latency_ms = 0
