@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     libevent-dev \
     libffi-dev \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
