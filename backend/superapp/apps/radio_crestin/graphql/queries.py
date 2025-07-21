@@ -52,9 +52,7 @@ class Query:
             # Prefetch station streams ordered by order field
             Prefetch(
                 'station_streams',
-                queryset=StationStreams.objects.filter(
-                    station__disabled=False
-                ).order_by('order', 'id')
+                queryset=StationStreams.objects.order_by('order', 'id')
             ),
             # Prefetch posts without slicing - the custom resolver will handle limiting
             Prefetch(
