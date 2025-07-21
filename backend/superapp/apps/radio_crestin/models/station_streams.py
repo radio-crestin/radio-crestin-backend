@@ -11,7 +11,7 @@ class StationStreams(models.Model):
 
     created_at = models.DateTimeField(_("Created at"), auto_now_add=True)
     updated_at = models.DateTimeField(_("Updated at"), auto_now=True)
-    station = models.ForeignKey('Stations', verbose_name=_("Station"), null=True, on_delete=models.SET_NULL)
+    station = models.ForeignKey('Stations', verbose_name=_("Station"), on_delete=models.CASCADE, related_name='station_streams')
     stream_url = models.TextField(_("Stream URL"))
     order = models.FloatField(_("Order"), blank=True, null=True, default=0)
     type = models.TextField(_("Type"), choices=STREAM_TYPES)

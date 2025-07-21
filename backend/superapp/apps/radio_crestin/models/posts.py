@@ -9,7 +9,7 @@ class Posts(models.Model):
     link = models.TextField(_("Link"))
     description = models.TextField(_("Description"), null=True, blank=True)
     published = models.DateTimeField(_("Published"))
-    station = models.ForeignKey('Stations', verbose_name=_("Station"), on_delete=models.CASCADE)
+    station = models.ForeignKey('Stations', verbose_name=_("Station"), on_delete=models.CASCADE, related_name='posts')
 
     class Meta:
         managed = True

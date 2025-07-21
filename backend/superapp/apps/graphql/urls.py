@@ -8,6 +8,7 @@ from superapp.apps.graphql.schema import schema
 def extend_superapp_urlpatterns(main_urlpatterns):
     main_urlpatterns += [
         path('graphql', csrf_exempt(GraphQLView.as_view(schema=schema)), name='graphql'),
+        path('v2/graphql', csrf_exempt(GraphQLView.as_view(schema=schema)), name='graphql'),
     ]
 
 

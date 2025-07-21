@@ -1,15 +1,13 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-from .stations import Stations
-from .songs import Songs
 
 
 class StationsNowPlaying(models.Model):
     created_at = models.DateTimeField(_("Created at"), auto_now_add=True)
     updated_at = models.DateTimeField(_("Updated at"), auto_now=True)
     timestamp = models.DateTimeField(_("Timestamp"))
-    station = models.ForeignKey(Stations, verbose_name=_("Station"), on_delete=models.SET_NULL, blank=True, null=True)
-    song = models.ForeignKey(Songs, verbose_name=_("Song"), on_delete=models.SET_NULL, blank=True, null=True)
+    station = models.OneToOneField('Stations', verbose_name=_("Station"), on_delete=models.CASCADE, related_name='now_playing')
+    song = models.ForeignKey('Songs', verbose_name=_("Song"), on_delete=models.SET_NULL, blank=True, null=True, related_name='played_songs')
     raw_data = models.JSONField(_("Raw Data"))
     error = models.JSONField(_("Error"), blank=True, null=True)
     listeners = models.IntegerField(_("Listeners"), blank=True, null=True)

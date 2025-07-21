@@ -1,13 +1,12 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-from .station_groups import StationGroups
 
 
 class StationToStationGroup(models.Model):
     created_at = models.DateTimeField(_("Created at"), auto_now_add=True)
     updated_at = models.DateTimeField(_("Updated at"), auto_now=True)
-    station = models.ForeignKey('Stations', verbose_name=_("Station"), null=True, on_delete=models.SET_NULL)
-    group = models.ForeignKey(StationGroups, verbose_name=_("Group"), null=True, on_delete=models.SET_NULL)
+    station = models.ForeignKey('Stations', verbose_name=_("Station"), on_delete=models.CASCADE, related_name='station_to_station_groups')
+    group = models.ForeignKey('StationGroups', verbose_name=_("Group"), on_delete=models.CASCADE, related_name='station_to_station_groups')
     order = models.FloatField(_("Order"), blank=True, null=True, default=0)
 
     class Meta:
