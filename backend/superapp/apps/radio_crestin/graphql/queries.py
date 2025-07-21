@@ -56,10 +56,10 @@ class Query:
                     station__disabled=False
                 ).order_by('order', 'id')
             ),
-            # Prefetch latest post only (limit 1, ordered by published desc)
+            # Prefetch posts without slicing - the custom resolver will handle limiting
             Prefetch(
                 'posts',
-                queryset=Posts.objects.order_by('-published')[:1]
+                queryset=Posts.objects.order_by('-published')
             )
         ).filter(disabled=False)
 

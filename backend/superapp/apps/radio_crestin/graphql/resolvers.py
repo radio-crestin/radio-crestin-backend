@@ -38,10 +38,10 @@ class GetStationsQuery:
                 'station_streams',
                 queryset=StationStreams.objects.order_by('order').select_related()
             ),
-            # Optimized prefetch for latest post only (limit 1, order by published desc)
+            # Prefetch posts without slicing - the custom resolver will handle limiting
             Prefetch(
                 'posts',
-                queryset=Posts.objects.order_by('-published')[:1]
+                queryset=Posts.objects.order_by('-published')
             )
         ).filter(
             disabled=False
@@ -71,7 +71,7 @@ def get_optimized_stations_queryset():
     Query optimization breakdown:
     - 1 query for stations with select_related joins
     - 1 query for all station_streams (prefetch_related)  
-    - 1 query for latest posts (prefetch_related with limit)
+    - 1 query for posts (prefetch_related, limiting handled by resolver)
     - Total: 3 queries instead of N+1 queries
     """
     return Stations.objects.select_related(
@@ -86,7 +86,7 @@ def get_optimized_stations_queryset():
         ),
         Prefetch(
             'posts', 
-            queryset=Posts.objects.order_by('-published')[:1]
+            queryset=Posts.objects.order_by('-published')
         )
     ).filter(disabled=False).order_by('order', 'title')
 
