@@ -95,10 +95,30 @@ sync-prod-db-clean:
 	@echo "Creating backup of local database..."
 	@docker-compose exec -T postgres pg_dump -U postgres -d postgres > backup_$(shell date +%Y%m%d_%H%M%S).sql
 	@echo "Truncating local tables..."
-	@psql postgres://postgres:postgrespassword@127.0.0.1:5432/postgres -c "TRUNCATE TABLE stations_now_playing CASCADE;"
+	@psql postgres://postgres:postgrespassword@127.0.0.1:5432/postgres -c "\
+		TRUNCATE TABLE \
+		auth_user_user_permissions, \
+		auth_user_groups, \
+		auth_group_permissions, \
+		stations_metadata_fetch, \
+		station_to_station_group, \
+		station_streams, \
+		reviews, \
+		posts, \
+		stations_uptime, \
+		stations_now_playing, \
+		stations, \
+		auth_user, \
+		auth_permission, \
+		auth_group, \
+		station_groups, \
+		station_metadata_fetch_categories, \
+		django_migrations, \
+		django_content_type \
+		CASCADE;"
 	@echo "Exporting data from production database..."
 	@ssh root@168.119.107.195 "docker exec ab370527d2bb pg_dump -U postgres -d postgres \
-		--data-only \
+		--data-only --disable-triggers \
 		-t posts -t stations_now_playing -t stations_uptime -t stations -t auth_user \
 		-t station_groups -t station_streams -t reviews -t auth_permission \
 		-t station_to_station_group -t station_metadata_fetch_categories \
