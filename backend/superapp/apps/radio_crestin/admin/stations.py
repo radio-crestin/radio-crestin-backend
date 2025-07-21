@@ -3,6 +3,8 @@ from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
+from django.contrib import messages
+from django.http import HttpResponseRedirect
 
 from superapp.apps.admin_portal.admin import SuperAppModelAdmin, SuperAppTabularInline
 from superapp.apps.admin_portal.sites import superapp_admin_site
@@ -158,3 +160,109 @@ class StationsAdmin(SuperAppModelAdmin):
             'latest_station_now_playing__song',
             'latest_station_now_playing__song__artist'
         ).prefetch_related('groups')
+
+    # Admin actions for manual scraping
+    actions = ['scrape_metadata_selected', 'scrape_rss_selected', 'scrape_both_selected']
+
+    def scrape_metadata_selected(self, request, queryset):
+        """Manually trigger metadata scraping for selected stations"""
+        try:
+            from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import scrape_station_metadata
+            
+            queued_count = 0
+            for station in queryset:
+                scrape_station_metadata.delay(station.id)
+                queued_count += 1
+            
+            self.message_user(
+                request,
+                _(f"Successfully queued metadata scraping for {queued_count} station(s). Tasks are running in the background."),
+                messages.SUCCESS
+            )
+        except ImportError:
+            self.message_user(
+                request,
+                _("Scraping tasks are not available. Make sure radio_crestin_scraping app is installed."),
+                messages.ERROR
+            )
+        except Exception as e:
+            self.message_user(
+                request,
+                _(f"Error queuing scraping tasks: {str(e)}"),
+                messages.ERROR
+            )
+    scrape_metadata_selected.short_description = _("🔄 Scrape metadata for selected stations")
+
+    def scrape_rss_selected(self, request, queryset):
+        """Manually trigger RSS scraping for selected stations"""
+        try:
+            from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import scrape_station_rss_feed
+            
+            queued_count = 0
+            stations_with_rss = 0
+            for station in queryset:
+                if station.rss_feed:
+                    scrape_station_rss_feed.delay(station.id)
+                    queued_count += 1
+                stations_with_rss += 1 if station.rss_feed else 0
+            
+            if stations_with_rss == 0:
+                self.message_user(
+                    request,
+                    _("None of the selected stations have RSS feeds configured."),
+                    messages.WARNING
+                )
+            else:
+                self.message_user(
+                    request,
+                    _(f"Successfully queued RSS scraping for {queued_count} station(s) out of {stations_with_rss} with RSS feeds. Tasks are running in the background."),
+                    messages.SUCCESS
+                )
+        except ImportError:
+            self.message_user(
+                request,
+                _("Scraping tasks are not available. Make sure radio_crestin_scraping app is installed."),
+                messages.ERROR
+            )
+        except Exception as e:
+            self.message_user(
+                request,
+                _(f"Error queuing RSS scraping tasks: {str(e)}"),
+                messages.ERROR
+            )
+    scrape_rss_selected.short_description = _("📰 Scrape RSS feeds for selected stations")
+
+    def scrape_both_selected(self, request, queryset):
+        """Manually trigger both metadata and RSS scraping for selected stations"""
+        try:
+            from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import scrape_station_metadata, scrape_station_rss_feed
+            
+            metadata_queued = 0
+            rss_queued = 0
+            
+            for station in queryset:
+                # Queue metadata scraping
+                scrape_station_metadata.delay(station.id)
+                metadata_queued += 1
+                
+                # Queue RSS scraping if station has RSS feed
+                if station.rss_feed:
+                    scrape_station_rss_feed.delay(station.id)
+                    rss_queued += 1
+            
+            message = _(f"Successfully queued scraping for {metadata_queued} station(s): metadata scraping for all, RSS scraping for {rss_queued} stations with RSS feeds. Tasks are running in the background.")
+            self.message_user(request, message, messages.SUCCESS)
+            
+        except ImportError:
+            self.message_user(
+                request,
+                _("Scraping tasks are not available. Make sure radio_crestin_scraping app is installed."),
+                messages.ERROR
+            )
+        except Exception as e:
+            self.message_user(
+                request,
+                _(f"Error queuing scraping tasks: {str(e)}"),
+                messages.ERROR
+            )
+    scrape_both_selected.short_description = _("🔄📰 Scrape both metadata and RSS for selected stations")
