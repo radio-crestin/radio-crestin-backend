@@ -62,8 +62,18 @@ class StreamId3Scraper(BaseScraper):
             # Use 5 second timeout as requested
             timeout = httpx.Timeout(connect=5.0, read=5.0, write=5.0, pool=5.0)
             
+            # Set headers to optimize stream requests
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (compatible; RadioScraperBot/1.0)',
+                'Accept': 'audio/mpeg, audio/aac, audio/ogg, audio/*;q=0.9, */*;q=0.1',
+                'Accept-Encoding': 'identity',  # Disable compression for streams
+                'Connection': 'close',  # Close connection after getting what we need
+                'Range': 'bytes=0-65535',  # Only request first 64KB
+                'Icy-MetaData': '1'  # Request ICY metadata if available
+            }
+            
             # Fetch stream data with httpx
-            with httpx.stream('GET', url, timeout=timeout, follow_redirects=True) as response:
+            with httpx.stream('GET', url, timeout=timeout, follow_redirects=True, headers=headers) as response:
                 # Handle bad status codes gracefully
                 if response.status_code >= 400:
                     logger.warning(f"Stream returned status {response.status_code} for {url}")
@@ -113,10 +123,22 @@ class StreamId3Scraper(BaseScraper):
                                         # We've read max bytes, use what we have
                                         break
                         
-                        # Early exit for non-audio streams
+                                # Early exit for non-audio streams
                         if 'html' in content_type or 'text' in content_type:
                             logger.warning(f"Stream appears to be non-audio content: {content_type}")
                             return {}
+                        
+                        # Early exit if we found enough data for a small ID3 tag
+                        if len(stream_data) >= 1024:  # 1KB should be enough for basic ID3 tags
+                            # Try to parse what we have so far
+                            try:
+                                temp_file = io.BytesIO(stream_data)
+                                temp_audio = self.MutagenFile(temp_file)
+                                if temp_audio and hasattr(temp_audio, 'tags') and temp_audio.tags:
+                                    logger.info(f"Found ID3 tags early, closing connection")
+                                    break
+                            except:
+                                pass  # Continue reading if parsing fails
                             
                 except Exception as read_error:
                     logger.warning(f"Error reading stream data: {read_error}")
@@ -182,7 +204,28 @@ class StreamId3Scraper(BaseScraper):
                 
                 # Check ICY headers for metadata (common in streaming)
                 icy_name = response.headers.get('icy-name')
-                icy_title = response.headers.get('icy-title') 
+                icy_title = response.headers.get('icy-title')
+                icy_genre = response.headers.get('icy-genre')
+                icy_url = response.headers.get('icy-url')
+                
+                # If we have ICY metadata in headers, we can use that and close early
+                if icy_name or icy_title:
+                    logger.info(f"Found ICY metadata in headers, using that instead of parsing stream data")
+                    if icy_name and not metadata.get('title'):
+                        metadata['title'] = icy_name
+                    if icy_title and not metadata.get('title'):
+                        metadata['title'] = icy_title
+                    if icy_genre:
+                        metadata['genre'] = icy_genre
+                    if icy_url:
+                        metadata['url'] = icy_url
+                        
+                    # We have what we need from headers, return early
+                    if metadata:
+                        logger.info(f"Using ICY header metadata: {list(metadata.keys())}")
+                        return metadata
+                
+                # Fallback: use ICY headers if no ID3 data found
                 if icy_name and not metadata.get('title'):
                     metadata['title'] = icy_name
                 if icy_title and not metadata.get('title'):
