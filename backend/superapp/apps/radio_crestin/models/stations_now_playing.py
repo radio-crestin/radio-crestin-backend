@@ -20,4 +20,5 @@ class StationsNowPlaying(models.Model):
         ordering = ('-timestamp',)
 
     def __str__(self):
-        return f"{self.station} - {self.song} ({self.timestamp})"
+        song_display = self.song if self.song else "No song"
+        return f"{self.station} - {song_display} ({self.timestamp})"

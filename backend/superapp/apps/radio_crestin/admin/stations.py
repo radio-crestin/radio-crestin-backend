@@ -39,7 +39,7 @@ class StationsAdmin(SuperAppModelAdmin):
     search_fields = ['title', 'slug', 'website', 'email']
     prepopulated_fields = {'slug': ('title',)}
     autocomplete_fields = ['latest_station_uptime', 'latest_station_now_playing']
-    readonly_fields = ['thumbnail_url', 'created_at', 'updated_at', 'thumbnail_preview']
+    readonly_fields = ['thumbnail_url', 'created_at', 'updated_at', 'thumbnail_preview', 'now_playing_display']
     
     fieldsets = (
         (_("Basic Information"), {
@@ -58,7 +58,7 @@ class StationsAdmin(SuperAppModelAdmin):
             'fields': ('rss_feed', 'feature_latest_post', 'facebook_page_id')
         }),
         (_("Status"), {
-            'fields': ('latest_station_uptime', 'latest_station_now_playing')
+            'fields': ('latest_station_uptime', 'latest_station_now_playing', 'now_playing_display')
         }),
         (_("Timestamps"), {
             'fields': ('created_at', 'updated_at'),
@@ -116,8 +116,45 @@ class StationsAdmin(SuperAppModelAdmin):
         return _("No data")
     latest_uptime_status.short_description = _("Latest Status")
 
+    def now_playing_display(self, obj):
+        if obj.latest_station_now_playing:
+            try:
+                now_playing = obj.latest_station_now_playing
+                if now_playing.song:
+                    song_info = f"{now_playing.song.name}"
+                    if hasattr(now_playing.song, 'artist') and now_playing.song.artist:
+                        song_info += f" - {now_playing.song.artist.name}"
+                    return format_html(
+                        '<div style="padding: 10px; background: #f0f0f0; border-radius: 4px;">'
+                        '<strong>{}</strong><br>'
+                        '<small>Listeners: {}</small><br>'
+                        '<small>Updated: {}</small>'
+                        '</div>',
+                        song_info,
+                        now_playing.listeners or 0,
+                        now_playing.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+                    )
+                else:
+                    return format_html(
+                        '<div style="padding: 10px; background: #fff3cd; border-radius: 4px;">'
+                        '<span style="color: #856404;">⚠️ No song information available</span><br>'
+                        '<small>Updated: {}</small>'
+                        '</div>',
+                        now_playing.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+                    )
+            except Exception as e:
+                return format_html(
+                    '<div style="padding: 10px; background: #f8d7da; border-radius: 4px;">'
+                    '<span style="color: #721c24;">❌ Error loading now playing info</span>'
+                    '</div>'
+                )
+        return _("No now playing data")
+    now_playing_display.short_description = _("Now Playing Info")
+
     def get_queryset(self, request):
         return super().get_queryset(request).select_related(
             'latest_station_uptime', 
-            'latest_station_now_playing'
+            'latest_station_now_playing',
+            'latest_station_now_playing__song',
+            'latest_station_now_playing__song__artist'
         ).prefetch_related('groups')

@@ -11,11 +11,11 @@ from .stations_now_playing import StationsNowPlaying
 from .stations_uptime import StationsUptime
 from .listening_events import ListeningEvents
 from .reviews import Reviews
-from .users import Users
+from .users import AppUsers
 
 __all__ = [
     'Artists',
-    'Songs', 
+    'Songs',
     'StationGroups',
     'StationMetadataFetchCategories',
     'StationToStationGroup',
@@ -27,5 +27,5 @@ __all__ = [
     'StationsUptime',
     'ListeningEvents',
     'Reviews',
-    'Users',
+    'AppUsers',
 ]

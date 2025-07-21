@@ -21,7 +21,7 @@
       </jdbc-additional-properties>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
-    <data-source source="LOCAL" name="postgres@localhost [2]" uuid="830efd5e-edc2-450c-affd-1a28c04a99ea">
+    <data-source source="LOCAL" name="postgres@radio-crestin-com-old" uuid="830efd5e-edc2-450c-affd-1a28c04a99ea">
       <driver-ref>postgresql</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.postgresql.Driver</jdbc-driver>

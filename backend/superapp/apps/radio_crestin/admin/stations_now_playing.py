@@ -48,7 +48,8 @@ class StationsNowPlayingAdmin(SuperAppModelAdmin):
     def song_link(self, obj):
         if obj.song:
             url = reverse('admin:radio_crestin_songs_change', args=[obj.song.pk])
-            return format_html('<a href="{}">{} - {}</a>', url, obj.song.name, obj.song.artist.name)
+            artist_name = obj.song.artist.name if obj.song.artist else _("Unknown Artist")
+            return format_html('<a href="{}">{} - {}</a>', url, obj.song.name, artist_name)
         return _("No song")
     song_link.short_description = _("Song")
     song_link.admin_order_field = 'song__name'

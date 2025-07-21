@@ -2,7 +2,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 
-class Users(models.Model):
+class AppUsers(models.Model):
     """
     Proxy/View model for authentication_user table to provide Hasura compatibility.
     This creates a 'users' table/view that references authentication.User.
@@ -17,7 +17,7 @@ class Users(models.Model):
     is_staff = models.BooleanField(_("staff status"), default=True)
     is_active = models.BooleanField(_("active"), default=True)
     date_joined = models.DateTimeField(_("date joined"), auto_now_add=True)
-    
+
     anonymous_id = models.CharField(_("Anonymous ID"), max_length=512, blank=True, null=True)
     anonymous_id_verified = models.DateTimeField(_("Anonymous ID verified"), blank=True, null=True)
     email_verified = models.DateTimeField(_("Email verified"), blank=True, null=True)
@@ -31,9 +31,9 @@ class Users(models.Model):
 
     class Meta:
         managed = True  # This is now a managed table that syncs with authentication_user
-        db_table = 'users'
-        verbose_name = _("User")
-        verbose_name_plural = _("Users")
+        db_table = 'app_users'
+        verbose_name = _("App User")
+        verbose_name_plural = _("App Users")
 
     def __str__(self):
-        return self.email or f"User {self.pk}"
+        return self.email or f"App User {self.pk}"
