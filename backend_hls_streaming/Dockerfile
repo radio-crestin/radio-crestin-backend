@@ -20,14 +20,14 @@ RUN curl -Lf# https://github.com/homebridge/ffmpeg-for-homebridge/releases/downl
 
 # Install Python dependencies
 COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r /app/requirements.txt
+RUN pip install --no-cache-dir --break-system-packages -r /app/requirements.txt
 
 # Create directories
 RUN mkdir -p /app/logs /tmp/logs /data /var/log/nginx /var/cache/nginx /var/lib/nginx /tmp/client_temp
 
 # Copy application files
-COPY scripts/ /app/scripts/
-COPY nginx/ /app/nginx/
+COPY scripts /app/scripts/
+COPY nginx /app/nginx/
 
 # Set working directory
 WORKDIR /app
