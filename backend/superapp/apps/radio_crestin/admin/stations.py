@@ -190,8 +190,8 @@ class StationsAdmin(SuperAppModelAdmin):
             from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import (
                 _scrape_rss_sync,
                 _scrape_station_sync,
-                _check_single_station_uptime
             )
+            from superapp.apps.radio_crestin_scraping.scrapers.uptime import UptimeScraper
             from superapp.apps.radio_crestin_scraping.services.station_service import StationService
             from superapp.apps.radio_crestin.models import Stations
 
@@ -202,9 +202,22 @@ class StationsAdmin(SuperAppModelAdmin):
                 errors.append(f"Station {station_id} not found or is disabled")
                 return successes, errors
 
-            # 1. Check station uptime first
+            # 1. Check station uptime first using new uptime scraper
             try:
-                uptime_result = _check_single_station_uptime(station)
+                import asyncio
+                
+                # Create uptime scraper and run async method in sync context
+                uptime_scraper = UptimeScraper()
+                
+                # Handle async operation in sync context
+                try:
+                    loop = asyncio.get_event_loop()
+                except RuntimeError:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                
+                uptime_result = loop.run_until_complete(uptime_scraper._check_single_station_uptime(station))
+                
                 if uptime_result.get('success'):
                     status = "UP" if uptime_result.get('is_up') else "DOWN"
                     latency = uptime_result.get('latency_ms', 0)
