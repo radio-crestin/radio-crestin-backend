@@ -32,26 +32,32 @@ from ..models import (
 
 @strawberry_django.type(model=Artists, fields="__all__")
 class ArtistType:
-    pass
+    id: int = strawberry_django.field()
 
 
 @strawberry_django.type(model=Songs, fields="__all__")
 class SongType:
+    id: int = strawberry_django.field()
+    artist_id: Optional[int] = strawberry_django.field()
     artist: Optional[ArtistType] = strawberry_django.field()
 
 
 @strawberry_django.type(model=StationStreams, fields="__all__")
 class StationStreamType:
-    pass
+    id: int = strawberry_django.field()
+    station_id: int = strawberry_django.field()
 
 
 @strawberry_django.type(model=Posts, fields="__all__")
 class PostType:
-    pass
+    id: int = strawberry_django.field()
+    station_id: int = strawberry_django.field()
 
 
 @strawberry_django.type(model=StationsUptime, fields="__all__")
 class StationUptimeType:
+    id: int = strawberry_django.field()
+    station_id: int = strawberry_django.field()
     # Add snake_case aliases for backward compatibility  
     is_up: bool = strawberry_django.field()
     latency_ms: Optional[int] = strawberry_django.field()
@@ -59,17 +65,25 @@ class StationUptimeType:
 
 @strawberry_django.type(model=StationsNowPlaying, fields="__all__")
 class StationNowPlayingType:
+    id: int = strawberry_django.field()
+    station_id: int = strawberry_django.field()
+    song_id: Optional[int] = strawberry_django.field()
+    listeners: Optional[int] = strawberry_django.field()
     song: Optional[SongType] = strawberry_django.field()
 
 
 @strawberry_django.type(model=StationToStationGroup, fields="__all__")
 class StationToStationGroupType:
-    # Add snake_case aliases for backward compatibility
-    station_id: Optional[int] = strawberry_django.field(field_name="station_id")
+    id: int = strawberry_django.field()
+    station_id: int = strawberry_django.field()
+    group_id: int = strawberry_django.field()
 
 
 @strawberry_django.type(model=Stations, fields="__all__")
 class StationType:
+    id: int = strawberry_django.field()
+    latest_station_uptime_id: Optional[int] = strawberry_django.field()
+    latest_station_now_playing_id: Optional[int] = strawberry_django.field()
     # Related fields optimized for the Hasura query
     station_streams: List[StationStreamType] = strawberry_django.field(field_name="station_streams")
     uptime: Optional[StationUptimeType] = strawberry_django.field(field_name="latest_station_uptime")
@@ -148,6 +162,7 @@ class StationType:
 
 @strawberry_django.type(model=StationGroups, fields="__all__")
 class StationGroupType:
+    id: int = strawberry_django.field()
     station_to_station_groups: List[StationToStationGroupType] = strawberry_django.field(field_name="station_to_station_groups")
 
 
