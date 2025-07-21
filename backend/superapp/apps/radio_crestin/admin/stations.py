@@ -9,6 +9,7 @@ from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.conf import settings
 import unfold.decorators
+from concurrent.futures import ThreadPoolExecutor
 
 from superapp.apps.admin_portal.admin import SuperAppModelAdmin, SuperAppTabularInline
 from superapp.apps.admin_portal.sites import superapp_admin_site
@@ -46,7 +47,7 @@ class StationsAdmin(SuperAppModelAdmin):
     prepopulated_fields = {'slug': ('title',)}
     autocomplete_fields = ['latest_station_uptime', 'latest_station_now_playing']
     readonly_fields = ['thumbnail_url', 'created_at', 'updated_at', 'thumbnail_preview', 'now_playing_display']
-    
+
     fieldsets = (
         (_("Basic Information"), {
             'fields': ('title', 'slug', 'order', 'disabled', 'website', 'email')
@@ -71,9 +72,9 @@ class StationsAdmin(SuperAppModelAdmin):
             'classes': ('collapse',)
         })
     )
-    
+
     inlines = [StationToStationGroupInline, StationStreamsInline, StationsMetadataFetchInline]
-    
+
     def status_indicator(self, obj):
         if obj.disabled:
             return format_html('<span style="color: red;">●</span> {}'.format(_("Disabled")))
@@ -159,7 +160,7 @@ class StationsAdmin(SuperAppModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related(
-            'latest_station_uptime', 
+            'latest_station_uptime',
             'latest_station_now_playing',
             'latest_station_now_playing__song',
             'latest_station_now_playing__song__artist'
@@ -167,7 +168,7 @@ class StationsAdmin(SuperAppModelAdmin):
 
     # Admin actions for manual scraping
     actions = ['sync_all_tasks_bulk']
-    
+
     # Detail actions for individual stations
     actions_detail = [
         "sync_all_tasks"
@@ -182,14 +183,14 @@ class StationsAdmin(SuperAppModelAdmin):
         """Execute all scraping tasks synchronously and return errors"""
         errors = []
         successes = []
-        
+
         try:
             from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import (
                 scrape_all_stations_metadata,
                 scrape_all_stations_rss_feeds,
                 cleanup_old_scraped_data
             )
-            
+
             # Execute metadata scraping synchronously
             try:
                 scrape_all_stations_metadata()
@@ -198,7 +199,7 @@ class StationsAdmin(SuperAppModelAdmin):
                 if settings.DEBUG:
                     raise  # Re-raise the exception in debug mode for better debugging
                 errors.append(f"Metadata scraping failed: {str(e)}")
-            
+
             # Execute RSS scraping synchronously
             try:
                 scrape_all_stations_rss_feeds()
@@ -207,7 +208,7 @@ class StationsAdmin(SuperAppModelAdmin):
                 if settings.DEBUG:
                     raise  # Re-raise the exception in debug mode for better debugging
                 errors.append(f"RSS scraping failed: {str(e)}")
-            
+
             # Execute cleanup synchronously
             try:
                 cleanup_old_scraped_data(days_to_keep=30)
@@ -216,14 +217,14 @@ class StationsAdmin(SuperAppModelAdmin):
                 if settings.DEBUG:
                     raise  # Re-raise the exception in debug mode for better debugging
                 errors.append(f"Data cleanup failed: {str(e)}")
-            
+
             # Show results to user
             if successes:
                 messages.success(request, f"Sync completed successfully: {', '.join(successes)}")
-            
+
             if errors:
                 messages.error(request, f"Sync errors occurred: {'; '.join(errors)}")
-            
+
         except ImportError:
             messages.error(
                 request,
@@ -236,52 +237,72 @@ class StationsAdmin(SuperAppModelAdmin):
         """Execute all scraping tasks for a specific station synchronously"""
         errors = []
         successes = []
-        
+
         try:
             # Get station info for logging
             station = Stations.objects.get(id=station_id)
             station_name = station.title
-            
+
             from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import (
                 scrape_station_metadata,
                 scrape_station_rss_feed
             )
-            
+
+            def get_task_result(task, task_name, station_name):
+                """Helper function to get task result in a thread-safe way"""
+                try:
+                    result = task.get(timeout=60)  # Wait up to 60 seconds for result
+                    if isinstance(result, dict) and result.get('success', False):
+                        return {'success': True, 'message': f"{task_name} completed for {station_name}"}
+                    else:
+                        error_msg = result.get('error', 'Unknown error') if isinstance(result, dict) else 'Unknown error'
+                        return {'success': False, 'message': f"{task_name} failed for {station_name}: {error_msg}"}
+                except Exception as e:
+                    return {'success': False, 'message': f"{task_name} failed for {station_name}: {str(e)}"}
+
             # Execute metadata scraping for this station using delay() for async execution
             try:
                 metadata_task = scrape_station_metadata.delay(station_id)
-                result = metadata_task.get(timeout=60)  # Wait up to 60 seconds for result
-                if isinstance(result, dict) and result.get('success', False):
-                    successes.append(f"Metadata scraping completed for {station_name}")
+                
+                # Use ThreadPoolExecutor to handle the blocking get() call
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(get_task_result, metadata_task, "Metadata scraping", station_name)
+                    result = future.result(timeout=65)  # Slightly longer than task timeout
+                
+                if result['success']:
+                    successes.append(result['message'])
                 else:
-                    error_msg = result.get('error', 'Unknown error') if isinstance(result, dict) else 'Unknown error'
-                    errors.append(f"Metadata scraping failed for {station_name}: {error_msg}")
+                    errors.append(result['message'])
             except Exception as e:
                 if settings.DEBUG:
                     raise  # Re-raise the exception in debug mode for better debugging
                 errors.append(f"Metadata scraping failed for {station_name}: {str(e)}")
-            
+
             # Execute RSS scraping for this station using delay() for async execution
             try:
                 rss_task = scrape_station_rss_feed.delay(station_id)
-                result = rss_task.get(timeout=60)  # Wait up to 60 seconds for result
-                if isinstance(result, dict) and result.get('success', False):
-                    successes.append(f"RSS scraping completed for {station_name}")
+                
+                # Use ThreadPoolExecutor to handle the blocking get() call
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(get_task_result, rss_task, "RSS scraping", station_name)
+                    result = future.result(timeout=65)  # Slightly longer than task timeout
+                
+                if result['success']:
+                    successes.append(result['message'])
                 else:
-                    error_msg = result.get('error', 'Unknown error') if isinstance(result, dict) else 'Unknown error'
-                    errors.append(f"RSS scraping failed for {station_name}: {error_msg}")
+                    errors.append(result['message'])
             except Exception as e:
                 if settings.DEBUG:
                     raise  # Re-raise the exception in debug mode for better debugging
                 errors.append(f"RSS scraping failed for {station_name}: {str(e)}")
-            
+
             # Show results to user
             if successes:
                 messages.success(request, f"Station sync completed: {'; '.join(successes)}")
-            
+
             if errors:
                 messages.error(request, f"Station sync errors: {'; '.join(errors)}")
-                
+
         except Stations.DoesNotExist:
             messages.error(request, f"Station with ID {station_id} not found")
         except ImportError:
@@ -290,6 +311,8 @@ class StationsAdmin(SuperAppModelAdmin):
                 _("Scraping tasks are not available. Make sure radio_crestin_scraping app is installed.")
             )
         except Exception as e:
+            if settings.DEBUG:
+                raise
             messages.error(request, _(f"Error executing station sync tasks: {str(e)}"))
 
     # Detail action for comprehensive sync
