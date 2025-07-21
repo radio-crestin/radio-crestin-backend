@@ -6,6 +6,7 @@ from .icecast import IcecastScraper
 from .radio_co import RadioCoScraper
 from .shoutcast_xml import ShoutcastXmlScraper
 from .stream_id3 import StreamId3Scraper
+from .uptime import UptimeScraper
 from .html_scrapers import (
     OldIcecastHtmlScraper, OldShoutcastHtmlScraper,
     AripiSpreCerScraper, RadioFiladelfiaScraper, SonicPanelScraper
@@ -21,6 +22,7 @@ class ScraperFactory:
         'radio_co': RadioCoScraper,
         'shoutcast_xml': ShoutcastXmlScraper,
         'stream_id3': StreamId3Scraper,
+        'uptime_ffmpeg': UptimeScraper,
         'old_icecast_html': OldIcecastHtmlScraper,
         'old_shoutcast_html': OldShoutcastHtmlScraper,
         'aripisprecer_api': AripiSpreCerScraper,
