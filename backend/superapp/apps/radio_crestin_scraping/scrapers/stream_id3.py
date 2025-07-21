@@ -17,30 +17,30 @@ class StreamId3Scraper(BaseScraper):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         try:
-            # Import radio-id3 library (would need to be installed)
-            from radio_id3 import parseRadioID3
-            self.parse_radio_id3 = parseRadioID3
+            # Import id3parse library
+            import id3parse
+            self.id3parse = id3parse
         except ImportError:
-            logger.warning("radio-id3 library not available. Stream ID3 scraping will be disabled.")
-            self.parse_radio_id3 = None
+            logger.warning("id3parse library not available. Stream ID3 scraping will be disabled.")
+            self.id3parse = None
 
     def get_scraper_type(self) -> str:
         return "stream_id3"
 
     async def scrape(self, url: str, **kwargs) -> StationNowPlayingData:
-        """Override scrape method to use radio-id3 library"""
-        if not self.parse_radio_id3:
-            logger.error("radio-id3 library not available")
+        """Override scrape method to use id3parse library"""
+        if not self.id3parse:
+            logger.error("id3parse library not available")
             return StationNowPlayingData(
                 current_song=None,
                 listeners=None,
-                error=[{"type": "ImportError", "message": "radio-id3 library not available"}]
+                error=[{"type": "ImportError", "message": "id3parse library not available"}]
             )
 
         logger.info(f"Scraping ID3 from stream: {url}")
 
         try:
-            # Use radio-id3 library to parse stream
+            # Use id3parse library to parse stream
             data = await self._parse_stream_async(url)
             result = self.extract_data(data)
             return DataFormatter.format_station_data(result)
@@ -59,12 +59,22 @@ class StreamId3Scraper(BaseScraper):
         """Parse stream ID3 data asynchronously"""
         import asyncio
 
-        # Run the blocking radio-id3 call in a thread pool
+        # Run the blocking id3parse call in a thread pool
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, self.parse_radio_id3, url)
+        return await loop.run_in_executor(None, self._parse_id3_stream, url)
+
+    def _parse_id3_stream(self, url: str) -> Dict[str, Any]:
+        """Parse stream ID3 data using id3parse"""
+        try:
+            # Use id3parse to get metadata from stream
+            metadata = self.id3parse.parse_url(url)
+            return metadata
+        except Exception as e:
+            logger.error(f"Error parsing ID3 from stream {url}: {e}")
+            return {}
 
     def extract_data(self, response_data: Any) -> StationNowPlayingData:
-        """Extract data from radio-id3 response"""
+        """Extract data from id3parse response"""
 
         # Convert JSON string to dict if needed
         if isinstance(response_data, str):
