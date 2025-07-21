@@ -59,11 +59,16 @@ class StreamId3Scraper(BaseScraper):
     def _parse_id3_stream(self, url: str) -> Dict[str, Any]:
         """Parse stream ID3 data using mutagen"""
         try:
-            # Use shorter timeout for stream connections
-            timeout = httpx.Timeout(connect=10.0, read=10.0, write=10.0, pool=10.0)
+            # Use 5 second timeout as requested
+            timeout = httpx.Timeout(connect=5.0, read=5.0, write=5.0, pool=5.0)
             
             # Fetch stream data with httpx
             with httpx.stream('GET', url, timeout=timeout, follow_redirects=True) as response:
+                # Handle bad status codes gracefully
+                if response.status_code >= 400:
+                    logger.warning(f"Stream returned status {response.status_code} for {url}")
+                    return {}
+                    
                 response.raise_for_status()
                 
                 # Check content type

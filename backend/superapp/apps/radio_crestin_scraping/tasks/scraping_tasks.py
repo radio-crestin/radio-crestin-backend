@@ -153,22 +153,22 @@ def cleanup_old_dirty_metadata(days_to_keep: int = 7) -> Dict[str, Any]:
 
     try:
         cutoff_date = timezone.now() - timedelta(days=days_to_keep)
-        
+
         # Delete old dirty songs
         songs_deleted = Songs.objects.filter(
             dirty_metadata=True,
             created_at__lt=cutoff_date
         ).delete()
-        
+
         # Delete old dirty artists that are no longer referenced by any songs
         artists_deleted = Artists.objects.filter(
             dirty_metadata=True,
             created_at__lt=cutoff_date,
             songs__isnull=True  # Not referenced by any songs
         ).delete()
-        
+
         logger.info(f"Deleted {songs_deleted[0]} dirty songs and {artists_deleted[0]} dirty artists")
-        
+
         return {
             "success": True,
             "days_kept": days_to_keep,
@@ -191,12 +191,12 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
     task_start_time = timezone.now()
     scraped_count = 0
     errors = []
-    
+
     # Get current station data to check existing raw_data
     current_data = None
     if hasattr(station, 'now_playing') and station.now_playing:
         current_data = station.now_playing
-    
+
     # Raw data will store state of each metadata fetch with timestamps
     fetcher_states = {}
     final_merged_data = None
@@ -209,7 +209,7 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
             if not scraper:
                 logger.warning(f"No scraper available for category: {category_slug}")
                 error_msg = f"No scraper available for category: {category_slug}"
-                
+
                 # Mark fetcher as failed in state
                 fetcher_states[str(fetcher.id)] = {
                     'fetcher_id': fetcher.id,
@@ -220,7 +220,7 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
                     'timestamp': task_start_time.isoformat(),
                     'task_id': task_id
                 }
-                
+
                 errors.append(error_msg)
                 continue
 
@@ -230,14 +230,14 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
                 if hasattr(scraper, 'get_scraper_type') and scraper.get_scraper_type() == 'stream_id3':
                     # Use the scraper's async scrape method in sync context
                     import asyncio
-                    
+
                     # Create event loop for sync context
                     try:
                         loop = asyncio.get_event_loop()
                     except RuntimeError:
                         loop = asyncio.new_event_loop()
                         asyncio.set_event_loop(loop)
-                    
+
                     # Run the async scrape method with config
                     scrape_result = loop.run_until_complete(scraper.scrape(fetcher.url, config=fetcher))
                 else:
@@ -258,7 +258,7 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
             except Exception as scrape_error:
                 logger.error(f"Error making HTTP request to {fetcher.url}: {scrape_error}")
                 error_msg = f"HTTP request error for {fetcher.url}: {str(scrape_error)}"
-                
+
                 # Mark fetcher as failed in state
                 fetcher_states[str(fetcher.id)] = {
                     'fetcher_id': fetcher.id,
@@ -269,7 +269,7 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
                     'timestamp': task_start_time.isoformat(),
                     'task_id': task_id
                 }
-                
+
                 errors.append(error_msg)
                 if settings.DEBUG:
                     raise
@@ -284,14 +284,14 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
                     data_dict = scrape_result.__dict__.copy()
                 else:
                     data_dict = str(scrape_result)
-                
+
                 # Convert any nested objects to serializable format
                 data_dict = _make_json_serializable(data_dict)
-                
+
             except Exception as serialize_error:
                 logger.warning(f"Could not serialize scrape result for fetcher {fetcher.id}: {serialize_error}")
                 data_dict = {"error": f"Serialization failed: {str(serialize_error)}"}
-            
+
             fetcher_states[str(fetcher.id)] = {
                 'fetcher_id': fetcher.id,
                 'category_slug': category_slug,
@@ -301,14 +301,14 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
                 'timestamp': task_start_time.isoformat(),
                 'task_id': task_id
             }
-            
+
             scraped_count += 1
             logger.info(f"Successfully scraped fetcher {fetcher.id} for station {station.id}")
 
         except Exception as error:
             logger.error(f"Error scraping {fetcher.url}: {error}")
             error_msg = f"Error scraping {fetcher.url}: {str(error)}"
-            
+
             # Mark fetcher as failed in state
             fetcher_states[str(fetcher.id)] = {
                 'fetcher_id': fetcher.id,
@@ -319,20 +319,20 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
                 'timestamp': task_start_time.isoformat(),
                 'task_id': task_id
             }
-            
+
             errors.append(error_msg)
             if settings.DEBUG:
                 raise  # Re-raise the exception in debug mode for better debugging
 
     # Now merge data from all valid fetcher states
     final_merged_data = _merge_fetcher_states_by_priority(fetcher_states, current_data, task_start_time)
-    
+
     # Save final merged data if available
     final_success = False
     if final_merged_data:
         # Update raw_data to include all fetcher states for this task
         final_merged_data.raw_data = fetcher_states
-        
+
         # Determine if any successful fetcher has dirty_metadata=True
         has_dirty_metadata = False
         for fetcher in metadata_fetchers:
@@ -340,9 +340,9 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
             if fetcher_state and fetcher_state.get('status') == 'completed' and fetcher.dirty_metadata:
                 has_dirty_metadata = True
                 break
-        
+
         final_success = StationService.upsert_station_now_playing(station.id, final_merged_data, dirty_metadata=has_dirty_metadata)
-        
+
         # Note: Station uptime monitoring is now handled by a separate scheduled task
         # that runs every 5 minutes and performs proper HTTP requests to check stream availability
 
@@ -436,7 +436,7 @@ def _scrape_rss_sync(station) -> Dict[str, Any]:
 def _reconstruct_station_data(data_dict):
     """Reconstruct StationNowPlayingData from dictionary"""
     from ..utils.data_types import StationNowPlayingData, SongData
-    
+
     try:
         # Reconstruct current_song if present
         current_song = None
@@ -449,7 +449,7 @@ def _reconstruct_station_data(data_dict):
                 )
             elif hasattr(song_data, 'name'):  # Already a SongData object
                 current_song = song_data
-        
+
         # Create StationNowPlayingData
         station_data = StationNowPlayingData(
             timestamp=data_dict.get('timestamp', timezone.now().isoformat()),
@@ -458,9 +458,9 @@ def _reconstruct_station_data(data_dict):
             raw_data=data_dict.get('raw_data', []),
             error=data_dict.get('error', [])
         )
-        
+
         return station_data
-        
+
     except Exception as e:
         logger.warning(f"Could not reconstruct station data: {e}")
         return None
@@ -470,7 +470,7 @@ def _make_json_serializable(obj):
     """Convert objects to JSON serializable format"""
     import json
     from datetime import datetime, date
-    
+
     if obj is None:
         return None
     elif isinstance(obj, (str, int, float, bool)):
@@ -495,13 +495,13 @@ def _make_json_serializable(obj):
 def _merge_fetcher_states_by_priority(fetcher_states, current_data, task_start_time):
     """Merge data from fetcher states based on priority, considering only recent states"""
     from ..utils.data_types import StationNowPlayingData
-    
+
     if not fetcher_states:
         return None
-    
+
     # First, merge with existing valid states from current_data if it exists
     all_states = {}
-    
+
     if current_data and current_data.raw_data:
         # Handle backward compatibility - raw_data might be a list or dict
         if isinstance(current_data.raw_data, dict):
@@ -516,25 +516,25 @@ def _merge_fetcher_states_by_priority(fetcher_states, current_data, task_start_t
                         # Skip invalid timestamps
                         continue
         # If it's a list (old format), we ignore it and start fresh
-    
+
     # Add our new fetcher states
     all_states.update(fetcher_states)
-    
+
     # Get completed states sorted by priority (lower order = higher priority)
     completed_states = []
     for fetcher_id, state in all_states.items():
         if state.get('status') == 'completed' and 'data' in state:
             completed_states.append((state['priority'], state['data'], state))
-    
+
     if not completed_states:
         return None
-    
-    # Sort by priority (higher number = higher priority)  
+
+    # Sort by priority (higher number = higher priority)
     completed_states.sort(key=lambda x: x[0], reverse=True)
-    
+
     # Start with the highest priority data
     base_data_dict = completed_states[0][1]
-    
+
     try:
         # Reconstruct the data properly
         merged_data = _reconstruct_station_data(base_data_dict)
@@ -544,7 +544,7 @@ def _merge_fetcher_states_by_priority(fetcher_states, current_data, task_start_t
     except Exception as e:
         logger.warning(f"Could not reconstruct StationNowPlayingData: {e}")
         return None
-    
+
     # Merge additional data from lower priority states
     for priority, data_dict, state in completed_states[1:]:
         try:
@@ -554,7 +554,7 @@ def _merge_fetcher_states_by_priority(fetcher_states, current_data, task_start_t
         except Exception:
             logger.warning(f"Could not merge data from priority {priority}")
             continue
-    
+
     return merged_data
 
 
@@ -574,9 +574,9 @@ def _merge_station_data_simple(base_data, new_data):
 
     # NEVER override fields from higher priority data (base_data has highest priority)
     # Only fill in missing fields that higher priority source doesn't have
-    
+
     # Only fill current_song if base doesn't have it or has incomplete data
-    if (hasattr(new_data, 'current_song') and new_data.current_song and 
+    if (hasattr(new_data, 'current_song') and new_data.current_song and
         (not hasattr(base_data, 'current_song') or not base_data.current_song)):
         base_data.current_song = new_data.current_song
     elif (hasattr(base_data, 'current_song') and base_data.current_song and
@@ -585,13 +585,13 @@ def _merge_station_data_simple(base_data, new_data):
         if (not hasattr(base_data.current_song, 'artist') or not base_data.current_song.artist) and \
            (hasattr(new_data.current_song, 'artist') and new_data.current_song.artist):
             base_data.current_song.artist = new_data.current_song.artist
-        
+
         if (not hasattr(base_data.current_song, 'name') or not base_data.current_song.name) and \
            (hasattr(new_data.current_song, 'name') and new_data.current_song.name):
             base_data.current_song.name = new_data.current_song.name
 
     # Only fill listeners if base doesn't have it
-    if (hasattr(new_data, 'listeners') and new_data.listeners is not None and 
+    if (hasattr(new_data, 'listeners') and new_data.listeners is not None and
         (not hasattr(base_data, 'listeners') or base_data.listeners is None)):
         base_data.listeners = new_data.listeners
 
@@ -608,7 +608,7 @@ def check_station_uptime(station_id: int = None) -> Dict[str, Any]:
     import httpx
     import time
     from django.utils import timezone
-    
+
     # Get stations to check
     if station_id:
         stations = StationService.get_all_active_stations().filter(id=station_id)
@@ -618,20 +618,20 @@ def check_station_uptime(station_id: int = None) -> Dict[str, Any]:
             return {"success": False, "error": error_msg}
     else:
         stations = StationService.get_all_active_stations()
-    
+
     results = []
     total_checked = 0
     total_up = 0
-    
+
     for station in stations:
         total_checked += 1
         result = _check_single_station_uptime(station)
         results.append(result)
         if result["is_up"]:
             total_up += 1
-        
+
         logger.info(f"Station {station.id} ({station.title}): UP={result['is_up']}, Latency={result['latency_ms']}ms")
-    
+
     summary = {
         "success": True,
         "total_checked": total_checked,
@@ -639,7 +639,7 @@ def check_station_uptime(station_id: int = None) -> Dict[str, Any]:
         "total_down": total_checked - total_up,
         "results": results
     }
-    
+
     logger.info(f"Uptime check complete: {total_up}/{total_checked} stations up")
     return summary
 
@@ -649,13 +649,13 @@ def _check_single_station_uptime(station) -> Dict[str, Any]:
     import httpx
     import time
     from django.utils import timezone
-    
+
     start_time = time.time()
     is_up = False
     latency_ms = 0
     error_msg = None
     raw_data = {}
-    
+
     try:
         # Configure headers to mimic a media player
         headers = {
@@ -664,18 +664,18 @@ def _check_single_station_uptime(station) -> Dict[str, Any]:
             'Connection': 'close',
             'Icy-MetaData': '1'  # Request metadata for streams
         }
-        
+
         # Use a reasonable timeout - not too short to avoid false negatives
         timeout = httpx.Timeout(connect=10.0, read=15.0, write=5.0, pool=10.0)
-        
+
         with httpx.Client(timeout=timeout, headers=headers, verify=False) as client:
             # Make a HEAD request first to check availability without downloading content
             response = client.head(station.stream_url)
-            
+
             # Calculate latency
             end_time = time.time()
             latency_ms = int((end_time - start_time) * 1000)
-            
+
             # Check if response is successful
             if response.status_code == 200:
                 is_up = True
@@ -688,11 +688,11 @@ def _check_single_station_uptime(station) -> Dict[str, Any]:
                 # Some streaming servers don't support HEAD, try GET with range
                 range_headers = headers.copy()
                 range_headers['Range'] = 'bytes=0-1023'  # Only download first 1KB
-                
+
                 get_response = client.get(station.stream_url, headers=range_headers)
                 end_time = time.time()
                 latency_ms = int((end_time - start_time) * 1000)
-                
+
                 if get_response.status_code in [200, 206, 416]:  # 416 = range not satisfiable, but server is up
                     is_up = True
                     raw_data = {
@@ -717,28 +717,34 @@ def _check_single_station_uptime(station) -> Dict[str, Any]:
                     'method': 'HEAD',
                     'error': error_msg
                 }
-                
+
     except httpx.TimeoutException:
         end_time = time.time()
         latency_ms = int((end_time - start_time) * 1000)
         error_msg = f"Request timeout after {latency_ms}ms"
         raw_data = {'error': error_msg, 'type': 'timeout'}
-        
+        if settings.DEBUG:
+            raise
+
     except httpx.ConnectError as e:
         end_time = time.time()
         latency_ms = int((end_time - start_time) * 1000)
         error_msg = f"Connection error: {str(e)}"
         raw_data = {'error': error_msg, 'type': 'connection_error'}
-        
+        if settings.DEBUG:
+            raise
+
     except Exception as e:
         end_time = time.time()
         latency_ms = int((end_time - start_time) * 1000)
         error_msg = f"Unexpected error: {str(e)}"
         raw_data = {'error': error_msg, 'type': 'unexpected_error'}
-        
+
         # Log unexpected errors for debugging
         logger.exception(f"Unexpected error checking station {station.id} ({station.title})")
-    
+        if settings.DEBUG:
+            raise
+
     # Create uptime data
     uptime_data = StationUptimeData(
         timestamp=timezone.now().isoformat(),
@@ -746,14 +752,17 @@ def _check_single_station_uptime(station) -> Dict[str, Any]:
         latency_ms=latency_ms,
         raw_data=[raw_data]
     )
-    
+
     # Save to database
     try:
         StationService.upsert_station_uptime(station.id, uptime_data)
     except Exception as e:
         logger.error(f"Failed to save uptime data for station {station.id}: {e}")
-    
+        if settings.DEBUG:
+            raise
+
     return {
+        "success": True,
         "station_id": station.id,
         "station_title": station.title,
         "stream_url": station.stream_url,

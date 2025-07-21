@@ -185,7 +185,7 @@ class StationsAdmin(SuperAppModelAdmin):
         """Execute RSS scraping, metadata scraping, and uptime checking synchronously for a single station"""
         successes = []
         errors = []
-        
+
         try:
             from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import (
                 _scrape_rss_sync,
@@ -194,14 +194,14 @@ class StationsAdmin(SuperAppModelAdmin):
             )
             from superapp.apps.radio_crestin_scraping.services.station_service import StationService
             from superapp.apps.radio_crestin.models import Stations
-            
+
             # Get the station object
             try:
                 station = Stations.objects.get(id=station_id, disabled=False)
             except Stations.DoesNotExist:
                 errors.append(f"Station {station_id} not found or is disabled")
                 return successes, errors
-            
+
             # 1. Check station uptime first
             try:
                 uptime_result = _check_single_station_uptime(station)
@@ -213,43 +213,53 @@ class StationsAdmin(SuperAppModelAdmin):
                     errors.append(f"Uptime check failed for '{station.title}': {uptime_result.get('error', 'Unknown error')}")
             except Exception as e:
                 errors.append(f"Uptime check error for '{station.title}': {str(e)}")
-            
+                if settings.DEBUG:
+                    raise
+
             # 2. RSS scraping
             if station.rss_feed:
                 try:
                     rss_result = _scrape_rss_sync(station)
-                    
+
                     if rss_result.get('success'):
                         successes.append(f"RSS feed scraped for '{station.title}': {rss_result.get('posts_count', 0)} posts")
                     else:
                         errors.append(f"RSS scraping failed for '{station.title}': {rss_result.get('error', 'Unknown error')}")
                 except Exception as e:
                     errors.append(f"RSS scraping error for '{station.title}': {str(e)}")
-            
+                    if settings.DEBUG:
+                        raise
+
             # 3. Metadata scraping
             metadata_fetchers = station.station_metadata_fetches.select_related(
                 'station_metadata_fetch_category'
             ).order_by('-priority')
-            
+
             if metadata_fetchers.exists():
                 try:
                     metadata_result = _scrape_station_sync(station, metadata_fetchers)
-                    
+
                     if metadata_result.get('success'):
                         successes.append(f"Metadata scraped for '{station.title}': {metadata_result.get('scraped_count', 0)} sources")
-                    
+
                     # Add specific errors from metadata scraping
                     if metadata_result.get('errors'):
                         for error in metadata_result['errors']:
                             errors.append(f"Metadata error for '{station.title}': {error}")
                 except Exception as e:
                     errors.append(f"Metadata scraping error for '{station.title}': {str(e)}")
-                
-        except ImportError:
+                    if settings.DEBUG:
+                        raise
+
+        except ImportError as e:
             errors.append("Scraping tasks are not available. Make sure radio_crestin_scraping app is installed.")
+            if settings.DEBUG:
+                raise
         except Exception as e:
             errors.append(f"Unexpected error for station {station_id}: {str(e)}")
-        
+            if settings.DEBUG:
+                raise
+
         return successes, errors
 
     def scrape_metadata_rss_sync(self, request, queryset):
@@ -333,20 +343,20 @@ class StationsAdmin(SuperAppModelAdmin):
         except Exception as e:
             messages.error(request, f"Error retrieving station: {str(e)}")
             return redirect(reverse_lazy("admin:radio_crestin_stations_change", args=(object_id,)))
-            
+
         station_successes, station_errors = self._execute_sync_station_tasks_return_results(request, station.id)
 
         # Show results
         if station_successes:
             messages.success(
-                request, 
-                f"Successfully completed {len(station_successes)} tasks for '{station.title}': " + 
+                request,
+                f"Successfully completed {len(station_successes)} tasks for '{station.title}': " +
                 "; ".join(station_successes)
             )
 
         if station_errors:
             messages.error(
-                request, 
+                request,
                 f"Errors occurred for '{station.title}': " + "; ".join(station_errors)
             )
 
