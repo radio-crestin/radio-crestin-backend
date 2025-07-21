@@ -59,62 +59,143 @@ class StreamId3Scraper(BaseScraper):
     def _parse_id3_stream(self, url: str) -> Dict[str, Any]:
         """Parse stream ID3 data using mutagen"""
         try:
+            # Use shorter timeout for stream connections
+            timeout = httpx.Timeout(connect=10.0, read=10.0, write=10.0, pool=10.0)
+            
             # Fetch stream data with httpx
-            with httpx.stream('GET', url, timeout=30.0) as response:
+            with httpx.stream('GET', url, timeout=timeout, follow_redirects=True) as response:
                 response.raise_for_status()
                 
-                # Read enough data to get ID3 tags (typically first few KB)
+                # Check content type
+                content_type = response.headers.get('content-type', '').lower()
+                logger.info(f"Stream content type: {content_type}")
+                
+                # Read limited amount of data to get ID3 tags
                 stream_data = b""
-                for chunk in response.iter_bytes(chunk_size=8192):
-                    stream_data += chunk
-                    # Read up to 64KB to ensure we get ID3 tags
-                    if len(stream_data) >= 65536:
-                        break
+                max_bytes = 65536  # 64KB max
+                bytes_read = 0
+                
+                try:
+                    for chunk in response.iter_bytes(chunk_size=4096):
+                        stream_data += chunk
+                        bytes_read += len(chunk)
+                        
+                        # Stop if we've read enough data
+                        if bytes_read >= max_bytes:
+                            break
+                        
+                        # For streams, ID3 tags are usually at the beginning
+                        # If we have some data, try to find ID3 header
+                        if len(stream_data) >= 10:  # ID3 header is 10 bytes
+                            # Check for ID3v2 header (starts with "ID3")
+                            if stream_data[:3] == b'ID3':
+                                # ID3v2 header found, read the size
+                                # Bytes 6-9 contain the tag size (synchsafe integer)
+                                if len(stream_data) >= 10:
+                                    tag_size = (
+                                        (stream_data[6] & 0x7F) << 21 |
+                                        (stream_data[7] & 0x7F) << 14 |
+                                        (stream_data[8] & 0x7F) << 7 |
+                                        (stream_data[9] & 0x7F)
+                                    ) + 10  # Add header size
+                                    
+                                    # Read until we have the full tag
+                                    if len(stream_data) >= tag_size:
+                                        # We have the complete ID3 tag
+                                        stream_data = stream_data[:tag_size]
+                                        break
+                                    elif bytes_read >= max_bytes:
+                                        # We've read max bytes, use what we have
+                                        break
+                        
+                        # Early exit for non-audio streams
+                        if 'html' in content_type or 'text' in content_type:
+                            logger.warning(f"Stream appears to be non-audio content: {content_type}")
+                            return {}
+                            
+                except Exception as read_error:
+                    logger.warning(f"Error reading stream data: {read_error}")
+                    if not stream_data:
+                        return {}
+                
+                if not stream_data:
+                    logger.warning(f"No data received from stream: {url}")
+                    return {}
+                
+                logger.info(f"Read {len(stream_data)} bytes from stream")
                 
                 # Create a file-like object from the stream data
                 stream_file = io.BytesIO(stream_data)
                 
                 # Try to parse ID3 tags using mutagen
+                metadata = {}
                 try:
+                    # First try with generic mutagen File detection
                     audio_file = self.MutagenFile(stream_file)
-                    if audio_file is None:
-                        # Try direct ID3 parsing
-                        stream_file.seek(0)
-                        audio_file = self.ID3(stream_file)
-                except (self.ID3NoHeaderError, Exception):
-                    # If no ID3 header found, try just ID3 parsing
+                    if audio_file and hasattr(audio_file, 'tags') and audio_file.tags:
+                        # Extract metadata from tags
+                        for key, value in audio_file.tags.items():
+                            if hasattr(value, 'text'):
+                                # Text frames
+                                metadata[key] = value.text[0] if value.text else ""
+                            elif hasattr(value, 'url'):
+                                # URL frames  
+                                metadata[key] = value.url
+                            else:
+                                # Other frame types
+                                metadata[key] = str(value)
+                except Exception as mutagen_error:
+                    logger.debug(f"Mutagen File parsing failed: {mutagen_error}")
+                
+                # If no metadata found, try direct ID3 parsing
+                if not metadata:
                     try:
                         stream_file.seek(0)
                         audio_file = self.ID3(stream_file)
-                    except Exception:
-                        logger.warning(f"No ID3 tags found in stream: {url}")
-                        return {}
+                        if audio_file:
+                            # Extract metadata from ID3 tags
+                            for key, value in audio_file.items():
+                                if hasattr(value, 'text'):
+                                    # Text frames
+                                    metadata[key] = value.text[0] if value.text else ""
+                                elif hasattr(value, 'url'):
+                                    # URL frames  
+                                    metadata[key] = value.url
+                                else:
+                                    # Other frame types
+                                    metadata[key] = str(value)
+                    except (self.ID3NoHeaderError, Exception) as id3_error:
+                        logger.debug(f"Direct ID3 parsing failed: {id3_error}")
                 
-                # Extract metadata
-                metadata = {}
-                if audio_file:
-                    # Convert mutagen tags to dict format
-                    for key, value in audio_file.items():
-                        if hasattr(value, 'text'):
-                            # Text frames
-                            metadata[key] = value.text[0] if value.text else ""
-                        elif hasattr(value, 'url'):
-                            # URL frames  
-                            metadata[key] = value.url
-                        else:
-                            # Other frame types
-                            metadata[key] = str(value)
-                    
-                    # Extract common fields
-                    if 'TIT2' in metadata:
-                        metadata['title'] = metadata['TIT2']
-                    if 'TPE1' in metadata:
-                        metadata['artist'] = metadata['TPE1']
-                    if 'TALB' in metadata:
-                        metadata['album'] = metadata['TALB']
+                # Extract common fields if found
+                if 'TIT2' in metadata:
+                    metadata['title'] = metadata['TIT2']
+                if 'TPE1' in metadata:
+                    metadata['artist'] = metadata['TPE1']
+                if 'TALB' in metadata:
+                    metadata['album'] = metadata['TALB']
+                
+                # Check ICY headers for metadata (common in streaming)
+                icy_name = response.headers.get('icy-name')
+                icy_title = response.headers.get('icy-title') 
+                if icy_name and not metadata.get('title'):
+                    metadata['title'] = icy_name
+                if icy_title and not metadata.get('title'):
+                    metadata['title'] = icy_title
+                
+                if metadata:
+                    logger.info(f"Extracted metadata: {list(metadata.keys())}")
+                else:
+                    logger.warning(f"No ID3 tags found in stream: {url}")
                 
                 return metadata
                 
+        except httpx.TimeoutException:
+            logger.error(f"Timeout connecting to stream: {url}")
+            return {}
+        except httpx.RequestError as e:
+            logger.error(f"Request error for stream {url}: {e}")
+            return {}
         except Exception as e:
             logger.error(f"Error parsing ID3 from stream {url}: {e}")
             return {}
