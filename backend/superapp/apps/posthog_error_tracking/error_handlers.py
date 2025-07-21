@@ -9,8 +9,6 @@ from django.views.defaults import (
 from django.contrib.auth import get_user_model
 from os import environ
 
-User = get_user_model()
-
 
 def get_user_info(request):
     """Extract user information for PostHog tracking"""
