@@ -35,5 +35,8 @@ WORKDIR /app
 HEALTHCHECK --start-period=10s --interval=5s --timeout=3s \
   CMD python3 scripts/health_check.py
 
-# Default command
-CMD ["python3", "scripts/hls_manager.py"]
+# Make scripts executable
+RUN chmod +x /app/scripts/*.py
+
+# Default command - run both HLS Manager and Log Monitor via supervisor
+CMD ["python3", "scripts/supervisor.py"]
