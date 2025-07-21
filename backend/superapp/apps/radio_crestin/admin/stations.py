@@ -9,7 +9,6 @@ from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.conf import settings
 import unfold.decorators
-from concurrent.futures import ThreadPoolExecutor
 
 from superapp.apps.admin_portal.admin import SuperAppModelAdmin, SuperAppTabularInline
 from superapp.apps.admin_portal.sites import superapp_admin_site
@@ -231,6 +230,8 @@ class StationsAdmin(SuperAppModelAdmin):
                 _("Scraping tasks are not available. Make sure radio_crestin_scraping app is installed.")
             )
         except Exception as e:
+            if settings.DEBUG:
+                raise
             messages.error(request, _(f"Error executing sync tasks: {str(e)}"))
 
     def _execute_sync_station_tasks(self, request, station_id: int):
@@ -248,49 +249,27 @@ class StationsAdmin(SuperAppModelAdmin):
                 scrape_station_rss_feed
             )
 
-            def get_task_result(task, task_name, station_name):
-                """Helper function to get task result in a thread-safe way"""
-                try:
-                    result = task.get(timeout=60)  # Wait up to 60 seconds for result
-                    if isinstance(result, dict) and result.get('success', False):
-                        return {'success': True, 'message': f"{task_name} completed for {station_name}"}
-                    else:
-                        error_msg = result.get('error', 'Unknown error') if isinstance(result, dict) else 'Unknown error'
-                        return {'success': False, 'message': f"{task_name} failed for {station_name}: {error_msg}"}
-                except Exception as e:
-                    return {'success': False, 'message': f"{task_name} failed for {station_name}: {str(e)}"}
-
-            # Execute metadata scraping for this station using delay() for async execution
+            # Execute metadata scraping for this station synchronously
             try:
-                metadata_task = scrape_station_metadata.delay(station_id)
-                
-                # Use ThreadPoolExecutor to handle the blocking get() call
-                with ThreadPoolExecutor(max_workers=1) as executor:
-                    future = executor.submit(get_task_result, metadata_task, "Metadata scraping", station_name)
-                    result = future.result(timeout=65)  # Slightly longer than task timeout
-                
-                if result['success']:
-                    successes.append(result['message'])
+                result = scrape_station_metadata.apply(args=[station_id])
+                if isinstance(result, dict) and result.get('success', False):
+                    successes.append(f"Metadata scraping completed for {station_name}")
                 else:
-                    errors.append(result['message'])
+                    error_msg = result.get('error', 'Unknown error') if isinstance(result, dict) else 'Unknown error'
+                    errors.append(f"Metadata scraping failed for {station_name}: {error_msg}")
             except Exception as e:
                 if settings.DEBUG:
                     raise  # Re-raise the exception in debug mode for better debugging
                 errors.append(f"Metadata scraping failed for {station_name}: {str(e)}")
 
-            # Execute RSS scraping for this station using delay() for async execution
+            # Execute RSS scraping for this station synchronously
             try:
-                rss_task = scrape_station_rss_feed.delay(station_id)
-                
-                # Use ThreadPoolExecutor to handle the blocking get() call
-                with ThreadPoolExecutor(max_workers=1) as executor:
-                    future = executor.submit(get_task_result, rss_task, "RSS scraping", station_name)
-                    result = future.result(timeout=65)  # Slightly longer than task timeout
-                
-                if result['success']:
-                    successes.append(result['message'])
+                result = scrape_station_rss_feed.apply(args=[station_id])
+                if isinstance(result, dict) and result.get('success', False):
+                    successes.append(f"RSS scraping completed for {station_name}")
                 else:
-                    errors.append(result['message'])
+                    error_msg = result.get('error', 'Unknown error') if isinstance(result, dict) else 'Unknown error'
+                    errors.append(f"RSS scraping failed for {station_name}: {error_msg}")
             except Exception as e:
                 if settings.DEBUG:
                     raise  # Re-raise the exception in debug mode for better debugging
