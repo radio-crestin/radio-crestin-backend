@@ -65,7 +65,7 @@
               listen 80;
               server_name example.com;
   
-              access_log /var/log/nginx/session_access.log session_log;
+              access_log /tmp/nginx_session_access.log session_log;
   
               location / {
                   if ($cookie_anonymous_session_id = "") {

@@ -24,7 +24,7 @@ COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir --break-system-packages -r /app/requirements.txt
 
 # Create directories
-RUN mkdir -p /app/logs /tmp/logs /data /var/log/nginx /var/cache/nginx /var/lib/nginx /tmp/client_temp
+RUN mkdir -p /app/logs /tmp/logs /data /tmp/client_temp
 
 # Copy application files
 COPY scripts /app/scripts/

@@ -50,7 +50,7 @@ class LogMonitor:
         self.graphql_endpoint = os.getenv('GRAPHQL_ENDPOINT', 'http://web:8000/graphql/')
         self.graphql_token = os.getenv('GRAPHQL_TOKEN', '')
         self.batch_interval = int(os.getenv('BATCH_INTERVAL_SECONDS', '10'))
-        self.log_file_path = os.getenv('NGINX_LOG_PATH', '/var/log/nginx/session_access.log')
+        self.log_file_path = os.getenv('NGINX_LOG_PATH', '/tmp/nginx_session_access.log')
         self.session_timeout = int(os.getenv('SESSION_TIMEOUT_MINUTES', '5')) * 60
         
         self.logger.info(f"Log Monitor configured - GraphQL: {self.graphql_endpoint}")

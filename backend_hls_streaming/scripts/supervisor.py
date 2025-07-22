@@ -265,8 +265,8 @@ class ProcessSupervisor:
     def start_nginx_log_monitoring(self):
         """Start monitoring nginx logs if enabled."""
         try:
-            nginx_access_log = '/var/log/nginx/access.log'
-            nginx_error_log = '/var/log/nginx/error.log'
+            nginx_access_log = '/tmp/nginx_access.log'
+            nginx_error_log = '/tmp/nginx_error.log'
             
             if os.path.exists(nginx_access_log):
                 access_thread = threading.Thread(
