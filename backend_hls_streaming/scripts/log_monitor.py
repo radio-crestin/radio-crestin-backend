@@ -60,10 +60,8 @@ class LogMonitor:
         """
         Parse a single NGINX log line and extract relevant information.
         
-        Expected format from nginx.conf:
-        '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent 
-        "$http_referer" "$http_user_agent" anonymous_session_id="$anonymous_session_id" 
-        station="$station_slug" request_time=$request_time upstream_response_time=$upstream_response_time'
+        Expected format from nginx.conf session_access log format:
+        '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" session_id="$arg_s" real_ip="$realip_remote_addr"'
         
         Args:
             line: Raw log line from NGINX
@@ -72,7 +70,7 @@ class LogMonitor:
             Parsed log entry dictionary or None if parsing fails
         """
         try:
-            # Regex pattern to match the custom log format
+            # Regex pattern to match the enhanced session_access log format with real IP
             pattern = (
                 r'(?P<remote_addr>\S+) - (?P<remote_user>\S+) '
                 r'\[(?P<time_local>[^\]]+)\] '
@@ -81,10 +79,8 @@ class LogMonitor:
                 r'(?P<body_bytes_sent>\d+) '
                 r'"(?P<http_referer>[^"]*)" '
                 r'"(?P<http_user_agent>[^"]*)" '
-                r'anonymous_session_id="(?P<anonymous_session_id>[^"]+)" '
-                r'station="(?P<station>[^"]*)" '
-                r'request_time=(?P<request_time>[\d.-]+) '
-                r'upstream_response_time=(?P<upstream_response_time>[\d.-]+|-)'
+                r'session_id="(?P<session_id>[^"]*)" '
+                r'real_ip="(?P<real_ip>[^"]*)"'
             )
             
             match = re.match(pattern, line.strip())
@@ -106,30 +102,35 @@ class LogMonitor:
             uri = request_parts[1] if len(request_parts) > 1 else '/'
             
             # Only process HLS requests (m3u8 and ts files)
-            if not (uri.endswith('.m3u8') or uri.endswith('.ts') or '/hls/' in uri):
+            if not (uri.endswith('.m3u8') or uri.endswith('index.m3u8') or uri.endswith('.ts') or '/hls/' in uri):
                 return None
             
-            # Extract station from URI if not in logs
-            if data['station'] == 'unknown' or not data['station']:
-                uri_match = re.search(r'/hls/([^/]+)/', uri)
-                if uri_match:
-                    data['station'] = uri_match.group(1)
-                else:
-                    return None  # Skip if we can't determine the station
+            # Extract station from URI
+            station_slug = None
+            uri_match = re.search(r'/hls/([^/]+)/', uri)
+            if uri_match:
+                station_slug = uri_match.group(1)
+            else:
+                return None  # Skip if we can't determine the station
+            
+            # Use real_ip if available, fallback to remote_addr
+            real_client_ip = data.get('real_ip', '').strip()
+            if not real_client_ip or real_client_ip == '-':
+                real_client_ip = data['remote_addr']
             
             return {
                 'timestamp': timestamp,
-                'ip_address': data['remote_addr'],
-                'session_id': data['anonymous_session_id'],
-                'station_slug': data['station'],
+                'ip_address': real_client_ip,
+                'session_id': data['session_id'],
+                'station_slug': station_slug,
                 'user_agent': data['http_user_agent'],
                 'referer': data['http_referer'],
                 'status': int(data['status']),
                 'bytes_sent': int(data['body_bytes_sent']),
-                'request_time': float(data['request_time']) if data['request_time'] != '-' else 0.0,
+                'request_time': 0.0,  # Not available in this log format
                 'method': method,
                 'uri': uri,
-                'is_playlist': uri.endswith('.m3u8'),
+                'is_playlist': uri.endswith('.m3u8') or 'index.m3u8' in uri,
                 'is_segment': uri.endswith('.ts'),
             }
             

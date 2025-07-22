@@ -10,7 +10,8 @@ RUN apk add --update \
     gcc \
     musl-dev \
     linux-headers \
-    nginx
+    nginx \
+    nginx-mod-http-brotli
 
 # Install additional codec support
 RUN apk add rav1e-libs --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community

@@ -2,7 +2,7 @@
 <module type="WEB_MODULE" version="4">
   <component name="FacetManager">
     <facet type="Python" name="Python">
-      <configuration sdkName="Python 3.8" />
+      <configuration sdkName="Python 3.13 (radio-crestin-backend)" />
     </facet>
   </component>
   <component name="Go" enabled="true" />
@@ -18,5 +18,6 @@
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="beacon" level="application" />
     <orderEntry type="library" name="beacon" level="application" />
+    <orderEntry type="library" name="Python 3.13 (radio-crestin-backend) interpreter library" level="application" />
   </component>
 </module>
