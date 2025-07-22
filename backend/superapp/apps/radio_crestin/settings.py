@@ -81,10 +81,10 @@ def extend_superapp_settings(main_settings):
                     "permission": lambda request: request.user.has_perm("radio_crestin.view_stationsmetadatafetch"),
                 },
                 {
-                    "title": lambda request: _("Listening Events"),
+                    "title": lambda request: _("Listening Sessions"),
                     "icon": "headphones",
-                    "link": reverse_lazy("admin:radio_crestin_listeningevents_changelist"),
-                    "permission": lambda request: request.user.has_perm("radio_crestin.view_listeningevents"),
+                    "link": reverse_lazy("admin:radio_crestin_listeningsessions_changelist"),
+                    "permission": lambda request: request.user.has_perm("radio_crestin.view_listeningsessions"),
                 },
                 {
                     "title": lambda request: _("Reviews"),

@@ -12,7 +12,7 @@ from ..models import ListeningSessions
 class ListeningSessionsAdmin(SuperAppModelAdmin):
     list_display = ['user', 'station', 'start_time', 'duration_display', 'session_preview', 'ip_address', 'status', 'is_active']
     list_filter = ['station', 'start_time', 'end_time', 'is_active']
-    search_fields = ['user__username', 'user__email', 'station__title', 'anonymous_session_id', 'ip_address']
+    search_fields = ['user__email', 'user__anonymous_id', 'station__title', 'anonymous_session_id', 'ip_address']
     autocomplete_fields = ['user', 'station']
     readonly_fields = ['created_at', 'updated_at', 'duration_display', 'session_preview', 'user_agent_display', 'last_activity']
     date_hierarchy = 'start_time'

@@ -11,7 +11,7 @@ from ..models import Reviews
 class ReviewsAdmin(SuperAppModelAdmin):
     list_display = ['user', 'station', 'stars_display', 'message_preview', 'verified_status', 'created_at']
     list_filter = ['stars', 'verified', 'created_at']
-    search_fields = ['user__username', 'user__email', 'station__title', 'message']
+    search_fields = ['user__email', 'user__anonymous_id', 'station__title', 'message']
     autocomplete_fields = ['user', 'station']
     readonly_fields = ['created_at', 'updated_at', 'stars_display']
     date_hierarchy = 'created_at'
