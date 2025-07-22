@@ -35,6 +35,12 @@ def extend_superapp_settings(main_settings):
                                 'radio_crestin.stationmetadatafetchcategories',
                             ],
                             'exclude_models_from_import': [],
+                            'schedule': {
+                                'enabled': True,
+                                'hour': 3,
+                                'minute': 0,
+                                'day_of_week': 1,  # Monday
+                            },
                         },
                     },
                     'RETENTION': {
@@ -77,10 +83,27 @@ def extend_superapp_settings(main_settings):
         if 'CELERY_BEAT_SCHEDULE' not in main_settings:
             main_settings['CELERY_BEAT_SCHEDULE'] = {}
         
-        # Add backup tasks
-        main_settings['CELERY_BEAT_SCHEDULE'].update({
-            'backups-weekly-essential-backup': {
-                'task': 'backups.automated_weekly_backup',
-                'schedule': crontab(hour=3, minute=0, day_of_week=1),  # Weekly on Monday at 3 AM
-            },
-        })
+        # Dynamically add backup tasks based on backup type schedules
+        backup_types = main_settings.get('BACKUPS', {}).get('BACKUP_TYPES', {})
+        
+        for backup_type, config in backup_types.items():
+            schedule_config = config.get('schedule')
+            if schedule_config and schedule_config.get('enabled', False):
+                task_name = f'backups-scheduled-{backup_type}-backup'
+                
+                # Create crontab schedule from configuration
+                schedule_kwargs = {}
+                if 'hour' in schedule_config:
+                    schedule_kwargs['hour'] = schedule_config['hour']
+                if 'minute' in schedule_config:
+                    schedule_kwargs['minute'] = schedule_config['minute']
+                if 'day_of_week' in schedule_config:
+                    schedule_kwargs['day_of_week'] = schedule_config['day_of_week']
+                if 'day_of_month' in schedule_config:
+                    schedule_kwargs['day_of_month'] = schedule_config['day_of_month']
+                
+                main_settings['CELERY_BEAT_SCHEDULE'][task_name] = {
+                    'task': 'backups.automated_backup',
+                    'schedule': crontab(**schedule_kwargs),
+                    'kwargs': {'backup_type': backup_type},
+                }

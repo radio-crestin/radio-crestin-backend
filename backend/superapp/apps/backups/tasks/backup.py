@@ -347,38 +347,45 @@ def process_backup(self, backup_pk):
 
 @shared_task(
     bind=True,
-    name="backups.automated_weekly_backup",
+    name="backups.automated_backup",
     max_retries=3,
     default_retry_delay=60,
 )
-def automated_weekly_backup(self):
+def automated_backup(self, backup_type='essential_data'):
     """
-    Automated weekly backup task for essential data.
+    Automated backup task for any backup type.
 
-    Creates a backup of essential data and triggers cleanup of old backups.
+    Args:
+        backup_type: The type of backup to create
+
+    Creates a backup of the specified type.
     """
     try:
-        logger.info("Starting automated weekly backup of essential data")
+        logger.info(f"Starting automated backup of type: {backup_type}")
+
+        # Get backup type configuration
+        backup_types = getattr(settings, 'BACKUPS', {}).get('BACKUP_TYPES', {})
+        backup_config = backup_types.get(backup_type, {})
+        backup_name = backup_config.get('name', backup_type.replace('_', ' ').title())
 
         # Create backup instance
         backup = Backup.objects.create(
-            name=f"Weekly Essential Data Backup {timezone.now().strftime('%Y-%m-%d')}",
-            type='essential_data'
+            name=f"Scheduled {backup_name} Backup {timezone.now().strftime('%Y-%m-%d')}",
+            type=backup_type
         )
 
         # Process the backup
         backup_id = process_backup.apply_async(args=[backup.pk]).get()
 
         if backup_id:
-            logger.info(f"Weekly backup created successfully with ID: {backup_id}")
-            # Cleanup is now automatic after backup creation
+            logger.info(f"Automated backup created successfully with ID: {backup_id} for type: {backup_type}")
             return backup_id
         else:
-            logger.error("Failed to create weekly backup")
+            logger.error(f"Failed to create automated backup for type: {backup_type}")
             return None
 
     except Exception as exc:
-        logger.error(f"Error in automated weekly backup: {exc}")
+        logger.error(f"Error in automated backup for type {backup_type}: {exc}")
         self.retry(exc=exc)
         return None
 
