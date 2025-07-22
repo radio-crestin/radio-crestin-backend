@@ -53,18 +53,11 @@ def extend_superapp_settings(main_settings):
     )
 ```
 
-**Schedule Configuration:**
-- `enabled`: Enable/disable scheduled backups for this type
-- `hour`: Hour (0-23)
-- `minute`: Minute (0-59)  
-- `day_of_week`: Day of week (0=Sunday, 1=Monday, etc.)
-- `day_of_month`: Day of month (1-31) for monthly schedules
-
-**Environment Variables:**
-- `SETUP_SCHEDULED_TASKS=false` - Disable all scheduled backups
-
 ### Requirements
-This module requires the `multi_tenant` app from https://github.com/django-superapp/django-superapp-multi-tenant
+This module requires the `tasks` app from https://github.com/django-superapp/django-superapp-tasks
+
+### Optional Requirements  
+The `multi_tenant` app from https://github.com/django-superapp/django-superapp-multi-tenant is optional for multi-tenant support
 
 ## Management Commands
 
