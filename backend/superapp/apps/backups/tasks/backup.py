@@ -328,6 +328,14 @@ def process_backup(self, backup_pk):
             if media_copy_result['missing']:
                 logger.warning(f"Missing media files: {media_copy_result['missing']}")
 
+            # Cleanup old backups after successful backup creation
+            try:
+                deleted_count = cleanup_old_backups_for_type(backup.type)
+                if deleted_count > 0:
+                    logger.info(f"Cleaned up {deleted_count} old backups of type {backup.type}")
+            except Exception as e:
+                logger.warning(f"Failed to cleanup old backups: {e}")
+
         # Clean up tenant context
         unset_current_tenant()
 
@@ -363,10 +371,7 @@ def automated_weekly_backup(self):
 
         if backup_id:
             logger.info(f"Weekly backup created successfully with ID: {backup_id}")
-
-            # Trigger cleanup of old backups
-            cleanup_old_backups.apply_async()
-
+            # Cleanup is now automatic after backup creation
             return backup_id
         else:
             logger.error("Failed to create weekly backup")
@@ -378,21 +383,18 @@ def automated_weekly_backup(self):
         return None
 
 
-@shared_task(
-    bind=True,
-    name="backups.cleanup_old_backups",
-    max_retries=3,
-    default_retry_delay=60,
-)
-def cleanup_old_backups(self, backup_type='essential_data'):
+def cleanup_old_backups_for_type(backup_type):
     """
-    Cleanup old backups to maintain retention limit.
+    Cleanup old backups to maintain retention limit for a specific backup type.
 
     Args:
-        backup_type: The type of backups to cleanup (default: 'essential_data')
+        backup_type: The type of backups to cleanup
+    
+    Returns:
+        Number of backups deleted
     """
     try:
-        max_backups = getattr(settings, 'BACKUPS', {}).get('RETENTION', {}).get('MAX_BACKUPS', 10)
+        max_backups = getattr(settings, 'BACKUPS', {}).get('RETENTION', {}).get('MAX_BACKUPS', 30)
 
         logger.info(f"Cleaning up old backups for type: {backup_type}, keeping {max_backups} most recent")
 
@@ -432,8 +434,7 @@ def cleanup_old_backups(self, backup_type='essential_data'):
 
     except Exception as exc:
         logger.error(f"Error in backup cleanup: {exc}")
-        self.retry(exc=exc)
-        return None
+        raise
 
 
 def create_backup_synchronously(backup_type, target_file_path=None, tenant=None):
@@ -562,6 +563,14 @@ def create_backup_synchronously(backup_type, target_file_path=None, tenant=None)
                        f"{len(media_copy_result['missing'])} missing")
             if media_copy_result['missing']:
                 logger.warning(f"Missing media files: {media_copy_result['missing']}")
+
+            # Cleanup old backups after successful backup creation
+            try:
+                deleted_count = cleanup_old_backups_for_type(backup_type)
+                if deleted_count > 0:
+                    logger.info(f"Cleaned up {deleted_count} old backups of type {backup_type}")
+            except Exception as e:
+                logger.warning(f"Failed to cleanup old backups: {e}")
                 
         # Clean up tenant context
         unset_current_tenant()
