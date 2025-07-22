@@ -65,3 +65,19 @@ def extend_superapp_settings(main_settings):
             ]
         }
     ]
+
+    # Configure Celery Beat schedule for backup tasks (production only)
+    if not main_settings.get('DEBUG', False):
+        from celery.schedules import crontab
+        
+        # Initialize CELERY_BEAT_SCHEDULE if it doesn't exist
+        if 'CELERY_BEAT_SCHEDULE' not in main_settings:
+            main_settings['CELERY_BEAT_SCHEDULE'] = {}
+        
+        # Add backup tasks
+        main_settings['CELERY_BEAT_SCHEDULE'].update({
+            'backups-weekly-essential-backup': {
+                'task': 'backups.automated_weekly_backup',
+                'schedule': crontab(hour=3, minute=0, day_of_week=1),  # Weekly on Monday at 3 AM
+            },
+        })

@@ -102,26 +102,22 @@ def extend_superapp_settings(main_settings):
         },
     ]
 
-    # Configure Celery Beat schedules for cleanup tasks (only in DEBUG mode)
-    if main_settings.get('DEBUG', False):
+    # Configure Celery Beat schedules for cleanup tasks (production only)
+    if not main_settings.get('DEBUG', False):
         from celery.schedules import crontab
-        
+
         # Initialize CELERY_BEAT_SCHEDULE if it doesn't exist
         if 'CELERY_BEAT_SCHEDULE' not in main_settings:
             main_settings['CELERY_BEAT_SCHEDULE'] = {}
-        
+
         # Add radio_crestin cleanup tasks
         main_settings['CELERY_BEAT_SCHEDULE'].update({
-            'radio-crestin-nightly-database-cleanup': {
-                'task': 'superapp.apps.radio_crestin.tasks.nightly_cleanup.nightly_database_cleanup',
-                'schedule': crontab(hour=1, minute=30),  # Daily at 1:30 AM
+            'delete-stale-listening-sessions': {
+                'task': 'superapp.apps.radio_crestin.tasks.delete_stale_listening_sessions.delete_stale_listening_sessions',
+                'schedule': crontab(minute='*'),  # Every minute
             },
-            'radio-crestin-cleanup-stale-listening-sessions': {
-                'task': 'superapp.apps.radio_crestin.tasks.cleanup_stale_sessions.mark_stale_sessions_inactive_and_delete',
-                'schedule': crontab(minute='*/5'),  # Every 5 minutes
-            },
-            'radio-crestin-delete-inactive-sessions-cleanup': {
-                'task': 'superapp.apps.radio_crestin.tasks.cleanup_stale_sessions.delete_inactive_listening_sessions',
-                'schedule': crontab(minute='*/15'),  # Every 15 minutes (backup cleanup)
+            'delete-old-anonymous-users': {
+                'task': 'superapp.apps.radio_crestin.tasks.delete_old_anonymous_users.delete_old_anonymous_users',
+                'schedule': crontab(hour=2, minute=0),  # Daily at 2 AM
             },
         })

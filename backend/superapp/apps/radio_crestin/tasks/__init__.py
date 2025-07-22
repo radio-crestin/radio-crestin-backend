@@ -2,19 +2,11 @@
 Radio Crestin Celery tasks.
 """
 
-# Import all tasks from individual modules
-from .cleanup_old_sessions import cleanup_old_listening_sessions
-from .cleanup_old_users import cleanup_old_app_users
-from .cleanup_stale_sessions import (
-    delete_inactive_listening_sessions,
-    mark_stale_sessions_inactive_and_delete
-)
-from .nightly_cleanup import nightly_database_cleanup
+# Import focused cleanup tasks
+from .delete_stale_listening_sessions import delete_stale_listening_sessions
+from .delete_old_anonymous_users import delete_old_anonymous_users
 
 __all__ = [
-    'cleanup_old_listening_sessions',
-    'cleanup_old_app_users',
-    'delete_inactive_listening_sessions',
-    'mark_stale_sessions_inactive_and_delete',
-    'nightly_database_cleanup',
+    'delete_stale_listening_sessions',
+    'delete_old_anonymous_users',
 ]
