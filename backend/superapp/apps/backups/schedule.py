@@ -32,8 +32,8 @@ def setup_backup_schedules(main_settings):
     if tasks_to_remove:
         logger.info(f"Cleaned up {len(tasks_to_remove)} existing backup scheduled tasks")
     
-    # Manage PeriodicTask records in database
-    _manage_periodic_tasks(main_settings)
+    # Note: PeriodicTask database management is handled by the ready() method in apps.py
+    # to avoid importing Django models during settings configuration
     
     try:
         from celery.schedules import crontab
@@ -73,15 +73,14 @@ def setup_backup_schedules(main_settings):
     logger.info(f"Backup schedule setup complete: {enabled_count} scheduled backups enabled")
 
 
-def _manage_periodic_tasks(main_settings):
+def manage_periodic_tasks():
     """
     Manage PeriodicTask records in the database, disabling backup tasks that are not enabled.
-    
-    Args:
-        main_settings: Django settings dictionary
+    This should be called from apps.py ready() method after Django is fully initialized.
     """
     try:
         from django_celery_beat.models import PeriodicTask
+        from django.conf import settings
     except ImportError:
         logger.debug("django_celery_beat not installed, skipping PeriodicTask management")
         return
@@ -95,7 +94,7 @@ def _manage_periodic_tasks(main_settings):
             return
         
         # Get currently enabled backup types
-        backup_types = main_settings.get('BACKUPS', {}).get('BACKUP_TYPES', {})
+        backup_types = getattr(settings, 'BACKUPS', {}).get('BACKUP_TYPES', {})
         enabled_tasks = set()
         
         for backup_type, config in backup_types.items():
