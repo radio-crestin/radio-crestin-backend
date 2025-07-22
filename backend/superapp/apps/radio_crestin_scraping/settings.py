@@ -31,10 +31,9 @@ def extend_superapp_settings(main_settings):
     main_settings.update(celery_settings)
 
     # Configure Celery beat schedule for radio station scraping tasks
-    # Only create scheduled tasks in production (when DEBUG is False)
-    is_debug = environ.get("DEBUG", 'false') == 'true'
+    setup_scheduled_tasks = environ.get('SETUP_SCHEDULED_TASKS', 'true').lower() == 'true'
     
-    if not is_debug:
+    if setup_scheduled_tasks:
         beat_schedule = {
             'scrape-all-stations-metadata': {
                 'task': 'superapp.apps.radio_crestin_scraping.tasks.scraping_tasks.scrape_all_stations_metadata',

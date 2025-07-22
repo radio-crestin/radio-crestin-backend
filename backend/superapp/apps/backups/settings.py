@@ -66,8 +66,11 @@ def extend_superapp_settings(main_settings):
         }
     ]
 
-    # Configure Celery Beat schedule for backup tasks (production only)
-    if not main_settings.get('DEBUG', False):
+    # Configure Celery Beat schedule for backup tasks
+    import os
+    setup_scheduled_tasks = os.getenv('SETUP_SCHEDULED_TASKS', 'true').lower() == 'true'
+    
+    if setup_scheduled_tasks:
         from celery.schedules import crontab
         
         # Initialize CELERY_BEAT_SCHEDULE if it doesn't exist
