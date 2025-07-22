@@ -61,7 +61,7 @@ class LogMonitor:
         Parse a single NGINX log line and extract relevant information.
         
         Expected format from nginx.conf session_access log format:
-        '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" session_id="$arg_s" real_ip="$realip_remote_addr"'
+        '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" session_id="$arg_s" real_ip="$http_x_forwarded_for"'
         
         Args:
             line: Raw log line from NGINX
