@@ -2,6 +2,9 @@ from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
 from django.utils import timezone
+from django.shortcuts import redirect
+from django.urls import reverse_lazy
+import unfold.decorators
 
 from superapp.apps.admin_portal.admin import SuperAppModelAdmin
 from superapp.apps.admin_portal.sites import superapp_admin_site
@@ -10,6 +13,10 @@ from ..models import ListeningSessions
 
 @admin.register(ListeningSessions, site=superapp_admin_site)
 class ListeningSessionsAdmin(SuperAppModelAdmin):
+    actions_list = [
+        "delete_all_listening_events",
+    ]
+    
     list_display = ['user', 'station', 'start_time', 'duration_display', 'session_preview', 'ip_address', 'status', 'is_active']
     list_filter = ['station', 'start_time', 'end_time', 'is_active']
     search_fields = ['user__email', 'user__anonymous_id', 'station__title', 'anonymous_session_id', 'ip_address']
@@ -77,3 +84,11 @@ class ListeningSessionsAdmin(SuperAppModelAdmin):
     
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('user', 'station')
+
+    @unfold.decorators.action(description=_("Delete all listening events"))
+    def delete_all_listening_events(self, request):
+        # Delete all listening sessions
+        ListeningSessions.objects.all().delete()
+        return redirect(
+            reverse_lazy("admin:radio_crestin_listeningsessions_changelist")
+        )
