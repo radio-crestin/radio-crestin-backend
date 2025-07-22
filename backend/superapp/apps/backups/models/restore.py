@@ -10,7 +10,7 @@ try:
     from django_multitenant.fields import TenantForeignKey
     from superapp.apps.multi_tenant.models import AppAwareTenantModel
     from superapp.apps.multi_tenant.utils import get_tenant_model_name
-    
+
     MULTI_TENANT_ENABLED = True
     tenant_model_name = get_tenant_model_name()
     BaseModel = AppAwareTenantModel
@@ -55,7 +55,7 @@ class Restore(BaseModel):
         choices=RestoreTypeChoices(),
         default='all_models'
     )
-    cleanup_existing_data = models.BooleanField(_("Cleanup existing data"), default=True)
+    cleanup_existing_data = models.BooleanField(_("Cleanup existing data"), default=False)
     done = models.BooleanField(_("Done"), default=False)
 
     started_at = models.DateTimeField(_("Started at"), blank=True, null=True)

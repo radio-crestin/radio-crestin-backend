@@ -1,16 +1,16 @@
+import unfold.decorators
 from django.conf import settings
 from django.contrib import admin
-from django.utils import timezone
 from django.contrib import messages
-from django.urls import reverse, reverse_lazy
 from django.shortcuts import redirect
+from django.urls import reverse_lazy
+from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from superapp.apps.admin_portal.admin import SuperAppModelAdmin
 from superapp.apps.admin_portal.sites import superapp_admin_site
 from superapp.apps.backups.models.restore import Restore, MULTI_TENANT_ENABLED
 from superapp.apps.backups.tasks.restore import process_restore
-import unfold.decorators
-from django.utils.translation import gettext_lazy as _
 
 
 @admin.register(Restore, site=superapp_admin_site)
@@ -23,6 +23,12 @@ class RestoreAdmin(SuperAppModelAdmin):
     actions_detail = [
         "retry_restore",
     ]
+
+    def has_export_permission(self, request):
+        return False
+
+    def has_import_permission(self, request):
+        return False
 
     def get_fields(self, request, obj=None):
         """
