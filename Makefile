@@ -27,6 +27,9 @@ force-deploy-staging: git-pull
 start-docker:
 	docker-compose --env-file .env  up --build --force-recreate -d
 
+stop-docker:
+	docker-compose stop
+
 stop:
 	docker-compose --env-file .env  stop
 
@@ -53,3 +56,14 @@ create-superuser:
 
 load-admin-fixtures:
 	cd backend && make load-admin-fixtures
+
+# Backend
+
+makemigrations:
+	docker-compose run web python3 manage.py makemigrations
+
+migrate:
+	docker-compose run web python3 manage.py migrate
+
+createsuperuser:
+	docker-compose run web python3 manage.py createsuperuser

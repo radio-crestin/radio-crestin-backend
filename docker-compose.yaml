@@ -3,6 +3,8 @@ services:
     image: timescale/timescaledb-ha:pg16
     restart: unless-stopped
     shm_size: 2gb
+    volumes:
+      - db_data:/home/postgres/pgdata/data
     env_file:
       - .env
     ports:
@@ -24,6 +26,8 @@ services:
       - "6379:6379"
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - redis:/data
     command: redis-server --requirepass ${REDIS_PASSWORD} --notify-keyspace-events Exe
   web:
     build:
@@ -150,3 +154,7 @@ services:
       options:
         max-file: "5"
         max-size: "100m"
+
+volumes:
+  db_data:
+  redis:
