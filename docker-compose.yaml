@@ -156,6 +156,35 @@ services:
       options:
         max-file: "5"   # number of files or file count
         max-size: "100m" # file size
+  backend-hls-streaming:
+    build:
+      context: backend_hls_streaming
+    depends_on:
+      - graphql-engine
+    restart: unless-stopped
+    environment:
+      - GRAPHQL_ENDPOINT=http://graphql-engine:8080/v1/graphql
+      - GRAPHQL_TOKEN=${APP_GRAPHQL_ADMIN_SECRET}
+      - LOG_LEVEL=INFO
+      - STREAM_REFRESH_INTERVAL=60
+      - BATCH_INTERVAL=10
+      - NGINX_LOG_PATH=/var/log/nginx/ts_sessions.log
+    volumes:
+      - /tmp/data/hls:/data
+      - ./backend_hls_streaming/logs:/var/log/nginx
+    networks:
+      - app_network
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "5"   # number of files or file count
+        max-size: "100m" # file size
+    deploy:
+      resources:
+        limits:
+          memory: 500M
+        reservations:
+          memory: 200M
 volumes:
   db_data:
 

@@ -1,0 +1,11 @@
+table:
+  name: station_metadata_fetch_categories
+  schema: public
+array_relationships:
+  - name: station_metadata_fetches
+    using:
+      foreign_key_constraint_on:
+        column: station_metadata_fetch_category_id
+        table:
+          name: stations_metadata_fetch
+          schema: public

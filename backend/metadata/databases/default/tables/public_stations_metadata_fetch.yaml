@@ -1,0 +1,10 @@
+table:
+  name: stations_metadata_fetch
+  schema: public
+object_relationships:
+  - name: station
+    using:
+      foreign_key_constraint_on: station_id
+  - name: station_metadata_fetch_category
+    using:
+      foreign_key_constraint_on: station_metadata_fetch_category_id

@@ -1,0 +1,26 @@
+table:
+  name: stations_uptime
+  schema: public
+object_relationships:
+  - name: station
+    using:
+      foreign_key_constraint_on: station_id
+array_relationships:
+  - name: stations
+    using:
+      foreign_key_constraint_on:
+        column: latest_station_uptime_id
+        table:
+          name: stations
+          schema: public
+select_permissions:
+  - role: public
+    permission:
+      columns:
+        - id
+        - is_up
+        - latency_ms
+        - station_id
+        - timestamp
+      filter: {}
+      limit: 1000
