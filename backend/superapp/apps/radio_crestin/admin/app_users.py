@@ -1,10 +1,12 @@
+import unfold
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 from django.utils.safestring import mark_safe
 from django.contrib import messages
 from django.db.models import Q
+from django.shortcuts import redirect
 
 from superapp.apps.admin_portal.admin import SuperAppModelAdmin
 from superapp.apps.admin_portal.sites import superapp_admin_site
@@ -37,7 +39,9 @@ class AppUsersAdmin(SuperAppModelAdmin):
     readonly_fields = ['created_at', 'modified_at', 'date_joined']
     date_hierarchy = 'created_at'
     ordering = ['-created_at']
-    actions = ['delete_anonymous_users']
+    actions_list = [
+        "delete_anonymous_users",
+    ]
     
     fieldsets = (
         (_("User Info"), {
@@ -69,25 +73,29 @@ class AppUsersAdmin(SuperAppModelAdmin):
         return _('Unknown')
     user_type_display.short_description = _('User Type')
     
-    def delete_anonymous_users(self, request, queryset):
-        """Bulk action to delete anonymous users from the selected queryset"""
+    @unfold.decorators.action(description=_("Delete all anonymous users"))
+    def delete_anonymous_users(self, request):
+        """Bulk action to delete all anonymous users (respects current filters)"""
+        # Get the current queryset with applied filters
+        changelist = self.get_changelist_instance(request)
+        queryset = changelist.get_queryset(request)
+        
         # Filter to only anonymous users from the current queryset
         anonymous_users = queryset.filter(Q(email__isnull=True) | Q(email=''), anonymous_id__isnull=False)
         count = anonymous_users.count()
         
         if count == 0:
-            self.message_user(request, _('No anonymous users found in the selected items.'), messages.WARNING)
-            return
+            self.message_user(request, _('No anonymous users found with current filters.'), messages.WARNING)
+        else:
+            # Delete the anonymous users
+            anonymous_users.delete()
+            self.message_user(
+                request,
+                _(f'{count} anonymous user{"s" if count != 1 else ""} deleted successfully.'),
+                messages.SUCCESS
+            )
         
-        # Delete the anonymous users
-        anonymous_users.delete()
-        
-        self.message_user(
-            request,
-            _(f'{count} anonymous user{"s" if count != 1 else ""} deleted successfully.'),
-            messages.SUCCESS
-        )
-    delete_anonymous_users.short_description = _('Delete selected anonymous users')
+        return redirect(reverse_lazy("admin:radio_crestin_appusers_changelist"))
     
     def has_delete_permission(self, request, obj=None):
         # Allow deletion of users
