@@ -434,3 +434,136 @@ def cleanup_old_backups(self, backup_type='essential_data'):
         logger.error(f"Error in backup cleanup: {exc}")
         self.retry(exc=exc)
         return None
+
+
+def create_backup_synchronously(backup_type, target_file_path=None, tenant=None):
+    """
+    Create a backup synchronously without using Celery.
+    
+    Args:
+        backup_type: The backup type from BACKUPS.BACKUP_TYPES settings
+        target_file_path: Optional path where to save the backup file
+        tenant: Optional tenant object for multi-tenant setups
+        
+    Returns:
+        Dict with backup info: {'backup_id': int, 'file_path': str, 'archive_path': str}
+    """
+    try:
+        # Clear any existing tenant first
+        unset_current_tenant()
+        if tenant and MULTI_TENANT_ENABLED:
+            set_current_tenant(tenant)
+            
+        # Generate backup name
+        timestamp = timezone.now().strftime("%Y%m%d_%H%M%S")
+        if tenant and MULTI_TENANT_ENABLED:
+            backup_name = f'Synchronous Backup - Tenant {tenant.pk} - {backup_type} - {timestamp}'
+        else:
+            backup_name = f'Synchronous Backup - {backup_type} - {timestamp}'
+            
+        logger.info(f"Creating synchronous backup: {backup_name}")
+        
+        # Create backup record
+        backup = Backup.objects.create(
+            name=backup_name,
+            type=backup_type
+        )
+        
+        backup.started_at = timezone.now()
+        backup.save(update_fields=['started_at'])
+        
+        # Get models to backup based on backup type
+        models_to_backup = get_models_for_backup_type(backup_type)
+        
+        # If models_to_backup is '*', backup all models
+        if models_to_backup == '*':
+            args = []
+            for app_config in apps.get_app_configs():
+                for model in app_config.get_models():
+                    model_name = f"{model._meta.app_label}.{model._meta.model_name}"
+                    args.append(model_name)
+        else:
+            args = models_to_backup
+            
+        logger.info(f"Backing up models: {args}")
+        
+        # Create a temporary directory for the backup process
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_file_path = os.path.join(temp_dir, 'backup.json')
+            
+            # Set up options for the dumpdata command
+            options = {
+                'output': temp_file_path,
+                'format': 'json',
+                'indent': 2,
+                'database': 'default',
+            }
+            
+            # If multi-tenant is enabled and we have a tenant, use tenant-specific commands
+            if MULTI_TENANT_ENABLED and tenant:
+                options['tenant_pk'] = tenant.pk
+                call_command('tenant_dumpdata', *args, **options)
+            else:
+                call_command('dumpdata', *args, **options)
+                
+            # Read the generated JSON file to extract media file references
+            with open(temp_file_path, 'r') as f:
+                fixture_data = json.load(f)
+                
+            # Extract media files referenced in the fixture
+            media_files = extract_media_files_from_fixture(fixture_data)
+            logger.info(f"Found {len(media_files)} media files referenced in backup")
+            
+            # Copy media files to backup directory
+            media_copy_result = copy_media_files_to_backup(media_files, temp_dir)
+            logger.info(f"Copied {len(media_copy_result['copied'])} media files, "
+                       f"{len(media_copy_result['missing'])} files were missing")
+                       
+            # Create backup filename
+            backup.finished_at = timezone.now()
+            if MULTI_TENANT_ENABLED and tenant:
+                archive_name = f'backup_{tenant.pk}_{backup.type}_{backup.finished_at.strftime("%Y%m%d_%H%M%S")}'
+            else:
+                archive_name = f'backup_{backup.type}_{backup.finished_at.strftime("%Y%m%d_%H%M%S")}'
+                
+            # Create zip archive with JSON data and media files
+            archive_path = create_backup_archive(temp_file_path, temp_dir, archive_name)
+            
+            # Save to target file path if specified
+            final_file_path = None
+            if target_file_path:
+                import shutil
+                shutil.copy2(archive_path, target_file_path)
+                final_file_path = target_file_path
+            
+            # Save the zip archive as the backup file for record keeping
+            with open(archive_path, 'rb') as archive_file:
+                backup.file.save(
+                    name=f'{archive_name}.zip',
+                    content=File(archive_file),
+                    save=True
+                )
+                
+            backup.done = True
+            backup.save(update_fields=['file', 'done', 'finished_at'])
+            
+            # Log backup statistics
+            logger.info(f"Backup completed: {archive_name}.zip")
+            logger.info(f"Media files: {len(media_copy_result['copied'])} copied, "
+                       f"{len(media_copy_result['missing'])} missing")
+            if media_copy_result['missing']:
+                logger.warning(f"Missing media files: {media_copy_result['missing']}")
+                
+        # Clean up tenant context
+        unset_current_tenant()
+        
+        return {
+            'backup_id': backup.id,
+            'file_path': final_file_path or backup.file.path,
+            'archive_path': str(archive_path),
+            'media_stats': media_copy_result
+        }
+        
+    except Exception as exc:
+        logger.error(f"Error in synchronous backup creation: {exc}")
+        raise
