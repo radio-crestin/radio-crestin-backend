@@ -3,8 +3,6 @@ services:
     image: timescale/timescaledb-ha:pg16
     restart: unless-stopped
     shm_size: 2gb
-    volumes:
-      - db_data:/home/postgres/pgdata/data
     env_file:
       - .env
     ports:
@@ -26,8 +24,6 @@ services:
       - "6379:6379"
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
-    volumes:
-      - redis:/data
     command: redis-server --requirepass ${REDIS_PASSWORD} --notify-keyspace-events Exe
   web:
     build:
@@ -123,11 +119,6 @@ services:
     ports:
       - "8082:80"  # NGINX HLS serving port
     volumes:
-      # HLS data directory (shared with NGINX)
-      - hls_data:/tmp/data
-      # Log directories
-      - hls_logs:/tmp/logs
-      - nginx_logs:/var/log/nginx
       # Mount backend_hls_streaming directory for development
       - ./backend_hls_streaming:/app:delegated
     environment:
@@ -138,7 +129,7 @@ services:
       - LOG_LEVEL=DEBUG
       - MAX_LOG_SIZE_MB=20
       # Log Monitor configuration
-      - NGINX_LOG_PATH=/var/log/nginx/session_access.log
+      - NGINX_LOG_PATH=/tmp/nginx_session_access.log
       - BATCH_INTERVAL_SECONDS=10
       - SESSION_TIMEOUT_MINUTES=5
       # Enhanced Logging Configuration
@@ -159,9 +150,3 @@ services:
       options:
         max-file: "5"
         max-size: "100m"
-volumes:
-  db_data:
-  redis:
-  hls_data:
-  hls_logs:
-  nginx_logs:

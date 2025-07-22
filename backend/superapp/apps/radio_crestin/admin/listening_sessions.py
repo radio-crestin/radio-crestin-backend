@@ -17,7 +17,7 @@ class ListeningSessionsAdmin(SuperAppModelAdmin):
         "delete_all_listening_events",
     ]
     
-    list_display = ['user', 'station', 'start_time', 'duration_display', 'session_preview', 'ip_address', 'status', 'is_active']
+    list_display = ['session_preview', 'user_display', 'station', 'start_time', 'duration_display', 'ip_address', 'status', 'is_active']
     list_filter = ['station', 'start_time', 'end_time', 'is_active']
     search_fields = ['user__email', 'user__anonymous_id', 'station__title', 'anonymous_session_id', 'ip_address']
     autocomplete_fields = ['user', 'station']
@@ -65,7 +65,13 @@ class ListeningSessionsAdmin(SuperAppModelAdmin):
         if obj.anonymous_session_id:
             return format_html('<code>{}</code>', obj.anonymous_session_id[:8] + '...' if len(obj.anonymous_session_id) > 8 else obj.anonymous_session_id)
         return _("No session")
-    session_preview.short_description = _("Session")
+    session_preview.short_description = _("Session ID")
+    
+    def user_display(self, obj):
+        if obj.user:
+            return obj.user
+        return format_html('<span style="color: #666; font-style: italic;">Anonymous</span>')
+    user_display.short_description = _("User")
     
     def user_agent_display(self, obj):
         if obj.user_agent:

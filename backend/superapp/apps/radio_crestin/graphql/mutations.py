@@ -42,20 +42,9 @@ class Mutation:
                         logger.warning(f"Station not found: {event_input.station_slug}")
                         continue
 
-                    # Get or create anonymous user for session tracking
-                    # Use a simple approach that works with existing table structure
-                    try:
-                        anonymous_user = AppUsers.objects.get(anonymous_id=event_input.anonymous_session_id)
-                    except AppUsers.DoesNotExist:
-                        anonymous_user = AppUsers.objects.create(
-                            anonymous_id=event_input.anonymous_session_id,
-                            is_active=True,
-                            is_staff=False,
-                            is_superuser=False,
-                            password='',  # Anonymous users don't need passwords
-                            first_name='',
-                            last_name=''
-                        )
+                    # For anonymous sessions, don't create AppUser records
+                    # Anonymous sessions are tracked by session ID only
+                    anonymous_user = None
 
                     # Get or create listening session and update activity
                     session, created = ListeningSessions.get_or_create_session(

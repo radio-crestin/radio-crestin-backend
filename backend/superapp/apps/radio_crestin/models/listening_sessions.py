@@ -18,7 +18,9 @@ class ListeningSessions(models.Model):
         'radio_crestin.AppUsers',
         verbose_name=_("App Users"),
         on_delete=models.CASCADE,
-        related_name='listening_sessions'
+        related_name='listening_sessions',
+        blank=True,
+        null=True
     )
 
     station = models.ForeignKey(
@@ -79,7 +81,8 @@ class ListeningSessions(models.Model):
         ]
 
     def __str__(self):
-        return f"Session: {self.user} - {self.station.title} - {self.start_time}"
+        user_display = self.user if self.user else f"Anonymous({self.anonymous_session_id[:8]})"
+        return f"Session: {user_display} - {self.station.title} - {self.start_time}"
     
     def update_activity(self, timestamp=None, bytes_sent=0, is_playlist=False):
         """
@@ -144,7 +147,7 @@ class ListeningSessions(models.Model):
         Get existing active session or create a new one.
         
         Args:
-            user: AppUsers instance
+            user: AppUsers instance or None for anonymous sessions
             station: Station instance
             anonymous_session_id: Session ID from NGINX
             ip_address: User IP address
