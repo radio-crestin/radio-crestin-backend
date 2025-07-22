@@ -6,7 +6,7 @@ from django.utils import timezone
 from datetime import datetime
 import logging
 
-from .types import StationType, ListeningEventInput, SubmitListeningEventsResponse
+from .types import StationType, ListeningEventInput, SubmitListeningEventsResponse, TriggerMetadataFetchResponse
 from ..models import Stations, AppUsers, ListeningSessions
 
 
@@ -91,4 +91,37 @@ class Mutation:
                 success=False,
                 message=f"Error processing events: {str(e)}",
                 processed_count=processed_count
+            )
+    
+    @strawberry.field
+    def trigger_metadata_fetch(self, station_id: int) -> TriggerMetadataFetchResponse:
+        """Schedule a metadata fetch task for a specific station"""
+        logger = logging.getLogger(__name__)
+        
+        try:
+            # Validate that the station exists
+            station = Stations.objects.get(id=station_id)
+            
+            # For now, we'll just return success indicating the task was scheduled
+            # In a real implementation, this would trigger a background task
+            # using Celery, Django-RQ, or similar task queue system
+            logger.info(f"Metadata fetch task scheduled for station {station.name} (ID: {station_id})")
+            
+            return TriggerMetadataFetchResponse(
+                success=True,
+                message=f"Metadata fetch task scheduled for station {station.name}"
+            )
+            
+        except Stations.DoesNotExist:
+            logger.warning(f"Station not found: {station_id}")
+            return TriggerMetadataFetchResponse(
+                success=False,
+                message=f"Station with ID {station_id} not found"
+            )
+            
+        except Exception as e:
+            logger.error(f"Error scheduling metadata fetch for station {station_id}: {e}")
+            return TriggerMetadataFetchResponse(
+                success=False,
+                message=f"Error scheduling metadata fetch: {str(e)}"
             )

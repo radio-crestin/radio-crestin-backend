@@ -237,3 +237,8 @@ class SubmitListeningEventsResponse:
     success: bool
     message: str
     processed_count: int
+
+@strawberry.type
+class TriggerMetadataFetchResponse:
+    success: bool
+    message: str
