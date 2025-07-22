@@ -140,6 +140,13 @@ class Command(BaseCommand):
         from django.core.management import call_command
         from django.apps import apps
 
+        # Create target directory if it doesn't exist
+        target_path = Path(target_file_path)
+        target_dir = target_path.parent
+        if not target_dir.exists():
+            target_dir.mkdir(parents=True, exist_ok=True)
+            self.stdout.write(f'Created directory: {target_dir}')
+
         # Get models to backup based on backup type
         models_to_backup = get_models_for_backup_type(backup.type)
 

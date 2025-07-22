@@ -533,6 +533,15 @@ def create_backup_synchronously(backup_type, target_file_path=None, tenant=None)
             final_file_path = None
             if target_file_path:
                 import shutil
+                from pathlib import Path
+                
+                # Create target directory if it doesn't exist
+                target_path = Path(target_file_path)
+                target_dir = target_path.parent
+                if not target_dir.exists():
+                    target_dir.mkdir(parents=True, exist_ok=True)
+                    logger.info(f'Created directory: {target_dir}')
+                
                 shutil.copy2(archive_path, target_file_path)
                 final_file_path = target_file_path
             
