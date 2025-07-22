@@ -113,12 +113,20 @@ class Command(BaseCommand):
             self.stdout.write(f'Source file: {file_path}')
             self.stdout.write(f'Cleanup existing data: {cleanup_existing_data}')
 
-            # Create restore record for tracking
-            restore = Restore.objects.create(
+            # Create restore record for tracking and upload the local file
+            restore = Restore(
                 name=restore_name,
                 type=backup_type,
                 cleanup_existing_data=cleanup_existing_data
             )
+            
+            # Upload the local backup file to the restore record
+            with open(file_path, 'rb') as backup_file:
+                from django.core.files.base import ContentFile
+                file_name = os.path.basename(file_path)
+                restore.file.save(file_name, ContentFile(backup_file.read()), save=False)
+            
+            restore.save()
 
             restore.started_at = timezone.now()
             restore.save(update_fields=['started_at'])

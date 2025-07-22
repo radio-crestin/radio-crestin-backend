@@ -58,7 +58,6 @@ load-admin-fixtures:
 	cd backend && make load-admin-fixtures
 
 # Backend
-
 makemigrations:
 	docker-compose run web python3 manage.py makemigrations
 
@@ -67,3 +66,9 @@ migrate:
 
 createsuperuser:
 	docker-compose run web python3 manage.py createsuperuser
+
+create_backup:
+	docker-compose run web python3 manage.py create_backup --file backups/backup.zip --backup-type essential_data
+
+restore_backup:
+	docker-compose run web python3 manage.py restore_backup --file backups/backup.zip --backup-type essential_data

@@ -23,53 +23,9 @@ Obs. This project can be used only by christian organizations for non-comercial 
 
 #### Development
 ```bash
-cd backend
 cp ../.env.example .env
-make start-dev
+make start-docker
 sleep 10s
-make fresh-install
+make restore_backup
 ```
 
-#### Production
-
-```bash
-apt update
-apt install -y git make
-ssh-keygen -t rsa
-git clone git@github.com:iosifnicolae2/radio-crestin.com.git
-cd radio-crestin.com/
-  
-# Installing Docker
-apt update
-curl https://releases.rancher.com/install-docker/20.10.sh | sh
-apt install -y docker-compose
-
-# Configuration (make sure to update all the secrets)
-cp ./nginx/nginx.conf.example ./nginx/nginx.conf
-cp .env.example .env
-
-make deploy;
-
-# Load Admin Fixtures
-make load-admin-fixtures;
-
-# Create a superuser
-make create-superuser-production;
-```
-- setup CI/CD:
-```bash
-ssh-keygen -b 2048 -t rsa 
-# Add the public key to ~/.ssh/authorized_keys
-# Add the following secrets on Github Repo > Settings > Secrets > Actions:
-# HOST
-# PORT
-# USERNAME
-# KEY
-```
-
-#### HLS deployment
-- do all the steps from the `Production` section
-```bash
-cd hls-streaming
-make deploy;
-```

@@ -75,3 +75,4 @@ def extend_superapp_settings(main_settings):
     # Configure backup schedules
     from .schedule import setup_backup_schedules
     setup_backup_schedules(main_settings)
+
