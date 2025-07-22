@@ -10,6 +10,7 @@ def setup_backup_schedules(main_settings):
     """
     Configure Celery Beat schedules for backup tasks based on backup type configurations.
     Automatically removes schedules that are no longer enabled or defined.
+    Also manages PeriodicTask records in the database, disabling tasks that are not enabled.
     
     Args:
         main_settings: Django settings dictionary to update
@@ -30,6 +31,9 @@ def setup_backup_schedules(main_settings):
     
     if tasks_to_remove:
         logger.info(f"Cleaned up {len(tasks_to_remove)} existing backup scheduled tasks")
+    
+    # Manage PeriodicTask records in database
+    _manage_periodic_tasks(main_settings)
     
     try:
         from celery.schedules import crontab
@@ -67,3 +71,61 @@ def setup_backup_schedules(main_settings):
             logger.info(f"Configured scheduled backup for {backup_type}: {schedule_kwargs}")
     
     logger.info(f"Backup schedule setup complete: {enabled_count} scheduled backups enabled")
+
+
+def _manage_periodic_tasks(main_settings):
+    """
+    Manage PeriodicTask records in the database, disabling backup tasks that are not enabled.
+    
+    Args:
+        main_settings: Django settings dictionary
+    """
+    try:
+        from django_celery_beat.models import PeriodicTask
+    except ImportError:
+        logger.debug("django_celery_beat not installed, skipping PeriodicTask management")
+        return
+    
+    try:
+        # Get all backup-related periodic tasks from database
+        backup_tasks = PeriodicTask.objects.filter(name__startswith='backups-scheduled-')
+        
+        if not backup_tasks.exists():
+            logger.debug("No backup PeriodicTasks found in database")
+            return
+        
+        # Get currently enabled backup types
+        backup_types = main_settings.get('BACKUPS', {}).get('BACKUP_TYPES', {})
+        enabled_tasks = set()
+        
+        for backup_type, config in backup_types.items():
+            schedule_config = config.get('schedule')
+            if schedule_config and schedule_config.get('enabled', False):
+                task_name = f'backups-scheduled-{backup_type}-backup'
+                enabled_tasks.add(task_name)
+        
+        # Process each backup task in database
+        disabled_count = 0
+        enabled_count = 0
+        
+        for task in backup_tasks:
+            if task.name in enabled_tasks:
+                # Task should be enabled
+                if not task.enabled:
+                    task.enabled = True
+                    task.save(update_fields=['enabled'])
+                    enabled_count += 1
+                    logger.info(f"Enabled PeriodicTask: {task.name}")
+            else:
+                # Task should be disabled
+                if task.enabled:
+                    task.enabled = False
+                    task.save(update_fields=['enabled'])
+                    disabled_count += 1
+                    logger.info(f"Disabled PeriodicTask: {task.name}")
+        
+        if disabled_count > 0 or enabled_count > 0:
+            logger.info(f"PeriodicTask management complete: {enabled_count} enabled, {disabled_count} disabled")
+            
+    except Exception as e:
+        logger.warning(f"Error managing PeriodicTask records: {e}")
