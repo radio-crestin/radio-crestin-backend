@@ -280,7 +280,7 @@ class LogMonitor:
                             
                         # Parse the log line
                         parsed = self.parse_log_line(line)
-                        if parsed:
+                        if parsed and parsed['session_id']:
                             # Create listening event
                             event = self.create_listening_event(
                                 parsed['session_id'],
