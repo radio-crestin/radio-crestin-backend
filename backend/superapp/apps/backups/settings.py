@@ -38,7 +38,7 @@ def extend_superapp_settings(main_settings):
                         },
                     },
                     'RETENTION': {
-                        'MAX_BACKUPS': 10,
+                        'MAX_BACKUPS': 30,
                     },
                 }
             },
