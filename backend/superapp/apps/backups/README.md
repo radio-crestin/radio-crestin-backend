@@ -16,38 +16,35 @@ from django.utils.translation import gettext_lazy as _
 
 
 def extend_superapp_settings(main_settings):
-    # Add tenant_models to the backup settings
     main_settings.update(
         always_merger.merge(
             {
                 'BACKUPS': {
                     'BACKUP_TYPES': {
-                        'common_models': {
-                            'name': _('Common models'),
-                            'description': _('Backup all common models'),
-                            'models': [
-                                "my_app.translation",
-                                "my_app.translationvalues",
-                                "my_app.location",
-                                "auth.group",
-                                "whatsapp.phonenumber",
-                            ],
-                            'exclude_models_from_import': [
-                                "backups.backup",
-                                "backups.restore",
-                            ],
+                        'all_models': {
+                            'name': _('All Models'),
+                            'description': _('Backup all models'),
+                            'models': '*',
+                            'exclude_models_from_import': [],
                         },
-                        'organization': {
-                            'name': _('Organization models'),
-                            'description': _('Backup all organization models'),
+                        'essential_data': {
+                            'name': _('Essential Data'),
+                            'description': _('Backup essential data only'),
                             'models': [
-                                "my_app.organization",
+                                "my_app.model1",
+                                "my_app.model2",
                             ],
-                            'exclude_models_from_import': [
-                                "my_app.organizationdomainname",
-                                "my_app.organizationuser",
-                            ],
+                            'exclude_models_from_import': [],
+                            'schedule': {
+                                'enabled': True,
+                                'hour': 3,
+                                'minute': 0,
+                                'day_of_week': 1,  # Monday
+                            },
                         },
+                    },
+                    'RETENTION': {
+                        'MAX_BACKUPS': 30,
                     },
                 }
             },
@@ -55,6 +52,16 @@ def extend_superapp_settings(main_settings):
         )
     )
 ```
+
+**Schedule Configuration:**
+- `enabled`: Enable/disable scheduled backups for this type
+- `hour`: Hour (0-23)
+- `minute`: Minute (0-59)  
+- `day_of_week`: Day of week (0=Sunday, 1=Monday, etc.)
+- `day_of_month`: Day of month (1-31) for monthly schedules
+
+**Environment Variables:**
+- `SETUP_SCHEDULED_TASKS=false` - Disable all scheduled backups
 
 ### Requirements
 This module requires the `multi_tenant` app from https://github.com/django-superapp/django-superapp-multi-tenant
