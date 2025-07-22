@@ -273,6 +273,29 @@ class HLSManager:
         except Exception as e:
             self.logger.error(f"Error triggering metadata fetch for station {station_id}: {e}")
     
+    def cleanup_station_hls_data(self, station_slug: str):
+        """
+        Clean up HLS data directory for a station.
+        
+        Args:
+            station_slug: The station slug to clean up
+        """
+        station_data_dir = self.base_data_dir / station_slug
+        
+        if station_data_dir.exists():
+            try:
+                # Remove all files in the station directory
+                for file_path in station_data_dir.glob('*'):
+                    if file_path.is_file():
+                        file_path.unlink()
+                        if self.detailed_logging:
+                            self.logger.debug(f"Removed HLS file: {file_path}")
+                
+                self.logger.info(f"Cleaned up HLS data for station: {station_slug}")
+                
+            except Exception as e:
+                self.logger.error(f"Error cleaning up HLS data for {station_slug}: {e}")
+
     def create_station_log_file(self, station_slug: str) -> str:
         """
         Create and return the log file path for a station.
@@ -308,9 +331,12 @@ class HLSManager:
         station_slug = station['slug']
         stream_url = station['stream_url']
         
-        # Create station data directory
+        # Create station data directory and clean up any existing HLS files
         station_data_dir = self.base_data_dir / station_slug
         station_data_dir.mkdir(exist_ok=True)
+        
+        # Clean up any existing HLS files before starting
+        self.cleanup_station_hls_data(station_slug)
         
         # Get log file path
         log_file = self.create_station_log_file(station_slug)
@@ -324,6 +350,8 @@ class HLSManager:
             stream = ffmpeg.output(
                 stream,
                 output_path,
+                y=None,  # Equivalent to -y flag
+                abort_on='empty_output_stream',
                 **{
                     'c:a': 'libfdk_aac',
                     'profile:a': 'aac_he',
@@ -332,17 +360,22 @@ class HLSManager:
                     'async': 1,
                     'ac': 2,
                     'ar': 44100,
+                    'map': '0:a:0',
                     'bufsize': '30000000',
                     'f': 'hls',
-                    'hls_init_time': 2,
-                    'hls_time': 5,
-                    'hls_list_size': 300,
-                    'hls_delete_threshold': 30,
-                    'hls_flags': 'delete_segments+independent_segments',
+                    'hls_init_time': 6,  # Increased from 2s to 6s for initial buffering
+                    'hls_time': 4,       # Reduced from 5s to 4s for more granular segments
+                    'hls_list_size': 60, # Reduced from 300 to 60 (4 minutes of segments at 4s each)
+                    'hls_delete_threshold': 12,  # Keep at least 12 segments (48s) before deletion
+                    'hls_flags': 'delete_segments+independent_segments+split_by_time',
                     'hls_start_number_source': 'epoch',
                     'hls_segment_filename': str(station_data_dir / '%d.ts'),
                     'master_pl_publish_rate': 1,
                     'sc_threshold': 0,
+                    # Additional resilience options
+                    'hls_segment_options': 'mpegts_flags=+initial_discontinuity',
+                    'max_delay': 5000000,  # 5 seconds max delay tolerance
+                    'fflags': '+genpts+discardcorrupt',
                 }
             )
             
@@ -414,6 +447,8 @@ class HLSManager:
                     self.logger.debug(f"Traceback: {traceback.format_exc()}")
             
             finally:
+                # Clean up HLS data files
+                self.cleanup_station_hls_data(station_slug)
                 del self.active_processes[station_slug]
     
     def check_process_health(self, station_slug: str) -> bool:
@@ -615,9 +650,19 @@ class HLSManager:
         self.logger.info("Shutting down HLS Manager...")
         self.running = False
         
-        # Stop all active processes
+        # Stop all active processes (this will also clean up their HLS data)
         for station_slug in list(self.active_processes.keys()):
             self.stop_ffmpeg_process(station_slug)
+        
+        # Clean up any remaining HLS data directories
+        try:
+            if self.base_data_dir.exists():
+                for station_dir in self.base_data_dir.glob('*'):
+                    if station_dir.is_dir():
+                        station_slug = station_dir.name
+                        self.cleanup_station_hls_data(station_slug)
+        except Exception as e:
+            self.logger.error(f"Error during final HLS cleanup: {e}")
         
         self.logger.info("HLS Manager shutdown complete")
     
