@@ -1,7 +1,6 @@
 """
 Backup scheduling utilities for Celery Beat configuration.
 """
-import os
 import logging
 
 logger = logging.getLogger(__name__)
@@ -45,12 +44,6 @@ def setup_backup_schedules(main_settings):
     for backup_type, config in backup_types.items():
         schedule_config = config.get('schedule')
         if schedule_config and schedule_config.get('enabled', False):
-            # Check if SETUP_SCHEDULED_TASKS environment variable allows scheduling
-            setup_scheduled_tasks = os.getenv('SETUP_SCHEDULED_TASKS', 'true').lower() == 'true'
-            if not setup_scheduled_tasks:
-                logger.info(f"Scheduled tasks disabled by SETUP_SCHEDULED_TASKS environment variable for {backup_type}")
-                continue
-                
             task_name = f'backups-scheduled-{backup_type}-backup'
             
             # Create crontab schedule from configuration
