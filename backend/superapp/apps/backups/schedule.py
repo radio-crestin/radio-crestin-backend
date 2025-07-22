@@ -15,8 +15,6 @@ def setup_backup_schedules(main_settings):
     Args:
         main_settings: Django settings dictionary to update
     """
-    setup_scheduled_tasks = os.getenv('SETUP_SCHEDULED_TASKS', 'true').lower() == 'true'
-    
     # Initialize CELERY_BEAT_SCHEDULE if it doesn't exist
     if 'CELERY_BEAT_SCHEDULE' not in main_settings:
         main_settings['CELERY_BEAT_SCHEDULE'] = {}
@@ -34,10 +32,6 @@ def setup_backup_schedules(main_settings):
     if tasks_to_remove:
         logger.info(f"Cleaned up {len(tasks_to_remove)} existing backup scheduled tasks")
     
-    if not setup_scheduled_tasks:
-        logger.info("Scheduled tasks disabled by SETUP_SCHEDULED_TASKS environment variable")
-        return
-    
     try:
         from celery.schedules import crontab
     except ImportError:
@@ -51,6 +45,12 @@ def setup_backup_schedules(main_settings):
     for backup_type, config in backup_types.items():
         schedule_config = config.get('schedule')
         if schedule_config and schedule_config.get('enabled', False):
+            # Check if SETUP_SCHEDULED_TASKS environment variable allows scheduling
+            setup_scheduled_tasks = os.getenv('SETUP_SCHEDULED_TASKS', 'true').lower() == 'true'
+            if not setup_scheduled_tasks:
+                logger.info(f"Scheduled tasks disabled by SETUP_SCHEDULED_TASKS environment variable for {backup_type}")
+                continue
+                
             task_name = f'backups-scheduled-{backup_type}-backup'
             
             # Create crontab schedule from configuration
