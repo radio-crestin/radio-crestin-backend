@@ -220,11 +220,78 @@ def get_models_for_backup_type(backup_type):
     backup_type_config = backup_types.get(backup_type, {})
     return backup_type_config.get('models', '*')
 
+
+def get_excluded_fields_for_backup_type(backup_type):
+    """
+    Get the excluded fields configuration for a backup type.
+
+    Args:
+        backup_type: The backup type string
+
+    Returns:
+        Dict mapping model names to lists of excluded field names
+    """
+    # Get backup types from settings
+    backup_types = getattr(settings, 'BACKUPS', {}).get('BACKUP_TYPES', {})
+
+    # If the backup type doesn't exist in settings, return empty dict
+    if backup_type not in backup_types:
+        return {}
+
+    # Get the exclude_fields from the backup type configuration
+    backup_type_config = backup_types.get(backup_type, {})
+    return backup_type_config.get('exclude_fields', {})
+
+
+def filter_excluded_fields_from_fixture(fixture_data, excluded_fields):
+    """
+    Remove excluded fields from fixture data.
+
+    Args:
+        fixture_data: Parsed JSON fixture data (list of objects)
+        excluded_fields: Dict mapping model names to lists of excluded field names
+
+    Returns:
+        Filtered fixture data with excluded fields removed
+    """
+    if not isinstance(fixture_data, list) or not excluded_fields:
+        return fixture_data
+
+    filtered_data = []
+
+    for obj in fixture_data:
+        if not isinstance(obj, dict) or 'model' not in obj or 'fields' not in obj:
+            filtered_data.append(obj)
+            continue
+
+        model_name = obj['model']
+        
+        # Check if this model has excluded fields
+        if model_name in excluded_fields:
+            excluded_field_names = excluded_fields[model_name]
+            
+            # Create a copy of the object and remove excluded fields
+            filtered_obj = obj.copy()
+            filtered_obj['fields'] = {
+                field_name: field_value 
+                for field_name, field_value in obj['fields'].items()
+                if field_name not in excluded_field_names
+            }
+            
+            logger.debug(f"Excluded fields {excluded_field_names} from {model_name}")
+            filtered_data.append(filtered_obj)
+        else:
+            # No exclusions for this model, keep as is
+            filtered_data.append(obj)
+
+    return filtered_data
+
 @shared_task(
     bind=True,
     name="backups.process_backup",
     max_retries=3,
     default_retry_delay=60,
+    queue='priority',
 )
 def process_backup(self, backup_pk):
     """
@@ -290,6 +357,16 @@ def process_backup(self, backup_pk):
             # Read the generated JSON file to extract media file references
             with open(temp_file_path, 'r') as f:
                 fixture_data = json.load(f)
+
+            # Get excluded fields configuration and filter the fixture data
+            excluded_fields = get_excluded_fields_for_backup_type(backup.type)
+            if excluded_fields:
+                logger.info(f"Applying field exclusions: {excluded_fields}")
+                fixture_data = filter_excluded_fields_from_fixture(fixture_data, excluded_fields)
+                
+                # Write the filtered data back to the file
+                with open(temp_file_path, 'w') as f:
+                    json.dump(fixture_data, f, indent=2)
 
             # Extract media files referenced in the fixture
             media_files = extract_media_files_from_fixture(fixture_data)
@@ -396,7 +473,7 @@ def cleanup_old_backups_for_type(backup_type):
 
     Args:
         backup_type: The type of backups to cleanup
-    
+
     Returns:
         Number of backups deleted
     """
@@ -447,12 +524,12 @@ def cleanup_old_backups_for_type(backup_type):
 def create_backup_synchronously(backup_type, target_file_path=None, tenant=None):
     """
     Create a backup synchronously without using Celery.
-    
+
     Args:
         backup_type: The backup type from BACKUPS.BACKUP_TYPES settings
         target_file_path: Optional path where to save the backup file
         tenant: Optional tenant object for multi-tenant setups
-        
+
     Returns:
         Dict with backup info: {'backup_id': int, 'file_path': str, 'archive_path': str}
     """
@@ -461,28 +538,28 @@ def create_backup_synchronously(backup_type, target_file_path=None, tenant=None)
         unset_current_tenant()
         if tenant and MULTI_TENANT_ENABLED:
             set_current_tenant(tenant)
-            
+
         # Generate backup name
         timestamp = timezone.now().strftime("%Y%m%d_%H%M%S")
         if tenant and MULTI_TENANT_ENABLED:
             backup_name = f'Synchronous Backup - Tenant {tenant.pk} - {backup_type} - {timestamp}'
         else:
             backup_name = f'Synchronous Backup - {backup_type} - {timestamp}'
-            
+
         logger.info(f"Creating synchronous backup: {backup_name}")
-        
+
         # Create backup record
         backup = Backup.objects.create(
             name=backup_name,
             type=backup_type
         )
-        
+
         backup.started_at = timezone.now()
         backup.save(update_fields=['started_at'])
-        
+
         # Get models to backup based on backup type
         models_to_backup = get_models_for_backup_type(backup_type)
-        
+
         # If models_to_backup is '*', backup all models
         if models_to_backup == '*':
             args = []
@@ -492,13 +569,13 @@ def create_backup_synchronously(backup_type, target_file_path=None, tenant=None)
                     args.append(model_name)
         else:
             args = models_to_backup
-            
+
         logger.info(f"Backing up models: {args}")
-        
+
         # Create a temporary directory for the backup process
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_file_path = os.path.join(temp_dir, 'backup.json')
-            
+
             # Set up options for the dumpdata command
             options = {
                 'output': temp_file_path,
@@ -506,53 +583,63 @@ def create_backup_synchronously(backup_type, target_file_path=None, tenant=None)
                 'indent': 2,
                 'database': 'default',
             }
-            
+
             # If multi-tenant is enabled and we have a tenant, use tenant-specific commands
             if MULTI_TENANT_ENABLED and tenant:
                 options['tenant_pk'] = tenant.pk
                 call_command('tenant_dumpdata', *args, **options)
             else:
                 call_command('dumpdata', *args, **options)
-                
+
             # Read the generated JSON file to extract media file references
             with open(temp_file_path, 'r') as f:
                 fixture_data = json.load(f)
+
+            # Get excluded fields configuration and filter the fixture data
+            excluded_fields = get_excluded_fields_for_backup_type(backup_type)
+            if excluded_fields:
+                logger.info(f"Applying field exclusions: {excluded_fields}")
+                fixture_data = filter_excluded_fields_from_fixture(fixture_data, excluded_fields)
                 
+                # Write the filtered data back to the file
+                with open(temp_file_path, 'w') as f:
+                    json.dump(fixture_data, f, indent=2)
+
             # Extract media files referenced in the fixture
             media_files = extract_media_files_from_fixture(fixture_data)
             logger.info(f"Found {len(media_files)} media files referenced in backup")
-            
+
             # Copy media files to backup directory
             media_copy_result = copy_media_files_to_backup(media_files, temp_dir)
             logger.info(f"Copied {len(media_copy_result['copied'])} media files, "
                        f"{len(media_copy_result['missing'])} files were missing")
-                       
+
             # Create backup filename
             backup.finished_at = timezone.now()
             if MULTI_TENANT_ENABLED and tenant:
                 archive_name = f'backup_{tenant.pk}_{backup.type}_{backup.finished_at.strftime("%Y%m%d_%H%M%S")}'
             else:
                 archive_name = f'backup_{backup.type}_{backup.finished_at.strftime("%Y%m%d_%H%M%S")}'
-                
+
             # Create zip archive with JSON data and media files
             archive_path = create_backup_archive(temp_file_path, temp_dir, archive_name)
-            
+
             # Save to target file path if specified
             final_file_path = None
             if target_file_path:
                 import shutil
                 from pathlib import Path
-                
+
                 # Create target directory if it doesn't exist
                 target_path = Path(target_file_path)
                 target_dir = target_path.parent
                 if not target_dir.exists():
                     target_dir.mkdir(parents=True, exist_ok=True)
                     logger.info(f'Created directory: {target_dir}')
-                
+
                 shutil.copy2(archive_path, target_file_path)
                 final_file_path = target_file_path
-            
+
             # Save the zip archive as the backup file for record keeping
             with open(archive_path, 'rb') as archive_file:
                 backup.file.save(
@@ -560,10 +647,10 @@ def create_backup_synchronously(backup_type, target_file_path=None, tenant=None)
                     content=File(archive_file),
                     save=True
                 )
-                
+
             backup.done = True
             backup.save(update_fields=['file', 'done', 'finished_at'])
-            
+
             # Log backup statistics
             logger.info(f"Backup completed: {archive_name}.zip")
             logger.info(f"Media files: {len(media_copy_result['copied'])} copied, "
@@ -578,17 +665,17 @@ def create_backup_synchronously(backup_type, target_file_path=None, tenant=None)
                     logger.info(f"Cleaned up {deleted_count} old backups of type {backup_type}")
             except Exception as e:
                 logger.warning(f"Failed to cleanup old backups: {e}")
-                
+
         # Clean up tenant context
         unset_current_tenant()
-        
+
         return {
             'backup_id': backup.id,
             'file_path': final_file_path or backup.file.path,
             'archive_path': str(archive_path),
             'media_stats': media_copy_result
         }
-        
+
     except Exception as exc:
         logger.error(f"Error in synchronous backup creation: {exc}")
         raise
