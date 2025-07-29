@@ -81,11 +81,18 @@ def manage_periodic_tasks():
     try:
         from django_celery_beat.models import PeriodicTask
         from django.conf import settings
+        from django.db import connection
     except ImportError:
         logger.debug("django_celery_beat not installed, skipping PeriodicTask management")
         return
     
     try:
+        # Check if the database table exists before querying
+        table_names = connection.introspection.table_names()
+        if 'django_celery_beat_periodictask' not in table_names:
+            logger.debug("django_celery_beat_periodictask table not found, skipping PeriodicTask management")
+            return
+        
         # Get all backup-related periodic tasks from database
         backup_tasks = PeriodicTask.objects.filter(name__startswith='backups-scheduled-')
         

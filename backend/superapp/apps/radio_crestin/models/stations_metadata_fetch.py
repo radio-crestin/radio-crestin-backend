@@ -14,9 +14,9 @@ class StationsMetadataFetch(models.Model):
 
     # Regex configuration fields for title/artist extraction
     split_character = models.CharField(_("Split Character"), max_length=10, default=" - ", help_text=_("Character(s) used to split artist and title"))
-    station_name_regex = RegexField(_("Station Name Regex"), blank=True, null=True, help_text=_("Regex pattern to remove station name from title (optional)"))
-    artist_regex = RegexField(_("Artist Regex"), blank=True, null=True, help_text=_("Regex pattern to extract artist (optional)"))
-    title_regex = RegexField(_("Title Regex"), blank=True, null=True, help_text=_("Regex pattern to extract title (optional)"))
+    station_name_regex = RegexField(_("Station Name Regex"), blank=True, null=True, max_length=500, help_text=_("Regex pattern to remove station name from title (optional)"))
+    artist_regex = RegexField(_("Artist Regex"), blank=True, null=True, max_length=500, help_text=_("Regex pattern to extract artist (optional)"))
+    title_regex = RegexField(_("Title Regex"), blank=True, null=True, max_length=500, help_text=_("Regex pattern to extract title (optional)"))
 
     class Meta:
         managed = True

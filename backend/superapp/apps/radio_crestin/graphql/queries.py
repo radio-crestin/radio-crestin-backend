@@ -261,8 +261,4 @@ class Query:
             limit=limit or 10
         )
 
-    @strawberry.field
-    def health(self) -> bool:
-        """Health check for GraphQL schema"""
-        return True
 
