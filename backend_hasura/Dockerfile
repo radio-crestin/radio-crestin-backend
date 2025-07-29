@@ -3,8 +3,14 @@ FROM docker.io/hasura/graphql-engine:v2.33.4.cli-migrations-v3
 # Copy Hasura configuration and metadata
 COPY config.yaml /hasura-config/config.yaml
 COPY metadata /hasura-metadata
-COPY migrations /hasura-migrations
 COPY seeds /hasura-seeds
+
+# Create migrations directory structure if it doesn't exist
+# This prevents errors when no migrations are present
+RUN mkdir -p /hasura-migrations/default
+
+# Copy migrations only if they exist, otherwise create empty structure
+COPY migrations /hasura-migrations
 
 # Set the working directory for Hasura CLI
 WORKDIR /hasura-config
