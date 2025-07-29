@@ -1,0 +1,39 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="skaffold--radio-crestin-registry--registry" type="google-container-tools-skaffold-run-config" factoryName="google-container-tools-skaffold-run-config-dev" show_console_on_std_err="false" show_console_on_std_out="false" kubeconfigFile="{&quot;displayName&quot;:&quot;$PROJECT_DIR$/deploy/environments/radio_crestin_production/secrets/kube_config.yaml&quot;,&quot;path&quot;:&quot;$PROJECT_DIR$/deploy/environments/radio_crestin_production/secrets/kube_config.yaml&quot;}">
+    <option name="allowRunningInParallel" config="false" />
+    <option name="buildEnvironment" config="In Cluster" />
+    <option name="cleanupDeployments" config="false" />
+    <option name="deployToCurrentContext" config="true" />
+    <option name="deployToMinikube" config="false" />
+    <option name="envVariables">
+      <map>
+        <entry key="DOCKER_BUILDKIT" config="1" />        
+      </map>
+    </option>
+    <option name="imageRepositoryOverride" config="REGISTRY_URL_HERE" />
+    <option name="kubernetesContext" />
+    <option name="mappings">
+      <list>
+        
+      </list>
+    </option>
+    <option name="moduleDeploymentType" config="DEPLOY_EVERYTHING" />
+    <option name="skaffoldWatchMode" config="ON_FILE_SAVE" />
+    <option name="projectPathOnTarget" />
+    <option name="resourceDeletionTimeoutMins" config="2" />
+    <option name="selectedOptions">
+      <list />
+    </option>
+    <option name="skaffoldConfigurationFilePath" config="$PROJECT_DIR$/deploy/environments/radio_crestin_production/generated_outputs/generated_skaffolds/radio-crestin-registry/skaffold-registry.yaml" />
+    <option name="skaffoldModules">
+      <list />
+    </option>
+    <method v="2">
+        <option name="RunConfigurationTask" enabled="true" run_configuration_name="generate-skaffolds" run_configuration_type="MAKEFILE_TARGET_RUN_CONFIGURATION" />
+    </method>
+    <option name="skaffoldNamespace" />
+    <option name="skaffoldProfile" />
+    <option name="statusCheck" config="true" />
+    <option name="verbosity" config="DEBUG" />
+  </configuration>
+</component>
