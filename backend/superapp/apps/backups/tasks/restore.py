@@ -309,6 +309,7 @@ def _calculate_model_dependency_levels(models_to_cleanup, using=DEFAULT_DB_ALIAS
     name="backups.process_restore",
     max_retries=0,
     default_retry_delay=60,
+    queue='priority',
 )
 def process_restore(self, restore_pk):
     """
@@ -324,7 +325,10 @@ def process_restore(self, restore_pk):
         # Clear any existing tenant first
         unset_current_tenant()
 
-        restore = Restore.all_objects.get(pk=restore_pk)
+        if MULTI_TENANT_ENABLED:
+            restore = Restore.all_objects.get(pk=restore_pk)
+        else:
+            restore = Restore.objects.get(pk=restore_pk)
         tenant = restore.tenant if MULTI_TENANT_ENABLED else None
         logger.info(f"Processing restore with ID: {restore_pk} for tenant: {tenant}")
 

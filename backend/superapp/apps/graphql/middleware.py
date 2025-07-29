@@ -7,7 +7,7 @@ from django.http import JsonResponse
 class GraphQlTokenAuthMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
-        self.api_key = os.getenv('GRAPHQL_API_KEY')
+        self.api_key = os.getenv('ADMIN_GRAPHQL_SUPERUSER_API_KEY')
 
     def __call__(self, request):
         # The authentication is disabled for now

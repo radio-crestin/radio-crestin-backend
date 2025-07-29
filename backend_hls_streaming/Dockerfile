@@ -17,14 +17,8 @@ RUN apk add --update \
 RUN apk add rav1e-libs --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community
 
 # Install ffmpeg based on architecture
-RUN ARCH=$(uname -m) && \
-    if [ "$ARCH" = "aarch64" ]; then \
-        echo "Installing ffmpeg for aarch64..." && \
-        curl -Lf# https://github.com/homebridge/ffmpeg-for-homebridge/releases/download/v2.1.1/ffmpeg-alpine-aarch64.tar.gz | tar xzf - -C / --no-same-owner; \
-    else \
-        echo "Installing ffmpeg for x86_64..." && \
-        apk add --no-cache ffmpeg; \
-    fi
+RUN echo "Installing ffmpeg for $(uname -m)..." && \
+    curl -Lf# https://github.com/homebridge/ffmpeg-for-homebridge/releases/download/v2.1.7/ffmpeg-alpine-$(uname -m).tar.gz | tar xzf - -C / --no-same-owner
 
 # Install Python dependencies
 COPY requirements.txt /app/requirements.txt
