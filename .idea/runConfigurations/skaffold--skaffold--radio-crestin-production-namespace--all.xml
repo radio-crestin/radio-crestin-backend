@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="skaffold--radio-crestin-namespace--all" type="google-container-tools-skaffold-run-config" factoryName="google-container-tools-skaffold-run-config-dev" show_console_on_std_err="false" show_console_on_std_out="false" kubeconfigFile="{&quot;displayName&quot;:&quot;$PROJECT_DIR$/deploy/environments/radio_crestin_production/secrets/kube_config.yaml&quot;,&quot;path&quot;:&quot;$PROJECT_DIR$/deploy/environments/radio_crestin_production/secrets/kube_config.yaml&quot;}">
+  <configuration default="false" name="skaffold--radio-crestin-production-namespace--all" type="google-container-tools-skaffold-run-config" factoryName="google-container-tools-skaffold-run-config-dev" show_console_on_std_err="false" show_console_on_std_out="false" kubeconfigFile="{&quot;displayName&quot;:&quot;$PROJECT_DIR$/deploy/environments/radio_crestin_production/secrets/kube_config.yaml&quot;,&quot;path&quot;:&quot;$PROJECT_DIR$/deploy/environments/radio_crestin_production/secrets/kube_config.yaml&quot;}">
     <option name="allowRunningInParallel" config="false" />
     <option name="buildEnvironment" config="In Cluster" />
     <option name="cleanupDeployments" config="false" />
@@ -24,7 +24,7 @@
     <option name="selectedOptions">
       <list />
     </option>
-    <option name="skaffoldConfigurationFilePath" config="$PROJECT_DIR$/deploy/environments/radio_crestin_production/generated_outputs/generated_skaffolds/radio-crestin-namespace/skaffold.yaml" />
+    <option name="skaffoldConfigurationFilePath" config="$PROJECT_DIR$/deploy/environments/radio_crestin_production/generated_outputs/generated_skaffolds/radio-crestin-production-namespace/skaffold.yaml" />
     <option name="skaffoldModules">
       <list />
     </option>

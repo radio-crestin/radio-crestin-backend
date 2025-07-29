@@ -31,4 +31,4 @@ squash-hasura-migrations:
 
 
 reload-hasura-metadata:
-	hasura metadata reload --endpo
+	hasura metadata reload --endpoint "localhost:8081"
