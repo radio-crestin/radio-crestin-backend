@@ -9,13 +9,13 @@ from typing import Optional, Any
 GraphQL Schema Directives Infrastructure
 
 This file demonstrates the infrastructure for automatic directive discovery and registration.
-The directives below are properly defined but temporarily disabled due to Strawberry complexity.
+Using function-based directives for better runtime behavior and compatibility.
 
 ## Automatic Discovery System
 
 The schema.py includes a `find_graphql_directives()` function that:
 1. Scans all installed Django apps for graphql/directives.py files
-2. Imports directive classes decorated with @strawberry.schema_directive
+2. Imports directive functions decorated with @strawberry.directive
 3. Automatically registers them in the GraphQL schema
 
 ## Usage Pattern
@@ -23,10 +23,13 @@ The schema.py includes a `find_graphql_directives()` function that:
 Create directives in any app's graphql/directives.py file:
 
 ```python
-@strawberry.schema_directive(locations=[Location.FIELD_DEFINITION])
-class my_directive:
-    arg1: Optional[str] = "default"
+@strawberry.directive(locations=[DirectiveLocation.FIELD_DEFINITION])
+def my_directive(
+    value: DirectiveValue[Any],
+    arg1: Optional[str] = "default",
     arg2: Optional[int] = 42
+) -> Any:
+    return value
 ```
 
 Then use in GraphQL queries:
@@ -42,23 +45,30 @@ query MyQuery {
 ## Current Status
 
 - ✅ Automatic directive discovery system implemented
-- ✅ Proper functional directive definitions created  
+- ✅ Proper function-based directive definitions created  
 - ✅ Integration with schema.py completed
-- ✅ Directives fully working and registered in GraphQL schema
-- ✅ QueryCache extension provides automatic caching
+- ✅ Function-based directives fully working and registered in GraphQL schema
+- ✅ QueryCache extension provides automatic caching with directive metadata
 - ✅ Two directives available: @cached and @cache_control
+- ℹ️ Using function-based directives due to Strawberry schema directive compatibility issues
 
 ## Usage
 
 The directives are now active and can be used in GraphQL queries:
 ```graphql
-query StationsWithCache @cache_control(max_age: 600) {
-  stations {
+query StationsWithCache {
+  stations @cache_control(max_age: 600) {
     id
     title
   }
 }
 ```
+
+## Schema Directive Note
+
+While Strawberry supports schema directives (class-based), they currently have compatibility 
+issues with directive arguments and extension handling. Function-based directives provide 
+better runtime behavior for our caching use case and integrate properly with the QueryCache extension.
 """
 
 @strawberry.directive(

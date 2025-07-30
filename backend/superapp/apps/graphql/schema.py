@@ -90,11 +90,11 @@ def find_graphql_directives() -> List[Type]:
         if os.path.exists(directives_path):
             try:
                 directives_module = importlib.import_module(f"{app_config.name}.graphql.directives")
-                
+
                 # Find all directive objects (StrawberryDirective instances)
                 for name in dir(directives_module):
                     obj = getattr(directives_module, name)
-                    # Look for StrawberryDirective objects
+                    # Look for StrawberryDirective objects (function-based directives)
                     if (hasattr(obj, 'python_name') and 
                         hasattr(obj, 'locations') and 
                         hasattr(obj, 'resolver') and
@@ -104,7 +104,7 @@ def find_graphql_directives() -> List[Type]:
                             print(f"Found directive: {name} from {app_config.name}")
                         except Exception as e:
                             print(f"Skipping invalid directive {name}: {e}")
-                        
+
             except ImportError as e:
                 print(f"Could not import directives from {app_config.name}: {e}")
                 continue
@@ -145,7 +145,7 @@ query_root = merge_types(
     tuple(all_queries)
 )
 mutation_root = merge_types(
-    "mutation_root", 
+    "mutation_root",
     tuple(all_mutations)
 )
 
