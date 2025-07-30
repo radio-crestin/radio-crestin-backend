@@ -4,7 +4,7 @@
 ~~- [ ] creaza engine-ul care colecteaza date despre numarul de ascultatori HLS~~
 ~~- [ ] adauga autentificare pentru mutations~~
 ~~- [ ] adauga ingress si configureaza cloudflare tunnel~~
-- [ ] configureaza caching la nivel de nginx in ingress
+~~- [ ] configureaza caching la nivel de nginx in ingress~~
 - [ ] creaza un env de staging unde sa testam noul env
 - [ ] implementeaza metadata scraping pentru Radio King (https://radio.voceacrestinilor.com/ - https://api.radioking.io/widget/radio/radio-vocea-crestinilor/track/current)
 - [ ] adauga scraping pentru https://www.philadelphiachurch.com.au/radio-philadelphia

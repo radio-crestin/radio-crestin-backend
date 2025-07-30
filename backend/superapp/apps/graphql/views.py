@@ -22,10 +22,8 @@ class GraphQLProxyView(BaseGraphQLView):
     def get_context(self, request: HttpRequest, response: HttpResponse):
         """Override to ensure request and response are available in context"""
         context = super().get_context(request, response)
-        # Store the request and response objects in context for access by extensions
-        context["response"] = response
-        context["request"] = request
         # Store the request and response for later use in create_response
+        # Note: context is already a StrawberryDjangoContext with request and response attributes
         self._current_request = request
         self._current_response = response
         return context

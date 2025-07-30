@@ -11,7 +11,7 @@ class GraphQlSuperuserApiAuthMiddleware:
 
     def __call__(self, request):
         # The authentication is disabled for now
-        if request.path == '/graphql':
+        if request.path == '/graphql' or request.path == '/v1/graphql' or request.path == '/v2/graphql':
             auth_header = request.headers.get('Authorization')
             if not request.user.is_authenticated:
                 if auth_header and self.api_key and auth_header.endswith(self.api_key):
