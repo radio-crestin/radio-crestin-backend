@@ -1,13 +1,32 @@
 from __future__ import annotations
 
+import typing
+
 import strawberry
-from typing import Optional, List
-from django.utils import timezone
+from typing import List
+
+import strawberry_django
 from datetime import datetime
 import logging
 
-from .types import StationType, ListeningEventInput, SubmitListeningEventsResponse, TriggerMetadataFetchResponse
-from ..models import Stations, AppUsers, ListeningSessions
+from strawberry import BasePermission
+from strawberry_django.auth.utils import get_current_user
+
+from .types import ListeningEventInput, SubmitListeningEventsResponse, TriggerMetadataFetchResponse
+from ..models import Stations, ListeningSessions
+
+
+class IsSuperuser(BasePermission):
+    message = "User is not a superuser"
+
+    # This method can also be async!
+    def has_permission(
+            self, source: typing.Any, info: strawberry.Info, **kwargs
+    ) -> bool:
+        user = get_current_user(info)
+        if not user or not user.is_authenticated or not getattr(user, "is_superuser", False):
+            return False
+        return True
 
 
 @strawberry.type
@@ -22,7 +41,7 @@ class Mutation:
         """Health check mutation for radio_crestin GraphQL"""
         return "Radio Crestin GraphQL mutations are healthy"
 
-    @strawberry.field
+    @strawberry_django.mutation(handle_django_errors=True, permission_classes=[IsSuperuser])
     def submit_listening_events(self, events: List[ListeningEventInput]) -> SubmitListeningEventsResponse:
         """Submit batch of listening events from HLS streaming logs"""
         logger = logging.getLogger(__name__)
@@ -83,7 +102,7 @@ class Mutation:
                 processed_count=processed_count
             )
 
-    @strawberry.field
+    @strawberry_django.mutation(handle_django_errors=True, permission_classes=[IsSuperuser])
     def trigger_metadata_fetch(self, station_id: int) -> TriggerMetadataFetchResponse:
         """Schedule a metadata fetch task for a specific station"""
         logger = logging.getLogger(__name__)

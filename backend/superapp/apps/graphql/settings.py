@@ -4,7 +4,7 @@ def extend_superapp_settings(main_settings):
         'superapp.apps.graphql',
     ]
     main_settings['MIDDLEWARE'] += [
-        'superapp.apps.graphql.middleware.GraphQlTokenAuthMiddleware',
+        'superapp.apps.graphql.middleware.GraphQlSuperuserApiAuthMiddleware',
     ]
     main_settings['DATA_UPLOAD_MAX_MEMORY_SIZE'] = 1024 * 1024 * 10  # 10MB
     main_settings['MIDDLEWARE'] = [

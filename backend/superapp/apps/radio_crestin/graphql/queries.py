@@ -4,10 +4,12 @@ import strawberry
 import strawberry_django
 from typing import List, Optional
 from django.db.models import Prefetch
+from strawberry_django.auth.utils import get_current_user
 
 from .types import StationType, StationGroupType, OrderDirection, OrderDirectionEnum, ArtistType, SongType, PostType
 from ..models import Stations, StationGroups, StationStreams, Posts, StationToStationGroup, Artists, Songs
 from ..services import AutocompleteService
+
 
 @strawberry.input
 class StationOrderBy:
@@ -17,7 +19,6 @@ class StationOrderBy:
 
 @strawberry.type
 class Query:
-
     # @strawberry.field
     # def get_stations(self) -> 'GetStationsResponse':
     #     """
@@ -166,7 +167,7 @@ class Query:
         if search:
             # Use the autocomplete service for fast trigram-based search
             return AutocompleteService.search_artists(search, limit or 10)
-        
+
         queryset = Artists.objects.all()
 
         if offset:
@@ -195,7 +196,7 @@ class Query:
         if search:
             # Use the autocomplete service for fast trigram-based search
             return AutocompleteService.search_songs(search, limit or 10)
-        
+
         queryset = Songs.objects.select_related('artist')
 
         if offset:
@@ -246,12 +247,12 @@ class Query:
     ) -> List[strawberry.scalars.JSON]:
         """
         Fast autocomplete search for songs and artists using trigram indexes
-        
+
         Args:
             query: Search query string
-            search_type: Type of search ('artists', 'songs', 'combined')  
+            search_type: Type of search ('artists', 'songs', 'combined')
             limit: Maximum number of results to return
-            
+
         Returns:
             List of formatted autocomplete suggestions
         """

@@ -116,7 +116,7 @@ class StationType:
         """Generate HLS stream URL for the station"""
         if hasattr(self, 'generate_hls_stream') and self.generate_hls_stream:
             # Generate HLS URL based on station slug or ID
-            return f"https://hls.radio-crestin.com/{self.slug}.m3u8"
+            return f"https://hls-staging.radio-crestin.com/{self.slug}/index.m3u8"
         return None
 
     @strawberry.field
