@@ -21,6 +21,10 @@ def refresh_graphql_cache(query: str, variables: Optional[Dict[str, Any]], opera
     
     logger.info(f"Starting background cache refresh for key: {cache_key}")
     
+    # Extend the lock to cover the actual task execution
+    refresh_lock_key = f"{cache_key}:refresh_lock"
+    cache.set(refresh_lock_key, True, timeout=30)  # Extend lock for task execution
+    
     try:
         # Create context with user if provided
         context = {}
@@ -67,3 +71,7 @@ def refresh_graphql_cache(query: str, variables: Optional[Dict[str, Any]], opera
         error_msg = f"Error refreshing cache: {str(e)}"
         logger.exception(error_msg)
         return error_msg
+    finally:
+        # Always release the lock when done
+        cache.delete(refresh_lock_key)
+        logger.debug(f"Released refresh lock for key: {cache_key}")

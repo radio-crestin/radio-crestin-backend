@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from typing import Any, Dict, Optional
 from django.core.cache import cache
 from strawberry.extensions import SchemaExtension
+
+logger = logging.getLogger(__name__)
 
 
 class CacheExtension(SchemaExtension):
@@ -102,27 +105,36 @@ class CacheExtension(SchemaExtension):
                 )
                 
                 if refresh_while_caching:
-                    # Trigger background refresh
-                    from superapp.apps.graphql.tasks import refresh_graphql_cache
+                    # Check if there's already a refresh task running for this cache key
+                    refresh_lock_key = f"{self.cache_key}:refresh_lock"
                     
-                    ttl = self.cached_params.get('ttl', 60)
-                    
-                    # Get user ID if needed for background refresh
-                    user_id = None
-                    if self.cached_params.get('include_user', False):
-                        context = self.execution_context.context
-                        request = context.get('request') if hasattr(context, 'get') else getattr(context, 'request', None)
-                        if request and hasattr(request, 'user') and request.user.is_authenticated:
-                            user_id = request.user.id
-                    
-                    refresh_graphql_cache.delay(
-                        query=self.execution_context.query,
-                        variables=self.execution_context.variables,
-                        operation_name=self.execution_context.operation_name,
-                        cache_key=self.cache_key,
-                        ttl=ttl,
-                        user_id=user_id
-                    )
+                    # Try to acquire lock with a short TTL (5 seconds for task to start)
+                    # If lock already exists, another refresh is in progress
+                    if cache.add(refresh_lock_key, True, timeout=5):
+                        # Lock acquired, trigger background refresh
+                        from superapp.apps.graphql.tasks import refresh_graphql_cache
+                        
+                        ttl = self.cached_params.get('ttl', 60)
+                        
+                        # Get user ID if needed for background refresh
+                        user_id = None
+                        if self.cached_params.get('include_user', False):
+                            context = self.execution_context.context
+                            request = context.get('request') if hasattr(context, 'get') else getattr(context, 'request', None)
+                            if request and hasattr(request, 'user') and request.user.is_authenticated:
+                                user_id = request.user.id
+                        
+                        logger.debug(f"Triggering background refresh for cache key: {self.cache_key}")
+                        refresh_graphql_cache.delay(
+                            query=self.execution_context.query,
+                            variables=self.execution_context.variables,
+                            operation_name=self.execution_context.operation_name,
+                            cache_key=self.cache_key,
+                            ttl=ttl,
+                            user_id=user_id
+                        )
+                    else:
+                        logger.debug(f"Skipping background refresh for cache key {self.cache_key} - refresh already in progress")
                 
                 yield  # Must yield even when returning cached result
                 return
