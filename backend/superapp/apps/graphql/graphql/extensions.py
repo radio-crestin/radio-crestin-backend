@@ -15,11 +15,10 @@ class CacheControlExtension(SchemaExtension):
         self.cache_control_config = {}
         self._collect_cache_control_metadata()
 
-    def on_executing_end(self, result):
+    def on_executing_end(self):
         """Set cache control headers when execution ends"""
         if self.cache_control_config:
             self._set_cache_headers()
-        return result
 
     def _collect_cache_control_metadata(self):
         """Collect cache control metadata from field resolvers"""
