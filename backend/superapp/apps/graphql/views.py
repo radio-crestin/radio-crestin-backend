@@ -4,7 +4,7 @@ from os import environ
 
 import requests
 from django.http import HttpRequest, HttpResponse
-from strawberry.django.views import GraphQLView
+from strawberry.django.views import GraphQLView as BaseGraphQLView
 from strawberry.http import GraphQLHTTPResponse
 from strawberry.types import ExecutionResult
 
@@ -13,10 +13,20 @@ from superapp.apps.posthog_error_tracking.utils import track_event
 logger = logging.getLogger(__name__)
 
 
-class GraphQLProxyView(GraphQLView):
+class GraphQLProxyView(BaseGraphQLView):
     """
     GraphQL proxy that extends Strawberry's GraphQLView and falls back to Hasura on error
     """
+    
+    def get_context(self, request: HttpRequest, response: HttpResponse):
+        """Override to ensure request and response are available in context"""
+        context = super().get_context(request, response)
+        # Store the request and response objects in context for access by extensions
+        context["response"] = response
+        context["request"] = request
+        # Store the request for later use in create_response
+        self._current_request = request
+        return context
 
     def get_hasura_url(self):
         """Get Hasura URL from environment variable"""
@@ -194,12 +204,18 @@ class GraphQLProxyView(GraphQLView):
 
         return data
     
-    def dispatch(self, request, *args, **kwargs):
-        """Override dispatch to handle cache control headers"""
-        response = super().dispatch(request, *args, **kwargs)
+    def create_response(self, response_data: GraphQLHTTPResponse, sub_response: HttpResponse) -> HttpResponse:
+        """Create the HTTP response with cache control headers if set"""
+        response = super().create_response(response_data, sub_response)
         
         # Check if cache control header was set by the extension
-        if hasattr(request, '_cache_control_header'):
+        # Use the request we stored in get_context
+        request = getattr(self, '_current_request', None)
+        
+        if request and hasattr(request, '_cache_control_header'):
+            logger.info(f"Setting response Cache-Control header: {request._cache_control_header}")
             response['Cache-Control'] = request._cache_control_header
+        else:
+            logger.debug("No cache control header found on request")
         
         return response
