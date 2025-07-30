@@ -73,6 +73,39 @@ class CacheExtension(SchemaExtension):
                     self.should_cache = True
                     break
     
+    def on_operation(self):
+        """Called when the operation is executed"""
+        # Check cache before execution
+        if self.should_cache and self.cache_key:
+            cached_result = cache.get(self.cache_key)
+            if cached_result is not None:
+                # Check if we should refresh while serving cached content
+                refresh_while_caching = self.cached_params.get('refresh_while_caching', True)
+                if not refresh_while_caching:
+                    # Set cached result
+                    from graphql import ExecutionResult
+                    self.execution_context.result = ExecutionResult(
+                        data=cached_result.get('data'),
+                        errors=cached_result.get('errors')
+                    )
+                    yield  # Must yield even when returning cached result
+                    return
+        
+        # Execute the query normally
+        yield
+        
+        # Cache the result after execution
+        if self.should_cache and self.cache_key:
+            result = self.execution_context.result
+            if result and not (hasattr(result, 'errors') and result.errors):
+                # Cache the data
+                ttl = self.cached_params.get('ttl', 60)
+                cache_data = {
+                    'data': result.data,
+                    'errors': None
+                }
+                cache.set(self.cache_key, cache_data, ttl)
+    
     
     def _generate_cache_key(self, query: str, variables: Optional[Dict[str, Any]], operation_name: Optional[str]) -> str:
         """Generate a unique cache key for the query"""
