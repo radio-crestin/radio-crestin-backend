@@ -1,6 +1,7 @@
 import json
 import logging
 from os import environ
+from typing import Any
 
 import requests
 from django.http import HttpRequest, HttpResponse
@@ -24,8 +25,9 @@ class GraphQLProxyView(BaseGraphQLView):
         # Store the request and response objects in context for access by extensions
         context["response"] = response
         context["request"] = request
-        # Store the request for later use in create_response
+        # Store the request and response for later use in create_response
         self._current_request = request
+        self._current_response = response
         return context
 
     def get_hasura_url(self):

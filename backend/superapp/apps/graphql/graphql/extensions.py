@@ -121,6 +121,13 @@ class CacheControlExtension(SchemaExtension):
                 if hasattr(self.execution_context.context, 'request'):
                     self.execution_context.context.request._cache_control_header = cache_control_value
                     logger.info(f"Set _cache_control_header on request object")
+                
+                # Try to set directly on the response if available
+                if hasattr(self.execution_context.context, 'response'):
+                    response = self.execution_context.context['response']
+                    if response:
+                        response['Cache-Control'] = cache_control_value
+                        logger.info(f"Set Cache-Control header directly on response")
                     
                 # Also try the get() method in case context is a dict
                 request = getattr(self.execution_context.context, 'request', None) or \
