@@ -12,7 +12,7 @@ from strawberry.types.base import TypeDefinition
 from strawberry_django.extensions.django_validation_cache import DjangoValidationCache
 from strawberry_django.optimizer import DjangoOptimizerExtension
 
-from .graphql.query_cache import QueryCache
+from .graphql.extensions import QueryCache
 
 
 class SQLPrintingExtension(Extension):
@@ -95,8 +95,8 @@ def find_graphql_directives() -> List[Type]:
                 for name in dir(directives_module):
                     obj = getattr(directives_module, name)
                     # Look for StrawberryDirective objects (function-based directives)
-                    if (hasattr(obj, 'python_name') and 
-                        hasattr(obj, 'locations') and 
+                    if (hasattr(obj, 'python_name') and
+                        hasattr(obj, 'locations') and
                         hasattr(obj, 'resolver') and
                         not name.startswith('_')):
                         try:
@@ -166,13 +166,6 @@ schema = strawberry.Schema(
         auto_camel_case=False,  # Keep snake_case field names
     ),
     extensions=[
-        QueryCache(
-            default_timeout=300,  # 5 minutes default
-            stale_while_revalidate=60,  # 1 minute stale tolerance
-            cache_key_prefix="graphql_query_cache",
-            enable_cache_control=True,
-            max_query_depth=10,
-        ),
         DjangoValidationCache(
             timeout=7 * 24 * 60 * 60,  # Cache for 7 days
         ),
@@ -186,6 +179,7 @@ schema = strawberry.Schema(
             execution_context = None,
             prefetch_custom_queryset = True,
         ),
+        QueryCache,
         SQLPrintingExtension,
         GraphQLExceptionHandlingExtension,
     ]
