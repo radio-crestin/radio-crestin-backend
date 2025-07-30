@@ -1,7 +1,94 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import Any, Dict, Optional
+from django.core.cache import cache
 from strawberry.extensions import SchemaExtension
+
+
+class CacheExtension(SchemaExtension):
+    """Extension to cache GraphQL query/mutation results based on @cached directive
+    
+    Note: This is a basic implementation that caches entire query results.
+    For production use, consider:
+    - Field-level caching for more granular control
+    - Cache invalidation strategies
+    - User-specific cache keys for authenticated queries
+    """
+    
+    def __init__(self):
+        super().__init__()
+        self.cached_params: Optional[Dict[str, Any]] = None
+        self.cache_key: Optional[str] = None
+        self.should_cache = False
+    
+    def on_parse(self):
+        """Called during the parsing phase"""
+        yield
+        
+        # Look for cached directive on the operation
+        execution_context = self.execution_context
+        
+        # Try to find the cached directive
+        operation = None
+        if hasattr(execution_context, 'graphql_document') and execution_context.graphql_document:
+            # Get the first operation definition
+            for definition in execution_context.graphql_document.definitions:
+                if hasattr(definition, 'operation'):
+                    operation = definition
+                    break
+        
+        if operation and hasattr(operation, 'directives') and operation.directives:
+            for directive in operation.directives:
+                if directive.name.value == 'cached':
+                    # Extract the directive arguments
+                    self.cached_params = {'ttl': 60, 'refresh_while_caching': True}  # defaults
+                    for arg in directive.arguments:
+                        arg_name = arg.name.value
+                        arg_value = arg.value
+                        
+                        # Handle different argument value types
+                        if hasattr(arg_value, 'value'):
+                            value = arg_value.value
+                            # Convert string numbers to integers for numeric fields
+                            if arg_name == 'ttl' and isinstance(value, str):
+                                try:
+                                    value = int(value)
+                                except ValueError:
+                                    pass
+                            # Convert string booleans to booleans
+                            elif arg_name == 'refresh_while_caching' and isinstance(value, str):
+                                value = value.lower() in ('true', '1', 'yes')
+                            self.cached_params[arg_name] = value
+                        else:
+                            self.cached_params[arg_name] = arg_value
+                    
+                    # Generate cache key
+                    self.cache_key = self._generate_cache_key(
+                        execution_context.query,
+                        execution_context.variables,
+                        execution_context.operation_name
+                    )
+                    self.should_cache = True
+                    break
+    
+    
+    def _generate_cache_key(self, query: str, variables: Optional[Dict[str, Any]], operation_name: Optional[str]) -> str:
+        """Generate a unique cache key for the query"""
+        # Create a dictionary with all the components
+        key_data = {
+            'query': query,
+            'variables': variables or {},
+            'operation_name': operation_name or ''
+        }
+        
+        # Convert to JSON string and hash it
+        key_string = json.dumps(key_data, sort_keys=True)
+        key_hash = hashlib.md5(key_string.encode()).hexdigest()
+        
+        # Prefix with graphql to avoid collisions
+        return f"graphql:query:{key_hash}"
 
 
 class CacheControlExtension(SchemaExtension):

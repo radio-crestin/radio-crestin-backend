@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+from datetime import datetime
 from strawberry.exceptions.exception import StrawberryException
 from typing import TYPE_CHECKING
 import strawberry
@@ -20,3 +22,10 @@ class Query:
     @strawberry.field
     def health(self, info: strawberry.Info) -> bool:
         return True
+    
+    @strawberry.field
+    def current_time(self, info: strawberry.Info) -> str:
+        """Returns current time - useful for testing caching"""
+        # Simulate some processing time
+        time.sleep(0.1)
+        return datetime.now().isoformat()
