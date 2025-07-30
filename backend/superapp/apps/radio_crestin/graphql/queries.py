@@ -9,6 +9,7 @@ from strawberry_django.auth.utils import get_current_user
 from .types import StationType, StationGroupType, OrderDirection, OrderDirectionEnum, ArtistType, SongType, PostType
 from ..models import Stations, StationGroups, StationStreams, Posts, StationToStationGroup, Artists, Songs
 from ..services import AutocompleteService
+from ...graphql.graphql.directives import cached
 
 
 @strawberry.input
@@ -42,11 +43,11 @@ class Query:
         """
         Get stations with optimized queries for all related data.
         Maintains backward compatibility with Hasura query structure.
-        
+
         Cache: This query is cached automatically by QueryCache extension.
-        
+
         Usage examples with directives in GraphQL:
-        
+
         # Basic cache control (10 minutes with 2-minute stale-while-revalidate)
         query StationsWithCache @cache_control(max_age: 600, stale_while_revalidate: 120) {
           stations {
@@ -54,15 +55,15 @@ class Query:
             title
           }
         }
-        
-        # Cache that varies by authenticated user  
+
+        # Cache that varies by authenticated user
         query UserSpecificStations @cache_control(max_age: 300, vary_by_user: true) {
           stations {
             id
             title
           }
         }
-        
+
         # Disable caching for this query
         query RealTimeStations @cache_control(no_cache: true) {
           stations {
@@ -70,7 +71,7 @@ class Query:
             title
           }
         }
-        
+
         # Hasura-style caching (5 minutes TTL)
         query HasuraStations @cached(ttl: 300) {
           stations {
@@ -78,7 +79,7 @@ class Query:
             title
           }
         }
-        
+
         # Field-level cache control
         query MixedCaching {
           stations @cache_control(max_age: 600) {

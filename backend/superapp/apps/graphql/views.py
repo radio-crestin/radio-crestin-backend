@@ -193,3 +193,13 @@ class GraphQLProxyView(GraphQLView):
                 logger.error(f"GraphQL Error (no fallback): {error}")
 
         return data
+    
+    def dispatch(self, request, *args, **kwargs):
+        """Override dispatch to handle cache control headers"""
+        response = super().dispatch(request, *args, **kwargs)
+        
+        # Check if cache control header was set by the extension
+        if hasattr(request, '_cache_control_header'):
+            response['Cache-Control'] = request._cache_control_header
+        
+        return response

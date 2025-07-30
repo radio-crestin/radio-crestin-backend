@@ -1,106 +1,86 @@
 from __future__ import annotations
 
+from typing import Any, Dict, Optional
 from strawberry.extensions import SchemaExtension
 
 
 class CacheControlExtension(SchemaExtension):
     """Extension to set HTTP cache control headers based on GraphQL field directives"""
-
+    
     def __init__(self):
         super().__init__()
-        self.cache_control_config = {}
-
-    def on_executing_start(self):
-        """Extract cache control metadata when execution starts"""
-        self.cache_control_config = {}
-        self._collect_cache_control_metadata()
-
-    def on_executing_end(self):
-        """Set cache control headers when execution ends"""
-        if self.cache_control_config:
-            self._set_cache_headers()
-
-    def _collect_cache_control_metadata(self):
-        """Collect cache control metadata from field resolvers"""
-        operation = self.execution_context._get_first_operation()
-        if not operation:
-            return
-
-        # Check root field resolvers for cache control metadata
-        for field_node in operation.selection_set.selections:
-            if hasattr(field_node, 'name'):
-                field_name = field_node.name.value
-                resolver = self._get_field_resolver(field_name)
-                if resolver and hasattr(resolver, '_cache_control_metadata'):
-                    metadata = getattr(resolver, '_cache_control_metadata')
-                    self._merge_metadata(metadata)
-
-    def _get_field_resolver(self, field_name):
-        """Get resolver for a field"""
-        try:
-            schema = self.execution_context.schema
-            operation_type = self.execution_context.operation_type
-            if not operation_type:
-                return None
-
-            if operation_type.name.lower() == 'query':
-                root_type = getattr(schema, 'query_type', None)
-            elif operation_type.name.lower() == 'mutation':
-                root_type = getattr(schema, 'mutation_type', None)
-            else:
-                return None
-
-            if root_type and hasattr(root_type, '_type_definition'):
-                type_def = root_type._type_definition
-                if hasattr(type_def, field_name):
-                    field = getattr(type_def, field_name)
-                    return getattr(field, 'resolver', None)
-        except (AttributeError, TypeError):
-            return None
-        return None
-
-    def _merge_metadata(self, metadata):
-        """Merge cache control metadata using most restrictive values"""
-        if not self.cache_control_config:
-            self.cache_control_config = dict(metadata)
-        else:
-            # Use minimum max_age (most restrictive)
-            if metadata.get('max_age') is not None:
-                current = self.cache_control_config.get('max_age')
-                if current is None or metadata['max_age'] < current:
-                    self.cache_control_config['max_age'] = metadata['max_age']
-
-            # Override with more restrictive flags
-            if metadata.get('no_cache'):
-                self.cache_control_config['no_cache'] = True
-            if metadata.get('private'):
-                self.cache_control_config['private'] = True
-
-    def _set_cache_headers(self):
-        """Set HTTP cache control headers"""
-        try:
-            request = getattr(self.execution_context, 'request', None)
-            if not request:
-                return
-
-            # Build cache control header
-            parts = []
-
-            if self.cache_control_config.get('no_cache'):
-                parts.append('no-cache')
-            else:
-                max_age = self.cache_control_config.get('max_age')
-                if max_age is not None:
-                    parts.append(f'max-age={max_age}')
-
-            if self.cache_control_config.get('private'):
-                parts.append('private')
-            elif self.cache_control_config.get('public'):
-                parts.append('public')
-
-            if parts and hasattr(request, 'META'):
-                # Store for Django response middleware to pick up
-                request.META['HTTP_CACHE_CONTROL'] = ', '.join(parts)
-        except (AttributeError, TypeError, KeyError) as e:
-            # Log the specific error if needed for debugging
-            pass
+        self.cache_control_params: Optional[Dict[str, Any]] = None
+    
+    def on_operation_end(self):
+        """Called after the operation has been executed"""
+        # Try to find cache control metadata from the executed field
+        execution_context = self.execution_context
+        
+        if hasattr(execution_context, 'result') and execution_context.result:
+            # Look for the resolver function that was executed
+            if hasattr(execution_context, 'field_nodes') and execution_context.field_nodes:
+                for field_node in execution_context.field_nodes:
+                    field_name = field_node.name.value
+                    
+                    # Get the resolver from the schema
+                    if execution_context.operation_type == 'query':
+                        root_type = execution_context.schema.query
+                    elif execution_context.operation_type == 'mutation':
+                        root_type = execution_context.schema.mutation
+                    else:
+                        continue
+                    
+                    # Find the field in the root type
+                    if hasattr(root_type, field_name):
+                        field_resolver = getattr(root_type, field_name)
+                        
+                        # Check if the resolver has cache control metadata
+                        if hasattr(field_resolver, '_cache_control_metadata'):
+                            self.cache_control_params = field_resolver._cache_control_metadata
+                            # Store the cache control params in context for later processing
+                            if hasattr(execution_context, 'context'):
+                                execution_context.context._cache_control_params = self.cache_control_params
+                            break
+    
+    def get_results(self):
+        """Process results and add cache control metadata"""
+        result = super().get_results()
+        
+        # Check if we have cache control params stored in context
+        if hasattr(self.execution_context, 'context') and hasattr(self.execution_context.context, '_cache_control_params'):
+            cache_control_params = self.execution_context.context._cache_control_params
+            
+            # Build the Cache-Control header value
+            cache_control_parts = []
+            
+            # Handle boolean directives
+            if cache_control_params.get('no_cache'):
+                cache_control_parts.append('no-cache')
+            
+            if cache_control_params.get('public'):
+                cache_control_parts.append('public')
+            elif cache_control_params.get('private'):
+                cache_control_parts.append('private')
+            
+            if cache_control_params.get('immutable'):
+                cache_control_parts.append('immutable')
+            
+            # Handle numeric directives
+            max_age = cache_control_params.get('max_age')
+            if max_age is not None and not cache_control_params.get('no_cache'):
+                cache_control_parts.append(f'max-age={max_age}')
+            
+            stale_while_revalidate = cache_control_params.get('stale_while_revalidate')
+            if stale_while_revalidate is not None:
+                cache_control_parts.append(f'stale-while-revalidate={stale_while_revalidate}')
+            
+            max_stale = cache_control_params.get('max_stale')
+            if max_stale is not None:
+                cache_control_parts.append(f'max-stale={max_stale}')
+            
+            # Set the header value in context for the view to use
+            if cache_control_parts:
+                cache_control_value = ', '.join(cache_control_parts)
+                self.execution_context.context._cache_control_header = cache_control_value
+        
+        return result
