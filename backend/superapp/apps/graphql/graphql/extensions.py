@@ -22,33 +22,31 @@ class CacheControlExtension(SchemaExtension):
 
     def _collect_cache_control_metadata(self):
         """Collect cache control metadata from field resolvers"""
-        try:
-            operation = getattr(self.execution_context, 'operation', None)
-            if not operation:
-                return
+        operation = self.execution_context._get_first_operation()
+        if not operation:
+            return
 
-            # Check root field resolvers for cache control metadata
-            for field_node in operation.selection_set.selections:
-                if hasattr(field_node, 'name'):
-                    field_name = field_node.name.value
-                    resolver = self._get_field_resolver(field_name)
-                    if resolver and hasattr(resolver, '_cache_control_metadata'):
-                        metadata = getattr(resolver, '_cache_control_metadata')
-                        self._merge_metadata(metadata)
-        except Exception:
-            # Silently fail if we can't extract metadata
-            pass
+        # Check root field resolvers for cache control metadata
+        for field_node in operation.selection_set.selections:
+            if hasattr(field_node, 'name'):
+                field_name = field_node.name.value
+                resolver = self._get_field_resolver(field_name)
+                if resolver and hasattr(resolver, '_cache_control_metadata'):
+                    metadata = getattr(resolver, '_cache_control_metadata')
+                    self._merge_metadata(metadata)
 
     def _get_field_resolver(self, field_name):
         """Get resolver for a field"""
         try:
             schema = self.execution_context.schema
-            operation_type = self.execution_context.operation.operation
+            operation_type = self.execution_context.operation_type
+            if not operation_type:
+                return None
 
-            if operation_type.name == 'query':
-                root_type = schema.query_type
-            elif operation_type.name == 'mutation':
-                root_type = schema.mutation_type
+            if operation_type.name.lower() == 'query':
+                root_type = getattr(schema, 'query_type', None)
+            elif operation_type.name.lower() == 'mutation':
+                root_type = getattr(schema, 'mutation_type', None)
             else:
                 return None
 
@@ -57,8 +55,8 @@ class CacheControlExtension(SchemaExtension):
                 if hasattr(type_def, field_name):
                     field = getattr(type_def, field_name)
                     return getattr(field, 'resolver', None)
-        except Exception:
-            pass
+        except (AttributeError, TypeError):
+            return None
         return None
 
     def _merge_metadata(self, metadata):
@@ -87,7 +85,7 @@ class CacheControlExtension(SchemaExtension):
 
             # Build cache control header
             parts = []
-            
+
             if self.cache_control_config.get('no_cache'):
                 parts.append('no-cache')
             else:
@@ -103,5 +101,6 @@ class CacheControlExtension(SchemaExtension):
             if parts and hasattr(request, 'META'):
                 # Store for Django response middleware to pick up
                 request.META['HTTP_CACHE_CONTROL'] = ', '.join(parts)
-        except Exception:
+        except (AttributeError, TypeError, KeyError) as e:
+            # Log the specific error if needed for debugging
             pass
