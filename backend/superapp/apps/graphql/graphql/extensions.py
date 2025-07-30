@@ -43,7 +43,7 @@ class CacheExtension(SchemaExtension):
             for directive in operation.directives:
                 if directive.name.value == 'cached':
                     # Extract the directive arguments
-                    self.cached_params = {'ttl': 60, 'refresh_while_caching': True}  # defaults
+                    self.cached_params = {'ttl': 60, 'refresh_while_caching': True, 'include_user': False}  # defaults
                     for arg in directive.arguments:
                         arg_name = arg.name.value
                         arg_value = arg.value
@@ -58,17 +58,29 @@ class CacheExtension(SchemaExtension):
                                 except ValueError:
                                     pass
                             # Convert string booleans to booleans
-                            elif arg_name == 'refresh_while_caching' and isinstance(value, str):
+                            elif arg_name in ['refresh_while_caching', 'include_user'] and isinstance(value, str):
                                 value = value.lower() in ('true', '1', 'yes')
                             self.cached_params[arg_name] = value
                         else:
                             self.cached_params[arg_name] = arg_value
                     
+                    # Get user ID if needed
+                    user_id = None
+                    if self.cached_params.get('include_user', False):
+                        # Try to get user from context
+                        if hasattr(execution_context, 'context'):
+                            context = execution_context.context
+                            # Django request object
+                            request = context.get('request') if hasattr(context, 'get') else getattr(context, 'request', None)
+                            if request and hasattr(request, 'user') and request.user.is_authenticated:
+                                user_id = str(request.user.id)
+                    
                     # Generate cache key
                     self.cache_key = self._generate_cache_key(
                         execution_context.query,
                         execution_context.variables,
-                        execution_context.operation_name
+                        execution_context.operation_name,
+                        user_id
                     )
                     self.should_cache = True
                     break
@@ -107,21 +119,32 @@ class CacheExtension(SchemaExtension):
                 cache.set(self.cache_key, cache_data, ttl)
     
     
-    def _generate_cache_key(self, query: str, variables: Optional[Dict[str, Any]], operation_name: Optional[str]) -> str:
+    def _generate_cache_key(self, query: str, variables: Optional[Dict[str, Any]], operation_name: Optional[str], user_id: Optional[str] = None) -> str:
         """Generate a unique cache key for the query"""
+        # Normalize the query by removing extra whitespace
+        normalized_query = ' '.join(query.split())
+        
         # Create a dictionary with all the components
         key_data = {
-            'query': query,
+            'query': normalized_query,
             'variables': variables or {},
             'operation_name': operation_name or ''
         }
+        
+        # Add user ID if provided
+        if user_id:
+            key_data['user_id'] = user_id
         
         # Convert to JSON string and hash it
         key_string = json.dumps(key_data, sort_keys=True)
         key_hash = hashlib.md5(key_string.encode()).hexdigest()
         
-        # Prefix with graphql to avoid collisions
-        return f"graphql:query:{key_hash}"
+        # Create a more descriptive key prefix
+        prefix = "graphql:query"
+        if user_id:
+            prefix = f"graphql:user:{user_id}:query"
+        
+        return f"{prefix}:{key_hash}"
 
 
 class CacheControlExtension(SchemaExtension):

@@ -15,12 +15,13 @@ from typing import Optional
 )
 def cached(
     ttl: Optional[int] = 60,
-    refresh_while_caching: Optional[bool] = True
+    refresh_while_caching: Optional[bool] = True,
+    include_user: Optional[bool] = False
 ):
     """Cache directive for field-level caching"""
     def decorator(resolver):
         # Store directive parameters in resolver metadata for caching extension
-        resolver._cached_metadata = {"ttl": ttl, "refresh_while_caching": refresh_while_caching}
+        resolver._cached_metadata = {"ttl": ttl, "refresh_while_caching": refresh_while_caching, "include_user": include_user}
         return resolver
     return decorator
 
