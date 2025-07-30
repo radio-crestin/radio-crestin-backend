@@ -228,7 +228,12 @@ class CacheControlExtension(SchemaExtension):
 
                         # Store in context for later use
                         if hasattr(execution_context, 'context'):
-                            execution_context.context._cache_control_params = self.cache_control_params
+                            context = execution_context.context
+                            # Handle both dict and object contexts
+                            if isinstance(context, dict):
+                                context['_cache_control_params'] = self.cache_control_params
+                            else:
+                                context._cache_control_params = self.cache_control_params
                         break
 
         return result
@@ -236,8 +241,15 @@ class CacheControlExtension(SchemaExtension):
     def on_request_end(self):
         """Called after the request has been processed"""
         # Check if we have cache control params stored in context
-        if hasattr(self.execution_context, 'context') and hasattr(self.execution_context.context, '_cache_control_params'):
-            cache_control_params = self.execution_context.context._cache_control_params
+        cache_control_params = None
+        if hasattr(self.execution_context, 'context'):
+            context = self.execution_context.context
+            if isinstance(context, dict) and '_cache_control_params' in context:
+                cache_control_params = context['_cache_control_params']
+            elif hasattr(context, '_cache_control_params'):
+                cache_control_params = context._cache_control_params
+        
+        if cache_control_params:
 
 
             # Build the Cache-Control header value
@@ -271,21 +283,31 @@ class CacheControlExtension(SchemaExtension):
             # Set the header value in context for the view to use
             if cache_control_parts:
                 cache_control_value = ', '.join(cache_control_parts)
-                # Set on the context itself
-                self.execution_context.context._cache_control_header = cache_control_value
-
-                # Set on the request object if it exists (this is what the view will check)
-                if hasattr(self.execution_context.context, 'request'):
-                    self.execution_context.context.request._cache_control_header = cache_control_value
-
-                # Try to set directly on the response if available
-                if hasattr(self.execution_context.context, 'response'):
-                    response = self.execution_context.context['response']
-                    if response:
-                        response['Cache-Control'] = cache_control_value
-
-                # Also try the get() method in case context is a dict
-                request = getattr(self.execution_context.context, 'request', None) or \
-                         (self.execution_context.context.get('request') if hasattr(self.execution_context.context, 'get') else None)
-                if request:
-                    request._cache_control_header = cache_control_value
+                context = self.execution_context.context
+                
+                # Handle both dict and object contexts
+                if isinstance(context, dict):
+                    context['_cache_control_header'] = cache_control_value
+                    
+                    # Set on request if it exists
+                    if 'request' in context and context['request']:
+                        request = context['request']
+                        if hasattr(request, '__setattr__'):
+                            request._cache_control_header = cache_control_value
+                    
+                    # Set on response if it exists
+                    if 'response' in context and context['response']:
+                        response = context['response']
+                        if hasattr(response, '__setitem__'):
+                            response['Cache-Control'] = cache_control_value
+                else:
+                    # Object context
+                    context._cache_control_header = cache_control_value
+                    
+                    # Set on request if it exists
+                    if hasattr(context, 'request') and context.request:
+                        context.request._cache_control_header = cache_control_value
+                    
+                    # Set on response if it exists
+                    if hasattr(context, 'response') and context.response:
+                        context.response['Cache-Control'] = cache_control_value
