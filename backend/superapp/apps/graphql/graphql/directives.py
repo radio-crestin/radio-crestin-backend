@@ -6,7 +6,11 @@ from typing import Optional
 
 
 @strawberry.directive(
-    locations=[DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.QUERY, DirectiveLocation.MUTATION],
+    locations=[
+        # DirectiveLocation.FIELD,
+        DirectiveLocation.QUERY,
+        DirectiveLocation.MUTATION,
+    ],
     description="Cache directive for field-level caching and query/mutation result caching"
 )
 def cached(

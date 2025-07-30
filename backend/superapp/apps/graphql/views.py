@@ -215,9 +215,6 @@ class GraphQLProxyView(BaseGraphQLView):
         request = getattr(self, '_current_request', None)
         
         if request and hasattr(request, '_cache_control_header'):
-            logger.info(f"Setting response Cache-Control header: {request._cache_control_header}")
             response['Cache-Control'] = request._cache_control_header
-        else:
-            logger.debug("No cache control header found on request")
         
         return response
