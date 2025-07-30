@@ -78,7 +78,7 @@ def find_graphql_modules() -> tuple[List[Type], List[Type]]:
     return queries, mutations
 
 
-def find_graphql_directives() -> List[Any]:
+def find_graphql_directives() -> List[Type]:
     """Find all directive classes from installed apps"""
     found_directives = []
 
@@ -91,19 +91,17 @@ def find_graphql_directives() -> List[Any]:
             try:
                 directives_module = importlib.import_module(f"{app_config.name}.graphql.directives")
                 
-                # Find all directive classes (those decorated with @strawberry.schema_directive)
+                # Find all directive objects (StrawberryDirective instances)
                 for name in dir(directives_module):
                     obj = getattr(directives_module, name)
-                    # Look for classes that have the strawberry directive metadata
-                    if (isinstance(obj, type) and 
-                        (hasattr(obj, '__strawberry_directive__') or 
-                         hasattr(obj, '_strawberry_directive')) and 
+                    # Look for StrawberryDirective objects
+                    if (hasattr(obj, 'python_name') and 
+                        hasattr(obj, 'locations') and 
+                        hasattr(obj, 'resolver') and
                         not name.startswith('_')):
                         try:
-                            # Test if this is a valid directive by checking if it has the required attributes
-                            if hasattr(obj, '__annotations__'):
-                                found_directives.append(obj)
-                                print(f"Found directive class: {name} from {app_config.name}")
+                            found_directives.append(obj)
+                            print(f"Found directive: {name} from {app_config.name}")
                         except Exception as e:
                             print(f"Skipping invalid directive {name}: {e}")
                         
@@ -158,9 +156,7 @@ Mutation = mutation_root
 from strawberry.schema.config import StrawberryConfig
 
 # Import all directives from installed apps automatically
-# Currently disabled due to Strawberry schema directive complexity
-# all_directives = find_graphql_directives()
-all_directives = []
+all_directives = find_graphql_directives()
 
 schema = strawberry.Schema(
     query=query_root,
