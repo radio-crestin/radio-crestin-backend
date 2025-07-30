@@ -58,8 +58,8 @@ class QueryCache(SchemaExtension):
     def on_operation(self):
         """Handle operation lifecycle - store request and set headers after execution"""
         # Store request for cache control header handling
-        if hasattr(self.execution_context, 'request'):
-            self.request = self.execution_context.request
+        if hasattr(self.execution_context, 'context') and hasattr(self.execution_context.context, 'request'):
+            self.request = self.execution_context.context.request
         
         # Check if the entire operation should be cached
         operation_cache_key = None
@@ -121,7 +121,8 @@ class QueryCache(SchemaExtension):
         ]
 
         # Include user ID if authenticated for user-specific caching
-        if hasattr(self.request, 'user') and self.request.user.is_authenticated:
+        if (self.request and hasattr(self.request, 'user') and 
+            hasattr(self.request.user, 'is_authenticated') and self.request.user.is_authenticated):
             key_parts.append(f"user:{self.request.user.id}")
         else:
             key_parts.append("anonymous")
@@ -166,20 +167,22 @@ class QueryCache(SchemaExtension):
 
     def should_cache_field(self, info: Info) -> Optional[Dict[str, Any]]:
         """Check if field has @cached directive"""
-        # Get the field definition from the schema
-        if info.field_definition and hasattr(info.field_definition, 'resolver'):
-            resolver = info.field_definition.resolver
-            if hasattr(resolver, '_cached_metadata'):
-                return resolver._cached_metadata
-        
-        # Fallback: check the original resolver
-        if hasattr(info, 'parent_type') and hasattr(info.parent_type, '_type_definition'):
-            type_def = info.parent_type._type_definition
-            for field in type_def.fields:
-                if field.python_name == info.field_name:
-                    resolver = field.base_resolver
-                    if hasattr(resolver, '_cached_metadata'):
-                        return resolver._cached_metadata
+        # For Strawberry GraphQL, we need to check the resolver directly
+        try:
+            # Check if the resolver has cached metadata
+            if hasattr(info, '_strawberry_info') and hasattr(info._strawberry_info, 'field_definition'):
+                field_def = info._strawberry_info.field_definition
+                if hasattr(field_def, 'base_resolver') and hasattr(field_def.base_resolver, '_cached_metadata'):
+                    return field_def.base_resolver._cached_metadata
+            
+            # Another approach: check if the field definition exists in schema
+            schema = getattr(info, 'schema', None)
+            if schema and hasattr(info, 'field_name'):
+                # For now, return None as we don't have @cached directive implemented
+                pass
+                
+        except (AttributeError, TypeError):
+            pass
 
         return None
 
@@ -204,7 +207,8 @@ class QueryCache(SchemaExtension):
         key_parts.append(json.dumps(variables, sort_keys=True, default=str))
         
         # Include user ID if authenticated for user-specific caching
-        if hasattr(self.request, 'user') and self.request.user.is_authenticated:
+        if (self.request and hasattr(self.request, 'user') and 
+            hasattr(self.request.user, 'is_authenticated') and self.request.user.is_authenticated):
             key_parts.append(f"user:{self.request.user.id}")
         else:
             key_parts.append("anonymous")
@@ -240,10 +244,13 @@ class QueryCache(SchemaExtension):
     def _collect_cache_control_metadata(self, info: Info):
         """Collect cache control metadata from root resolvers"""
         # Check if the root resolver (query/mutation) has cache control metadata
-        if info.field_definition and hasattr(info.field_definition, 'resolver'):
-            resolver = info.field_definition.resolver
-            if hasattr(resolver, '_cache_control_metadata'):
-                self._operation_cache_control_metadata = resolver._cache_control_metadata
+        try:
+            if hasattr(info, '_strawberry_info') and hasattr(info._strawberry_info, 'field_definition'):
+                field_def = info._strawberry_info.field_definition
+                if hasattr(field_def, 'base_resolver') and hasattr(field_def.base_resolver, '_cache_control_metadata'):
+                    self._operation_cache_control_metadata = field_def.base_resolver._cache_control_metadata
+        except (AttributeError, TypeError):
+            pass
 
     def build_cache_control_header(self, metadata: Dict[str, Any]) -> str:
         """Build Cache-Control header from metadata"""

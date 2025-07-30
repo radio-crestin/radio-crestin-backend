@@ -179,9 +179,9 @@ schema = strawberry.Schema(
             execution_context = None,
             prefetch_custom_queryset = True,
         ),
-        QueryCache,
-        SQLPrintingExtension,
-        GraphQLExceptionHandlingExtension,
+        QueryCache(),
+        SQLPrintingExtension(),
+        GraphQLExceptionHandlingExtension(),
     ]
 )
 
