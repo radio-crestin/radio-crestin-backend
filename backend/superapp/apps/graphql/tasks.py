@@ -16,7 +16,7 @@ def refresh_graphql_cache(query: str, variables: Optional[Dict[str, Any]], opera
     This task executes a GraphQL query and updates the cache with fresh data.
     Used by the CacheExtension when refresh_while_caching is True.
     """
-    from superapp.apps.graphql.schema import schema
+    from superapp.apps.graphql.schema import background_schema
     from django.contrib.auth import get_user_model
     
     logger.info(f"Starting background cache refresh for key: {cache_key}")
@@ -40,8 +40,8 @@ def refresh_graphql_cache(query: str, variables: Optional[Dict[str, Any]], opera
                 logger.warning(f"User with id {user_id} not found for cache refresh")
                 pass
         
-        # Execute the GraphQL query
-        result = schema.execute_sync(
+        # Execute the GraphQL query using background schema (no cache extensions)
+        result = background_schema.execute_sync(
             query,
             variable_values=variables,
             operation_name=operation_name,

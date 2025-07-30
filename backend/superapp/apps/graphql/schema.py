@@ -186,3 +186,31 @@ schema = strawberry.Schema(
     ]
 )
 
+# Schema for background tasks without CacheControlExtension
+background_schema = strawberry.Schema(
+    query=query_root,
+    mutation=mutation_root,
+    directives=all_directives,
+    config=StrawberryConfig(
+        auto_camel_case=False,  # Keep snake_case field names
+    ),
+    extensions=[
+        DjangoValidationCache(
+            timeout=7 * 24 * 60 * 60,  # Cache for 7 days
+        ),
+        ParserCache(maxsize=1000),
+        DjangoOptimizerExtension(
+            enable_only_optimization = False, # This is creating a problem with django_multitenant
+            enable_select_related_optimization = True,
+            enable_prefetch_related_optimization = True,
+            enable_annotate_optimization = True,
+            enable_nested_relations_prefetch = True,
+            execution_context = None,
+            prefetch_custom_queryset = True,
+        ),
+        # Note: No CacheExtension or CacheControlExtension for background tasks
+        SQLPrintingExtension(),
+        GraphQLExceptionHandlingExtension(),
+    ]
+)
+

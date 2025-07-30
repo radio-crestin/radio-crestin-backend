@@ -190,10 +190,13 @@ class CacheControlExtension(SchemaExtension):
         # Look for cache_control directive on the operation
         execution_context = self.execution_context
 
+        # Skip processing if we don't have a proper execution context (e.g., in background tasks)
+        if not hasattr(execution_context, 'graphql_document'):
+            return result
 
         # Try different ways to access the operation
         operation = None
-        if hasattr(execution_context, 'graphql_document') and execution_context.graphql_document:
+        if execution_context.graphql_document:
             # Get the first operation definition
             for definition in execution_context.graphql_document.definitions:
                 if hasattr(definition, 'operation'):
@@ -228,12 +231,16 @@ class CacheControlExtension(SchemaExtension):
 
                         # Store in context for later use
                         if hasattr(execution_context, 'context'):
-                            context = execution_context.context
-                            # Handle both dict and object contexts
-                            if isinstance(context, dict):
-                                context['_cache_control_params'] = self.cache_control_params
-                            else:
-                                context._cache_control_params = self.cache_control_params
+                            try:
+                                context = execution_context.context
+                                # Handle both dict and object contexts
+                                if isinstance(context, dict):
+                                    context['_cache_control_params'] = self.cache_control_params
+                                else:
+                                    context._cache_control_params = self.cache_control_params
+                            except AttributeError:
+                                # Skip if context is not accessible (e.g., in background tasks)
+                                pass
                         break
 
         return result
