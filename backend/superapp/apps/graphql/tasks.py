@@ -1,7 +1,10 @@
 from celery import shared_task
 import json
+import logging
 from django.core.cache import cache
 from typing import Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 
 @shared_task
@@ -15,6 +18,8 @@ def refresh_graphql_cache(query: str, variables: Optional[Dict[str, Any]], opera
     """
     from superapp.apps.graphql.schema import schema
     from django.contrib.auth import get_user_model
+    
+    logger.info(f"Starting background cache refresh for key: {cache_key}")
     
     try:
         # Create context with user if provided
@@ -30,7 +35,9 @@ def refresh_graphql_cache(query: str, variables: Optional[Dict[str, Any]], opera
                         self.META = {}
                 
                 context['request'] = MockRequest(user)
+                logger.debug(f"Added user context for user_id: {user_id}")
             except User.DoesNotExist:
+                logger.warning(f"User with id {user_id} not found for cache refresh")
                 pass
         
         # Execute the GraphQL query
@@ -47,10 +54,16 @@ def refresh_graphql_cache(query: str, variables: Optional[Dict[str, Any]], opera
                 'data': result.data,
                 'errors': None
             }
+            # Update the cache with fresh data and extend TTL
             cache.set(cache_key, cache_data, ttl)
-            return f"Cache refreshed for key: {cache_key}"
+            logger.info(f"Successfully refreshed cache for key: {cache_key} with TTL: {ttl}s")
+            return f"Cache refreshed for key: {cache_key} with TTL: {ttl}s"
         else:
-            return f"Query execution failed with errors: {result.errors if result else 'No result'}"
+            error_msg = f"Query execution failed with errors: {result.errors if result else 'No result'}"
+            logger.error(error_msg)
+            return error_msg
             
     except Exception as e:
-        return f"Error refreshing cache: {str(e)}"
+        error_msg = f"Error refreshing cache: {str(e)}"
+        logger.exception(error_msg)
+        return error_msg
