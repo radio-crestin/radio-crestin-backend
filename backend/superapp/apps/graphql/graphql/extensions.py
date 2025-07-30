@@ -46,7 +46,7 @@ class CacheExtension(SchemaExtension):
             for directive in operation.directives:
                 if directive.name.value == 'cached':
                     # Extract the directive arguments
-                    self.cached_params = {'ttl': 60, 'refresh_while_caching': True, 'include_user': False}  # defaults
+                    self.cached_params = {'ttl': 0, 'refresh_while_caching': True, 'include_user': True}  # defaults
                     for arg in directive.arguments:
                         arg_name = arg.name.value
                         arg_value = arg.value
@@ -96,26 +96,26 @@ class CacheExtension(SchemaExtension):
             if cached_result is not None:
                 # Check if we should refresh while serving cached content
                 refresh_while_caching = self.cached_params.get('refresh_while_caching', True)
-                
+
                 # Set cached result regardless of refresh_while_caching
                 from graphql import ExecutionResult
                 self.execution_context.result = ExecutionResult(
                     data=cached_result.get('data'),
                     errors=cached_result.get('errors')
                 )
-                
+
                 if refresh_while_caching:
                     # Check if there's already a refresh task running for this cache key
                     refresh_lock_key = f"{self.cache_key}:refresh_lock"
-                    
+
                     # Try to acquire lock with a short TTL (5 seconds for task to start)
                     # If lock already exists, another refresh is in progress
                     if cache.add(refresh_lock_key, True, timeout=5):
                         # Lock acquired, trigger background refresh
                         from superapp.apps.graphql.tasks import refresh_graphql_cache
-                        
+
                         ttl = self.cached_params.get('ttl', 60)
-                        
+
                         # Get user ID if needed for background refresh
                         user_id = None
                         if self.cached_params.get('include_user', False):
@@ -123,7 +123,7 @@ class CacheExtension(SchemaExtension):
                             request = context.get('request') if hasattr(context, 'get') else getattr(context, 'request', None)
                             if request and hasattr(request, 'user') and request.user.is_authenticated:
                                 user_id = request.user.id
-                        
+
                         logger.debug(f"Triggering background refresh for cache key: {self.cache_key}")
                         refresh_graphql_cache.delay(
                             query=self.execution_context.query,
@@ -135,7 +135,7 @@ class CacheExtension(SchemaExtension):
                         )
                     else:
                         logger.debug(f"Skipping background refresh for cache key {self.cache_key} - refresh already in progress")
-                
+
                 yield  # Must yield even when returning cached result
                 return
 
@@ -267,7 +267,7 @@ class CacheControlExtension(SchemaExtension):
                 cache_control_params = context['_cache_control_params']
             elif hasattr(context, '_cache_control_params'):
                 cache_control_params = context._cache_control_params
-        
+
         if cache_control_params:
 
 
@@ -303,17 +303,17 @@ class CacheControlExtension(SchemaExtension):
             if cache_control_parts:
                 cache_control_value = ', '.join(cache_control_parts)
                 context = self.execution_context.context
-                
+
                 # Handle both dict and object contexts
                 if isinstance(context, dict):
                     context['_cache_control_header'] = cache_control_value
-                    
+
                     # Set on request if it exists
                     if 'request' in context and context['request']:
                         request = context['request']
                         if hasattr(request, '__setattr__'):
                             request._cache_control_header = cache_control_value
-                    
+
                     # Set on response if it exists
                     if 'response' in context and context['response']:
                         response = context['response']
@@ -322,11 +322,11 @@ class CacheControlExtension(SchemaExtension):
                 else:
                     # Object context
                     context._cache_control_header = cache_control_value
-                    
+
                     # Set on request if it exists
                     if hasattr(context, 'request') and context.request:
                         context.request._cache_control_header = cache_control_value
-                    
+
                     # Set on response if it exists
                     if hasattr(context, 'response') and context.response:
                         context.response['Cache-Control'] = cache_control_value

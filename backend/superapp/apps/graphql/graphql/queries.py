@@ -5,6 +5,7 @@ from datetime import datetime
 from strawberry.exceptions.exception import StrawberryException
 from typing import TYPE_CHECKING
 import strawberry
+from .field_directives import cached_field
 
 try:
     # Django-channels is not always used/intalled,
@@ -24,6 +25,7 @@ class Query:
         return True
     
     @strawberry.field
+    @cached_field(ttl=10)
     def current_time(self, info: strawberry.Info) -> str:
         """Returns current time - useful for testing caching"""
         # Simulate some processing time
