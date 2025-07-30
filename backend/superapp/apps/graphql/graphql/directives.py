@@ -7,7 +7,6 @@ from typing import Optional
 
 @strawberry.directive(
     locations=[
-        # DirectiveLocation.FIELD,
         DirectiveLocation.QUERY,
         DirectiveLocation.MUTATION,
     ],
