@@ -1,7 +1,7 @@
 import importlib
 import os
 import traceback
-from typing import List, Type
+from typing import List, Type, Any
 
 import strawberry
 from django.apps import apps
@@ -78,6 +78,42 @@ def find_graphql_modules() -> tuple[List[Type], List[Type]]:
     return queries, mutations
 
 
+def find_graphql_directives() -> List[Any]:
+    """Find all directive classes from installed apps"""
+    found_directives = []
+
+    for app_config in apps.get_app_configs():
+        app_path = app_config.path
+        directives_path = os.path.join(app_path, 'graphql', 'directives.py')
+
+        # Import directives module if it exists
+        if os.path.exists(directives_path):
+            try:
+                directives_module = importlib.import_module(f"{app_config.name}.graphql.directives")
+                
+                # Find all directive classes (those decorated with @strawberry.schema_directive)
+                for name in dir(directives_module):
+                    obj = getattr(directives_module, name)
+                    # Look for classes that have the strawberry directive metadata
+                    if (isinstance(obj, type) and 
+                        (hasattr(obj, '__strawberry_directive__') or 
+                         hasattr(obj, '_strawberry_directive')) and 
+                        not name.startswith('_')):
+                        try:
+                            # Test if this is a valid directive by checking if it has the required attributes
+                            if hasattr(obj, '__annotations__'):
+                                found_directives.append(obj)
+                                print(f"Found directive class: {name} from {app_config.name}")
+                        except Exception as e:
+                            print(f"Skipping invalid directive {name}: {e}")
+                        
+            except ImportError as e:
+                print(f"Could not import directives from {app_config.name}: {e}")
+                continue
+
+    return found_directives
+
+
 def combine_types(base_class_name: str, types: List[Type]) -> Type:
     """Combine multiple strawberry types into one"""
     if not types:
@@ -121,17 +157,15 @@ Mutation = mutation_root
 
 from strawberry.schema.config import StrawberryConfig
 
-# Import directives for cache control and Hasura compatibility
-try:
-    from .graphql.directives import cached, cache_control
-    directives = [cached, cache_control]
-except ImportError:
-    directives = []
+# Import all directives from installed apps automatically
+# Currently disabled due to Strawberry schema directive complexity
+# all_directives = find_graphql_directives()
+all_directives = []
 
 schema = strawberry.Schema(
     query=query_root,
     mutation=mutation_root,
-    directives=directives,
+    directives=all_directives,
     config=StrawberryConfig(
         auto_camel_case=False,  # Keep snake_case field names
     ),
