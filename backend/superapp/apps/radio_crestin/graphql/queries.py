@@ -47,27 +47,47 @@ class Query:
         
         Usage examples with directives in GraphQL:
         
-        # Cache for 10 minutes with 2-minute stale-while-revalidate
-        query StationsWithCache {
-          stations @cache_control(max_age: 600, stale_while_revalidate: 120) {
+        # Basic cache control (10 minutes with 2-minute stale-while-revalidate)
+        query StationsWithCache @cache_control(max_age: 600, stale_while_revalidate: 120) {
+          stations {
             id
             title
           }
         }
         
         # Cache that varies by authenticated user  
-        query UserSpecificStations {
-          stations @cache_control(max_age: 300, vary_by_user: true) {
+        query UserSpecificStations @cache_control(max_age: 300, vary_by_user: true) {
+          stations {
             id
             title
           }
         }
         
         # Disable caching for this query
-        query RealTimeStations {
-          stations @cache_control(no_cache: true) {
+        query RealTimeStations @cache_control(no_cache: true) {
+          stations {
             id
             title
+          }
+        }
+        
+        # Hasura-style caching (5 minutes TTL)
+        query HasuraStations @cached(ttl: 300) {
+          stations {
+            id
+            title
+          }
+        }
+        
+        # Field-level cache control
+        query MixedCaching {
+          stations @cache_control(max_age: 600) {
+            id
+            title
+          }
+          realTimeStations: stations @cache_control(no_cache: true) {
+            id
+            uptime_status
           }
         }
         """
