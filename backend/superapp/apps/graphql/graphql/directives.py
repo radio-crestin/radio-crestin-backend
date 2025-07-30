@@ -7,7 +7,7 @@ from typing import Optional
 
 @strawberry.directive(
     locations=[
-        DirectiveLocation.FIELD,
+        # DirectiveLocation.FIELD,
         DirectiveLocation.QUERY,
         DirectiveLocation.MUTATION,
     ],
@@ -17,11 +17,13 @@ def cached(
     ttl: Optional[int] = 60,
     refresh_while_caching: Optional[bool] = True,
     include_user: Optional[bool] = False
-) -> object:
+):
     """Cache directive for field-level caching"""
-    # For schema directives in Strawberry, we need to return the actual value
-    # The directive metadata will be available through the GraphQL schema
-    return strawberry.UNSET
+    def decorator(resolver):
+        # Store directive parameters in resolver metadata for caching extension
+        resolver._cached_metadata = {"ttl": ttl, "refresh_while_caching": refresh_while_caching, "include_user": include_user}
+        return resolver
+    return decorator
 
 
 @strawberry.directive(
