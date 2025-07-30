@@ -6,8 +6,8 @@ from typing import Optional
 
 
 @strawberry.directive(
-    locations=[DirectiveLocation.FIELD_DEFINITION],
-    description="Cache directive for field-level caching"
+    locations=[DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.QUERY, DirectiveLocation.MUTATION],
+    description="Cache directive for field-level caching and query/mutation result caching"
 )
 def cached(
     ttl: Optional[int] = 60,

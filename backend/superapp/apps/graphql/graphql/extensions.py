@@ -13,8 +13,38 @@ from strawberry.types import ExecutionResult, Info
 
 class QueryCache(SchemaExtension):
     """
-    GraphQL caching extension that handles both field-level caching (@cached directive)
-    and HTTP cache control headers (@cache_control directive)
+    GraphQL caching extension that handles both field-level caching and operation-level caching
+    using the @cached directive, plus HTTP cache control headers (@cache_control directive).
+    
+    Usage:
+    
+    1. Field-level caching (caches individual field results):
+       @strawberry.field
+       @cached(ttl=300, refresh_while_caching=True)
+       def get_user(self, id: int) -> User:
+           return User.objects.get(id=id)
+    
+    2. Operation-level caching (caches entire query/mutation result):
+       @strawberry.field
+       @cached(ttl=600, refresh_while_caching=False)
+       def get_dashboard_data(self) -> DashboardData:
+           # This will cache the entire query result when used as root field
+           return expensive_dashboard_calculation()
+    
+    3. HTTP cache control headers:
+       @strawberry.field
+       @cache_control(max_age=300, public=True)
+       def get_public_data(self) -> PublicData:
+           return PublicData()
+    
+    Features:
+    - Django cache backend integration (Redis/Database)
+    - User-specific caching for authenticated users
+    - Refresh-while-caching for stale data serving
+    - Automatic cache key generation with query/variables/user context
+    - Operation-level caching for root fields (queries/mutations)
+    - Field-level caching for nested fields
+    - HTTP Cache-Control header generation
     """
 
     def __init__(self):
@@ -22,6 +52,8 @@ class QueryCache(SchemaExtension):
         self.cache_metadata = {}
         self.cache_control_metadata = {}
         self.request = None
+        self.operation_cache_config = None
+        self.operation_should_cache = False
 
     def on_operation(self):
         """Handle operation lifecycle - store request and set headers after execution"""
@@ -29,7 +61,21 @@ class QueryCache(SchemaExtension):
         if hasattr(self.execution_context, 'request'):
             self.request = self.execution_context.request
         
+        # Check if the entire operation should be cached
+        operation_cache_key = None
+        if self._should_cache_operation():
+            operation_cache_key = self._get_operation_cache_key()
+            cached_result = cache.get(operation_cache_key)
+            if cached_result is not None:
+                # Return cached result early
+                self.execution_context.result = cached_result.get('result')
+                return
+        
         yield  # Allow operation to execute
+        
+        # Cache the entire operation result if needed
+        if operation_cache_key and hasattr(self.execution_context, 'result'):
+            self._cache_operation_result(operation_cache_key, self.execution_context.result)
         
         # Handle cache control headers after operation completion
         self._handle_cache_control_headers()
@@ -37,14 +83,22 @@ class QueryCache(SchemaExtension):
     def resolve(self, _next, root, info, **kwargs):
         """Handle field-level caching for resolvers with @cached directive"""
         # Collect cache control metadata from root level resolvers
-        if info.path.prev is None:  # This is a root field (query/mutation)
+        is_root_field = info.path.prev is None
+        if is_root_field:
             self._collect_cache_control_metadata(info)
         
         # Check if this field should be cached
         cache_config = self.should_cache_field(info)
         
         if cache_config:
-            # Try to get cached value
+            # If this is a root field with @cached, mark for operation-level caching
+            if is_root_field:
+                self._root_has_cached_directive = True
+                self.operation_cache_config = cache_config
+                # For root fields, we skip field-level caching as operation-level caching will handle it
+                return _next(root, info, **kwargs)
+            
+            # For non-root fields, do field-level caching
             cached_value = self.get_cached_field_value(info, cache_config, **kwargs)
             if cached_value is not None:
                 return cached_value
@@ -128,6 +182,51 @@ class QueryCache(SchemaExtension):
                         return resolver._cached_metadata
 
         return None
+
+    def _should_cache_operation(self) -> bool:
+        """Check if the entire operation should be cached based on @cached directive"""
+        # Since detecting directives from the query AST is complex,
+        # we'll check if any root resolver has the @cached metadata
+        # This will be set when the resolve() method is called for root fields
+        return hasattr(self, '_root_has_cached_directive') and self._root_has_cached_directive
+    
+    def _get_operation_cache_key(self) -> str:
+        """Generate cache key for entire operation result"""
+        # Include query string, variables, and user context
+        key_parts = []
+        
+        # Add query string if available
+        if hasattr(self.execution_context, 'query'):
+            key_parts.append(str(self.execution_context.query))
+        
+        # Add variables if available
+        variables = getattr(self.execution_context, 'variable_values', None) or {}
+        key_parts.append(json.dumps(variables, sort_keys=True, default=str))
+        
+        # Include user ID if authenticated for user-specific caching
+        if hasattr(self.request, 'user') and self.request.user.is_authenticated:
+            key_parts.append(f"user:{self.request.user.id}")
+        else:
+            key_parts.append("anonymous")
+        
+        # Create hash of the key parts
+        key_string = "|".join(str(part) for part in key_parts)
+        return f"graphql:operation:{hashlib.md5(key_string.encode()).hexdigest()}"
+    
+    def _cache_operation_result(self, cache_key: str, result):
+        """Cache the entire operation result"""
+        if not self.operation_cache_config:
+            return
+            
+        ttl = self.operation_cache_config.get('ttl', 60)
+        
+        # Serialize the result for caching
+        cached_data = {
+            'result': result,
+            'timestamp': time.time()
+        }
+        
+        cache.set(cache_key, cached_data, timeout=ttl)
 
     def extract_cache_control_metadata(self, result: ExecutionResult) -> Optional[Dict[str, Any]]:
         """Extract cache control metadata from query/mutation result"""
