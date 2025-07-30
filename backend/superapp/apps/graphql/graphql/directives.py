@@ -6,19 +6,19 @@ from typing import Optional
 
 
 @strawberry.directive(
-    locations=[DirectiveLocation.FIELD],
+    locations=[DirectiveLocation.FIELD_DEFINITION],
     description="Cache directive for field-level caching"
 )
 def cached(
-    value,
     ttl: Optional[int] = 60,
     refresh_while_caching: Optional[bool] = True
 ):
     """Cache directive for field-level caching"""
-    # Store directive parameters in field metadata for caching extension
-    if hasattr(value, '_cached_metadata'):
-        value._cached_metadata = {"ttl": ttl, "refresh_while_caching": refresh_while_caching}
-    return value
+    def decorator(resolver):
+        # Store directive parameters in resolver metadata for caching extension
+        resolver._cached_metadata = {"ttl": ttl, "refresh_while_caching": refresh_while_caching}
+        return resolver
+    return decorator
 
 
 @strawberry.directive(
@@ -26,7 +26,6 @@ def cached(
     description="Cache control directive for HTTP cache headers"
 )
 def cache_control(
-    value,
     max_age: Optional[int] = 300,
     stale_while_revalidate: Optional[int] = None,
     max_stale: Optional[int] = None,
@@ -36,9 +35,9 @@ def cache_control(
     immutable: Optional[bool] = None
 ):
     """Cache control directive for HTTP cache headers"""
-    # Store directive parameters in result metadata for caching extension
-    if hasattr(value, '_cache_control_metadata'):
-        value._cache_control_metadata = {
+    def decorator(resolver):
+        # Store directive parameters in resolver metadata for caching extension
+        resolver._cache_control_metadata = {
             "max_age": max_age,
             "stale_while_revalidate": stale_while_revalidate,
             "max_stale": max_stale,
@@ -47,4 +46,5 @@ def cache_control(
             "no_cache": no_cache,
             "immutable": immutable,
         }
-    return value
+        return resolver
+    return decorator
