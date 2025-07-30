@@ -12,6 +12,8 @@ from strawberry.types.base import TypeDefinition
 from strawberry_django.extensions.django_validation_cache import DjangoValidationCache
 from strawberry_django.optimizer import DjangoOptimizerExtension
 
+from .graphql.query_cache import QueryCache
+
 
 class SQLPrintingExtension(Extension):
     def on_request_end(self):
@@ -134,6 +136,13 @@ schema = strawberry.Schema(
         auto_camel_case=False,  # Keep snake_case field names
     ),
     extensions=[
+        QueryCache(
+            default_timeout=300,  # 5 minutes default
+            stale_while_revalidate=60,  # 1 minute stale tolerance
+            cache_key_prefix="graphql_query_cache",
+            enable_cache_control=True,
+            max_query_depth=10,
+        ),
         DjangoValidationCache(
             timeout=7 * 24 * 60 * 60,  # Cache for 7 days
         ),
