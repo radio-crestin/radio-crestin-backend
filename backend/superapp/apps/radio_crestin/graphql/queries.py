@@ -42,6 +42,34 @@ class Query:
         """
         Get stations with optimized queries for all related data.
         Maintains backward compatibility with Hasura query structure.
+        
+        Cache: This query is cached automatically by QueryCache extension.
+        
+        Usage examples with directives in GraphQL:
+        
+        # Cache for 10 minutes with 2-minute stale-while-revalidate
+        query StationsWithCache {
+          stations @cache_control(max_age: 600, stale_while_revalidate: 120) {
+            id
+            title
+          }
+        }
+        
+        # Cache that varies by authenticated user  
+        query UserSpecificStations {
+          stations @cache_control(max_age: 300, vary_by_user: true) {
+            id
+            title
+          }
+        }
+        
+        # Disable caching for this query
+        query RealTimeStations {
+          stations @cache_control(no_cache: true) {
+            id
+            title
+          }
+        }
         """
         # Build optimized queryset with all necessary prefetches
         queryset = Stations.objects.select_related(

@@ -43,17 +43,40 @@ class QueryCache(Extension):
         self.enable_cache_control = enable_cache_control
         self.max_query_depth = max_query_depth
         
-    def _generate_cache_key(self, query: str, variables: Optional[Dict[str, Any]] = None) -> str:
-        """Generate a cache key based on query and variables"""
-        # Create a deterministic hash of query + variables
+    def _generate_cache_key(self, query: str, variables: Optional[Dict[str, Any]] = None, user_id: Optional[str] = None) -> str:
+        """Generate a cache key based on query, variables, and optionally user"""
+        # Create a deterministic hash of query + variables + user (if needed)
         content = {
             "query": query.strip(),
             "variables": variables or {}
         }
+        
+        # Add user ID to cache key if cache varies by user
+        if user_id and self._should_vary_by_user(query):
+            content["user_id"] = user_id
+            
         content_json = json.dumps(content, sort_keys=True, separators=(',', ':'))
         content_hash = hashlib.sha256(content_json.encode()).hexdigest()[:16]
         
         return f"{self.cache_key_prefix}:{content_hash}"
+    
+    def _should_vary_by_user(self, query: str) -> bool:
+        """Check if cache should vary by user based on query directives"""
+        # Simple parsing for vary_by_user directive
+        if '@cache_control' in query and 'vary_by_user: true' in query.lower():
+            return True
+        return False
+    
+    def _get_user_id(self) -> Optional[str]:
+        """Get current user ID from execution context if available"""
+        try:
+            if hasattr(self.execution_context, 'context') and hasattr(self.execution_context.context, 'request'):
+                request = self.execution_context.context.request
+                if hasattr(request, 'user') and request.user.is_authenticated:
+                    return str(request.user.id)
+        except Exception:
+            pass
+        return None
     
     def _get_query_depth(self, query: str) -> int:
         """Calculate approximate query depth to prevent caching very complex queries"""
@@ -92,27 +115,55 @@ class QueryCache(Extension):
     
     def _extract_cache_control(self, result: ExecutionResult) -> Optional[CacheControl]:
         """Extract cache control directives from query result"""
-        if not self.enable_cache_control or not result.extensions:
+        if not self.enable_cache_control:
             return None
             
-        cache_control_data = result.extensions.get('cacheControl')
-        if not cache_control_data:
-            return None
-            
-        return CacheControl(
-            max_age=cache_control_data.get('maxAge'),
-            stale_while_revalidate=cache_control_data.get('staleWhileRevalidate'),
-            no_cache=cache_control_data.get('noCache', False),
-            private=cache_control_data.get('private', False)
-        )
+        # Try to extract from extensions first
+        if result.extensions:
+            cache_control_data = result.extensions.get('cacheControl')
+            if cache_control_data:
+                return CacheControl(
+                    max_age=cache_control_data.get('maxAge'),
+                    stale_while_revalidate=cache_control_data.get('staleWhileRevalidate'),
+                    no_cache=cache_control_data.get('noCache', False),
+                    private=cache_control_data.get('private', False)
+                )
+        
+        # Try to extract from GraphQL query directives
+        if hasattr(self.execution_context, 'query') and self.execution_context.query:
+            query_str = self.execution_context.query
+            # Look for @cache_control directive in the query
+            if '@cache_control' in query_str:
+                # Simple parsing for cache control parameters
+                import re
+                max_age_match = re.search(r'max_age:\s*(\d+)', query_str)
+                swr_match = re.search(r'stale_while_revalidate:\s*(\d+)', query_str)
+                no_cache_match = re.search(r'no_cache:\s*(true|false)', query_str)
+                private_match = re.search(r'private:\s*(true|false)', query_str)
+                
+                return CacheControl(
+                    max_age=int(max_age_match.group(1)) if max_age_match else None,
+                    stale_while_revalidate=int(swr_match.group(1)) if swr_match else None,
+                    no_cache=no_cache_match.group(1).lower() == 'true' if no_cache_match else False,
+                    private=private_match.group(1).lower() == 'true' if private_match else False
+                )
+        
+        return None
     
     def _get_cache_timeout(self, cache_control: Optional[CacheControl] = None) -> int:
-        """Determine cache timeout based on cache control or default"""
+        """Determine cache timeout based on cache control or field-specific settings"""
         if cache_control and cache_control.no_cache:
             return 0
             
         if cache_control and cache_control.max_age is not None:
             return cache_control.max_age
+        
+        # Check for field-specific cache settings in query
+        if hasattr(self.execution_context, 'query') and self.execution_context.query:
+            query_str = self.execution_context.query
+            # Check for stations query which should have longer cache
+            if 'stations' in query_str and 'mutation' not in query_str.lower():
+                return 600  # 10 minutes for stations query
             
         return self.default_timeout
     
@@ -140,8 +191,9 @@ class QueryCache(Extension):
         if not self._should_cache_query(query_string):
             return
             
-        # Generate cache key
-        self._cache_key = self._generate_cache_key(query_string, variables)
+        # Generate cache key with user context if needed
+        user_id = self._get_user_id()
+        self._cache_key = self._generate_cache_key(query_string, variables, user_id)
         
         # Try to get from cache
         cached_data = cache.get(self._cache_key)

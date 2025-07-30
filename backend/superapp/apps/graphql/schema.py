@@ -121,10 +121,10 @@ Mutation = mutation_root
 
 from strawberry.schema.config import StrawberryConfig
 
-# Import directives for Hasura compatibility
+# Import directives for cache control and Hasura compatibility
 try:
-    from superapp.apps.radio_crestin.graphql.directives import cached
-    directives = [cached]
+    from .graphql.directives import cached, cache_control
+    directives = [cached, cache_control]
 except ImportError:
     directives = []
 
