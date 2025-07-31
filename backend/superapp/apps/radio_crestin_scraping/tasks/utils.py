@@ -68,6 +68,12 @@ def merge_metadata_results(results: List[Dict[str, Any]]) -> Dict[str, Any]:
         data = result.get('data', {})
         song = data.get('current_song', {})
         
+        # Ensure song is a dictionary (handle case where it might be a dataclass)
+        if hasattr(song, '__dict__'):
+            song = song.__dict__
+        elif not isinstance(song, dict):
+            continue
+        
         # Fill empty fields only
         if not merged_song['name'] and song.get('name'):
             merged_song['name'] = song['name']
@@ -136,6 +142,23 @@ def _serialize_scrape_result(result: Any) -> Optional[Dict[str, Any]]:
     try:
         if hasattr(result, 'model_dump'):
             return result.model_dump()
+        elif isinstance(result, StationNowPlayingData):
+            # Handle StationNowPlayingData dataclass
+            data = {
+                'timestamp': result.timestamp,
+                'listeners': result.listeners,
+                'raw_data': result.raw_data,
+                'error': result.error
+            }
+            if result.current_song:
+                data['current_song'] = {
+                    'name': result.current_song.name or '',
+                    'artist': result.current_song.artist or '',
+                    'thumbnail_url': result.current_song.thumbnail_url or ''
+                }
+            else:
+                data['current_song'] = None
+            return data
         elif hasattr(result, '__dict__'):
             return result.__dict__.copy()
         elif isinstance(result, dict):
