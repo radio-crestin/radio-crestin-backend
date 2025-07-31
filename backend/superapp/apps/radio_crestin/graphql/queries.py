@@ -134,7 +134,74 @@ class Query:
         if limit:
             queryset = queryset[:limit]
 
-        return queryset
+        # Convert to list to execute the query
+        stations_list = list(queryset)
+        
+        # Batch load listener counts for all stations
+        from ..services.listener_analytics_service import ListenerAnalyticsService
+        station_ids = [station.id for station in stations_list]
+        listener_counts = ListenerAnalyticsService.get_combined_listener_counts(
+            stations=stations_list,
+            minutes=1
+        )
+        
+        # Attach listener counts to stations to avoid N+1 queries
+        for station in stations_list:
+            if station.id in listener_counts:
+                station._listener_counts_cache = listener_counts[station.id]
+        
+        # If we're not already prefetching posts, batch load latest posts for common case (limit=1)
+        if not any('posts' in str(p) for p in queryset._prefetch_related_lookups):
+            from ..models import Posts
+            # Use raw SQL with window function for efficient single post per station
+            from django.db import connection
+            
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    WITH ranked_posts AS (
+                        SELECT 
+                            id, title, description, link, guid, published, 
+                            created_at, updated_at, link_to_audio, station_id,
+                            ROW_NUMBER() OVER (PARTITION BY station_id ORDER BY published DESC) as rn
+                        FROM posts
+                        WHERE station_id = ANY(%s)
+                    )
+                    SELECT * FROM ranked_posts WHERE rn = 1
+                    ORDER BY station_id
+                """, [station_ids])
+                
+                columns = [col[0] for col in cursor.description]
+                posts_raw = cursor.fetchall()
+            
+            # Create Post objects and attach to stations
+            posts_by_station = {}
+            for row in posts_raw:
+                post_dict = dict(zip(columns, row))
+                post_dict.pop('rn', None)
+                
+                post = Posts(
+                    id=post_dict['id'],
+                    title=post_dict['title'],
+                    description=post_dict['description'],
+                    link=post_dict['link'],
+                    guid=post_dict['guid'],
+                    published=post_dict['published'],
+                    created_at=post_dict['created_at'],
+                    updated_at=post_dict['updated_at'],
+                    link_to_audio=post_dict['link_to_audio'],
+                    station_id=post_dict['station_id']
+                )
+                post._state.adding = False
+                post._state.db = 'default'
+                
+                posts_by_station[post.station_id] = [post]
+            
+            # Attach posts to stations
+            for station in stations_list:
+                if station.id in posts_by_station:
+                    station._posts_cache = posts_by_station[station.id]
+        
+        return stations_list
 
     @strawberry_django.field
     def station_groups(

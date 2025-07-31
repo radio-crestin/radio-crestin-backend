@@ -128,16 +128,17 @@ class StationType:
         return f"https://proxy.radio-crestin.com/{self.stream_url}"
 
     @strawberry.field
-    async def radio_crestin_listeners(self, info) -> Optional[int]:
+    def radio_crestin_listeners(self) -> Optional[int]:
         """Get listener count specific to radio-crestin platform from real-time analytics"""
         try:
-            # Use DataLoader to batch load listener counts
-            if hasattr(info.context, 'listener_count_loader'):
-                counts = await info.context.listener_count_loader.load(self.id)
-                return counts.get('radio_crestin', 0)
-            else:
-                # Fallback to direct query if DataLoader not available
-                return ListeningSessions.get_active_listeners_count(station=self, minutes=1)
+            # Check if listener counts were pre-loaded
+            if hasattr(self, '_listener_counts_cache'):
+                return self._listener_counts_cache.get('radio_crestin', 0)
+            
+            # Fallback to individual query if not pre-loaded
+            # Get count of unique active listeners from ListeningSessions
+            # Active = had activity in the last 60 seconds
+            return ListeningSessions.get_active_listeners_count(station=self, minutes=1)
         except Exception as e:
             if settings.DEBUG:
                 raise e
@@ -146,16 +147,15 @@ class StationType:
 
     # Custom posts resolver to handle limit and order_by
     @strawberry.field
-    async def posts(
+    def posts(
         self,
-        info,
         limit: Optional[int] = None,
         order_by: Optional[PostOrderBy] = None
     ) -> List[PostType]:
         """Get posts with limit and ordering support, optimized to use prefetched data when available"""
         from ..models import Posts
 
-        # Check if posts are already prefetched to avoid N+1 queries
+        # Check if posts are already prefetched or cached to avoid N+1 queries
         if hasattr(self, '_prefetched_objects_cache') and 'posts' in self._prefetched_objects_cache:
             # Use prefetched data - it's already ordered by -published from the main query
             posts = list(self._prefetched_objects_cache['posts'])
@@ -169,16 +169,11 @@ class StationType:
                 posts = posts[:limit]
 
             return posts
-        elif not order_by and limit == 1 and hasattr(info.context, 'posts_loader_single'):
-            # Use single post DataLoader for limit=1 queries
-            posts = await info.context.posts_loader_single.load(self.id)
-            return posts
-        elif not order_by and (not limit or limit <= 10) and hasattr(info.context, 'posts_loader_multiple'):
-            # Use multiple posts DataLoader for small limits
-            posts = await info.context.posts_loader_multiple.load(self.id)
-            return posts[:limit] if limit else posts
+        elif hasattr(self, '_posts_cache') and limit == 1 and not order_by:
+            # Use cached single post if available
+            return self._posts_cache
         else:
-            # Fallback to individual query if not prefetched or special ordering/limit is needed
+            # Fallback to individual query if not prefetched
             queryset = Posts.objects.filter(station=self)
 
             # Apply ordering
@@ -199,27 +194,27 @@ class StationType:
 
     # Additional computed fields for backward compatibility
     @strawberry.field
-    async def total_listeners(self, info) -> Optional[int]:
+    def total_listeners(self) -> Optional[int]:
         """Get total listener count from both now playing data and radio-crestin analytics"""
         try:
-            if hasattr(info.context, 'listener_count_loader'):
-                # Use DataLoader to batch load listener counts
-                counts = await info.context.listener_count_loader.load(self.id)
-                return counts.get('total', 0) if counts.get('total', 0) > 0 else None
-            else:
-                # Fallback to direct calculation
-                # Get radio-crestin specific listeners from real-time analytics
-                radio_crestin_count = ListeningSessions.get_active_listeners_count(station=self, minutes=1)
-
-                # Get external listeners from latest now playing data
-                external_count = 0
-                if hasattr(self, 'latest_station_now_playing') and self.latest_station_now_playing:
-                    external_count = self.latest_station_now_playing.listeners or 0
-
-                # Return the combined count
-                # Note: This assumes external sources don't overlap with radio-crestin listeners
-                total = radio_crestin_count + external_count
+            # Check if listener counts were pre-loaded
+            if hasattr(self, '_listener_counts_cache'):
+                total = self._listener_counts_cache.get('total', 0)
                 return total if total > 0 else None
+            
+            # Fallback to individual calculation if not pre-loaded
+            # Get radio-crestin specific listeners from real-time analytics
+            radio_crestin_count = ListeningSessions.get_active_listeners_count(station=self, minutes=1)
+
+            # Get external listeners from latest now playing data
+            external_count = 0
+            if hasattr(self, 'latest_station_now_playing') and self.latest_station_now_playing:
+                external_count = self.latest_station_now_playing.listeners or 0
+
+            # Return the combined count
+            # Note: This assumes external sources don't overlap with radio-crestin listeners
+            total = radio_crestin_count + external_count
+            return total if total > 0 else None
 
         except Exception as e:
             if settings.DEBUG:
