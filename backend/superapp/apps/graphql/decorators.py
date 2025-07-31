@@ -23,9 +23,8 @@ def cors_exempt(view_func):
         # Get the origin from the request
         origin = request.headers.get('Origin')
 
-        if allow_all_origins and origin:
-            # Allow all origins
-            response['Access-Control-Allow-Origin'] = origin
+        if allow_all_origins:
+            response['Access-Control-Allow-Origin'] = '*'
         elif allowed_origins_env and origin:
             # Check if origin is in allowed list
             allowed_origins = [o.strip() for o in allowed_origins_env.split(',') if o.strip()]
@@ -35,23 +34,15 @@ def cors_exempt(view_func):
             # Default allowed origins
             default_allowed = [
                 'http://localhost:8080',
-                'https://radio-crestin-frontend.bringes.workers.dev',
-                'https://admin-staging.radio-crestin.com',
             ]
             if origin in default_allowed:
                 response['Access-Control-Allow-Origin'] = origin
 
         # Add other CORS headers if origin is allowed or allow_all_origins is true
-        if 'Access-Control-Allow-Origin' in response or allow_all_origins:
-            response['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-            response['Access-Control-Allow-Headers'] = 'Accept, Accept-Encoding, Authorization, Content-Type, content-type, DNT, Origin, User-Agent, X-CSRFToken, X-Requested-With, Apollo-Require-Preflight'
-            response['Access-Control-Allow-Credentials'] = 'true'
-            response['Access-Control-Max-Age'] = '86400'  # 24 hours
-            
-            # If allow_all_origins is true but no origin header was sent, allow all with wildcard
-            if allow_all_origins and not origin:
-                response['Access-Control-Allow-Origin'] = '*'
-
+        response['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        response['Access-Control-Allow-Headers'] = 'Accept, Accept-Encoding, Authorization, Content-Type, content-type, DNT, Origin, User-Agent, X-CSRFToken, X-Requested-With, Apollo-Require-Preflight'
+        response['Access-Control-Allow-Credentials'] = 'true'
+        response['Access-Control-Max-Age'] = '86400'  # 24 hours
         return response
 
     return wrapped_view

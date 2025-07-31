@@ -172,20 +172,16 @@ class StationService:
                 song_defaults['thumbnail_url'] = song_data.thumbnail_url
 
             # Check if song already exists (don't override dirty_metadata=False)
+            song_defaults['dirty_metadata'] = dirty_metadata
             try:
+                song, created = Songs.objects.update_or_create(
+                    name=song_data.name or '',
+                    artist=artist,
+                    defaults=song_defaults
+                )
+            except IntegrityError:
+                # Handle race condition - song was created by another process
                 song = Songs.objects.get(name=song_data.name or '', artist=artist)
-            except Songs.DoesNotExist:
-                # Create new song with dirty_metadata flag
-                song_defaults['dirty_metadata'] = dirty_metadata
-                try:
-                    song, created = Songs.objects.update_or_create(
-                        name=song_data.name or '',
-                        artist=artist,
-                        defaults=song_defaults
-                    )
-                except IntegrityError:
-                    # Handle race condition - song was created by another process
-                    song = Songs.objects.get(name=song_data.name or '', artist=artist)
 
             return song
 

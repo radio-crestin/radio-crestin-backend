@@ -49,12 +49,15 @@ class LogMonitor:
         """Load configuration from environment variables."""
         self.graphql_endpoint = os.getenv('GRAPHQL_ENDPOINT', 'http://web:8000/graphql/')
         self.graphql_token = os.getenv('GRAPHQL_TOKEN', '')
+        self.admin_api_key = os.getenv('ADMIN_GRAPHQL_SUPERUSER_API_KEY', '')
         self.batch_interval = int(os.getenv('BATCH_INTERVAL_SECONDS', '10'))
         self.log_file_path = os.getenv('NGINX_LOG_PATH', '/tmp/nginx_session_access.log')
         self.session_timeout = int(os.getenv('SESSION_TIMEOUT_MINUTES', '5')) * 60
         
         self.logger.info(f"Log Monitor configured - GraphQL: {self.graphql_endpoint}")
         self.logger.info(f"Monitoring log file: {self.log_file_path}")
+        if self.admin_api_key:
+            self.logger.info("Using ADMIN_GRAPHQL_SUPERUSER_API_KEY for authorization")
         
     def parse_log_line(self, line: str) -> Optional[Dict]:
         """
@@ -175,9 +178,21 @@ class LogMonitor:
         mutation = """
         mutation SubmitListeningEvents($events: [ListeningEventInput!]!) {
             submit_listening_events(events: $events) {
-                success
-                message
-                processed_count
+                ... on SubmitListeningEventsResponse {
+                    __typename
+                    success
+                    processed_count
+                    message
+                }
+                ... on OperationInfo {
+                    __typename
+                    messages {
+                        code
+                        field
+                        kind
+                        message
+                    }
+                }
             }
         }
         """
@@ -185,7 +200,10 @@ class LogMonitor:
         headers = {
             'Content-Type': 'application/json',
         }
-        if self.graphql_token:
+        # Use admin API key for superuser access
+        if self.admin_api_key:
+            headers['Authorization'] = f'Bearer {self.admin_api_key}'
+        elif self.graphql_token:
             headers['Authorization'] = f'Bearer {self.graphql_token}'
         
         try:
@@ -203,8 +221,17 @@ class LogMonitor:
                 data = response.json()
                 if 'errors' not in data:
                     result = data.get('data', {}).get('submit_listening_events', {})
-                    processed = result.get('processed_count', len(events))
-                    self.logger.info(f"Submitted {processed}/{len(events)} listening events successfully")
+                    # Check the __typename to determine response type
+                    typename = result.get('__typename')
+                    if typename == 'SubmitListeningEventsResponse':
+                        processed = result.get('processed_count', len(events))
+                        self.logger.info(f"Submitted {processed}/{len(events)} listening events successfully")
+                    elif typename == 'OperationInfo':
+                        messages = result.get('messages', [])
+                        for msg in messages:
+                            self.logger.error(f"Operation error: {msg.get('kind')} - {msg.get('message')} (field: {msg.get('field')})")
+                    else:
+                        self.logger.warning(f"Unknown response type: {typename}")
                 else:
                     self.logger.error(f"GraphQL errors in batch submission: {data['errors']}")
             else:

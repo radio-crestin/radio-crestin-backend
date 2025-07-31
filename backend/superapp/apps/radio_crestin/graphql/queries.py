@@ -103,11 +103,6 @@ class Query:
             Prefetch(
                 'station_streams',
                 queryset=StationStreams.objects.order_by('order', 'id')
-            ),
-            # Prefetch posts without slicing - the custom resolver will handle limiting
-            Prefetch(
-                'posts',
-                queryset=Posts.objects.order_by('-published')
             )
         ).filter(disabled=False)
 

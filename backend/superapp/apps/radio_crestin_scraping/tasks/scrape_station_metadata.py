@@ -1,3 +1,4 @@
+import json
 import logging
 import uuid
 from typing import Dict, Any, Optional
@@ -73,26 +74,75 @@ def scrape_station_metadata(station_id: int) -> Dict[str, Any]:
 
     if results:
         merged_result = merge_metadata_results(results)
-        merged_data = merged_result.get('results', {}).get('merged_data', {})
+        # Ensure merged_data is a dictionary
+        merged_data_raw = merged_result.get('results', {})
+        if isinstance(merged_data_raw, dict):
+            merged_data = merged_data_raw.get('merged_data', {})
+        else:
+            merged_data = {}
+        
+        # Ensure merged_data is a dictionary, not a list
+        if not isinstance(merged_data, dict):
+            merged_data = {}
 
         # Create a simple data object for the service
         from ..utils.data_types import StationNowPlayingData, SongData
 
-        song_data = merged_data.get('current_song', {})
+        song_data = merged_data.get('current_song', {}) if isinstance(merged_data, dict) else {}
         current_song = None
-        if song_data.get('name') or song_data.get('artist'):
-            current_song = SongData(
-                name=song_data.get('name', ''),
-                artist=song_data.get('artist', ''),
-                thumbnail_url=song_data.get('thumbnail_url', '')
-            )
+        
+        # Try to create SongData with proper error handling
+        try:
+            if isinstance(song_data, dict):
+                name_val = song_data.get('name')
+                artist_val = song_data.get('artist')
+                
+                # Only proceed if we have valid name or artist data
+                if name_val or artist_val:
+                    # Ensure all values are strings, not lists
+                    name_value = song_data.get('name', '')
+                    artist_value = song_data.get('artist', '')
+                    thumbnail_value = song_data.get('thumbnail_url', '')
+                    
+                    # Convert lists to strings if necessary
+                    if isinstance(name_value, list):
+                        name_value = ' '.join(str(x) for x in name_value) if name_value else ''
+                    else:
+                        name_value = str(name_value) if name_value else ''
+                        
+                    if isinstance(artist_value, list):
+                        artist_value = ' '.join(str(x) for x in artist_value) if artist_value else ''
+                    else:
+                        artist_value = str(artist_value) if artist_value else ''
+                        
+                    if isinstance(thumbnail_value, list):
+                        thumbnail_value = str(thumbnail_value[0]) if thumbnail_value else ''
+                    else:
+                        thumbnail_value = str(thumbnail_value) if thumbnail_value else ''
+                    
+                    current_song = SongData(
+                        name=name_value,
+                        artist=artist_value,
+                        thumbnail_url=thumbnail_value
+                    )
+        except Exception as e:
+            logger.error(f"Error creating SongData: {e}, song_data: {song_data}")
+            current_song = None
+
+        listeners = merged_data.get('listeners') if isinstance(merged_data, dict) else None
+        error_list = merged_data.get('error', []) if isinstance(merged_data, dict) else []
+        if not isinstance(error_list, list):
+            error_list = []
 
         station_data = StationNowPlayingData(
             timestamp=timezone.now().isoformat(),
             current_song=current_song,
-            listeners=merged_data.get('listeners'),
-            raw_data=[merged_data],
-            error=merged_data.get('error', []) + errors if merged_data.get('error') else errors
+            listeners=listeners,
+            raw_data=json.loads(json.dumps({
+                'results': results,
+                'merged_data': merged_data,
+            }, default=str)),
+            error=error_list + errors
         )
 
         # Determine if any successful fetcher has dirty metadata

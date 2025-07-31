@@ -13,6 +13,7 @@ from strawberry_django.extensions.django_validation_cache import DjangoValidatio
 from strawberry_django.optimizer import DjangoOptimizerExtension
 
 from .graphql.extensions import CacheControlExtension, CacheExtension
+from .graphql.extensions.dataloader_extension import DataLoaderExtension
 
 
 class SQLPrintingExtension(Extension):
@@ -179,6 +180,7 @@ schema = strawberry.Schema(
             execution_context = None,
             prefetch_custom_queryset = True,
         ),
+        DataLoaderExtension(),
         CacheExtension(),
         CacheControlExtension(),
         SQLPrintingExtension(),
@@ -208,6 +210,7 @@ background_schema = strawberry.Schema(
             execution_context = None,
             prefetch_custom_queryset = True,
         ),
+        DataLoaderExtension(),
         # Note: No CacheExtension or CacheControlExtension for background tasks
         SQLPrintingExtension(),
         GraphQLExceptionHandlingExtension(),

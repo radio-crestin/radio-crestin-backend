@@ -5,6 +5,9 @@ import strawberry_django
 from typing import Optional, List
 from datetime import datetime
 from enum import Enum
+
+from django.conf import settings
+
 from .scalars import timestamptz
 
 class OrderDirection(Enum):
@@ -125,20 +128,27 @@ class StationType:
         return f"https://proxy.radio-crestin.com/{self.stream_url}"
 
     @strawberry.field
-    def radio_crestin_listeners(self) -> Optional[int]:
+    async def radio_crestin_listeners(self, info) -> Optional[int]:
         """Get listener count specific to radio-crestin platform from real-time analytics"""
         try:
-            # Get count of unique active listeners from ListeningSessions
-            # Active = had activity in the last 60 seconds
-            return ListeningSessions.get_active_listeners_count(station=self, minutes=1)
-        except Exception:
+            # Use DataLoader to batch load listener counts
+            if hasattr(info.context, 'listener_count_loader'):
+                counts = await info.context.listener_count_loader.load(self.id)
+                return counts.get('radio_crestin', 0)
+            else:
+                # Fallback to direct query if DataLoader not available
+                return ListeningSessions.get_active_listeners_count(station=self, minutes=1)
+        except Exception as e:
+            if settings.DEBUG:
+                raise e
             # Fallback to 0 if there's an error accessing the sessions
             return 0
 
     # Custom posts resolver to handle limit and order_by
     @strawberry.field
-    def posts(
+    async def posts(
         self,
+        info,
         limit: Optional[int] = None,
         order_by: Optional[PostOrderBy] = None
     ) -> List[PostType]:
@@ -159,8 +169,16 @@ class StationType:
                 posts = posts[:limit]
 
             return posts
+        elif not order_by and limit == 1 and hasattr(info.context, 'posts_loader_single'):
+            # Use single post DataLoader for limit=1 queries
+            posts = await info.context.posts_loader_single.load(self.id)
+            return posts
+        elif not order_by and (not limit or limit <= 10) and hasattr(info.context, 'posts_loader_multiple'):
+            # Use multiple posts DataLoader for small limits
+            posts = await info.context.posts_loader_multiple.load(self.id)
+            return posts[:limit] if limit else posts
         else:
-            # Fallback to individual query if not prefetched
+            # Fallback to individual query if not prefetched or special ordering/limit is needed
             queryset = Posts.objects.filter(station=self)
 
             # Apply ordering
@@ -181,23 +199,31 @@ class StationType:
 
     # Additional computed fields for backward compatibility
     @strawberry.field
-    def total_listeners(self) -> Optional[int]:
+    async def total_listeners(self, info) -> Optional[int]:
         """Get total listener count from both now playing data and radio-crestin analytics"""
         try:
-            # Get radio-crestin specific listeners from real-time analytics
-            radio_crestin_count = self.radio_crestin_listeners or 0
+            if hasattr(info.context, 'listener_count_loader'):
+                # Use DataLoader to batch load listener counts
+                counts = await info.context.listener_count_loader.load(self.id)
+                return counts.get('total', 0) if counts.get('total', 0) > 0 else None
+            else:
+                # Fallback to direct calculation
+                # Get radio-crestin specific listeners from real-time analytics
+                radio_crestin_count = ListeningSessions.get_active_listeners_count(station=self, minutes=1)
 
-            # Get external listeners from latest now playing data
-            external_count = 0
-            if hasattr(self, 'latest_station_now_playing') and self.latest_station_now_playing:
-                external_count = self.latest_station_now_playing.listeners or 0
+                # Get external listeners from latest now playing data
+                external_count = 0
+                if hasattr(self, 'latest_station_now_playing') and self.latest_station_now_playing:
+                    external_count = self.latest_station_now_playing.listeners or 0
 
-            # Return the combined count
-            # Note: This assumes external sources don't overlap with radio-crestin listeners
-            total = radio_crestin_count + external_count
-            return total if total > 0 else None
+                # Return the combined count
+                # Note: This assumes external sources don't overlap with radio-crestin listeners
+                total = radio_crestin_count + external_count
+                return total if total > 0 else None
 
-        except Exception:
+        except Exception as e:
+            if settings.DEBUG:
+                raise e
             # Fallback to just external count if there's an error
             if hasattr(self, 'latest_station_now_playing') and self.latest_station_now_playing:
                 return self.latest_station_now_playing.listeners

@@ -284,15 +284,16 @@ class HLSManager:
         
         if station_data_dir.exists():
             try:
-                # Remove all files in the station directory
-                for file_path in station_data_dir.glob('*'):
-                    if file_path.is_file():
-                        file_path.unlink()
-                        if self.detailed_logging:
-                            self.logger.debug(f"Removed HLS file: {file_path}")
+                # Use rm -rf for extremely fast directory removal
+                subprocess.run(['rm', '-rf', str(station_data_dir)], check=True)
+                
+                # Recreate the directory after cleaning
+                station_data_dir.mkdir(parents=True, exist_ok=True)
                 
                 self.logger.info(f"Cleaned up HLS data for station: {station_slug}")
                 
+            except subprocess.CalledProcessError as e:
+                self.logger.error(f"Error cleaning up HLS data for {station_slug}: {e}")
             except Exception as e:
                 self.logger.error(f"Error cleaning up HLS data for {station_slug}: {e}")
 

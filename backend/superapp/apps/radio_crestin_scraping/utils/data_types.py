@@ -18,9 +18,9 @@ class StationNowPlayingData:
     timestamp: Optional[str] = None
     current_song: Optional[SongData] = None
     listeners: Optional[int] = None
-    raw_data: List[Dict[str, Any]] = None
+    raw_data: Dict[str, Any] = None
     error: List[Dict[str, Any]] = None
-    
+
     def __post_init__(self):
         if self.timestamp is None:
             self.timestamp = datetime.now().isoformat()
@@ -37,7 +37,7 @@ class StationUptimeData:
     is_up: bool
     latency_ms: int
     raw_data: List[Dict[str, Any]]
-    
+
     def __post_init__(self):
         if self.timestamp is None:
             self.timestamp = datetime.now().isoformat()
@@ -56,7 +56,7 @@ class RssFeedPost:
 class StationRssFeedData:
     """Data structure for station RSS feed data"""
     posts: List[RssFeedPost] = None
-    
+
     def __post_init__(self):
         if self.posts is None:
             self.posts = []

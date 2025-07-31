@@ -57,4 +57,3 @@ def extend_superapp_settings(main_settings):
         # Add beat schedule to Celery configuration
         main_settings['CELERY_BEAT_SCHEDULE'] = main_settings.get('CELERY_BEAT_SCHEDULE', {})
         main_settings['CELERY_BEAT_SCHEDULE'].update(beat_schedule)
-

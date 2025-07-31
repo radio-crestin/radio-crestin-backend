@@ -129,6 +129,7 @@ services:
       # HLS Manager configuration
       - GRAPHQL_ENDPOINT=http://web:8080/graphql
       - GRAPHQL_TOKEN=${HLS_GRAPHQL_TOKEN:-}
+      - ADMIN_GRAPHQL_SUPERUSER_API_KEY=${ADMIN_GRAPHQL_SUPERUSER_API_KEY}
       - STREAM_REFRESH_INTERVAL=60
       - LOG_LEVEL=DEBUG
       - MAX_LOG_SIZE_MB=20
