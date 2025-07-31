@@ -169,9 +169,21 @@ class StationType:
                 posts = posts[:limit]
 
             return posts
-        elif hasattr(self, '_posts_cache') and limit == 1 and not order_by:
-            # Use cached single post if available
-            return self._posts_cache
+        elif hasattr(self, '_posts_cache'):
+            # Use cached posts if available
+            posts = self._posts_cache
+            
+            # Apply custom ordering if different from default
+            if order_by and order_by.published and order_by.published != OrderDirection.desc:
+                posts = sorted(posts, key=lambda p: p.published)
+            elif order_by and order_by.published and order_by.published == OrderDirection.desc:
+                posts = sorted(posts, key=lambda p: p.published, reverse=True)
+            
+            # Apply limit
+            if limit:
+                posts = posts[:limit]
+            
+            return posts
         else:
             # Fallback to individual query if not prefetched
             queryset = Posts.objects.filter(station=self)

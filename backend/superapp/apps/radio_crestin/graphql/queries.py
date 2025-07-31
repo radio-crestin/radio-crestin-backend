@@ -160,8 +160,8 @@ class Query:
                 cursor.execute("""
                     WITH ranked_posts AS (
                         SELECT 
-                            id, title, description, link, guid, published, 
-                            created_at, updated_at, link_to_audio, station_id,
+                            id, title, description, link, published, 
+                            created_at, updated_at, station_id,
                             ROW_NUMBER() OVER (PARTITION BY station_id ORDER BY published DESC) as rn
                         FROM posts
                         WHERE station_id = ANY(%s)
@@ -184,11 +184,9 @@ class Query:
                     title=post_dict['title'],
                     description=post_dict['description'],
                     link=post_dict['link'],
-                    guid=post_dict['guid'],
                     published=post_dict['published'],
                     created_at=post_dict['created_at'],
                     updated_at=post_dict['updated_at'],
-                    link_to_audio=post_dict['link_to_audio'],
                     station_id=post_dict['station_id']
                 )
                 post._state.adding = False
@@ -200,6 +198,9 @@ class Query:
             for station in stations_list:
                 if station.id in posts_by_station:
                     station._posts_cache = posts_by_station[station.id]
+                else:
+                    # Ensure all stations have a cache entry to prevent N+1 queries
+                    station._posts_cache = []
         
         return stations_list
 
