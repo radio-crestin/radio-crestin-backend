@@ -231,7 +231,7 @@ class CacheControlExtension(SchemaExtension):
                             if hasattr(arg_value, 'value'):
                                 value = arg_value.value
                                 # Convert string numbers to integers for numeric fields
-                                if arg_name in ['max_age', 'stale_while_revalidate', 'max_stale', 'ttl'] and isinstance(value, str):
+                                if arg_name in ['max_age', 'stale_while_revalidate', 'stale_if_error', 'max_stale', 'ttl'] and isinstance(value, str):
                                     try:
                                         value = int(value)
                                     except ValueError:
@@ -294,6 +294,10 @@ class CacheControlExtension(SchemaExtension):
             stale_while_revalidate = cache_control_params.get('stale_while_revalidate')
             if stale_while_revalidate is not None:
                 cache_control_parts.append(f'stale-while-revalidate={stale_while_revalidate}')
+
+            stale_if_error = cache_control_params.get('stale_if_error')
+            if stale_if_error is not None:
+                cache_control_parts.append(f'stale-if-error={stale_if_error}')
 
             max_stale = cache_control_params.get('max_stale')
             if max_stale is not None:

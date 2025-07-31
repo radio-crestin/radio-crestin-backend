@@ -32,6 +32,7 @@ def cached(
 def cache_control(
     max_age: Optional[int] = 300,
     stale_while_revalidate: Optional[int] = None,
+    stale_if_error: Optional[int] = None,
     max_stale: Optional[int] = None,
     public: Optional[bool] = None,
     private: Optional[bool] = None,
@@ -44,6 +45,7 @@ def cache_control(
         resolver._cache_control_metadata = {
             "max_age": max_age,
             "stale_while_revalidate": stale_while_revalidate,
+            "stale_if_error": stale_if_error,
             "max_stale": max_stale,
             "public": public,
             "private": private,
