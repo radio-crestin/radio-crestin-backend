@@ -31,7 +31,7 @@ def scrape_station_metadata(station_id: int) -> Dict[str, Any]:
 
         metadata_fetchers = station.station_metadata_fetches.select_related(
             'station_metadata_fetch_category'
-        ).filter(disabled=False).order_by('-priority')
+        ).order_by('-priority')
 
         if not metadata_fetchers.exists():
             logger.info(f"No metadata fetchers configured for station {station_id}")
