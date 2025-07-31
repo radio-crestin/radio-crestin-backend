@@ -208,7 +208,6 @@ background_schema = strawberry.Schema(
             execution_context = None,
             prefetch_custom_queryset = True,
         ),
-        DataLoaderExtension(),
         # Note: No CacheExtension or CacheControlExtension for background tasks
         SQLPrintingExtension(),
         GraphQLExceptionHandlingExtension(),
