@@ -57,7 +57,7 @@ class StationService:
                     'timestamp': data.timestamp or timezone.now(),
                     'song': song,
                     'listeners': data.listeners,
-                    'raw_data': data.raw_data,
+                    'raw_data': data,
                     'error': data.error,
                 }
             )

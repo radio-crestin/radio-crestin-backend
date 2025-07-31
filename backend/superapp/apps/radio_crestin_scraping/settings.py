@@ -32,24 +32,24 @@ def extend_superapp_settings(main_settings):
 
     # Configure Celery beat schedule for radio station scraping tasks
     setup_scheduled_tasks = environ.get('SETUP_SCHEDULED_TASKS', 'true').lower() == 'true'
-    
+
     if setup_scheduled_tasks:
         beat_schedule = {
             'scrape-all-stations-metadata': {
-                'task': 'superapp.apps.radio_crestin_scraping.tasks.scraping_tasks.scrape_all_stations_metadata',
+                'task': 'radio_crestin_scraping.scrape_all_stations_metadata',
                 'schedule': 30.0,  # Every 30 seconds
             },
             'scrape-all-stations-rss-feeds': {
-                'task': 'superapp.apps.radio_crestin_scraping.tasks.scraping_tasks.scrape_all_stations_rss_feeds',
+                'task': 'radio_crestin_scraping.scrape_all_stations_rss_feeds',
                 'schedule': crontab(minute=0, hour='*/6'),  # Every 6 hours
             },
             'cleanup-old-data': {
-                'task': 'superapp.apps.radio_crestin_scraping.tasks.scraping_tasks.cleanup_old_scraped_data',
+                'task': 'radio_crestin_scraping.cleanup_old_scraped_data',
                 'schedule': crontab(hour=2, minute=0),  # Daily at 2 AM UTC
                 'kwargs': {'days_to_keep': 30},
             },
             'check-stations-uptime': {
-                'task': 'superapp.apps.radio_crestin_scraping.tasks.scraping_tasks.check_all_stations_uptime',
+                'task': 'radio_crestin_scraping.check_all_stations_uptime',
                 'schedule': 300.0,  # Every 5 minutes (300 seconds)
             },
         }
@@ -57,3 +57,4 @@ def extend_superapp_settings(main_settings):
         # Add beat schedule to Celery configuration
         main_settings['CELERY_BEAT_SCHEDULE'] = main_settings.get('CELERY_BEAT_SCHEDULE', {})
         main_settings['CELERY_BEAT_SCHEDULE'].update(beat_schedule)
+

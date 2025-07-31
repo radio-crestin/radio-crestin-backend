@@ -8,8 +8,8 @@ from ..scrapers.uptime import UptimeScraper
 logger = logging.getLogger(__name__)
 
 
-@shared_task(time_limit=10)
-def check_station_uptime_ffmpeg(station_id: int = None) -> Dict[str, Any]:
+@shared_task(name='radio_crestin_scraping.check_station_uptime', time_limit=10)
+def check_station_uptime(station_id: int = None) -> Dict[str, Any]:
     """Check uptime using ffmpeg for a single station or all stations"""
     logger.info(f"Starting ffmpeg uptime check for station: {station_id or 'all stations'}")
 
@@ -32,7 +32,7 @@ def check_station_uptime_ffmpeg(station_id: int = None) -> Dict[str, Any]:
         return {"success": False, "error": str(error)}
 
 
-@shared_task
-def check_all_stations_uptime_ffmpeg() -> Dict[str, Any]:
+@shared_task(name='radio_crestin_scraping.check_all_stations_uptime')
+def check_all_stations_uptime() -> Dict[str, Any]:
     """Check uptime using ffmpeg for all active stations"""
-    return check_station_uptime_ffmpeg()
+    return check_station_uptime()
