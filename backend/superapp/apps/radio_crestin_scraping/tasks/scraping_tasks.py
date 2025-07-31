@@ -594,6 +594,25 @@ def _merge_fetcher_states_by_priority(fetcher_states, current_data, task_start_t
             logger.warning(f"Could not merge data from priority {priority}: {e}")
             continue
 
+    # Save the final merged data in raw_data for debugging/tracking
+    if not hasattr(merged_data, 'raw_data') or merged_data.raw_data is None:
+        merged_data.raw_data = []
+    
+    # Convert merged_data to a dictionary representation
+    merged_data_dict = {
+        'merged_data': {
+            'timestamp': merged_data.timestamp if hasattr(merged_data, 'timestamp') else None,
+            'listeners': merged_data.listeners if hasattr(merged_data, 'listeners') else None,
+            'current_song': {
+                'name': merged_data.current_song.name if merged_data.current_song and hasattr(merged_data.current_song, 'name') else None,
+                'artist': merged_data.current_song.artist if merged_data.current_song and hasattr(merged_data.current_song, 'artist') else None,
+                'thumbnail_url': merged_data.current_song.thumbnail_url if merged_data.current_song and hasattr(merged_data.current_song, 'thumbnail_url') else None,
+            } if hasattr(merged_data, 'current_song') and merged_data.current_song else None
+        }
+    }
+    
+    merged_data.raw_data.append(merged_data_dict)
+
     return merged_data
 
 
