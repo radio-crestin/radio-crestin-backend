@@ -91,7 +91,7 @@ def scrape_station_metadata(station_id: int) -> Dict[str, Any]:
             timestamp=timezone.now().isoformat(),
             current_song=current_song,
             listeners=merged_data.get('listeners'),
-            raw_data=merged_data.get('raw_data', []),
+            raw_data=[merged_data],
             error=merged_data.get('error', []) + errors if merged_data.get('error') else errors
         )
 
