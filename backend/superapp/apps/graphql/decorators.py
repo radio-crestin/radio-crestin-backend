@@ -35,15 +35,18 @@ def cors_exempt(view_func):
             # Default allowed origins
             default_allowed = [
                 'http://localhost:8080',
+                'https://radio-crestin-frontend.bringes.workers.dev',
+                'https://admin-staging.radio-crestin.com',
             ]
             if origin in default_allowed:
                 response['Access-Control-Allow-Origin'] = origin
 
-        # Add other CORS headers
-        response['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-        response['Access-Control-Allow-Headers'] = 'Accept, Accept-Encoding, Authorization, Content-Type, DNT, Origin, User-Agent, X-CSRFToken, X-Requested-With, Apollo-Require-Preflight'
-        response['Access-Control-Allow-Credentials'] = 'true'
-        response['Access-Control-Max-Age'] = '86400'  # 24 hours
+        # Add other CORS headers only if origin is allowed
+        if 'Access-Control-Allow-Origin' in response:
+            response['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+            response['Access-Control-Allow-Headers'] = 'Accept, Accept-Encoding, Authorization, Content-Type, content-type, DNT, Origin, User-Agent, X-CSRFToken, X-Requested-With, Apollo-Require-Preflight'
+            response['Access-Control-Allow-Credentials'] = 'true'
+            response['Access-Control-Max-Age'] = '86400'  # 24 hours
 
         return response
 
