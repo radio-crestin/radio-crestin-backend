@@ -41,12 +41,16 @@ def cors_exempt(view_func):
             if origin in default_allowed:
                 response['Access-Control-Allow-Origin'] = origin
 
-        # Add other CORS headers only if origin is allowed
-        if 'Access-Control-Allow-Origin' in response:
+        # Add other CORS headers if origin is allowed or allow_all_origins is true
+        if 'Access-Control-Allow-Origin' in response or allow_all_origins:
             response['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
             response['Access-Control-Allow-Headers'] = 'Accept, Accept-Encoding, Authorization, Content-Type, content-type, DNT, Origin, User-Agent, X-CSRFToken, X-Requested-With, Apollo-Require-Preflight'
             response['Access-Control-Allow-Credentials'] = 'true'
             response['Access-Control-Max-Age'] = '86400'  # 24 hours
+            
+            # If allow_all_origins is true but no origin header was sent, allow all with wildcard
+            if allow_all_origins and not origin:
+                response['Access-Control-Allow-Origin'] = '*'
 
         return response
 
