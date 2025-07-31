@@ -95,7 +95,7 @@ class UptimeScraper(BaseScraper):
         raw_data = {}
 
         try:
-            # Use lightweight HTTP HEAD request to check if server responds
+            # Use lightweight HTTP GET request to check if server responds
             response_data = self._check_stream_response(station.stream_url)
 
             # Calculate latency
@@ -105,7 +105,7 @@ class UptimeScraper(BaseScraper):
             if response_data['success']:
                 is_up = True
                 raw_data = {
-                    'method': 'http_head',
+                    'method': 'http_get',
                     'status_code': response_data.get('status_code'),
                     'content_type': response_data.get('content_type'),
                     'content_length': response_data.get('content_length'),
@@ -114,7 +114,7 @@ class UptimeScraper(BaseScraper):
             else:
                 error_msg = response_data.get('error', 'Unknown error')
                 raw_data = {
-                    'method': 'http_head',
+                    'method': 'http_get',
                     'error': error_msg,
                     'status_code': response_data.get('status_code'),
                     'type': response_data.get('error_type', 'http_error')
@@ -125,7 +125,7 @@ class UptimeScraper(BaseScraper):
             latency_ms = int((end_time - start_time) * 1000)
             error_msg = f"Request timeout after {latency_ms}ms"
             raw_data = {
-                'method': 'http_head',
+                'method': 'http_get',
                 'error': error_msg,
                 'type': 'timeout'
             }
@@ -135,7 +135,7 @@ class UptimeScraper(BaseScraper):
             latency_ms = int((end_time - start_time) * 1000)
             error_msg = f"Unexpected error: {str(e)}"
             raw_data = {
-                'method': 'http_head',
+                'method': 'http_get',
                 'error': error_msg,
                 'type': 'unexpected_error'
             }
@@ -172,16 +172,21 @@ class UptimeScraper(BaseScraper):
         }
 
     def _check_stream_response(self, url: str, timeout: float = 3.0) -> Dict[str, Any]:
-        """Check if stream responds using lightweight HTTP HEAD request"""
+        """Check if stream responds using lightweight HTTP GET request"""
         try:
             headers = {
                 'User-Agent': 'Mozilla/5.0 (compatible; radio-crestin-scraper)',
                 'Accept': '*/*',
-                'Connection': 'close'  # Close connection immediately after response
+                'Connection': 'close',
+                'Range': 'bytes=0-1023'  # Only request first 1KB
             }
             
-            # Use HEAD request first (fastest)
-            response = requests.head(url, headers=headers, timeout=timeout, allow_redirects=True)
+            # Use GET request with streaming and minimal data read
+            response = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True, stream=True)
+            
+            # Read minimal data and close immediately
+            response.raw.read(1024)
+            response.close()
             
             return {
                 'success': True,
@@ -205,41 +210,11 @@ class UptimeScraper(BaseScraper):
             }
             
         except requests.exceptions.RequestException as e:
-            # Try GET request if HEAD fails (some servers don't support HEAD)
-            try:
-                headers = {
-                    'User-Agent': 'Mozilla/5.0 (compatible; radio-crestin-scraper)',
-                    'Accept': '*/*',
-                    'Connection': 'close',
-                    'Range': 'bytes=0-1023'  # Only request first 1KB
-                }
-                
-                response = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True, stream=True)
-                
-                # Read minimal data and close immediately
-                response.raw.read(1024)
-                response.close()
-                        
-                return {
-                    'success': True,
-                    'status_code': response.status_code,
-                    'content_type': response.headers.get('content-type', ''),
-                    'content_length': response.headers.get('content-length', ''),
-                    'headers': {
-                        'server': response.headers.get('server', ''),
-                        'cache-control': response.headers.get('cache-control', ''),
-                        'icy-name': response.headers.get('icy-name', ''),
-                        'icy-genre': response.headers.get('icy-genre', ''),
-                        'icy-br': response.headers.get('icy-br', ''),
-                    }
-                }
-                        
-            except Exception as fallback_error:
-                return {
-                    'success': False,
-                    'error': f"Both HEAD and GET requests failed. HEAD: {str(e)}, GET: {str(fallback_error)}",
-                    'error_type': 'http_client_error'
-                }
+            return {
+                'success': False,
+                'error': str(e),
+                'error_type': 'http_client_error'
+            }
             
         except Exception as e:
             return {
