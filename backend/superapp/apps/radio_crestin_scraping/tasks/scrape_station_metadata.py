@@ -90,9 +90,9 @@ def scrape_station_metadata(station_id: int) -> Dict[str, Any]:
         station_data = StationNowPlayingData(
             timestamp=timezone.now().isoformat(),
             current_song=current_song,
-            listeners=None,
-            raw_data=[],
-            error=errors
+            listeners=merged_data.get('listeners'),
+            raw_data=merged_data.get('raw_data', []),
+            error=merged_data.get('error', []) + errors if merged_data.get('error') else errors
         )
 
         # Determine if any successful fetcher has dirty metadata

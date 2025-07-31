@@ -51,7 +51,16 @@ def merge_metadata_results(results: List[Dict[str, Any]]) -> Dict[str, Any]:
         Dict with 'results' key containing merged data
     """
     if not results:
-        return {"results": {"merged_data": {"current_song": {"name": "", "artist": "", "thumbnail_url": ""}}}}
+        return {
+            "results": {
+                "merged_data": {
+                    "current_song": {"name": "", "artist": "", "thumbnail_url": ""},
+                    "listeners": None,
+                    "raw_data": [],
+                    "error": []
+                }
+            }
+        }
     
     # Sort by priority (higher number = higher priority)
     sorted_results = sorted(results, key=lambda x: x['priority'], reverse=True)
@@ -62,6 +71,9 @@ def merge_metadata_results(results: List[Dict[str, Any]]) -> Dict[str, Any]:
         "artist": "",
         "thumbnail_url": ""
     }
+    merged_listeners = None
+    merged_raw_data = []
+    merged_errors = []
     
     # Fill fields from highest to lowest priority
     for result in sorted_results:
@@ -72,7 +84,7 @@ def merge_metadata_results(results: List[Dict[str, Any]]) -> Dict[str, Any]:
         if hasattr(song, '__dict__'):
             song = song.__dict__
         elif not isinstance(song, dict):
-            continue
+            song = {}
         
         # Fill empty fields only
         if not merged_song['name'] and song.get('name'):
@@ -83,11 +95,26 @@ def merge_metadata_results(results: List[Dict[str, Any]]) -> Dict[str, Any]:
             
         if not merged_song['thumbnail_url'] and song.get('thumbnail_url'):
             merged_song['thumbnail_url'] = song['thumbnail_url']
+        
+        # Get listeners from highest priority source that has it
+        if merged_listeners is None and data.get('listeners') is not None:
+            merged_listeners = data['listeners']
+        
+        # Collect all raw data
+        if data.get('raw_data'):
+            merged_raw_data.extend(data['raw_data'])
+            
+        # Collect all errors
+        if data.get('error'):
+            merged_errors.extend(data['error'])
     
     return {
         "results": {
             "merged_data": {
-                "current_song": merged_song
+                "current_song": merged_song,
+                "listeners": merged_listeners,
+                "raw_data": merged_raw_data,
+                "error": merged_errors
             }
         }
     }
