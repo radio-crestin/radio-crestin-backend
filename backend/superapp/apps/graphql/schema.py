@@ -12,7 +12,8 @@ from strawberry.types.base import TypeDefinition
 from strawberry_django.extensions.django_validation_cache import DjangoValidationCache
 from strawberry_django.optimizer import DjangoOptimizerExtension
 
-from .graphql.extensions import CacheControlExtension, CacheExtension, DataLoaderExtension
+from .graphql.extensions import CacheControlExtension, CacheExtension
+from .graphql.dataloader_extension import DataLoaderExtension
 
 
 class SQLPrintingExtension(Extension):
