@@ -22,7 +22,7 @@ def scrape_station_metadata(station_id: int) -> Dict[str, Any]:
         if station.disabled:
             logger.info(f"Station {station_id} is disabled - skipping metadata scraping")
             return {"success": True, "scraped_count": 0, "station_disabled": True}
-        
+
         # Check if station has metadata fetchers
         if not station.station_metadata_fetches.exists():
             logger.info(f"No metadata fetchers configured for station {station_id}")
@@ -54,7 +54,7 @@ def scrape_station_rss_feed(station_id: int) -> Dict[str, Any]:
         if station.disabled:
             logger.info(f"Station {station_id} is disabled - skipping RSS scraping")
             return {"success": True, "posts_count": 0, "station_disabled": True}
-        
+
         # Check if station has RSS feed
         if not station.rss_feed:
             logger.info(f"Station {station_id} has no RSS feed configured")
@@ -329,31 +329,6 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
             scraped_count += 1
             logger.info(f"Successfully scraped fetcher {fetcher.id} for station {station.id}")
 
-            # Check if we have complete song data (both name and artist)
-            if (data_dict and 'current_song' in data_dict and data_dict['current_song'] and
-                data_dict['current_song'].get('name') and data_dict['current_song'].get('artist')):
-                logger.info(f"Found complete song data, stopping after first successful fetch for station {station.id}")
-
-                # Create final merged data with just this successful fetch
-                final_merged_data = _merge_fetcher_states_by_priority(fetcher_states, current_data, task_start_time)
-
-                # Save final merged data
-                final_success = False
-                if final_merged_data:
-                    final_merged_data.raw_data = fetcher_states
-                    has_dirty_metadata = fetcher.dirty_metadata
-                    final_success = StationService.upsert_station_now_playing(station.id, final_merged_data, dirty_metadata=has_dirty_metadata)
-
-                return {
-                    "success": final_success or scraped_count > 0,
-                    "station_id": station.id,
-                    "scraped_count": scraped_count,
-                    "errors": errors,
-                    "task_id": task_id,
-                    "fetcher_states": fetcher_states,
-                    "early_return": True
-                }
-
         except Exception as error:
             logger.error(f"Error scraping {fetcher.url}: {error}")
             error_msg = f"Error scraping {fetcher.url}: {str(error)}"
@@ -380,7 +355,18 @@ def _scrape_station_sync(station, metadata_fetchers) -> Dict[str, Any]:
     final_success = False
     if final_merged_data:
         # Update raw_data to include all fetcher states for this task
-        final_merged_data.raw_data = fetcher_states
+        # Store both the fetcher states and merged content
+        final_merged_data.raw_data = [
+            {
+                'fetcher_states': fetcher_states,
+                'merged_content': _make_json_serializable({
+                    'current_song': final_merged_data.current_song,
+                    'listeners': final_merged_data.listeners,
+                    'timestamp': final_merged_data.timestamp,
+                    'error': final_merged_data.error
+                })
+            }
+        ]
 
         # Determine if any successful fetcher has dirty_metadata=True
         has_dirty_metadata = False
@@ -494,7 +480,8 @@ def _reconstruct_station_data(data_dict):
             if isinstance(song_data, dict):
                 current_song = SongData(
                     name=song_data.get('name', ''),
-                    artist=song_data.get('artist', '')
+                    artist=song_data.get('artist', ''),
+                    thumbnail_url=song_data.get('thumbnail_url', '')
                 )
             elif hasattr(song_data, 'name'):  # Already a SongData object
                 current_song = song_data
@@ -552,24 +539,27 @@ def _merge_fetcher_states_by_priority(fetcher_states, current_data, task_start_t
     all_states = {}
 
     if current_data and current_data.raw_data:
-        # Handle backward compatibility - raw_data might be a list or dict
-        if isinstance(current_data.raw_data, dict):
-            # New format: dictionary of fetcher states
-            for fetcher_id, state in current_data.raw_data.items():
-                if isinstance(state, dict) and 'timestamp' in state:
-                    try:
-                        state_time = parse(state['timestamp'])
-                        if state_time >= task_start_time:
-                            all_states[fetcher_id] = state
-                    except (ValueError, TypeError):
-                        # Skip invalid timestamps
-                        continue
-        # If it's a list (old format), we ignore it and start fresh
+        # Handle backward compatibility - raw_data is a list
+        if isinstance(current_data.raw_data, list) and len(current_data.raw_data) > 0:
+            # Check if it's our new format with fetcher_states
+            first_item = current_data.raw_data[0]
+            if isinstance(first_item, dict) and 'fetcher_states' in first_item:
+                # New format with fetcher_states dictionary
+                for fetcher_id, state in first_item['fetcher_states'].items():
+                    if isinstance(state, dict) and 'timestamp' in state:
+                        try:
+                            state_time = parse(state['timestamp'])
+                            if state_time >= task_start_time:
+                                all_states[fetcher_id] = state
+                        except (ValueError, TypeError):
+                            # Skip invalid timestamps
+                            continue
+        # If it's old format or invalid, we ignore it and start fresh
 
     # Add our new fetcher states
     all_states.update(fetcher_states)
 
-    # Get completed states sorted by priority (lower order = higher priority)
+    # Get completed states sorted by priority (higher number = higher priority)
     completed_states = []
     for fetcher_id, state in all_states.items():
         if state.get('status') == 'completed' and 'data' in state:
@@ -600,8 +590,8 @@ def _merge_fetcher_states_by_priority(fetcher_states, current_data, task_start_t
             new_data = _reconstruct_station_data(data_dict)
             if new_data:
                 merged_data = _merge_station_data_simple(merged_data, new_data)
-        except Exception:
-            logger.warning(f"Could not merge data from priority {priority}")
+        except Exception as e:
+            logger.warning(f"Could not merge data from priority {priority}: {e}")
             continue
 
     return merged_data
@@ -621,25 +611,29 @@ def _merge_station_data_simple(base_data, new_data):
             base_data.error = []
         base_data.error.extend(new_data.error)
 
-    # NEVER override fields from higher priority data (base_data has highest priority)
-    # Only fill in missing fields that higher priority source doesn't have
+    # Override fields from higher priority data only if they are null/None
+    # Fill in missing or null fields from lower priority sources
 
-    # Only fill current_song if base doesn't have it or has incomplete data
+    # Only fill current_song if base doesn't have it or it's None
     if (hasattr(new_data, 'current_song') and new_data.current_song and
-        (not hasattr(base_data, 'current_song') or not base_data.current_song)):
+        (not hasattr(base_data, 'current_song') or base_data.current_song is None)):
         base_data.current_song = new_data.current_song
     elif (hasattr(base_data, 'current_song') and base_data.current_song and
           hasattr(new_data, 'current_song') and new_data.current_song):
-        # Fill in missing artist/name from lower priority if higher priority is missing them
-        if (not hasattr(base_data.current_song, 'artist') or not base_data.current_song.artist) and \
-           (hasattr(new_data.current_song, 'artist') and new_data.current_song.artist):
+        # Fill in missing or null artist/name/thumbnail from lower priority
+        if (not hasattr(base_data.current_song, 'artist') or base_data.current_song.artist is None) and \
+           (hasattr(new_data.current_song, 'artist') and new_data.current_song.artist is not None):
             base_data.current_song.artist = new_data.current_song.artist
 
-        if (not hasattr(base_data.current_song, 'name') or not base_data.current_song.name) and \
-           (hasattr(new_data.current_song, 'name') and new_data.current_song.name):
+        if (not hasattr(base_data.current_song, 'name') or base_data.current_song.name is None) and \
+           (hasattr(new_data.current_song, 'name') and new_data.current_song.name is not None):
             base_data.current_song.name = new_data.current_song.name
 
-    # Only fill listeners if base doesn't have it
+        if (not hasattr(base_data.current_song, 'thumbnail_url') or base_data.current_song.thumbnail_url is None) and \
+           (hasattr(new_data.current_song, 'thumbnail_url') and new_data.current_song.thumbnail_url is not None):
+            base_data.current_song.thumbnail_url = new_data.current_song.thumbnail_url
+
+    # Only fill listeners if base doesn't have it or it's None
     if (hasattr(new_data, 'listeners') and new_data.listeners is not None and
         (not hasattr(base_data, 'listeners') or base_data.listeners is None)):
         base_data.listeners = new_data.listeners

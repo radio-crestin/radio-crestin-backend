@@ -185,7 +185,7 @@ class StationType:
         """Get total listener count from both now playing data and radio-crestin analytics"""
         try:
             # Get radio-crestin specific listeners from real-time analytics
-            radio_crestin_count = self.radio_crestin_listeners() or 0
+            radio_crestin_count = self.radio_crestin_listeners or 0
 
             # Get external listeners from latest now playing data
             external_count = 0
