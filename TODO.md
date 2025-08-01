@@ -7,11 +7,15 @@
 ~~- [ ] configureaza caching la nivel de nginx in ingress~~
 ~~- [ ] asigura-te ca metadatele sunt actualizate corect~~
 ~~- [ ] asigura-te ca hls streaming face push corect la numarul de ascultatori~~
-- [ ] si deasemenea ip-ul utilizatorilor e corect
-- [ ] apoi afiseaza metadatele corect
-- [ ] apoi rezolva homepage-ul si asigura-te ca intreg website-ul e functional
-- [ ] creaza o versiune putin diferita pentru radio-crestin.com 
-- [ ] creaza un env de staging unde sa testam noul env
+- [ ] rezolva problema cu ip-ul utilizatorului care nu e raportat corect
+~~- [ ] redirectioneaza hls radio-crestin.com catre noul domeniu~~
+- [ ] creaza un bucket separat pentru backups, deasemena nu mai adauga auth headers pentru resursele statice, ele ar trebui sa fie publice in django admin
+- [ ] actualizeaza titlul paginii cand se schimba o statie
+- [ ] testeaza aplicatia cu noul graphql api
+- [ ] migreaza graphql.radio-crestin.com catre noul domeniu (!trebuie sa verificam cache-ul, altfel ne va cadea backend-ul)
+~~- [ ] apoi rezolva homepage-ul si asigura-te ca intreg website-ul e functional~~
+~~- [ ] creaza o versiune putin diferita pentru radio-crestin.com~~ 
+~~- [ ] creaza un env de staging unde sa testam noul env~~
 - [ ] implementeaza metadata scraping pentru Radio King (https://radio.voceacrestinilor.com/ - https://api.radioking.io/widget/radio/radio-vocea-crestinilor/track/current)
 - [ ] adauga scraping pentru https://www.philadelphiachurch.com.au/radio-philadelphia
 
