@@ -60,3 +60,32 @@ def track_user_signup(user):
     }
     
     track_event(str(user.id), 'user_signup', properties)
+
+
+def track_exception(exception, context=None, user_id='anonymous'):
+    """
+    Track an exception to PostHog using the native capture_exception method
+    
+    Args:
+        exception: The exception object to track
+        context: Optional dictionary of additional context about the exception
+        user_id: The ID of the user (defaults to 'anonymous')
+    
+    Example:
+        try:
+            # some code that might raise an exception
+        except Exception as e:
+            track_exception(e, {'operation': 'data_processing', 'file': 'data.csv'})
+    """
+    if not environ.get('POSTHOG_API_KEY'):
+        return
+    
+    # Prepare properties with any additional context
+    properties = context or {}
+    
+    try:
+        # Use PostHog's native capture_exception method
+        posthog.capture_exception(exception, distinct_id=user_id, properties=properties)
+    except Exception as e:
+        # Don't let tracking errors break the application
+        pass

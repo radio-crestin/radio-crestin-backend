@@ -14,6 +14,9 @@ from strawberry_django.optimizer import DjangoOptimizerExtension
 
 from .graphql.extensions import CacheControlExtension, CacheExtension
 
+# Import PostHog GraphQL exception handling extension
+from superapp.apps.posthog_error_tracking.graphql.extensions import GraphQLExceptionHandlingExtension as PostHogGraphQLExceptionHandlingExtension
+
 
 class SQLPrintingExtension(Extension):
     def on_request_end(self):
@@ -29,6 +32,9 @@ class GraphQLExceptionHandlingExtension(Extension):
         if hasattr(self.execution_context, 'errors') and self.execution_context.errors:
             for error in self.execution_context.errors:
                 print(f"GraphQL Error: {error}")
+                print(f"Error Type: {type(error).__name__}")
+
+                # Try to print exception traceback if available
                 if hasattr(error, '__cause__') and error.__cause__:
                     print("Exception traceback:")
                     traceback.print_exception(type(error.__cause__), error.__cause__, error.__cause__.__traceback__)
@@ -36,11 +42,25 @@ class GraphQLExceptionHandlingExtension(Extension):
                     print("Exception traceback:")
                     traceback.print_exception(type(error.original_error), error.original_error, error.original_error.__traceback__)
                 else:
-                    # Try to get the traceback from the error itself
-                    print("Exception traceback:")
-                    traceback.print_exc()
-                print("---")
+                    # For non-exception errors (validation, field errors, etc.)
+                    print("Error details:")
+                    if hasattr(error, 'message'):
+                        print(f"  Message: {error.message}")
+                    if hasattr(error, 'path'):
+                        print(f"  Path: {error.path}")
+                    if hasattr(error, 'locations'):
+                        print(f"  Locations: {error.locations}")
+                    if hasattr(error, 'extensions'):
+                        print(f"  Extensions: {error.extensions}")
 
+                    # Try to get any available traceback
+                    import sys
+                    exc_info = sys.exc_info()
+                    if exc_info[0] is not None:
+                        print("Current exception traceback:")
+                        traceback.print_exc()
+
+                print("---")
 
 def import_field_types():
     """Import all field_type.py files from installed apps to register custom field types"""
@@ -183,6 +203,7 @@ schema = strawberry.Schema(
         CacheControlExtension(),
         SQLPrintingExtension(),
         GraphQLExceptionHandlingExtension(),
+        PostHogGraphQLExceptionHandlingExtension(),
     ]
 )
 
@@ -211,6 +232,7 @@ background_schema = strawberry.Schema(
         # Note: No CacheExtension or CacheControlExtension for background tasks
         SQLPrintingExtension(),
         GraphQLExceptionHandlingExtension(),
+        PostHogGraphQLExceptionHandlingExtension(),
     ]
 )
 
