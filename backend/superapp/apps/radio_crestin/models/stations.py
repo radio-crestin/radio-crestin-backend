@@ -12,7 +12,7 @@ class Stations(models.Model):
     slug = models.SlugField(_("Slug"))
     title = models.TextField(_("Title"))
     website = models.URLField(_("Website"))
-    email = models.TextField(_("Email"), blank=True, null=True)
+    email = models.TextField(_("Email"), blank=True, null=False, default="")
     generate_hls_stream = models.BooleanField(_("Generate HLS Stream"), default=True)
     stream_url = models.URLField(_("Stream URL"))
     thumbnail = models.ImageField(_("Thumbnail"), blank=True, null=True)

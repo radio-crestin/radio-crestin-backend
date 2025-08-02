@@ -13,7 +13,8 @@ class StationStreams(models.Model):
     updated_at = models.DateTimeField(_("Updated at"), auto_now=True)
     station = models.ForeignKey('Stations', verbose_name=_("Station"), on_delete=models.CASCADE, related_name='station_streams')
     stream_url = models.TextField(_("Stream URL"))
-    order = models.FloatField(_("Order"), blank=True, null=True, default=0)
+    order = models.IntegerField(_("Order"), default=0)
+    station_stream_order = models.FloatField(_("Station Stream Order"), blank=True, null=True, default=0)
     type = models.TextField(_("Type"), choices=STREAM_TYPES)
 
     class Meta:
@@ -26,3 +27,7 @@ class StationStreams(models.Model):
 
     def __str__(self):
         return f"{self.station}->{self.stream_url}"
+
+    def save(self, *args, **kwargs):
+        self.order = round(self.station_stream_order) if self.station_stream_order is not None else 0
+        super().save(*args, **kwargs)
