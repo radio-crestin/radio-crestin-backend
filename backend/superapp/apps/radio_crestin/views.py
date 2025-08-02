@@ -1,5 +1,5 @@
 from django.contrib.admin.views.autocomplete import AutocompleteJsonView
-from django.http import JsonResponse, HttpResponseRedirect
+from django.http import JsonResponse, HttpResponseRedirect, HttpResponse
 from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
@@ -13,15 +13,15 @@ from superapp.apps.graphql.schema import schema
 
 class FastSongAutocompleteView(AutocompleteJsonView):
     """Fast autocomplete view for songs using trigram indexes"""
-    
+
     def get_queryset(self):
         """Use the optimized service for fast search"""
         if not self.term or len(self.term.strip()) < 2:
             return Songs.objects.none()
-        
+
         # Use the autocomplete service for fast trigram-based search
         return AutocompleteService.search_songs(self.term.strip(), limit=20)
-    
+
     def get_paginator(self, *args, **kwargs):
         """Override paginator since we handle limiting in the service"""
         from django.core.paginator import Paginator
@@ -30,15 +30,15 @@ class FastSongAutocompleteView(AutocompleteJsonView):
 
 class FastArtistAutocompleteView(AutocompleteJsonView):
     """Fast autocomplete view for artists using trigram indexes"""
-    
+
     def get_queryset(self):
         """Use the optimized service for fast search"""
         if not self.term or len(self.term.strip()) < 2:
             return Artists.objects.none()
-        
-        # Use the autocomplete service for fast trigram-based search  
+
+        # Use the autocomplete service for fast trigram-based search
         return AutocompleteService.search_artists(self.term.strip(), limit=20)
-    
+
     def get_paginator(self, *args, **kwargs):
         """Override paginator since we handle limiting in the service"""
         from django.core.paginator import Paginator
@@ -51,12 +51,12 @@ class FastAutocompleteJsonView(AutocompleteJsonView):
     Uses the service layer for optimized trigram-based searching.
     """
     service_method = None
-    
+
     def get_queryset(self):
         """Use the configured service method for fast search"""
         if not self.term or len(self.term.strip()) < 2:
             return self.model_admin.model.objects.none()
-        
+
         if not self.service_method:
             # Fallback to default Django behavior
             qs = self.model_admin.get_queryset(self.request)
@@ -67,10 +67,10 @@ class FastAutocompleteJsonView(AutocompleteJsonView):
             if search_use_distinct:
                 qs = qs.distinct()
             return qs
-        
+
         # Use the configured service method
         return self.service_method(self.term.strip(), limit=20)
-    
+
     def get_paginator(self, *args, **kwargs):
         """Override paginator since we handle limiting in the service"""
         from django.core.paginator import Paginator
@@ -85,10 +85,10 @@ def api_autocomplete(request):
     query = request.GET.get('q', '').strip()
     search_type = request.GET.get('type', 'combined')
     limit = int(request.GET.get('limit', 10))
-    
+
     if not query or len(query) < 2:
         return JsonResponse({'results': []})
-    
+
     try:
         suggestions = AutocompleteService.get_autocomplete_suggestions(
             query=query,
@@ -107,18 +107,18 @@ def api_v1_stations(request):
     # Get current timestamp rounded to 10 seconds
     current_timestamp = timezone.now().timestamp()
     rounded_timestamp = int(current_timestamp // 10) * 10
-    
+
     # Check if we already have the timestamp parameter
     timestamp_param = request.GET.get('timestamp')
-    
+
     if not timestamp_param:
         # Redirect to the same URL with timestamp parameter
         redirect_url = f"{request.path}?timestamp={rounded_timestamp}"
         return HttpResponseRedirect(redirect_url)
-    
+
     # Execute GraphQL query
     graphql_query = '''
-    query GetStations {
+    query GetStations @cache_control(max_age: 30, max_stale: 30, stale_while_revalidate: 30) @cached(ttl:5){
       stations(order_by: {order: asc, title: asc}){
         id
         order
@@ -184,30 +184,33 @@ def api_v1_stations(request):
       }
     }
     '''
-    
+
     try:
+        # Create a response object that will be used for the context
+        response = HttpResponse()
+
         # Create a context for the GraphQL execution
-        context = StrawberryDjangoContext(request=request)
-        
+        context = StrawberryDjangoContext(request=request, response=response)
+
         # Execute the GraphQL query directly using Strawberry schema
         result = schema.execute_sync(
             graphql_query,
             context_value=context
         )
-        
+
         # Prepare response data
         response_data = {"data": result.data}
-        
+
         if result.errors:
             response_data["errors"] = [
                 {"message": str(error)} for error in result.errors
             ]
-        
+
         # Create response with cache headers
         json_response = JsonResponse(response_data)
-        json_response['Cache-Control'] = 's-maxage=14400, proxy-revalidate, max-age=0'
-        
+        json_response['Cache-Control'] = 'public, max-age=14400, immutable'
+
         return json_response
-        
+
     except Exception as e:
         return JsonResponse({'error': f'Unexpected error: {str(e)}'}, status=500)
