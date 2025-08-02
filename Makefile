@@ -59,7 +59,7 @@ load-admin-fixtures:
 
 # Backend
 makemigrations:
-	docker-compose run web python3 manage.py makemigrations
+	docker-compose run web python3 manage.py makemigrations radio_crestin 0019
 
 migrate:
 	docker-compose run web python3 manage.py migrate

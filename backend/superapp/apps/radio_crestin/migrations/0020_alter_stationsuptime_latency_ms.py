@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('radio_crestin', '0019_rename_station_streams_order_to_station_stream_order'),
+        ('radio_crestin', '0019_rename_station_to_station_group_order'),
     ]
 
     operations = [
