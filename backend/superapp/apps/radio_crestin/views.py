@@ -1,6 +1,11 @@
 from django.contrib.admin.views.autocomplete import AutocompleteJsonView
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseRedirect
 from django.db.models import Q
+from django.urls import reverse
+from django.utils import timezone
+import json
+import requests
+from os import environ
 
 from .models import Songs, Artists
 from .services import AutocompleteService
@@ -93,3 +98,129 @@ def api_autocomplete(request):
         return JsonResponse({'results': suggestions})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
+
+
+def api_v1_stations(request):
+    """
+    API endpoint that redirects to a timestamped URL and executes GraphQL query with cache headers.
+    """
+    # Get current timestamp rounded to 10 seconds
+    current_timestamp = timezone.now().timestamp()
+    rounded_timestamp = int(current_timestamp // 10) * 10
+    
+    # Check if we already have the timestamp parameter
+    timestamp_param = request.GET.get('timestamp')
+    
+    if not timestamp_param:
+        # Redirect to the same URL with timestamp parameter
+        redirect_url = f"{request.path}?timestamp={rounded_timestamp}"
+        return HttpResponseRedirect(redirect_url)
+    
+    # Execute GraphQL query
+    graphql_query = '''
+    query GetStations {
+      stations(order_by: {order: asc, title: asc}){
+        id
+        order
+        title
+        website
+        slug
+        email
+        stream_url
+        proxy_stream_url
+        hls_stream_url
+        thumbnail_url
+        total_listeners
+        radio_crestin_listeners
+        description
+        description_action_title
+        description_link
+        feature_latest_post
+        station_streams {
+          type
+          stream_url
+          order
+        }
+        posts(limit: 1, order_by: {published: desc}) {
+          id
+          title
+          description
+          link
+          published
+        }
+        uptime {
+          is_up
+          latency_ms
+          timestamp
+        }
+        now_playing {
+          id
+          timestamp
+          song {
+            id
+            name
+            thumbnail_url
+            artist {
+              id
+              name
+              thumbnail_url
+            }
+          }
+        }
+        reviews {
+          id
+          stars
+          message
+        }
+      }
+      station_groups {
+        id
+        name
+        order
+        station_to_station_groups {
+          station_id
+          order
+        }
+      }
+    }
+    '''
+    
+    try:
+        # Make request to GraphQL endpoint
+        graphql_url = request.build_absolute_uri(reverse('graphql'))
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        }
+        
+        # Forward auth headers if present
+        auth_header = request.META.get('HTTP_AUTHORIZATION')
+        if auth_header:
+            headers['Authorization'] = auth_header
+        
+        response = requests.post(
+            graphql_url,
+            json={'query': graphql_query},
+            headers=headers,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            # Create response with cache headers
+            json_response = JsonResponse(data)
+            json_response['Cache-Control'] = 's-maxage=14400, proxy-revalidate, max-age=0'
+            
+            return json_response
+        else:
+            return JsonResponse(
+                {'error': f'GraphQL request failed with status {response.status_code}'}, 
+                status=response.status_code
+            )
+            
+    except requests.RequestException as e:
+        return JsonResponse({'error': f'Request failed: {str(e)}'}, status=500)
+    except Exception as e:
+        return JsonResponse({'error': f'Unexpected error: {str(e)}'}, status=500)

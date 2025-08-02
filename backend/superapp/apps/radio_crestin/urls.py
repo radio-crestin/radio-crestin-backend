@@ -7,6 +7,8 @@ app_name = 'radio_crestin'
 urlpatterns = [
     # Fast autocomplete API endpoints
     path('api/autocomplete/', views.api_autocomplete, name='api_autocomplete'),
+    # Stations API v1 endpoint with caching
+    path('api/v1/stations', views.api_v1_stations, name='api_v1_stations'),
 ]
 
 
