@@ -11,7 +11,7 @@ from strawberry.tools import merge_types
 from strawberry.types.base import TypeDefinition
 from strawberry_django.extensions.django_validation_cache import DjangoValidationCache
 from strawberry_django.optimizer import DjangoOptimizerExtension
-
+from strawberry.extensions.tracing import DatadogTracingExtension
 from .graphql.extensions import CacheControlExtension, CacheExtension
 
 # Import PostHog GraphQL exception handling extension
@@ -26,41 +26,6 @@ class SQLPrintingExtension(Extension):
             print("---")
 
 
-class GraphQLExceptionHandlingExtension(Extension):
-    def on_operation_end(self):
-        # Check if there are any errors in the execution context
-        if hasattr(self.execution_context, 'errors') and self.execution_context.errors:
-            for error in self.execution_context.errors:
-                print(f"GraphQL Error: {error}")
-                print(f"Error Type: {type(error).__name__}")
-
-                # Try to print exception traceback if available
-                if hasattr(error, '__cause__') and error.__cause__:
-                    print("Exception traceback:")
-                    traceback.print_exception(type(error.__cause__), error.__cause__, error.__cause__.__traceback__)
-                elif hasattr(error, 'original_error') and error.original_error:
-                    print("Exception traceback:")
-                    traceback.print_exception(type(error.original_error), error.original_error, error.original_error.__traceback__)
-                else:
-                    # For non-exception errors (validation, field errors, etc.)
-                    print("Error details:")
-                    if hasattr(error, 'message'):
-                        print(f"  Message: {error.message}")
-                    if hasattr(error, 'path'):
-                        print(f"  Path: {error.path}")
-                    if hasattr(error, 'locations'):
-                        print(f"  Locations: {error.locations}")
-                    if hasattr(error, 'extensions'):
-                        print(f"  Extensions: {error.extensions}")
-
-                    # Try to get any available traceback
-                    import sys
-                    exc_info = sys.exc_info()
-                    if exc_info[0] is not None:
-                        print("Current exception traceback:")
-                        traceback.print_exc()
-
-                print("---")
 
 def import_field_types():
     """Import all field_type.py files from installed apps to register custom field types"""
@@ -202,36 +167,6 @@ schema = strawberry.Schema(
         CacheExtension(),
         CacheControlExtension(),
         SQLPrintingExtension(),
-        GraphQLExceptionHandlingExtension(),
-        PostHogGraphQLExceptionHandlingExtension(),
-    ]
-)
-
-# Schema for background tasks without CacheControlExtension
-background_schema = strawberry.Schema(
-    query=query_root,
-    mutation=mutation_root,
-    directives=all_directives,
-    config=StrawberryConfig(
-        auto_camel_case=False,  # Keep snake_case field names
-    ),
-    extensions=[
-        DjangoValidationCache(
-            timeout=7 * 24 * 60 * 60,  # Cache for 7 days
-        ),
-        ParserCache(maxsize=1000),
-        DjangoOptimizerExtension(
-            enable_only_optimization = False, # This is creating a problem with django_multitenant
-            enable_select_related_optimization = True,
-            enable_prefetch_related_optimization = True,
-            enable_annotate_optimization = True,
-            enable_nested_relations_prefetch = True,
-            execution_context = None,
-            prefetch_custom_queryset = True,
-        ),
-        # Note: No CacheExtension or CacheControlExtension for background tasks
-        SQLPrintingExtension(),
-        GraphQLExceptionHandlingExtension(),
         PostHogGraphQLExceptionHandlingExtension(),
     ]
 )
