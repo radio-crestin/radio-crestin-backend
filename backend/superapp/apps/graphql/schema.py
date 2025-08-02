@@ -224,8 +224,6 @@ base_extensions = [
         execution_context = None,
         prefetch_custom_queryset = True,
     ),
-    CacheExtension(),
-    CacheControlExtension(),
     SQLPrintingExtension(),
     GraphQLDebugExtension(),
 ]

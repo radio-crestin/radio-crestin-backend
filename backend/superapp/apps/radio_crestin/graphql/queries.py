@@ -4,12 +4,10 @@ import strawberry
 import strawberry_django
 from typing import List, Optional
 from django.db.models import Prefetch
-from strawberry_django.auth.utils import get_current_user
 
 from .types import StationType, StationGroupType, OrderDirection, OrderDirectionEnum, ArtistType, SongType, PostType
 from ..models import Stations, StationGroups, StationStreams, Posts, StationToStationGroup, Artists, Songs
 from ..services import AutocompleteService
-from ...graphql.graphql.directives import cached
 
 
 @strawberry.input
@@ -20,19 +18,6 @@ class StationOrderBy:
 
 @strawberry.type
 class Query:
-    # @strawberry.field
-    # def get_stations(self) -> 'GetStationsResponse':
-    #     """
-    #     Exact replica of the Hasura GetStations query for backward compatibility.
-    #     Returns both stations and station_groups in a single optimized query.
-    #     """
-    #     from .resolvers import get_optimized_stations_queryset, get_optimized_station_groups_queryset
-    #
-    #     return GetStationsResponse(
-    #         stations=list(get_optimized_stations_queryset()),
-    #         station_groups=list(get_optimized_station_groups_queryset())
-    #     )
-
     @strawberry_django.field
     def stations(
         self,
@@ -46,51 +31,6 @@ class Query:
 
         Cache: This query is cached automatically by QueryCache extension.
 
-        Usage examples with directives in GraphQL:
-
-        # Basic cache control (10 minutes with 2-minute stale-while-revalidate)
-        query StationsWithCache @cache_control(max_age: 600, stale_while_revalidate: 120) {
-          stations {
-            id
-            title
-          }
-        }
-
-        # Cache that varies by authenticated user
-        query UserSpecificStations @cache_control(max_age: 300, vary_by_user: true) {
-          stations {
-            id
-            title
-          }
-        }
-
-        # Disable caching for this query
-        query RealTimeStations @cache_control(no_cache: true) {
-          stations {
-            id
-            title
-          }
-        }
-
-        # Hasura-style caching (5 minutes TTL)
-        query HasuraStations @cached(ttl: 300) {
-          stations {
-            id
-            title
-          }
-        }
-
-        # Field-level cache control
-        query MixedCaching {
-          stations @cache_control(max_age: 600) {
-            id
-            title
-          }
-          realTimeStations: stations @cache_control(no_cache: true) {
-            id
-            uptime_status
-          }
-        }
         """
         # Build optimized queryset with all necessary prefetches
         queryset = Stations.objects.select_related(

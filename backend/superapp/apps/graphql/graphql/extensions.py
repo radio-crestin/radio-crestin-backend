@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class CacheParams:
     """Parameters for cache extension"""
-    ttl: int = 60
+    ttl: int = 5
     refresh_while_caching: bool = True
     include_user: bool = False
 
@@ -254,7 +254,7 @@ class CacheControlExtension(SchemaExtension):
                         # Start with default parameters (only non-None values)
                         defaults = self.cache_control_params_defaults
                         self.cache_control_params = {}
-                        
+
                         # Add defaults that are not None
                         if defaults.max_age is not None:
                             self.cache_control_params['max_age'] = defaults.max_age
@@ -389,16 +389,16 @@ def extend_graphql_extensions(main_extensions):
     # This function exists for consistency with the extension loading pattern
     return main_extensions + [
         CacheExtension(cache_params=CacheParams(
-            ttl=300,
-            refresh_while_caching=True,
-            include_user=False
+            ttl=5,
+            refresh_while_caching=False,
+            include_user=True
         )),
         CacheControlExtension(cache_control_params=CacheControlParams(
-            max_age=300,
+            max_age=30,
             stale_while_revalidate=60,
             stale_if_error=86400,
             max_stale=None,
-            public=True,
+            public=False,
             private=False,
             no_cache=False,
             immutable=False
