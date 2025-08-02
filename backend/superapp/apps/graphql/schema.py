@@ -150,6 +150,7 @@ schema = strawberry.Schema(
         auto_camel_case=False,  # Keep snake_case field names
     ),
     extensions=[
+        PostHogGraphQLExceptionHandlingExtension(),
         DjangoValidationCache(
             timeout=7 * 24 * 60 * 60,  # Cache for 7 days
         ),
@@ -166,7 +167,6 @@ schema = strawberry.Schema(
         CacheExtension(),
         CacheControlExtension(),
         SQLPrintingExtension(),
-        PostHogGraphQLExceptionHandlingExtension(),
     ]
 )
 

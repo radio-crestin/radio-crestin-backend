@@ -17,6 +17,24 @@ class GraphQLExceptionHandlingExtension(SchemaExtension):
     """
     GraphQL extension that captures and reports all errors to PostHog
     """
+
+    def on_parse(self):
+        """Capture parsing errors"""
+        try:
+            yield
+        except Exception as e:
+            # Track parsing exception
+            self._track_parsing_exception(e)
+            raise
+    
+    def on_validate(self):
+        """Capture validation errors"""
+        try:
+            yield
+        except Exception as e:
+            # Track validation exception
+            self._track_validation_exception(e)
+            raise
     
     async def resolve(
         self,
@@ -29,10 +47,10 @@ class GraphQLExceptionHandlingExtension(SchemaExtension):
         """Wrap resolver execution to capture exceptions as they occur"""
         try:
             result = _next(root, info, *args, **kwargs)
-            
+
             if isawaitable(result):
                 result = await result
-                
+
             return result
         except Exception as e:
             # Capture exception immediately when it occurs
@@ -126,12 +144,12 @@ class GraphQLExceptionHandlingExtension(SchemaExtension):
                         )
                 except Exception as tracking_error:
                     logger.error(f"Failed to track GraphQL error to PostHog: {tracking_error}")
-    
+
     def _track_resolver_exception(self, exception: Exception, info: GraphQLResolveInfo):
         """Track exceptions that occur during resolver execution"""
         try:
             request = self.execution_context.context.request
-            
+
             # Extract query information
             try:
                 request_data = json.loads(request.body) if request.body else {}
@@ -142,11 +160,11 @@ class GraphQLExceptionHandlingExtension(SchemaExtension):
                 query = 'Unknown query'
                 variables = {}
                 operation_name = ''
-            
+
             # Build field path information
             field_path = f"{info.parent_type}.{info.field_name}"
             graphql_path = ".".join(map(str, info.path.as_list()))
-            
+
             # Build error context
             error_context = {
                 'graphql_query': query[:500],  # Limit query length
@@ -162,6 +180,54 @@ class GraphQLExceptionHandlingExtension(SchemaExtension):
                 'field_path': field_path,
                 'graphql_path': graphql_path,
             }
+
+            # Get traceback
+            tb = traceback.format_exc()
+            error_context['traceback'] = tb
+
+            # Determine user ID
+            user_id = 'anonymous'
+            if hasattr(request, 'user') and request.user.is_authenticated:
+                user_id = str(request.user.id)
+
+            # Track the exception
+            track_exception(exception, error_context, user_id)
+
+            # Log for debugging
+            logger.error(f"GraphQL resolver exception in {field_path}: {exception}")
+            logger.debug(f"Exception traceback:\n{tb}")
+
+        except Exception as tracking_error:
+            logger.error(f"Failed to track resolver exception to PostHog: {tracking_error}")
+    
+    def _track_validation_exception(self, exception: Exception):
+        """Track exceptions that occur during validation"""
+        try:
+            request = self.execution_context.context.request
+            
+            # Extract query information
+            try:
+                request_data = json.loads(request.body) if request.body else {}
+                query = request_data.get('query', '')
+                variables = request_data.get('variables', {})
+                operation_name = request_data.get('operationName', '')
+            except:
+                query = 'Unknown query'
+                variables = {}
+                operation_name = ''
+            
+            # Build error context
+            error_context = {
+                'graphql_query': query[:500],  # Limit query length
+                'graphql_variables': json.dumps(variables) if variables else '{}',
+                'graphql_operation_name': operation_name,
+                'error_message': str(exception),
+                'error_type': type(exception).__name__,
+                'error_category': 'graphql_validation_exception',
+                'path': request.path,
+                'method': request.method,
+                'phase': 'validation',
+            }
             
             # Get traceback
             tb = traceback.format_exc()
@@ -176,16 +242,64 @@ class GraphQLExceptionHandlingExtension(SchemaExtension):
             track_exception(exception, error_context, user_id)
             
             # Log for debugging
-            logger.error(f"GraphQL resolver exception in {field_path}: {exception}")
+            logger.error(f"GraphQL validation exception: {exception}")
             logger.debug(f"Exception traceback:\n{tb}")
             
         except Exception as tracking_error:
-            logger.error(f"Failed to track resolver exception to PostHog: {tracking_error}")
+            logger.error(f"Failed to track validation exception to PostHog: {tracking_error}")
+    
+    def _track_parsing_exception(self, exception: Exception):
+        """Track exceptions that occur during parsing"""
+        try:
+            request = self.execution_context.context.request
+            
+            # Extract query information
+            try:
+                request_data = json.loads(request.body) if request.body else {}
+                query = request_data.get('query', '')
+                variables = request_data.get('variables', {})
+                operation_name = request_data.get('operationName', '')
+            except:
+                query = 'Unknown query'
+                variables = {}
+                operation_name = ''
+            
+            # Build error context
+            error_context = {
+                'graphql_query': query[:500],  # Limit query length
+                'graphql_variables': json.dumps(variables) if variables else '{}',
+                'graphql_operation_name': operation_name,
+                'error_message': str(exception),
+                'error_type': type(exception).__name__,
+                'error_category': 'graphql_parsing_exception',
+                'path': request.path,
+                'method': request.method,
+                'phase': 'parsing',
+            }
+            
+            # Get traceback
+            tb = traceback.format_exc()
+            error_context['traceback'] = tb
+            
+            # Determine user ID
+            user_id = 'anonymous'
+            if hasattr(request, 'user') and request.user.is_authenticated:
+                user_id = str(request.user.id)
+            
+            # Track the exception
+            track_exception(exception, error_context, user_id)
+            
+            # Log for debugging
+            logger.error(f"GraphQL parsing exception: {exception}")
+            logger.debug(f"Exception traceback:\n{tb}")
+            
+        except Exception as tracking_error:
+            logger.error(f"Failed to track parsing exception to PostHog: {tracking_error}")
 
 
 class GraphQLExceptionHandlingExtensionSync(GraphQLExceptionHandlingExtension):
     """Synchronous version of the GraphQL exception handling extension"""
-    
+
     def resolve(
         self,
         _next: Callable,
