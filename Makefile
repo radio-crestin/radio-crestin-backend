@@ -62,7 +62,7 @@ makemigrations:
 	docker-compose run web python3 manage.py makemigrations
 
 migrate:
-	docker-compose run web python3 manage.py migrate
+	docker-compose run web python3 manage.py migrate radio_crestin 0015
 
 createsuperuser:
 	docker-compose run web python3 manage.py createsuperuser

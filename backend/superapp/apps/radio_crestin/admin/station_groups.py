@@ -10,13 +10,13 @@ from ..models import StationGroups
 
 @admin.register(StationGroups, site=superapp_admin_site)
 class StationGroupsAdmin(SuperAppModelAdmin):
-    list_display = ['name', 'slug', 'order', 'station_count', 'created_at']
+    list_display = ['name', 'slug', 'station_group_order', 'station_count', 'created_at']
     list_filter = ['created_at', 'updated_at']
     search_fields = ['name', 'slug']
     prepopulated_fields = {'slug': ('name',)}
-    readonly_fields = ['created_at', 'updated_at', 'station_count']
-    fields = ['name', 'slug', 'order', 'station_count', 'created_at', 'updated_at']
-    
+    readonly_fields = ['created_at', 'updated_at', 'station_count', 'order']
+    fields = ['name', 'slug', 'station_group_order', 'station_count', 'created_at', 'updated_at']
+
     def station_count(self, obj):
         count = obj.stations.count()
         if count > 0:

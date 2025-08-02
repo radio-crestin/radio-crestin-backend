@@ -7,14 +7,19 @@ class StationGroups(models.Model):
     updated_at = models.DateTimeField(_("Updated at"), auto_now=True)
     slug = models.SlugField(_("Slug"))
     name = models.TextField(_("Name"), unique=True)
-    order = models.FloatField(_("Order"), default=0)
+    station_group_order = models.FloatField(_("Station Group Order"), default=0)
+    order = models.IntegerField(_("Order"), default=0) # Deprecated, use station_group_order instead
 
     class Meta:
         managed = True
         verbose_name = _("Station Group")
         verbose_name_plural = _("Station Groups")
         db_table = 'station_groups'
-        ordering = ('order',)
+        ordering = ('station_group_order',)
 
     def __str__(self):
-        return f"{self.name} (order: {self.order})"
+        return f"{self.name} (station_group_order: {self.station_group_order})"
+
+    def save(self, *args, **kwargs):
+        self.order = round(self.station_group_order)
+        super().save(*args, **kwargs)

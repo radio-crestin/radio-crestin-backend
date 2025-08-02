@@ -47,12 +47,12 @@ class StationsMetadataFetchInline(SuperAppStackedInline):
 
 @admin.register(Stations, site=superapp_admin_site)
 class StationsAdmin(SuperAppModelAdmin):
-    list_display = ['title', 'status_indicator', 'thumbnail_preview', 'order', 'website_link', 'groups_display', 'latest_uptime_status']
+    list_display = ['title', 'status_indicator', 'thumbnail_preview', 'station_order', 'website_link', 'groups_display', 'latest_uptime_status']
     list_filter = ['disabled', 'generate_hls_stream', 'feature_latest_post', 'groups', 'created_at']
     search_fields = ['title', 'slug', 'website', 'email']
     prepopulated_fields = {'slug': ('title',)}
     autocomplete_fields = ['latest_station_uptime', 'latest_station_now_playing']
-    readonly_fields = ['thumbnail_url', 'created_at', 'updated_at', 'thumbnail_preview', 'now_playing_display']
+    readonly_fields = ['thumbnail_url', 'created_at', 'updated_at', 'thumbnail_preview', 'now_playing_display', 'order']
 
     fieldsets = (
         (_("Basic Information"), {
@@ -188,7 +188,7 @@ class StationsAdmin(SuperAppModelAdmin):
             scrape_station_rss_feed,
         )
         from superapp.apps.radio_crestin_scraping.tasks.uptime_tasks import check_station_uptime_ffmpeg
-        
+
         if sync:
             # Execute synchronously and return results
             results = {

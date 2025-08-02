@@ -7,7 +7,8 @@ class Stations(models.Model):
     created_at = models.DateTimeField(_("Created at"), auto_now_add=True)
     updated_at = models.DateTimeField(_("Updated at"), auto_now=True)
     disabled = models.BooleanField(_("Disabled"), default=False)
-    order = models.FloatField(_("Order"))
+    order = models.IntegerField(_("Order")) # deprecated, use station_order instead
+    station_order = models.FloatField(_("Station Order"))
     slug = models.SlugField(_("Slug"))
     title = models.TextField(_("Title"))
     website = models.URLField(_("Website"))
@@ -46,6 +47,7 @@ class Stations(models.Model):
 
     def save(self, *args, **kwargs):
         super(Stations, self).save(*args, **kwargs)
+        self.order = round(self.station_order)
         if self.thumbnail:
             self.thumbnail_url = self.thumbnail.url
         super(Stations, self).save(*args, **kwargs)
