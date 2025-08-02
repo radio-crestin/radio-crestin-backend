@@ -4,11 +4,11 @@ from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
 import json
-import requests
-from os import environ
+from strawberry.django.context import StrawberryDjangoContext
 
 from .models import Songs, Artists
 from .services import AutocompleteService
+from superapp.apps.graphql.schema import schema
 
 
 class FastSongAutocompleteView(AutocompleteJsonView):
@@ -186,41 +186,28 @@ def api_v1_stations(request):
     '''
     
     try:
-        # Make request to GraphQL endpoint
-        graphql_url = request.build_absolute_uri(reverse('graphql'))
+        # Create a context for the GraphQL execution
+        context = StrawberryDjangoContext(request=request)
         
-        headers = {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        }
-        
-        # Forward auth headers if present
-        auth_header = request.META.get('HTTP_AUTHORIZATION')
-        if auth_header:
-            headers['Authorization'] = auth_header
-        
-        response = requests.post(
-            graphql_url,
-            json={'query': graphql_query},
-            headers=headers,
-            timeout=30
+        # Execute the GraphQL query directly using Strawberry schema
+        result = schema.execute_sync(
+            graphql_query,
+            context_value=context
         )
         
-        if response.status_code == 200:
-            data = response.json()
-            
-            # Create response with cache headers
-            json_response = JsonResponse(data)
-            json_response['Cache-Control'] = 's-maxage=14400, proxy-revalidate, max-age=0'
-            
-            return json_response
-        else:
-            return JsonResponse(
-                {'error': f'GraphQL request failed with status {response.status_code}'}, 
-                status=response.status_code
-            )
-            
-    except requests.RequestException as e:
-        return JsonResponse({'error': f'Request failed: {str(e)}'}, status=500)
+        # Prepare response data
+        response_data = {"data": result.data}
+        
+        if result.errors:
+            response_data["errors"] = [
+                {"message": str(error)} for error in result.errors
+            ]
+        
+        # Create response with cache headers
+        json_response = JsonResponse(response_data)
+        json_response['Cache-Control'] = 's-maxage=14400, proxy-revalidate, max-age=0'
+        
+        return json_response
+        
     except Exception as e:
         return JsonResponse({'error': f'Unexpected error: {str(e)}'}, status=500)
