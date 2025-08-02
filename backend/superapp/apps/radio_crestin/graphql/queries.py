@@ -92,7 +92,6 @@ class Query:
           }
         }
         """
-        raise Exception("test2")
         # Build optimized queryset with all necessary prefetches
         queryset = Stations.objects.select_related(
             'latest_station_uptime',
