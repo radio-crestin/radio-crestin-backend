@@ -48,6 +48,12 @@ class CacheExtension(SchemaExtension):
         self.cache_key: Optional[str] = None
         self.should_cache = False
         self.cache_params = cache_params or CacheParams()
+        # Always use default values, directives will override
+        self.cached_params = {
+            'ttl': self.cache_params.ttl,
+            'refresh_while_caching': self.cache_params.refresh_while_caching,
+            'include_user': self.cache_params.include_user
+        }
 
     def on_parse(self):
         """Called during the parsing phase"""
@@ -68,14 +74,7 @@ class CacheExtension(SchemaExtension):
         if operation and hasattr(operation, 'directives') and operation.directives:
             for directive in operation.directives:
                 if directive.name.value == 'cached':
-                    # Start with default parameters from the typed object
-                    self.cached_params = {
-                        'ttl': self.cache_params.ttl,
-                        'refresh_while_caching': self.cache_params.refresh_while_caching,
-                        'include_user': self.cache_params.include_user
-                    }
-
-                    # Extract and merge the directive arguments
+                    # Extract and merge the directive arguments with defaults
                     for arg in directive.arguments:
                         arg_name = arg.name.value
                         arg_value = arg.value
@@ -116,6 +115,27 @@ class CacheExtension(SchemaExtension):
                     )
                     self.should_cache = True
                     break
+        else:
+            # No cached directive found, use defaults for caching behavior
+            # Get user ID if include_user is True by default
+            user_id = None
+            if self.cached_params['include_user']:
+                # Try to get user from context
+                if hasattr(execution_context, 'context'):
+                    context = execution_context.context
+                    # Django request object
+                    request = context.get('request') if hasattr(context, 'get') else getattr(context, 'request', None)
+                    if request and hasattr(request, 'user') and request.user.is_authenticated:
+                        user_id = str(request.user.id)
+
+            # Generate cache key with default settings
+            self.cache_key = self._generate_cache_key(
+                execution_context.query,
+                execution_context.variables,
+                execution_context.operation_name,
+                user_id
+            )
+            self.should_cache = True
 
     def on_operation(self):
         """Called when the operation is executed"""
@@ -217,13 +237,37 @@ class CacheControlExtension(SchemaExtension):
 
     def __init__(self, cache_control_params: Optional[CacheControlParams] = None):
         super().__init__()
-        self.cache_control_params: Optional[Dict[str, Any]] = None
         self.cache_control_params_defaults = cache_control_params or CacheControlParams()
+        # Initialize with default values
+        self.cache_control_params = self._get_default_params()
+
+    def _get_default_params(self):
+        """Get default parameters dict from CacheControlParams"""
+        defaults = self.cache_control_params_defaults
+        params = {}
+        # Add defaults that are not None
+        if defaults.max_age is not None:
+            params['max_age'] = defaults.max_age
+        if defaults.stale_while_revalidate is not None:
+            params['stale_while_revalidate'] = defaults.stale_while_revalidate
+        if defaults.stale_if_error is not None:
+            params['stale_if_error'] = defaults.stale_if_error
+        if defaults.max_stale is not None:
+            params['max_stale'] = defaults.max_stale
+        if defaults.public is not None:
+            params['public'] = defaults.public
+        if defaults.private is not None:
+            params['private'] = defaults.private
+        if defaults.no_cache is not None:
+            params['no_cache'] = defaults.no_cache
+        if defaults.immutable is not None:
+            params['immutable'] = defaults.immutable
+        return params
 
     def on_parsing_start(self):
         """Called when parsing starts"""
-        # Reset cache control params for each request
-        self.cache_control_params = None
+        # Reset cache control params to defaults for each request
+        self.cache_control_params = self._get_default_params()
 
     def on_execute(self):
         """Called when the query is about to be executed"""
@@ -251,29 +295,7 @@ class CacheControlExtension(SchemaExtension):
             if hasattr(operation, 'directives') and operation.directives:
                 for directive in operation.directives:
                     if directive.name.value == 'cache_control':
-                        # Start with default parameters (only non-None values)
-                        defaults = self.cache_control_params_defaults
-                        self.cache_control_params = {}
-
-                        # Add defaults that are not None
-                        if defaults.max_age is not None:
-                            self.cache_control_params['max_age'] = defaults.max_age
-                        if defaults.stale_while_revalidate is not None:
-                            self.cache_control_params['stale_while_revalidate'] = defaults.stale_while_revalidate
-                        if defaults.stale_if_error is not None:
-                            self.cache_control_params['stale_if_error'] = defaults.stale_if_error
-                        if defaults.max_stale is not None:
-                            self.cache_control_params['max_stale'] = defaults.max_stale
-                        if defaults.public is not None:
-                            self.cache_control_params['public'] = defaults.public
-                        if defaults.private is not None:
-                            self.cache_control_params['private'] = defaults.private
-                        if defaults.no_cache is not None:
-                            self.cache_control_params['no_cache'] = defaults.no_cache
-                        if defaults.immutable is not None:
-                            self.cache_control_params['immutable'] = defaults.immutable
-
-                        # Extract and merge the directive arguments
+                        # Extract and merge the directive arguments with existing defaults
                         for arg in directive.arguments:
                             arg_name = arg.name.value
                             arg_value = arg.value
@@ -291,7 +313,6 @@ class CacheControlExtension(SchemaExtension):
                             else:
                                 self.cache_control_params[arg_name] = arg_value
 
-
                         # Store in context for later use
                         if hasattr(execution_context, 'context'):
                             try:
@@ -305,6 +326,19 @@ class CacheControlExtension(SchemaExtension):
                                 # Skip if context is not accessible (e.g., in background tasks)
                                 pass
                         break
+
+        # Always store cache control params in context (even if no directive)
+        if hasattr(execution_context, 'context'):
+            try:
+                context = execution_context.context
+                # Handle both dict and object contexts
+                if isinstance(context, dict):
+                    context['_cache_control_params'] = self.cache_control_params
+                else:
+                    context._cache_control_params = self.cache_control_params
+            except AttributeError:
+                # Skip if context is not accessible (e.g., in background tasks)
+                pass
 
         return result
 
