@@ -11,7 +11,6 @@ from strawberry.tools import merge_types
 from strawberry.types.base import TypeDefinition
 from strawberry_django.extensions.django_validation_cache import DjangoValidationCache
 from strawberry_django.optimizer import DjangoOptimizerExtension
-from strawberry.extensions.tracing import DatadogTracingExtension
 from .graphql.extensions import CacheControlExtension, CacheExtension
 
 # Import PostHog GraphQL exception handling extension
