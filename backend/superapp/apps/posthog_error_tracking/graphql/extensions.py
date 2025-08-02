@@ -2,7 +2,7 @@ import json
 import logging
 import time
 import traceback
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from strawberry.extensions import SchemaExtension
 from graphql import GraphQLError
@@ -74,12 +74,12 @@ class PostHogErrorTrackingExtension(SchemaExtension):
         if hasattr(self.execution_context, 'pre_execution_errors') and self.execution_context.pre_execution_errors:
             for error in self.execution_context.pre_execution_errors:
                 self._track_graphql_exception(error, f'{phase}_pre_execution')
-        
+
         # Check for errors
         if hasattr(self.execution_context, 'errors') and self.execution_context.errors:
             for error in self.execution_context.errors:
                 self._track_graphql_exception(error, phase)
-    
+
     def _track_graphql_exception(self, exception: Exception, phase: str):
         """Generic function to track GraphQL exceptions to PostHog"""
         try:
@@ -145,7 +145,7 @@ class PostHogErrorTrackingExtension(SchemaExtension):
         else:
             # Calculate parse time for successful parsing
             self.phase_times['parse'] = int((time.time() - parse_start) * 1000)
-            
+
             # Check for any errors that were collected during parsing
             self._check_and_track_errors('parse')
 
@@ -167,7 +167,7 @@ class PostHogErrorTrackingExtension(SchemaExtension):
         else:
             # Calculate validation time for successful validation
             self.phase_times['validate'] = int((time.time() - validate_start) * 1000)
-            
+
             # Check for any errors that were collected during validation
             self._check_and_track_errors('validate')
 
@@ -198,7 +198,7 @@ class PostHogErrorTrackingExtension(SchemaExtension):
 
             # Track the execution exception
             self._track_graphql_exception(e, 'execute')
-            
+
             # Also check for any errors in the execution context
             self._check_and_track_errors('execute')
 
@@ -211,4 +211,10 @@ class PostHogErrorTrackingExtension(SchemaExtension):
         self._check_and_track_errors('operation_end')
 
 
-__all__ = ["PostHogErrorTrackingExtension"]
+def extend_graphql_extensions(main_extensions):
+    """Add PostHog error tracking extension to the GraphQL schema"""
+    # Add PostHogErrorTrackingExtension to the list
+    return main_extensions + [PostHogErrorTrackingExtension()]
+
+
+__all__ = ["PostHogErrorTrackingExtension", "extend_graphql_extensions"]

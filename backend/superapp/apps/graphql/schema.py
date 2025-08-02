@@ -13,9 +13,6 @@ from strawberry_django.extensions.django_validation_cache import DjangoValidatio
 from strawberry_django.optimizer import DjangoOptimizerExtension
 from .graphql.extensions import CacheControlExtension, CacheExtension
 
-# Import PostHog GraphQL error tracking extension
-from superapp.apps.posthog_error_tracking.graphql.extensions import PostHogErrorTrackingExtension
-
 
 class SQLPrintingExtension(Extension):
     def on_request_end(self):
@@ -131,6 +128,41 @@ def find_graphql_directives() -> List[Type]:
     return found_directives
 
 
+def find_graphql_extensions() -> List[Extension]:
+    """Find and collect all GraphQL extensions from installed apps"""
+    collected_extensions = []
+
+    for app_config in apps.get_app_configs():
+        app_path = app_config.path
+        extensions_path = os.path.join(app_path, 'graphql', 'extensions.py')
+
+        # Import extensions module if it exists
+        if os.path.exists(extensions_path):
+            try:
+                extensions_module = importlib.import_module(f"{app_config.name}.graphql.extensions")
+
+                # Check if module has an extend_graphql_extensions function
+                if hasattr(extensions_module, 'extend_graphql_extensions'):
+                    extend_func = getattr(extensions_module, 'extend_graphql_extensions')
+
+                    # Call the extend function to get extensions
+                    app_extensions = extend_func(collected_extensions.copy())
+
+                    if app_extensions:
+                        # Update collected extensions with returned list
+                        collected_extensions = app_extensions
+                        print(f"Loaded extensions from {app_config.name}")
+
+            except ImportError as e:
+                print(f"Could not import extensions from {app_config.name}: {e}")
+                continue
+            except Exception as e:
+                print(f"Error loading extensions from {app_config.name}: {e}")
+                continue
+
+    return collected_extensions
+
+
 def combine_types(base_class_name: str, types: List[Type]) -> Type:
     """Combine multiple strawberry types into one"""
     if not types:
@@ -177,6 +209,33 @@ from strawberry.schema.config import StrawberryConfig
 # Import all directives from installed apps automatically
 all_directives = find_graphql_directives()
 
+# Collect base extensions
+base_extensions = [
+    DjangoValidationCache(
+        timeout=7 * 24 * 60 * 60,  # Cache for 7 days
+    ),
+    ParserCache(maxsize=1000),
+    DjangoOptimizerExtension(
+        enable_only_optimization = False, # This is creating a problem with django_multitenant
+        enable_select_related_optimization = True,
+        enable_prefetch_related_optimization = True,
+        enable_annotate_optimization = True,
+        enable_nested_relations_prefetch = True,
+        execution_context = None,
+        prefetch_custom_queryset = True,
+    ),
+    CacheExtension(),
+    CacheControlExtension(),
+    SQLPrintingExtension(),
+    GraphQLDebugExtension(),
+]
+
+# Find and add extensions from all apps
+all_extensions = find_graphql_extensions()
+
+# Combine base extensions with dynamically loaded ones
+final_extensions = base_extensions + all_extensions
+
 schema = strawberry.Schema(
     query=query_root,
     mutation=mutation_root,
@@ -184,25 +243,6 @@ schema = strawberry.Schema(
     config=StrawberryConfig(
         auto_camel_case=False,  # Keep snake_case field names
     ),
-    extensions=[
-        DjangoValidationCache(
-            timeout=7 * 24 * 60 * 60,  # Cache for 7 days
-        ),
-        ParserCache(maxsize=1000),
-        DjangoOptimizerExtension(
-            enable_only_optimization = False, # This is creating a problem with django_multitenant
-            enable_select_related_optimization = True,
-            enable_prefetch_related_optimization = True,
-            enable_annotate_optimization = True,
-            enable_nested_relations_prefetch = True,
-            execution_context = None,
-            prefetch_custom_queryset = True,
-        ),
-        CacheExtension(),
-        CacheControlExtension(),
-        SQLPrintingExtension(),
-        GraphQLDebugExtension(),
-        PostHogErrorTrackingExtension(),
-    ]
+    extensions=final_extensions
 )
 
