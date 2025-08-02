@@ -20,11 +20,16 @@ class CacheExtension(SchemaExtension):
     - User-specific cache keys for authenticated queries
     """
 
-    def __init__(self):
+    def __init__(self, default_cache_control_params: Optional[Dict[str, Any]] = None):
         super().__init__()
         self.cached_params: Optional[Dict[str, Any]] = None
         self.cache_key: Optional[str] = None
         self.should_cache = False
+        self.default_cache_control_params = default_cache_control_params or {
+            'ttl': 60,
+            'refresh_while_caching': True,
+            'include_user': False
+        }
 
     def on_parse(self):
         """Called during the parsing phase"""
@@ -45,8 +50,10 @@ class CacheExtension(SchemaExtension):
         if operation and hasattr(operation, 'directives') and operation.directives:
             for directive in operation.directives:
                 if directive.name.value == 'cached':
-                    # Extract the directive arguments
-                    self.cached_params = {'ttl': 60, 'refresh_while_caching': True, 'include_user': False}  # defaults
+                    # Start with default parameters
+                    self.cached_params = self.default_cache_control_params.copy()
+                    
+                    # Extract and merge the directive arguments
                     for arg in directive.arguments:
                         arg_name = arg.name.value
                         arg_value = arg.value
@@ -69,7 +76,7 @@ class CacheExtension(SchemaExtension):
 
                     # Get user ID if needed
                     user_id = None
-                    if self.cached_params.get('include_user', False):
+                    if 'include_user' in self.cached_params and self.cached_params['include_user']:
                         # Try to get user from context
                         if hasattr(execution_context, 'context'):
                             context = execution_context.context
@@ -95,13 +102,13 @@ class CacheExtension(SchemaExtension):
             cached_result = cache.get(self.cache_key)
             if cached_result is not None:
                 # Check if we should refresh while serving cached content
-                refresh_while_caching = self.cached_params.get('refresh_while_caching', True)
+                refresh_while_caching = self.cached_params['refresh_while_caching']
 
                 # Set cached result regardless of refresh_while_caching
                 from graphql import ExecutionResult
                 self.execution_context.result = ExecutionResult(
-                    data=cached_result.get('data'),
-                    errors=cached_result.get('errors')
+                    data=cached_result['data'] if 'data' in cached_result else None,
+                    errors=cached_result['errors'] if 'errors' in cached_result else None
                 )
 
                 if refresh_while_caching:
@@ -114,11 +121,11 @@ class CacheExtension(SchemaExtension):
                         # Lock acquired, trigger background refresh
                         from superapp.apps.graphql.tasks import refresh_graphql_cache
 
-                        ttl = self.cached_params.get('ttl', 60)
+                        ttl = self.cached_params['ttl']
 
                         # Get user ID if needed for background refresh
                         user_id = None
-                        if self.cached_params.get('include_user', False):
+                        if 'include_user' in self.cached_params and self.cached_params['include_user']:
                             context = self.execution_context.context
                             request = context.get('request') if hasattr(context, 'get') else getattr(context, 'request', None)
                             if request and hasattr(request, 'user') and request.user.is_authenticated:
@@ -147,7 +154,7 @@ class CacheExtension(SchemaExtension):
             result = self.execution_context.result
             if result and not (hasattr(result, 'errors') and result.errors):
                 # Cache the data
-                ttl = self.cached_params.get('ttl', 60)
+                ttl = self.cached_params['ttl']
                 cache_data = {
                     'data': result.data,
                     'errors': None
@@ -186,9 +193,27 @@ class CacheExtension(SchemaExtension):
 class CacheControlExtension(SchemaExtension):
     """Extension to set HTTP cache control headers based on GraphQL field directives"""
 
-    def __init__(self):
+    def __init__(self, 
+                 default_max_age: Optional[int] = None,
+                 default_stale_while_revalidate: Optional[int] = None,
+                 default_stale_if_error: Optional[int] = None,
+                 default_max_stale: Optional[int] = None,
+                 default_public: Optional[bool] = None,
+                 default_private: Optional[bool] = None,
+                 default_no_cache: Optional[bool] = None,
+                 default_immutable: Optional[bool] = None):
         super().__init__()
         self.cache_control_params: Optional[Dict[str, Any]] = None
+        self.default_cache_control_params = {
+            'max_age': default_max_age,
+            'stale_while_revalidate': default_stale_while_revalidate,
+            'stale_if_error': default_stale_if_error,
+            'max_stale': default_max_stale,
+            'public': default_public,
+            'private': default_private,
+            'no_cache': default_no_cache,
+            'immutable': default_immutable
+        }
 
     def on_parsing_start(self):
         """Called when parsing starts"""
@@ -221,8 +246,10 @@ class CacheControlExtension(SchemaExtension):
             if hasattr(operation, 'directives') and operation.directives:
                 for directive in operation.directives:
                     if directive.name.value == 'cache_control':
-                        # Extract the directive arguments
-                        self.cache_control_params = {}
+                        # Start with default parameters (only non-None values)
+                        self.cache_control_params = {k: v for k, v in self.default_cache_control_params.items() if v is not None}
+                        
+                        # Extract and merge the directive arguments
                         for arg in directive.arguments:
                             arg_name = arg.name.value
                             arg_value = arg.value
@@ -275,33 +302,29 @@ class CacheControlExtension(SchemaExtension):
             cache_control_parts = []
 
             # Handle boolean directives
-            if cache_control_params.get('no_cache'):
+            if 'no_cache' in cache_control_params and cache_control_params['no_cache']:
                 cache_control_parts.append('no-cache')
 
-            if cache_control_params.get('public'):
+            if 'public' in cache_control_params and cache_control_params['public']:
                 cache_control_parts.append('public')
-            elif cache_control_params.get('private'):
+            elif 'private' in cache_control_params and cache_control_params['private']:
                 cache_control_parts.append('private')
 
-            if cache_control_params.get('immutable'):
+            if 'immutable' in cache_control_params and cache_control_params['immutable']:
                 cache_control_parts.append('immutable')
 
             # Handle numeric directives
-            max_age = cache_control_params.get('max_age')
-            if max_age is not None and not cache_control_params.get('no_cache'):
-                cache_control_parts.append(f'max-age={max_age}')
+            if 'max_age' in cache_control_params and cache_control_params['max_age'] is not None and not ('no_cache' in cache_control_params and cache_control_params['no_cache']):
+                cache_control_parts.append(f'max-age={cache_control_params["max_age"]}')
 
-            stale_while_revalidate = cache_control_params.get('stale_while_revalidate')
-            if stale_while_revalidate is not None:
-                cache_control_parts.append(f'stale-while-revalidate={stale_while_revalidate}')
+            if 'stale_while_revalidate' in cache_control_params and cache_control_params['stale_while_revalidate'] is not None:
+                cache_control_parts.append(f'stale-while-revalidate={cache_control_params["stale_while_revalidate"]}')
 
-            stale_if_error = cache_control_params.get('stale_if_error')
-            if stale_if_error is not None:
-                cache_control_parts.append(f'stale-if-error={stale_if_error}')
+            if 'stale_if_error' in cache_control_params and cache_control_params['stale_if_error'] is not None:
+                cache_control_parts.append(f'stale-if-error={cache_control_params["stale_if_error"]}')
 
-            max_stale = cache_control_params.get('max_stale')
-            if max_stale is not None:
-                cache_control_parts.append(f'max-stale={max_stale}')
+            if 'max_stale' in cache_control_params and cache_control_params['max_stale'] is not None:
+                cache_control_parts.append(f'max-stale={cache_control_params["max_stale"]}')
 
             # Set the header value in context for the view to use
             if cache_control_parts:
@@ -340,4 +363,14 @@ def extend_graphql_extensions(main_extensions):
     """GraphQL app doesn't add any extensions by default, they are added in schema.py"""
     # The CacheExtension and CacheControlExtension are already added in schema.py as base extensions
     # This function exists for consistency with the extension loading pattern
-    return main_extensions
+    return main_extensions + [
+        CacheExtension(default_cache_control_params={
+            'ttl': 300,
+            'refresh_while_caching': True,
+            'include_user': False
+        }),
+        CacheControlExtension(
+            default_max_age=300,
+            default_public=True
+        ),
+    ]
