@@ -8,7 +8,7 @@ class StationsUptime(models.Model):
     timestamp = models.DateTimeField(_("Timestamp"))
     station = models.OneToOneField('Stations', verbose_name=_("Station"), on_delete=models.CASCADE, related_name='uptime')
     is_up = models.BooleanField(_("Is Up"))
-    latency_ms = models.IntegerField(_("Latency (ms)"))
+    latency_ms = models.IntegerField(_("Latency (ms)"), blank=True, null=False, default=-1)
     raw_data = models.JSONField(_("Raw Data"))
 
     class Meta:

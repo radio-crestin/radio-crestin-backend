@@ -6,7 +6,7 @@ from django.db import migrations, models
 def copy_station_stream_order_to_new_order(apps, schema_editor):
     """Copy station_stream_order values to the new order field, rounding to nearest integer."""
     StationStreams = apps.get_model('radio_crestin', 'StationStreams')
-    
+
     for stream in StationStreams.objects.all():
         stream.order = round(stream.station_stream_order) if stream.station_stream_order is not None else 0
         stream.save(update_fields=['order'])
@@ -15,7 +15,7 @@ def copy_station_stream_order_to_new_order(apps, schema_editor):
 def reverse_copy_order_to_station_stream_order(apps, schema_editor):
     """Reverse operation: copy order back to station_stream_order as float."""
     StationStreams = apps.get_model('radio_crestin', 'StationStreams')
-    
+
     for stream in StationStreams.objects.all():
         stream.station_stream_order = float(stream.order)
         stream.save(update_fields=['station_stream_order'])
@@ -24,7 +24,7 @@ def reverse_copy_order_to_station_stream_order(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('radio_crestin', '0017_copy_station_group_order_to_order'),
+        ('radio_crestin', '0018_alter_stations_email'),
     ]
 
     operations = [
