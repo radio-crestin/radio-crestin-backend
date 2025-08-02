@@ -3,11 +3,33 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+from dataclasses import dataclass
 from typing import Any, Dict, Optional
 from django.core.cache import cache
 from strawberry.extensions import SchemaExtension
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class CacheParams:
+    """Parameters for cache extension"""
+    ttl: int = 60
+    refresh_while_caching: bool = True
+    include_user: bool = False
+
+
+@dataclass
+class CacheControlParams:
+    """Parameters for cache control extension"""
+    max_age: Optional[int] = None
+    stale_while_revalidate: Optional[int] = None
+    stale_if_error: Optional[int] = None
+    max_stale: Optional[int] = None
+    public: Optional[bool] = None
+    private: Optional[bool] = None
+    no_cache: Optional[bool] = None
+    immutable: Optional[bool] = None
 
 
 class CacheExtension(SchemaExtension):
@@ -20,16 +42,12 @@ class CacheExtension(SchemaExtension):
     - User-specific cache keys for authenticated queries
     """
 
-    def __init__(self, default_cache_control_params: Optional[Dict[str, Any]] = None):
+    def __init__(self, cache_params: Optional[CacheParams] = None):
         super().__init__()
         self.cached_params: Optional[Dict[str, Any]] = None
         self.cache_key: Optional[str] = None
         self.should_cache = False
-        self.default_cache_control_params = default_cache_control_params or {
-            'ttl': 60,
-            'refresh_while_caching': True,
-            'include_user': False
-        }
+        self.cache_params = cache_params or CacheParams()
 
     def on_parse(self):
         """Called during the parsing phase"""
@@ -50,9 +68,13 @@ class CacheExtension(SchemaExtension):
         if operation and hasattr(operation, 'directives') and operation.directives:
             for directive in operation.directives:
                 if directive.name.value == 'cached':
-                    # Start with default parameters
-                    self.cached_params = self.default_cache_control_params.copy()
-                    
+                    # Start with default parameters from the typed object
+                    self.cached_params = {
+                        'ttl': self.cache_params.ttl,
+                        'refresh_while_caching': self.cache_params.refresh_while_caching,
+                        'include_user': self.cache_params.include_user
+                    }
+
                     # Extract and merge the directive arguments
                     for arg in directive.arguments:
                         arg_name = arg.name.value
@@ -193,27 +215,10 @@ class CacheExtension(SchemaExtension):
 class CacheControlExtension(SchemaExtension):
     """Extension to set HTTP cache control headers based on GraphQL field directives"""
 
-    def __init__(self, 
-                 default_max_age: Optional[int] = None,
-                 default_stale_while_revalidate: Optional[int] = None,
-                 default_stale_if_error: Optional[int] = None,
-                 default_max_stale: Optional[int] = None,
-                 default_public: Optional[bool] = None,
-                 default_private: Optional[bool] = None,
-                 default_no_cache: Optional[bool] = None,
-                 default_immutable: Optional[bool] = None):
+    def __init__(self, cache_control_params: Optional[CacheControlParams] = None):
         super().__init__()
         self.cache_control_params: Optional[Dict[str, Any]] = None
-        self.default_cache_control_params = {
-            'max_age': default_max_age,
-            'stale_while_revalidate': default_stale_while_revalidate,
-            'stale_if_error': default_stale_if_error,
-            'max_stale': default_max_stale,
-            'public': default_public,
-            'private': default_private,
-            'no_cache': default_no_cache,
-            'immutable': default_immutable
-        }
+        self.cache_control_params_defaults = cache_control_params or CacheControlParams()
 
     def on_parsing_start(self):
         """Called when parsing starts"""
@@ -247,8 +252,27 @@ class CacheControlExtension(SchemaExtension):
                 for directive in operation.directives:
                     if directive.name.value == 'cache_control':
                         # Start with default parameters (only non-None values)
-                        self.cache_control_params = {k: v for k, v in self.default_cache_control_params.items() if v is not None}
+                        defaults = self.cache_control_params_defaults
+                        self.cache_control_params = {}
                         
+                        # Add defaults that are not None
+                        if defaults.max_age is not None:
+                            self.cache_control_params['max_age'] = defaults.max_age
+                        if defaults.stale_while_revalidate is not None:
+                            self.cache_control_params['stale_while_revalidate'] = defaults.stale_while_revalidate
+                        if defaults.stale_if_error is not None:
+                            self.cache_control_params['stale_if_error'] = defaults.stale_if_error
+                        if defaults.max_stale is not None:
+                            self.cache_control_params['max_stale'] = defaults.max_stale
+                        if defaults.public is not None:
+                            self.cache_control_params['public'] = defaults.public
+                        if defaults.private is not None:
+                            self.cache_control_params['private'] = defaults.private
+                        if defaults.no_cache is not None:
+                            self.cache_control_params['no_cache'] = defaults.no_cache
+                        if defaults.immutable is not None:
+                            self.cache_control_params['immutable'] = defaults.immutable
+
                         # Extract and merge the directive arguments
                         for arg in directive.arguments:
                             arg_name = arg.name.value
@@ -364,13 +388,13 @@ def extend_graphql_extensions(main_extensions):
     # The CacheExtension and CacheControlExtension are already added in schema.py as base extensions
     # This function exists for consistency with the extension loading pattern
     return main_extensions + [
-        CacheExtension(default_cache_control_params={
-            'ttl': 300,
-            'refresh_while_caching': True,
-            'include_user': False
-        }),
-        CacheControlExtension(
-            default_max_age=300,
-            default_public=True
-        ),
+        CacheExtension(cache_params=CacheParams(
+            ttl=5,
+            refresh_while_caching=False,
+            include_user=True
+        )),
+        CacheControlExtension(cache_control_params=CacheControlParams(
+            max_age=300,
+            public=True
+        )),
     ]
