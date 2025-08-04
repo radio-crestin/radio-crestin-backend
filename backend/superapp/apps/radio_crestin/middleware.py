@@ -23,7 +23,7 @@ class SubdomainRoutingMiddleware:
         # Define subdomain-specific URL patterns
         self.asculta_patterns = [
             path('', views.ShareLinkRedirectView.as_view(), name='share_link_redirect'),
-            path('<path:station_path>/', views.ShareLinkRedirectView.as_view(), name='share_link_redirect_with_station'),
+            path('<path:station_path>', views.ShareLinkRedirectView.as_view(), name='share_link_redirect_with_station'),
         ]
     
     def __call__(self, request):
@@ -48,7 +48,9 @@ class SubdomainRoutingMiddleware:
                     # Check if the path matches any of our asculta patterns
                     for pattern in self.asculta_patterns:
                         try:
-                            match = pattern.resolve(request.path_info.lstrip('/'))
+                            # Keep the path as-is, don't strip the leading slash
+                            path_to_resolve = request.path_info[1:] if request.path_info.startswith('/') else request.path_info
+                            match = pattern.resolve(path_to_resolve)
                             if match:
                                 # Call the matched view
                                 return match.func(request, *match.args, **match.kwargs)
