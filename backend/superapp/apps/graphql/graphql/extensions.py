@@ -423,7 +423,7 @@ def extend_graphql_extensions(main_extensions):
     # This function exists for consistency with the extension loading pattern
     return main_extensions + [
         CacheExtension(cache_params=CacheParams(
-            ttl=5,
+            ttl=0,
             refresh_while_caching=False,
             include_user=True
         )),

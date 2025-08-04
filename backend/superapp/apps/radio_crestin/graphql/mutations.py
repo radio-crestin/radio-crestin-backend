@@ -12,8 +12,17 @@ import logging
 from strawberry import BasePermission
 from strawberry_django.auth.utils import get_current_user
 
-from .types import ListeningEventInput, SubmitListeningEventsResponse, TriggerMetadataFetchResponse
+from .types import (
+    ListeningEventInput, 
+    SubmitListeningEventsResponse, 
+    TriggerMetadataFetchResponse,
+    CreateShareLinkInput,
+    CreateShareLinkResponse,
+    GetShareLinksResponse,
+    ShareLinkData
+)
 from ..models import Stations, ListeningSessions
+from ..services.share_link_service import ShareLinkService
 
 
 class IsSuperuser(BasePermission):
@@ -133,4 +142,103 @@ class Mutation:
             return TriggerMetadataFetchResponse(
                 success=False,
                 message=f"Error scheduling metadata fetch: {str(e)}"
+            )
+    
+    @strawberry_django.mutation(handle_django_errors=True)
+    def create_share_link(self, input: CreateShareLinkInput) -> CreateShareLinkResponse:
+        """Create a share link for a user with optional station"""
+        logger = logging.getLogger(__name__)
+        
+        try:
+            # Upsert user with provided information
+            user = ShareLinkService.upsert_user(
+                anonymous_id=input.user_id,
+                first_name=input.first_name,
+                last_name=input.last_name,
+                email=input.email
+            )
+            
+            # Get station if slug provided
+            station = None
+            if input.station_slug:
+                try:
+                    station = Stations.objects.get(slug=input.station_slug)
+                except Stations.DoesNotExist:
+                    return CreateShareLinkResponse(
+                        success=False,
+                        message=f"Station with slug '{input.station_slug}' not found"
+                    )
+            
+            # Create or get share link
+            share_link = ShareLinkService.upsert_share_link(
+                user=user,
+                station=station
+            )
+            
+            # Prepare response data
+            share_link_data = ShareLinkData(
+                share_id=share_link.share_id,
+                url=share_link.get_full_url(),
+                station_slug=station.slug if station else None,
+                station_title=station.title if station else None,
+                visit_count=share_link.visit_count,
+                created_at=share_link.created_at.isoformat(),
+                is_active=share_link.is_active
+            )
+            
+            return CreateShareLinkResponse(
+                success=True,
+                message="Share link created successfully",
+                share_link=share_link_data
+            )
+            
+        except Exception as e:
+            logger.error(f"Error creating share link: {e}")
+            return CreateShareLinkResponse(
+                success=False,
+                message=f"Error creating share link: {str(e)}"
+            )
+    
+    @strawberry_django.mutation(handle_django_errors=True)
+    def get_share_links(self, user_id: str) -> GetShareLinksResponse:
+        """Get all share links for a user with visitor counts"""
+        logger = logging.getLogger(__name__)
+        
+        try:
+            # Get share link info from service
+            result = ShareLinkService.get_share_link_info(user_id)
+            
+            if 'error' in result:
+                return GetShareLinksResponse(
+                    success=False,
+                    message=result['error'],
+                    user_id=user_id
+                )
+            
+            # Convert to GraphQL types
+            share_links_data = []
+            for link_info in result['share_links']:
+                share_links_data.append(ShareLinkData(
+                    share_id=link_info['share_id'],
+                    url=link_info['url'],
+                    station_slug=link_info['station_slug'],
+                    station_title=link_info['station_title'],
+                    visit_count=link_info['visit_count'],
+                    created_at=link_info['created_at'],
+                    is_active=link_info['is_active']
+                ))
+            
+            return GetShareLinksResponse(
+                success=True,
+                message=f"Found {len(share_links_data)} share links",
+                user_id=user_id,
+                share_links=share_links_data
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting share links: {e}")
+            return GetShareLinksResponse(
+                success=False,
+                message=f"Error getting share links: {str(e)}",
+                user_id=user_id
             )

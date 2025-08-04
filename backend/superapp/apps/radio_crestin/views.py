@@ -3,11 +3,15 @@ from django.http import JsonResponse, HttpResponseRedirect, HttpResponse
 from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
+from django.views import View
+from django.shortcuts import redirect
 import json
 from strawberry.django.context import StrawberryDjangoContext
+import logging
 
 from .models import Songs, Artists
 from .services import AutocompleteService
+from .services.share_link_service import ShareLinkService
 from .constants import STATIONS_GRAPHQL_QUERY
 from superapp.apps.graphql.schema import schema
 
@@ -149,3 +153,87 @@ def api_v1_stations(request):
 
     except Exception as e:
         return JsonResponse({'error': f'Unexpected error: {str(e)}'}, status=500)
+
+
+class ShareLinkRedirectView(View):
+    """Handle share link redirects and track visits"""
+    
+    def get(self, request, *args, **kwargs):
+        """Process share link and redirect to appropriate destination"""
+        logger = logging.getLogger(__name__)
+        
+        # Get share_id from query parameter
+        share_id = request.GET.get('s')
+        if not share_id:
+            # No share link, redirect to main site
+            return redirect('https://www.radiocrestin.ro/')
+        
+        # Get share link from service
+        share_link = ShareLinkService.get_share_link_by_id(share_id)
+        if not share_link:
+            # Invalid share link, redirect to main site
+            logger.warning(f"Invalid share link attempted: {share_id}")
+            return redirect('https://www.radiocrestin.ro/')
+        
+        # Get visitor information
+        visitor_ip = request.META.get('REMOTE_ADDR')
+        visitor_user_agent = request.META.get('HTTP_USER_AGENT', '')
+        visitor_referer = request.META.get('HTTP_REFERER', '')
+        
+        # Get or create session ID for tracking unique visitors
+        if not request.session.session_key:
+            request.session.create()
+        visitor_session_id = request.session.session_key
+        
+        # Check if visitor is the share link creator (don't count their visits)
+        # We can check by comparing session or anonymous_id if available
+        is_creator = False
+        if hasattr(request, 'user') and request.user.is_authenticated:
+            # Check if authenticated user matches share link creator
+            if hasattr(request.user, 'anonymous_id'):
+                is_creator = request.user.anonymous_id == share_link.user.anonymous_id
+        
+        # Track visit if not the creator
+        if not is_creator:
+            ShareLinkService.track_visit(
+                share_id=share_id,
+                visitor_ip=visitor_ip,
+                visitor_user_agent=visitor_user_agent,
+                visitor_referer=visitor_referer,
+                visitor_session_id=visitor_session_id
+            )
+        
+        # Build redirect URL
+        base_url = 'https://www.radiocrestin.ro'
+        if share_link.station:
+            redirect_url = f"{base_url}/{share_link.station.slug}"
+        else:
+            redirect_url = base_url
+        
+        # Log the redirect
+        logger.info(f"Share link {share_id} redirecting to {redirect_url}")
+        
+        return redirect(redirect_url)
+
+
+def get_share_link_api(request, user_id):
+    """API endpoint to get share links for a user"""
+    try:
+        # Get share link info from service
+        result = ShareLinkService.get_share_link_info(user_id)
+        
+        if 'error' in result:
+            return JsonResponse(result, status=404)
+        
+        # Add CORS headers if needed
+        response = JsonResponse(result)
+        response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Allow-Methods'] = 'GET'
+        response['Cache-Control'] = 'no-cache'
+        
+        return response
+        
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in get_share_link_api: {e}")
+        return JsonResponse({'error': str(e)}, status=500)

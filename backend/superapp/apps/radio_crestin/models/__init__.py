@@ -12,6 +12,7 @@ from .stations_uptime import StationsUptime
 from .listening_sessions import ListeningSessions
 from .reviews import Reviews
 from .users import AppUsers
+from .share_links import ShareLink, ShareLinkVisit
 
 __all__ = [
     'Artists',
@@ -28,4 +29,6 @@ __all__ = [
     'ListeningSessions',
     'Reviews',
     'AppUsers',
+    'ShareLink',
+    'ShareLinkVisit',
 ]
