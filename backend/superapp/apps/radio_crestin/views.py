@@ -387,10 +387,11 @@ def get_share_link_api(request, anonymous_id):
             "{url}?s={share_id}"
         )
         
-        # Create share section message
+        # Create share section message with visitor count
         share_section_message = (
-            "Împărtășește Radio Creștin cu prietenii tăi și familia! "
-            "Fiecare persoană care accesează link-ul tău special va fi numărată."
+            "Ajută la răspândirea Evangheliei prin intermediul radioului creștin. "
+            "Apasă aici pentru a trimite această aplicație prietenilor tăi.\n"
+            f"Numărul de utilizatori invitați: {link_info['visit_count']} utilizatori"
         )
         
         # Build GraphQL-compatible response

@@ -225,10 +225,11 @@ class Mutation:
                 is_active=link_info['is_active']
             )
             
-            # Create share section message
+            # Create share section message with visitor count
             share_section_message = (
-                "Împărtășește Radio Creștin cu prietenii tăi și familia! "
-                "Fiecare persoană care accesează link-ul tău special va fi numărată."
+                "Ajută la răspândirea Evangheliei prin intermediul radioului creștin. "
+                "Apasă aici pentru a trimite această aplicație prietenilor tăi.\n"
+                f"Numărul de utilizatori invitați: {link_info['visit_count']} utilizatori"
             )
             
             return GetShareLinkResponse(
