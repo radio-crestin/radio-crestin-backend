@@ -3,6 +3,7 @@ from .artists import ArtistsAdmin
 from .listening_sessions import ListeningSessionsAdmin
 from .posts import PostsAdmin
 from .reviews import ReviewsAdmin
+from .share_links import ShareLinkAdmin, ShareLinkVisitAdmin
 from .songs import SongsAdmin
 from .station_groups import StationGroupsAdmin
 from .station_metadata_fetch_categories import StationMetadataFetchCategoriesAdmin
@@ -19,6 +20,8 @@ __all__ = [
     'ListeningSessionsAdmin',
     'PostsAdmin',
     'ReviewsAdmin',
+    'ShareLinkAdmin',
+    'ShareLinkVisitAdmin',
     'SongsAdmin',
     'StationGroupsAdmin',
     'StationMetadataFetchCategoriesAdmin',
