@@ -371,12 +371,52 @@ class ShareLinkRedirectView(View):
 
 def get_share_link_api(request, anonymous_id):
     """API endpoint to get or create share link for a user"""
+    logger = logging.getLogger(__name__)
+    
     try:
         # Get share link info from service (will create user and link if needed)
         result = ShareLinkService.get_share_link_info(anonymous_id)
         
+        # Convert to GraphQL mutation response format
+        link_info = result['share_link']
+        
+        # Create share message template
+        share_message = (
+            "Ascultă Radio Creștin - Stații radio creștine online 24/7 🎵\n"
+            "Muzică, predici și emisiuni creștine în limba română.\n"
+            "{url}?s={share_id}"
+        )
+        
+        # Create share section message
+        share_section_message = (
+            "Împărtășește Radio Creștin cu prietenii tăi și familia! "
+            "Fiecare persoană care accesează link-ul tău special va fi numărată."
+        )
+        
+        # Build GraphQL-compatible response
+        graphql_response = {
+            'get_share_link': {
+                '__typename': 'GetShareLinkResponse',
+                'success': True,
+                'message': 'Share link retrieved successfully',
+                'anonymous_id': anonymous_id,
+                'share_link': {
+                    'share_id': link_info['share_id'],
+                    'url': link_info['root_url'],
+                    'share_message': share_message.format(
+                        url=link_info['root_url'],
+                        share_id=link_info['share_id']
+                    ),
+                    'visit_count': link_info['visit_count'],
+                    'created_at': link_info['created_at'],
+                    'is_active': link_info['is_active']
+                },
+                'share_section_message': share_section_message
+            }
+        }
+        
         # Add CORS headers if needed
-        response = JsonResponse(result)
+        response = JsonResponse(graphql_response)
         response['Access-Control-Allow-Origin'] = '*'
         response['Access-Control-Allow-Methods'] = 'GET'
         response['Cache-Control'] = 'no-cache'
@@ -384,6 +424,26 @@ def get_share_link_api(request, anonymous_id):
         return response
         
     except Exception as e:
-        logger = logging.getLogger(__name__)
         logger.error(f"Error in get_share_link_api: {e}")
-        return JsonResponse({'error': str(e)}, status=500)
+        
+        # Return error in GraphQL mutation format
+        error_response = {
+            'get_share_link': {
+                '__typename': 'OperationInfo',
+                'messages': [
+                    {
+                        'kind': 'error',
+                        'code': 'INTERNAL_ERROR',
+                        'message': str(e),
+                        'field': None
+                    }
+                ]
+            }
+        }
+        
+        response = JsonResponse(error_response, status=500)
+        response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Allow-Methods'] = 'GET'
+        response['Cache-Control'] = 'no-cache'
+        
+        return response
