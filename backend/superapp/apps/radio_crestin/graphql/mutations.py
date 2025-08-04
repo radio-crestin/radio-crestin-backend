@@ -161,10 +161,21 @@ class Mutation:
             # Create or get the unique share link for this user
             share_link = ShareLinkService.upsert_share_link(user=user)
             
+            # Create share message template
+            share_message = (
+                "Ascultă Radio Creștin - Stații radio creștine online 24/7 🎵\n"
+                "Muzică, predici și emisiuni creștine în limba română.\n"
+                "{url}?s={share_id}"
+            )
+            
             # Prepare response data
             share_link_data = ShareLinkData(
                 share_id=share_link.share_id,
-                url=share_link.get_full_url(),
+                url=share_link.get_root_url(),
+                share_message=share_message.format(
+                    url=share_link.get_root_url(),
+                    share_id=share_link.share_id
+                ),
                 visit_count=share_link.visit_count,
                 created_at=share_link.created_at.isoformat(),
                 is_active=share_link.is_active
@@ -194,9 +205,21 @@ class Mutation:
             
             # Convert to GraphQL type
             link_info = result['share_link']
+            
+            # Create share message template
+            share_message = (
+                "Ascultă Radio Creștin - Stații radio creștine online 24/7 🎵\n"
+                "Muzică, predici și emisiuni creștine în limba română.\n"
+                "{url}?s={share_id}"
+            )
+            
             share_link_data = ShareLinkData(
                 share_id=link_info['share_id'],
-                url=link_info['base_url'],
+                url=link_info['root_url'],
+                share_message=share_message.format(
+                    url=link_info['root_url'],
+                    share_id=link_info['share_id']
+                ),
                 visit_count=link_info['visit_count'],
                 created_at=link_info['created_at'],
                 is_active=link_info['is_active']

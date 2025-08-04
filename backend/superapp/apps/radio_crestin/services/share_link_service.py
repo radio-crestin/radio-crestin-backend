@@ -81,7 +81,7 @@ class ShareLinkService:
             'user_id': user_id,
             'share_link': {
                 'share_id': share_link.share_id,
-                'base_url': share_link.get_full_url(),
+                'root_url': share_link.get_root_url(),
                 'visit_count': share_link.visit_count,
                 'created_at': share_link.created_at.isoformat(),
                 'is_active': share_link.is_active

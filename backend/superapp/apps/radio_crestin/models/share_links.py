@@ -69,6 +69,10 @@ class ShareLink(models.Model):
             return f"{base_url}/{station_slug}?s={self.share_id}"
         return f"{base_url}/?s={self.share_id}"
     
+    def get_root_url(self, domain='asculta.radiocrestin.ro'):
+        """Get the root URL domain only."""
+        return f"https://{domain}"
+    
     def increment_visit_count(self):
         """Atomically increment the visit count."""
         self.visit_count = models.F('visit_count') + 1

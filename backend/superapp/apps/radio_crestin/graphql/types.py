@@ -287,6 +287,7 @@ class CreateShareLinkInput:
 class ShareLinkData:
     share_id: str
     url: str
+    share_message: str
     visit_count: int
     created_at: str
     is_active: bool
