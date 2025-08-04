@@ -15,7 +15,7 @@ def generate_share_id(length=6):
 
 
 class ShareLink(models.Model):
-    """Model for tracking shared links created by users."""
+    """Model for tracking unique share links created by users."""
     
     share_id = models.CharField(
         max_length=10,
@@ -24,20 +24,11 @@ class ShareLink(models.Model):
         help_text=_("Unique identifier for the share link")
     )
     
-    user = models.ForeignKey(
+    user = models.OneToOneField(
         'radio_crestin.AppUsers',
         on_delete=models.CASCADE,
-        related_name='share_links',
-        help_text=_("User who created the share link")
-    )
-    
-    station = models.ForeignKey(
-        'radio_crestin.Stations',
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name='share_links',
-        help_text=_("Optional station to link to")
+        related_name='share_link',
+        help_text=_("User who owns this unique share link")
     )
     
     visit_count = models.PositiveIntegerField(
@@ -65,17 +56,17 @@ class ShareLink(models.Model):
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['share_id', 'is_active']),
-            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['user']),
         ]
     
     def __str__(self):
         return f"ShareLink({self.share_id}) by User({self.user_id})"
     
-    def get_full_url(self, domain='asculta.radiocrestin.ro'):
-        """Generate the full share URL."""
+    def get_full_url(self, station_slug=None, domain='asculta.radiocrestin.ro'):
+        """Generate the full share URL with optional station."""
         base_url = f"https://{domain}"
-        if self.station:
-            return f"{base_url}/{self.station.slug}?s={self.share_id}"
+        if station_slug:
+            return f"{base_url}/{station_slug}?s={self.share_id}"
         return f"{base_url}/?s={self.share_id}"
     
     def increment_visit_count(self):

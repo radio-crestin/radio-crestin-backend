@@ -203,10 +203,12 @@ class ShareLinkRedirectView(View):
                 visitor_session_id=visitor_session_id
             )
         
-        # Build redirect URL
+        # Build redirect URL - station should be passed as parameter
         base_url = 'https://www.radiocrestin.ro'
-        if share_link.station:
-            redirect_url = f"{base_url}/{share_link.station.slug}"
+        # Get station from URL parameters if present
+        station_slug = request.GET.get('station')
+        if station_slug:
+            redirect_url = f"{base_url}/{station_slug}"
         else:
             redirect_url = base_url
         
@@ -216,11 +218,11 @@ class ShareLinkRedirectView(View):
         return redirect(redirect_url)
 
 
-def get_share_link_api(request, user_id):
+def get_share_link_api(request, anonymous_id):
     """API endpoint to get share links for a user"""
     try:
         # Get share link info from service
-        result = ShareLinkService.get_share_link_info(user_id)
+        result = ShareLinkService.get_share_link_info(anonymous_id)
         
         if 'error' in result:
             return JsonResponse(result, status=404)

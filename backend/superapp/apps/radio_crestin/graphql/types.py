@@ -278,18 +278,15 @@ class TriggerMetadataFetchResponse:
 
 @strawberry.input
 class CreateShareLinkInput:
-    user_id: str  # anonymous_id of the user
+    anonymous_id: str  # anonymous_id of the user
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     email: Optional[str] = None
-    station_slug: Optional[str] = None
 
 @strawberry.type
 class ShareLinkData:
     share_id: str
     url: str
-    station_slug: Optional[str]
-    station_title: Optional[str]
     visit_count: int
     created_at: str
     is_active: bool
@@ -301,8 +298,8 @@ class CreateShareLinkResponse:
     share_link: Optional[ShareLinkData] = None
 
 @strawberry.type
-class GetShareLinksResponse:
+class GetShareLinkResponse:
     success: bool
     message: str
-    user_id: Optional[str] = None
-    share_links: List[ShareLinkData] = strawberry.field(default_factory=list)
+    anonymous_id: Optional[str] = None
+    share_link: Optional[ShareLinkData] = None

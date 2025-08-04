@@ -2,7 +2,7 @@ from typing import Optional, Dict, Any
 from django.db import transaction
 from django.utils import timezone
 
-from ..models import AppUsers, ShareLink, ShareLinkVisit, Stations
+from ..models import AppUsers, ShareLink, ShareLinkVisit
 from ..models.share_links import generate_share_id
 
 
@@ -51,70 +51,61 @@ class ShareLinkService:
     
     @staticmethod
     @transaction.atomic
-    def upsert_share_link(
-        user: AppUsers,
-        station: Optional[Stations] = None
-    ) -> ShareLink:
+    def upsert_share_link(user: AppUsers) -> ShareLink:
         """
-        Create or get a share link for a user and optional station.
-        Returns existing link if one exists for the same user/station combination.
+        Create or get the unique share link for a user.
+        Each user has exactly one share link.
         """
-        # Try to find existing share link for this user/station combination
-        share_link = ShareLink.objects.filter(
-            user=user,
-            station=station,
-            is_active=True
-        ).first()
-        
-        if share_link:
-            # Return existing share link
+        # Try to get existing share link for this user
+        try:
+            share_link = ShareLink.objects.get(user=user)
+            # Ensure it's active
+            if not share_link.is_active:
+                share_link.is_active = True
+                share_link.save(update_fields=['is_active', 'updated_at'])
             return share_link
-        
-        # Create new share link with unique ID
-        share_link = ShareLink.objects.create(
-            share_id=generate_share_id(),
-            user=user,
-            station=station
-        )
-        
-        return share_link
+        except ShareLink.DoesNotExist:
+            # Create new share link with unique ID
+            share_link = ShareLink.objects.create(
+                share_id=generate_share_id(),
+                user=user
+            )
+            return share_link
     
     @staticmethod
     def get_share_link_info(user_id: str) -> Dict[str, Any]:
         """
-        Get share link information for a user including visitor counts.
+        Get the unique share link information for a user.
         """
         try:
             user = AppUsers.objects.get(anonymous_id=user_id)
         except AppUsers.DoesNotExist:
             return {
                 'error': 'User not found',
-                'share_links': []
+                'share_link': None
             }
         
-        share_links = ShareLink.objects.filter(
-            user=user,
-            is_active=True
-        ).select_related('station')
-        
-        result = {
-            'user_id': user_id,
-            'share_links': []
-        }
-        
-        for link in share_links:
-            link_data = {
-                'share_id': link.share_id,
-                'url': link.get_full_url(),
-                'station_slug': link.station.slug if link.station else None,
-                'station_title': link.station.title if link.station else None,
-                'visit_count': link.visit_count,
-                'created_at': link.created_at.isoformat(),
-                'is_active': link.is_active
+        try:
+            share_link = ShareLink.objects.get(
+                user=user,
+                is_active=True
+            )
+            
+            return {
+                'user_id': user_id,
+                'share_link': {
+                    'share_id': share_link.share_id,
+                    'base_url': share_link.get_full_url(),
+                    'visit_count': share_link.visit_count,
+                    'created_at': share_link.created_at.isoformat(),
+                    'is_active': share_link.is_active
+                }
             }
-            result['share_links'].append(link_data)
-        
-        return result
+        except ShareLink.DoesNotExist:
+            return {
+                'user_id': user_id,
+                'share_link': None
+            }
     
     @staticmethod
     @transaction.atomic
@@ -183,7 +174,7 @@ class ShareLinkService:
         Get a share link by its ID.
         """
         try:
-            return ShareLink.objects.select_related('station', 'user').get(
+            return ShareLink.objects.select_related('user').get(
                 share_id=share_id,
                 is_active=True
             )
