@@ -162,11 +162,7 @@ class Mutation:
             share_link = ShareLinkService.upsert_share_link(user=user)
             
             # Create share message template
-            share_message = (
-                "Ascultă Radio Creștin - Stații radio creștine online 24/7 🎵\n"
-                "Muzică, predici și emisiuni creștine în limba română.\n"
-                "{url}?s={share_id}"
-            )
+            share_message = "Te invit să asculți și tu Radio Creștin: {url}?s={share_id}"
             
             # Prepare response data
             share_link_data = ShareLinkData(
@@ -207,11 +203,7 @@ class Mutation:
             link_info = result['share_link']
             
             # Create share message template
-            share_message = (
-                "Ascultă Radio Creștin - Stații radio creștine online 24/7 🎵\n"
-                "Muzică, predici și emisiuni creștine în limba română.\n"
-                "{url}?s={share_id}"
-            )
+            share_message = "Te invit să asculți și tu Radio Creștin: {url}?s={share_id}"
             
             share_link_data = ShareLinkData(
                 share_id=link_info['share_id'],

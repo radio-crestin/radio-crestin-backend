@@ -381,11 +381,7 @@ def get_share_link_api(request, anonymous_id):
         link_info = result['share_link']
         
         # Create share message template
-        share_message = (
-            "Ascultă Radio Creștin - Stații radio creștine online 24/7 🎵\n"
-            "Muzică, predici și emisiuni creștine în limba română.\n"
-            "{url}?s={share_id}"
-        )
+        share_message = "Te invit să asculți și tu Radio Creștin: {url}?s={share_id}"
         
         # Create share section message with visitor count
         share_section_message = (
