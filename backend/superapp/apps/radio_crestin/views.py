@@ -278,18 +278,28 @@ class ShareLinkRedirectView(View):
         """Process share link and redirect to appropriate destination"""
         logger = logging.getLogger(__name__)
         
+        # Get station from URL path
+        station_slug = kwargs.get('station_path', '')
+        
+        # Build base redirect URL with station path
+        base_url = 'https://www.radiocrestin.ro'
+        if station_slug:
+            default_redirect = f"{base_url}/{station_slug}"
+        else:
+            default_redirect = base_url
+        
         # Get share_id from query parameter
         share_id = request.GET.get('s')
         if not share_id:
-            # No share link, redirect to main site
-            return redirect('https://www.radiocrestin.ro/')
+            # No share link, redirect to main site with path preserved
+            return redirect(default_redirect)
         
         # Get share link from service
         share_link = ShareLinkService.get_share_link_by_id(share_id)
         if not share_link:
-            # Invalid share link, redirect to main site
+            # Invalid share link, redirect to main site with path preserved
             logger.warning(f"Invalid share link attempted: {share_id}")
-            return redirect('https://www.radiocrestin.ro/')
+            return redirect(default_redirect)
         
         # Get visitor information
         visitor_ip = request.META.get('REMOTE_ADDR')
@@ -319,11 +329,6 @@ class ShareLinkRedirectView(View):
         
         # Detect device type
         device_type = self.get_device_type(visitor_user_agent)
-        
-        # Get station from URL path or parameters
-        station_slug = kwargs.get('station_path', '')
-        if not station_slug:
-            station_slug = request.GET.get('station', '')
         
         # Get ref parameter for tracking
         ref = request.GET.get('ref', 'share')
