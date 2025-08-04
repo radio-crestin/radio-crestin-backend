@@ -7,6 +7,17 @@ def extend_superapp_settings(main_settings):
 
     # Add this app to INSTALLED_APPS
     main_settings['INSTALLED_APPS'] += ['superapp.apps.radio_crestin']
+    
+    # Add custom subdomain routing middleware (must be early in the middleware stack)
+    middleware_class = 'superapp.apps.radio_crestin.middleware.SubdomainRoutingMiddleware'
+    if middleware_class not in main_settings['MIDDLEWARE']:
+        # Insert after SecurityMiddleware but before other middlewares
+        try:
+            security_index = main_settings['MIDDLEWARE'].index('django.middleware.security.SecurityMiddleware')
+            main_settings['MIDDLEWARE'].insert(security_index + 1, middleware_class)
+        except ValueError:
+            # If SecurityMiddleware not found, add at the beginning
+            main_settings['MIDDLEWARE'].insert(0, middleware_class)
 
     # Add app-specific navigation to the admin sidebar
     main_settings['UNFOLD']['SIDEBAR']['navigation'] += [

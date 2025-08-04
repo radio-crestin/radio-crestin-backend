@@ -18,7 +18,6 @@ def extend_superapp_urlpatterns(main_urlpatterns):
         path('api/v1/stations', views.api_v1_stations, name='api_v1_stations'),
         # Share link endpoints
         path('api/v1/share-links/<str:anonymous_id>/', views.get_share_link_api, name='api_share_links'),
-        # Share link redirect handler - catches all paths with ?s= parameter
-        path('', views.ShareLinkRedirectView.as_view(), name='share_link_redirect'),
-        path('<path:station_path>/', views.ShareLinkRedirectView.as_view(), name='share_link_redirect_with_station'),
+        # Note: ShareLinkRedirectView routes have been moved to subdomain configuration
+        # They are now only accessible via asculta.radiocrestin.ro and asculta.localhost
     ])
