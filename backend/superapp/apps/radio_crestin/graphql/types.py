@@ -304,3 +304,4 @@ class GetShareLinkResponse:
     message: str
     anonymous_id: Optional[str] = None
     share_link: Optional[ShareLinkData] = None
+    share_section_message: Optional[str] = None

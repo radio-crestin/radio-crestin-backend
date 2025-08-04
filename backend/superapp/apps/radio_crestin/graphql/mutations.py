@@ -225,11 +225,18 @@ class Mutation:
                 is_active=link_info['is_active']
             )
             
+            # Create share section message
+            share_section_message = (
+                "Împărtășește Radio Creștin cu prietenii tăi și familia! "
+                "Fiecare persoană care accesează link-ul tău special va fi numărată."
+            )
+            
             return GetShareLinkResponse(
                 success=True,
                 message="Share link retrieved successfully",
                 anonymous_id=anonymous_id,
-                share_link=share_link_data
+                share_link=share_link_data,
+                share_section_message=share_section_message
             )
             
         except Exception as e:
@@ -237,5 +244,6 @@ class Mutation:
             return GetShareLinkResponse(
                 success=False,
                 message=f"Error getting share link: {str(e)}",
-                anonymous_id=anonymous_id
+                anonymous_id=anonymous_id,
+                share_section_message=None
             )
