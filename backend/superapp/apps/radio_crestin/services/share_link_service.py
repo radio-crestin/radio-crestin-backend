@@ -32,20 +32,12 @@ class ShareLinkService:
             user_data['last_name'] = last_name
         if email is not None:
             user_data['email'] = email
-            
-        # Update timestamp for existing users
-        user_data['updated_at'] = timezone.now()
         
-        # Upsert user
+        # Upsert user (modified_at is auto-updated by auto_now=True)
         user, created = AppUsers.objects.update_or_create(
             anonymous_id=anonymous_id,
             defaults=user_data
         )
-        
-        # Set created_at for new users
-        if created:
-            user.created_at = timezone.now()
-            user.save(update_fields=['created_at'])
         
         return user
     
