@@ -1,78 +1,76 @@
 """
-Custom subdomain routing middleware for radio_crestin app.
-Handles routing for asculta.radiocrestin.ro and asculta.localhost subdomains.
+Simplified subdomain routing middleware for asculta.radiocrestin.ro
 """
-from django.conf import settings
-from django.http import HttpResponseNotFound
-from django.urls import include, path
-from django.core.handlers.wsgi import WSGIHandler
-from django.urls import resolve, Resolver404
-from . import views
+from django.shortcuts import redirect
+from django.http import HttpResponse
+from .services.share_link_service import ShareLinkService
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class SubdomainRoutingMiddleware:
     """
-    Middleware to handle subdomain-specific routing for the 'asculta' subdomain.
-    This allows ShareLinkRedirectView to only be accessible via:
-    - asculta.radiocrestin.ro
-    - asculta.localhost (for development)
+    Simple middleware to handle asculta subdomain redirects with share link tracking.
+    Routes asculta.radiocrestin.ro/* and asculta.localhost/* to radiocrestin.ro/*
     """
     
     def __init__(self, get_response):
         self.get_response = get_response
-        # Define subdomain-specific URL pattern (single pattern handles both cases)
-        # This pattern matches both root path and any station path
-        from django.urls import re_path
-        self.asculta_pattern = re_path(
-            r'^(?P<station_path>.*?)/?$', 
-            views.ShareLinkRedirectView.as_view(), 
-            name='share_link_redirect'
-        )
     
     def __call__(self, request):
-        # Get the host from the request
-        host = request.get_host().lower()
+        # Get the host without port
+        host = request.get_host().lower().split(':')[0]
         
-        # Remove port if present (for localhost:8080)
-        if ':' in host:
-            host = host.split(':')[0]
-        
-        # Check if this is the 'asculta' subdomain
+        # Check if this is the asculta subdomain
         if host.startswith('asculta.'):
-            # Extract the subdomain
-            subdomain = host.split('.')[0]
+            # Get the path (remove leading slash)
+            path = request.path_info.lstrip('/')
             
-            if subdomain == 'asculta':
-                # Store original urlconf
-                original_urlconf = getattr(request, 'urlconf', None)
-                
-                # Try to match the path against our subdomain pattern
+            # Build redirect URL
+            base_url = 'https://www.radiocrestin.ro'
+            if path:
+                redirect_url = f"{base_url}/{path}"
+            else:
+                redirect_url = base_url
+            
+            # Handle share link tracking if 's' parameter exists
+            share_id = request.GET.get('s')
+            if share_id:
+                # Track the visit
                 try:
-                    # Strip leading slash for pattern matching
-                    path_to_resolve = request.path_info[1:] if request.path_info.startswith('/') else request.path_info
+                    # Get visitor information
+                    visitor_ip = request.META.get('REMOTE_ADDR', '')
+                    visitor_user_agent = request.META.get('HTTP_USER_AGENT', '')
+                    visitor_referer = request.META.get('HTTP_REFERER', '')
                     
-                    try:
-                        match = self.asculta_pattern.resolve(path_to_resolve)
-                        if match:
-                            # Call the matched view with the kwargs (includes station_path)
-                            # The view will also have access to request.GET for the 's' parameter
-                            return match.func(request, *match.args, **match.kwargs)
-                    except Resolver404:
-                        pass
+                    # Create session if needed for unique visitor tracking
+                    if hasattr(request, 'session'):
+                        if not request.session.session_key:
+                            request.session.create()
+                        visitor_session_id = request.session.session_key
+                    else:
+                        visitor_session_id = ''
                     
-                    # If no pattern matched, return 404
-                    return HttpResponseNotFound("Page not found on asculta subdomain")
+                    # Track the visit
+                    ShareLinkService.track_visit(
+                        share_id=share_id,
+                        visitor_ip=visitor_ip,
+                        visitor_user_agent=visitor_user_agent,
+                        visitor_referer=visitor_referer,
+                        visitor_session_id=visitor_session_id
+                    )
+                    
+                    # Add ref parameter to redirect URL
+                    ref = request.GET.get('ref', 'share')
+                    separator = '&' if '?' in redirect_url else '?'
+                    redirect_url = f"{redirect_url}{separator}ref={ref}"
                     
                 except Exception as e:
-                    # Log the error and continue with normal processing
-                    import logging
-                    logger = logging.getLogger(__name__)
-                    logger.error(f"Error in subdomain routing: {e}")
-                finally:
-                    # Restore original urlconf if it was changed
-                    if original_urlconf:
-                        request.urlconf = original_urlconf
+                    logger.error(f"Error tracking share link visit: {e}")
+            
+            # Return redirect response
+            return redirect(redirect_url)
         
-        # Process normally for non-subdomain requests
-        response = self.get_response(request)
-        return response
+        # Process normally for non-asculta subdomains
+        return self.get_response(request)
