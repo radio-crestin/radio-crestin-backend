@@ -307,9 +307,11 @@ class ShareLinkRedirectView(View):
         visitor_referer = request.META.get('HTTP_REFERER', '')
         
         # Get or create session ID for tracking unique visitors
-        if not request.session.session_key:
-            request.session.create()
-        visitor_session_id = request.session.session_key
+        visitor_session_id = ''
+        if hasattr(request, 'session'):
+            if not request.session.session_key:
+                request.session.create()
+            visitor_session_id = request.session.session_key
         
         # Check if visitor is the share link creator (don't count their visits)
         is_creator = False
