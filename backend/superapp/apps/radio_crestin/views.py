@@ -383,7 +383,8 @@ def get_share_link_api(request, anonymous_id):
         # Create share message template
         share_message = "Te invit să asculți acest post de Radio Creștin: {url}?s={share_id}"
         
-        # Create share section message with visitor count
+        # Create share section title and message with visitor count
+        share_section_title = "Ajută la răspândirea Evangheliei"
         share_section_message = (
             "Ajută la răspândirea Evangheliei prin intermediul radioului creștin. "
             "Apasă aici pentru a trimite această aplicație prietenilor tăi.\n"
@@ -406,9 +407,10 @@ def get_share_link_api(request, anonymous_id):
                     ),
                     'visit_count': link_info['visit_count'],
                     'created_at': link_info['created_at'],
-                    'is_active': link_info['is_active']
-                },
-                'share_section_message': share_section_message
+                    'is_active': link_info['is_active'],
+                    'share_section_title': share_section_title,
+                    'share_section_message': share_section_message
+                }
             }
         }
         

@@ -164,6 +164,14 @@ class Mutation:
             # Create share message template
             share_message = "Te invit să asculți acest post de Radio Creștin: {url}?s={share_id}"
             
+            # Create share section title and message with visitor count
+            share_section_title = "Ajută la răspândirea Evangheliei"
+            share_section_message = (
+                "Ajută la răspândirea Evangheliei prin intermediul radioului creștin. "
+                "Apasă aici pentru a trimite această aplicație prietenilor tăi.\n"
+                f"Numărul de utilizatori invitați: {share_link.visit_count} utilizatori"
+            )
+            
             # Prepare response data
             share_link_data = ShareLinkData(
                 share_id=share_link.share_id,
@@ -174,7 +182,9 @@ class Mutation:
                 ),
                 visit_count=share_link.visit_count,
                 created_at=share_link.created_at.isoformat(),
-                is_active=share_link.is_active
+                is_active=share_link.is_active,
+                share_section_title=share_section_title,
+                share_section_message=share_section_message
             )
             
             return CreateShareLinkResponse(
@@ -205,6 +215,14 @@ class Mutation:
             # Create share message template
             share_message = "Te invit să asculți acest post de Radio Creștin: {url}?s={share_id}"
             
+            # Create share section title and message with visitor count
+            share_section_title = "Ajută la răspândirea Evangheliei"
+            share_section_message = (
+                "Ajută la răspândirea Evangheliei prin intermediul radioului creștin. "
+                "Apasă aici pentru a trimite această aplicație prietenilor tăi.\n"
+                f"Numărul de utilizatori invitați: {link_info['visit_count']} utilizatori"
+            )
+            
             share_link_data = ShareLinkData(
                 share_id=link_info['share_id'],
                 url=link_info['root_url'],
@@ -214,22 +232,16 @@ class Mutation:
                 ),
                 visit_count=link_info['visit_count'],
                 created_at=link_info['created_at'],
-                is_active=link_info['is_active']
-            )
-            
-            # Create share section message with visitor count
-            share_section_message = (
-                "Ajută la răspândirea Evangheliei prin intermediul radioului creștin. "
-                "Apasă aici pentru a trimite această aplicație prietenilor tăi.\n"
-                f"Numărul de utilizatori invitați: {link_info['visit_count']} utilizatori"
+                is_active=link_info['is_active'],
+                share_section_title=share_section_title,
+                share_section_message=share_section_message
             )
             
             return GetShareLinkResponse(
                 success=True,
                 message="Share link retrieved successfully",
                 anonymous_id=anonymous_id,
-                share_link=share_link_data,
-                share_section_message=share_section_message
+                share_link=share_link_data
             )
             
         except Exception as e:
@@ -237,6 +249,5 @@ class Mutation:
             return GetShareLinkResponse(
                 success=False,
                 message=f"Error getting share link: {str(e)}",
-                anonymous_id=anonymous_id,
-                share_section_message=None
+                anonymous_id=anonymous_id
             )

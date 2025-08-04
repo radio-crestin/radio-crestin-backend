@@ -291,6 +291,8 @@ class ShareLinkData:
     visit_count: int
     created_at: str
     is_active: bool
+    share_section_title: Optional[str] = None
+    share_section_message: Optional[str] = None
 
 @strawberry.type
 class CreateShareLinkResponse:
@@ -304,4 +306,3 @@ class GetShareLinkResponse:
     message: str
     anonymous_id: Optional[str] = None
     share_link: Optional[ShareLinkData] = None
-    share_section_message: Optional[str] = None
