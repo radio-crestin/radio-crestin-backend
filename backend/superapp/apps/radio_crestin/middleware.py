@@ -20,11 +20,14 @@ class SubdomainRoutingMiddleware:
     
     def __init__(self, get_response):
         self.get_response = get_response
-        # Define subdomain-specific URL patterns
-        self.asculta_patterns = [
-            path('', views.ShareLinkRedirectView.as_view(), name='share_link_redirect'),
-            path('<path:station_path>', views.ShareLinkRedirectView.as_view(), name='share_link_redirect_with_station'),
-        ]
+        # Define subdomain-specific URL pattern (single pattern handles both cases)
+        # This pattern matches both root path and any station path
+        from django.urls import re_path
+        self.asculta_pattern = re_path(
+            r'^(?P<station_path>.*?)/?$', 
+            views.ShareLinkRedirectView.as_view(), 
+            name='share_link_redirect'
+        )
     
     def __call__(self, request):
         # Get the host from the request
@@ -43,19 +46,19 @@ class SubdomainRoutingMiddleware:
                 # Store original urlconf
                 original_urlconf = getattr(request, 'urlconf', None)
                 
-                # Try to match the path against our subdomain patterns
+                # Try to match the path against our subdomain pattern
                 try:
-                    # Check if the path matches any of our asculta patterns
-                    for pattern in self.asculta_patterns:
-                        try:
-                            # Keep the path as-is, don't strip the leading slash
-                            path_to_resolve = request.path_info[1:] if request.path_info.startswith('/') else request.path_info
-                            match = pattern.resolve(path_to_resolve)
-                            if match:
-                                # Call the matched view
-                                return match.func(request, *match.args, **match.kwargs)
-                        except Resolver404:
-                            continue
+                    # Strip leading slash for pattern matching
+                    path_to_resolve = request.path_info[1:] if request.path_info.startswith('/') else request.path_info
+                    
+                    try:
+                        match = self.asculta_pattern.resolve(path_to_resolve)
+                        if match:
+                            # Call the matched view with the kwargs (includes station_path)
+                            # The view will also have access to request.GET for the 's' parameter
+                            return match.func(request, *match.args, **match.kwargs)
+                    except Resolver404:
+                        pass
                     
                     # If no pattern matched, return 404
                     return HttpResponseNotFound("Page not found on asculta subdomain")
