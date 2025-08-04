@@ -4,7 +4,7 @@ from django.utils.translation import gettext_lazy as _
 
 class AppUsers(models.Model):
     # This model matches the existing authentication_user table structure
-    password = models.CharField(max_length=128, blank=True, null=True)
+    password = models.CharField(max_length=128, blank=True, null=False, default="")
     last_login = models.DateTimeField(blank=True, null=True)
     is_superuser = models.BooleanField(default=False)
     first_name = models.CharField(max_length=150, blank=True, null=True)
