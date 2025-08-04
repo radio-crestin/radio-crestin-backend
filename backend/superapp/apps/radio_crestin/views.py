@@ -219,13 +219,10 @@ class ShareLinkRedirectView(View):
 
 
 def get_share_link_api(request, anonymous_id):
-    """API endpoint to get share links for a user"""
+    """API endpoint to get or create share link for a user"""
     try:
-        # Get share link info from service
+        # Get share link info from service (will create user and link if needed)
         result = ShareLinkService.get_share_link_info(anonymous_id)
-        
-        if 'error' in result:
-            return JsonResponse(result, status=404)
         
         # Add CORS headers if needed
         response = JsonResponse(result)

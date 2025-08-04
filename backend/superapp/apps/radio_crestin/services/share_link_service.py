@@ -73,39 +73,28 @@ class ShareLinkService:
             return share_link
     
     @staticmethod
+    @transaction.atomic
     def get_share_link_info(user_id: str) -> Dict[str, Any]:
         """
         Get the unique share link information for a user.
+        Creates user and share link if they don't exist.
         """
-        try:
-            user = AppUsers.objects.get(anonymous_id=user_id)
-        except AppUsers.DoesNotExist:
-            return {
-                'error': 'User not found',
-                'share_link': None
-            }
+        # Upsert user if not exists
+        user = ShareLinkService.upsert_user(anonymous_id=user_id)
         
-        try:
-            share_link = ShareLink.objects.get(
-                user=user,
-                is_active=True
-            )
-            
-            return {
-                'user_id': user_id,
-                'share_link': {
-                    'share_id': share_link.share_id,
-                    'base_url': share_link.get_full_url(),
-                    'visit_count': share_link.visit_count,
-                    'created_at': share_link.created_at.isoformat(),
-                    'is_active': share_link.is_active
-                }
+        # Get or create share link for the user
+        share_link = ShareLinkService.upsert_share_link(user=user)
+        
+        return {
+            'user_id': user_id,
+            'share_link': {
+                'share_id': share_link.share_id,
+                'base_url': share_link.get_full_url(),
+                'visit_count': share_link.visit_count,
+                'created_at': share_link.created_at.isoformat(),
+                'is_active': share_link.is_active
             }
-        except ShareLink.DoesNotExist:
-            return {
-                'user_id': user_id,
-                'share_link': None
-            }
+        }
     
     @staticmethod
     @transaction.atomic

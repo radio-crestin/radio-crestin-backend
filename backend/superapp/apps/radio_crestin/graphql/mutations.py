@@ -185,35 +185,26 @@ class Mutation:
     
     @strawberry_django.mutation(handle_django_errors=True)
     def get_share_link(self, anonymous_id: str) -> GetShareLinkResponse:
-        """Get the unique share link for a user"""
+        """Get or create the unique share link for a user"""
         logger = logging.getLogger(__name__)
         
         try:
-            # Get share link info from service
+            # Get share link info from service (will create user and link if needed)
             result = ShareLinkService.get_share_link_info(anonymous_id)
             
-            if 'error' in result:
-                return GetShareLinkResponse(
-                    success=False,
-                    message=result['error'],
-                    anonymous_id=anonymous_id
-                )
-            
-            # Convert to GraphQL type if link exists
-            share_link_data = None
-            if result.get('share_link'):
-                link_info = result['share_link']
-                share_link_data = ShareLinkData(
-                    share_id=link_info['share_id'],
-                    url=link_info['base_url'],
-                    visit_count=link_info['visit_count'],
-                    created_at=link_info['created_at'],
-                    is_active=link_info['is_active']
-                )
+            # Convert to GraphQL type
+            link_info = result['share_link']
+            share_link_data = ShareLinkData(
+                share_id=link_info['share_id'],
+                url=link_info['base_url'],
+                visit_count=link_info['visit_count'],
+                created_at=link_info['created_at'],
+                is_active=link_info['is_active']
+            )
             
             return GetShareLinkResponse(
                 success=True,
-                message="Share link retrieved successfully" if share_link_data else "No share link found",
+                message="Share link retrieved successfully",
                 anonymous_id=anonymous_id,
                 share_link=share_link_data
             )
