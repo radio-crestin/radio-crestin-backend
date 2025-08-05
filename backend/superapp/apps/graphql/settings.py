@@ -13,3 +13,6 @@ def extend_superapp_settings(main_settings):
     ] + [
         'strawberry_django.middlewares.debug_toolbar.DebugToolbarMiddleware',
     ]
+    
+    # Add connection abort handler middleware early in the chain
+    main_settings['MIDDLEWARE'].insert(0, 'superapp.apps.graphql.middleware.ConnectionAbortMiddleware')

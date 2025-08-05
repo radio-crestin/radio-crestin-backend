@@ -120,5 +120,11 @@ trap cleanup SIGTERM SIGINT SIGQUIT
 if [ "$DEBUG" = "true" ] || [ "$DEBUG" = "1" ] || [ "$DEBUG" = "t" ]; then
     start_gunicorn "/app/scripts/gunicorn-dev.py" "development"
 else
-    start_gunicorn "/app/scripts/gunicorn.py" "production"
+    # Use quiet configuration if QUIET_MODE is set
+    if [ "$QUIET_MODE" = "true" ] || [ "$QUIET_MODE" = "1" ]; then
+        log_message "Using quiet Gunicorn configuration (suppressing connection errors)"
+        start_gunicorn "/app/scripts/gunicorn_quiet.py" "production (quiet)"
+    else
+        start_gunicorn "/app/scripts/gunicorn.py" "production"
+    fi
 fi

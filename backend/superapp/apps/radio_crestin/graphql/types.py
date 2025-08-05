@@ -293,6 +293,7 @@ class ShareLinkData:
     is_active: bool
     share_section_title: Optional[str] = None
     share_section_message: Optional[str] = None
+    share_station_message: Optional[str] = None
 
 @strawberry.type
 class CreateShareLinkResponse:

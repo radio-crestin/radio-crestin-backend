@@ -13,8 +13,8 @@ from strawberry import BasePermission
 from strawberry_django.auth.utils import get_current_user
 
 from .types import (
-    ListeningEventInput, 
-    SubmitListeningEventsResponse, 
+    ListeningEventInput,
+    SubmitListeningEventsResponse,
     TriggerMetadataFetchResponse,
     CreateShareLinkInput,
     CreateShareLinkResponse,
@@ -143,107 +143,50 @@ class Mutation:
                 success=False,
                 message=f"Error scheduling metadata fetch: {str(e)}"
             )
-    
-    @strawberry_django.mutation(handle_django_errors=True)
-    def create_share_link(self, input: CreateShareLinkInput) -> CreateShareLinkResponse:
-        """Create a share link for a user with optional station"""
-        logger = logging.getLogger(__name__)
-        
-        try:
-            # Upsert user with provided information
-            user = ShareLinkService.upsert_user(
-                anonymous_id=input.anonymous_id,
-                first_name=input.first_name,
-                last_name=input.last_name,
-                email=input.email
-            )
-            
-            # Create or get the unique share link for this user
-            share_link = ShareLinkService.upsert_share_link(user=user)
-            
-            # Create share message template
-            share_message = "Te invit să asculți acest post de Radio Creștin: {url}?s={share_id}"
-            
-            # Create share section title and message with visitor count
-            share_section_title = "Ajută la răspândirea Evangheliei"
-            share_section_message = (
-                "Ajută la răspândirea Evangheliei prin intermediul radioului creștin. "
-                "Apasă aici pentru a trimite această aplicație prietenilor tăi.\n"
-                f"Numărul de utilizatori invitați: {share_link.visit_count} utilizatori"
-            )
-            
-            # Prepare response data
-            share_link_data = ShareLinkData(
-                share_id=share_link.share_id,
-                url=share_link.get_root_url(),
-                share_message=share_message.format(
-                    url=share_link.get_root_url(),
-                    share_id=share_link.share_id
-                ),
-                visit_count=share_link.visit_count,
-                created_at=share_link.created_at.isoformat(),
-                is_active=share_link.is_active,
-                share_section_title=share_section_title,
-                share_section_message=share_section_message
-            )
-            
-            return CreateShareLinkResponse(
-                success=True,
-                message="Share link created successfully",
-                share_link=share_link_data
-            )
-            
-        except Exception as e:
-            logger.error(f"Error creating share link: {e}")
-            return CreateShareLinkResponse(
-                success=False,
-                message=f"Error creating share link: {str(e)}"
-            )
-    
+
     @strawberry_django.mutation(handle_django_errors=True)
     def get_share_link(self, anonymous_id: str) -> GetShareLinkResponse:
         """Get or create the unique share link for a user"""
         logger = logging.getLogger(__name__)
-        
+
         try:
             # Get share link info from service (will create user and link if needed)
             result = ShareLinkService.get_share_link_info(anonymous_id)
-            
+
             # Convert to GraphQL type
             link_info = result['share_link']
-            
+
             # Create share message template
-            share_message = "Te invit să asculți acest post de Radio Creștin: {url}?s={share_id}"
-            
+            share_message = "Te invit să asculți acest post de Radio Creștin: {url}"
+
+            # Create station-specific share message template for client-side rendering
+            share_station_message = "Te invit să asculți {station_name}: {url}"
+
             # Create share section title and message with visitor count
             share_section_title = "Ajută la răspândirea Evangheliei"
             share_section_message = (
-                "Ajută la răspândirea Evangheliei prin intermediul radioului creștin. "
-                "Apasă aici pentru a trimite această aplicație prietenilor tăi.\n"
-                f"Numărul de utilizatori invitați: {link_info['visit_count']} utilizatori"
+                "Trimite această aplicație prietenilor tăi pentru a-L cunoaște pe Mântuitorul și Salvatorul lumii."
             )
-            
+
             share_link_data = ShareLinkData(
                 share_id=link_info['share_id'],
                 url=link_info['root_url'],
-                share_message=share_message.format(
-                    url=link_info['root_url'],
-                    share_id=link_info['share_id']
-                ),
+                share_message=share_message,
                 visit_count=link_info['visit_count'],
                 created_at=link_info['created_at'],
                 is_active=link_info['is_active'],
                 share_section_title=share_section_title,
-                share_section_message=share_section_message
+                share_section_message=share_section_message,
+                share_station_message=share_station_message
             )
-            
+
             return GetShareLinkResponse(
                 success=True,
                 message="Share link retrieved successfully",
                 anonymous_id=anonymous_id,
                 share_link=share_link_data
             )
-            
+
         except Exception as e:
             logger.error(f"Error getting share link: {e}")
             return GetShareLinkResponse(

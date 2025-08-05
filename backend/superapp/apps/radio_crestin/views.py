@@ -1,19 +1,15 @@
 from django.contrib.admin.views.autocomplete import AutocompleteJsonView
-from django.http import JsonResponse, HttpResponseRedirect, HttpResponse
+from django.http import JsonResponse, HttpResponse
 from django.db.models import Q
 from django.urls import reverse
-from django.utils import timezone
 from django.views import View
 from django.shortcuts import redirect
 import json
-from strawberry.django.context import StrawberryDjangoContext
 import logging
 
 from .models import Songs, Artists
 from .services import AutocompleteService
 from .services.share_link_service import ShareLinkService
-from .constants import STATIONS_GRAPHQL_QUERY
-from superapp.apps.graphql.schema import schema
 
 
 class FastSongAutocompleteView(AutocompleteJsonView):
@@ -105,54 +101,6 @@ def api_autocomplete(request):
         return JsonResponse({'error': str(e)}, status=400)
 
 
-def api_v1_stations(request):
-    """
-    API endpoint that redirects to a timestamped URL and executes GraphQL query with cache headers.
-    """
-    # Get current timestamp rounded to 10 seconds
-    current_timestamp = timezone.now().timestamp()
-    rounded_timestamp = int(current_timestamp // 10) * 10
-
-    # Check if we already have the timestamp parameter
-    timestamp_param = request.GET.get('timestamp')
-
-    if not timestamp_param:
-        # Redirect to the same URL with timestamp parameter
-        redirect_url = f"{request.path}?timestamp={rounded_timestamp}"
-        return HttpResponseRedirect(redirect_url)
-
-    # Execute GraphQL query
-    graphql_query = STATIONS_GRAPHQL_QUERY
-
-    try:
-        # Create a response object that will be used for the context
-        response = HttpResponse()
-
-        # Create a context for the GraphQL execution
-        context = StrawberryDjangoContext(request=request, response=response)
-
-        # Execute the GraphQL query directly using Strawberry schema
-        result = schema.execute_sync(
-            graphql_query,
-            context_value=context
-        )
-
-        # Prepare response data
-        response_data = {"data": result.data}
-
-        if result.errors:
-            response_data["errors"] = [
-                {"message": str(error)} for error in result.errors
-            ]
-
-        # Create response with cache headers
-        json_response = JsonResponse(response_data)
-        json_response['Cache-Control'] = 'public, max-age=14400, immutable'
-
-        return json_response
-
-    except Exception as e:
-        return JsonResponse({'error': f'Unexpected error: {str(e)}'}, status=500)
 
 
 class ShareLinkRedirectView(View):
@@ -369,80 +317,3 @@ class ShareLinkRedirectView(View):
         return redirect(target_url)
 
 
-def get_share_link_api(request, anonymous_id):
-    """API endpoint to get or create share link for a user"""
-    logger = logging.getLogger(__name__)
-    
-    try:
-        # Get share link info from service (will create user and link if needed)
-        result = ShareLinkService.get_share_link_info(anonymous_id)
-        
-        # Convert to GraphQL mutation response format
-        link_info = result['share_link']
-        
-        # Create share message template
-        share_message = "Te invit să asculți acest post de Radio Creștin: {url}?s={share_id}"
-        
-        # Create share section title and message with visitor count
-        share_section_title = "Ajută la răspândirea Evangheliei"
-        share_section_message = (
-            "Ajută la răspândirea Evangheliei prin intermediul radioului creștin. "
-            "Apasă aici pentru a trimite această aplicație prietenilor tăi.\n"
-            f"Numărul de utilizatori invitați: {link_info['visit_count']} utilizatori"
-        )
-        
-        # Build GraphQL-compatible response
-        graphql_response = {
-            'get_share_link': {
-                '__typename': 'GetShareLinkResponse',
-                'success': True,
-                'message': 'Share link retrieved successfully',
-                'anonymous_id': anonymous_id,
-                'share_link': {
-                    'share_id': link_info['share_id'],
-                    'url': link_info['root_url'],
-                    'share_message': share_message.format(
-                        url=link_info['root_url'],
-                        share_id=link_info['share_id']
-                    ),
-                    'visit_count': link_info['visit_count'],
-                    'created_at': link_info['created_at'],
-                    'is_active': link_info['is_active'],
-                    'share_section_title': share_section_title,
-                    'share_section_message': share_section_message
-                }
-            }
-        }
-        
-        # Add CORS headers if needed
-        response = JsonResponse(graphql_response)
-        response['Access-Control-Allow-Origin'] = '*'
-        response['Access-Control-Allow-Methods'] = 'GET'
-        response['Cache-Control'] = 'no-cache'
-        
-        return response
-        
-    except Exception as e:
-        logger.error(f"Error in get_share_link_api: {e}")
-        
-        # Return error in GraphQL mutation format
-        error_response = {
-            'get_share_link': {
-                '__typename': 'OperationInfo',
-                'messages': [
-                    {
-                        'kind': 'error',
-                        'code': 'INTERNAL_ERROR',
-                        'message': str(e),
-                        'field': None
-                    }
-                ]
-            }
-        }
-        
-        response = JsonResponse(error_response, status=500)
-        response['Access-Control-Allow-Origin'] = '*'
-        response['Access-Control-Allow-Methods'] = 'GET'
-        response['Cache-Control'] = 'no-cache'
-        
-        return response

@@ -34,6 +34,26 @@ errorlog = "-"
 loglevel = "info"
 access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s" %(D)s'
 
+# Suppress connection abort errors
+import logging
+logging.getLogger("gunicorn.error").setLevel(logging.WARNING)
+
+# Custom error filter to suppress specific errors
+class ConnectionErrorFilter(logging.Filter):
+    """Filter out connection-related errors"""
+    def filter(self, record):
+        # Filter out "no URI read" errors
+        if "no URI read" in record.getMessage():
+            return False
+        # Filter out SystemExit from connection aborts
+        if "SystemExit: 1" in record.getMessage():
+            return False
+        return True
+
+# Apply filter to Gunicorn error logger
+gunicorn_error_logger = logging.getLogger("gunicorn.error")
+gunicorn_error_logger.addFilter(ConnectionErrorFilter())
+
 # Process naming
 proc_name = "gunicorn_superapp"
 
@@ -61,8 +81,41 @@ graceful_timeout = 30
 shutdown_timeout = 30
 
 # Performance tuning
-worker_class = "sync"  # Use "gevent" for async workloads, "sync" for CPU-bound tasks
+worker_class = "sync"  # Use standard sync worker
 threads = 2
+
+# Monkey-patch the sync worker to handle connection aborts quietly
+def patch_worker():
+    """Patch Gunicorn worker to suppress connection errors"""
+    try:
+        from gunicorn.workers.sync import SyncWorker
+        original_handle = SyncWorker.handle
+        
+        def quiet_handle(self, listener, client, addr):
+            try:
+                return original_handle(self, listener, client, addr)
+            except SystemExit as e:
+                if e.code == 1:
+                    # Connection abort - suppress silently
+                    pass
+                else:
+                    raise
+            except Exception as e:
+                if "no URI read" in str(e):
+                    # Known connection issue - suppress
+                    pass
+                else:
+                    raise
+        
+        SyncWorker.handle = quiet_handle
+    except ImportError:
+        pass  # Gunicorn not available in this context
+
+# Apply the patch when workers are forked
+def post_fork(server, worker):
+    """Called just after a worker has been forked."""
+    patch_worker()
+    server.log.info("Worker spawned (pid: %s)", worker.pid)
 
 # Environment
 raw_env = [
@@ -88,11 +141,7 @@ def worker_int(worker):
 
 def pre_fork(server, worker):
     """Called just before a worker is forked."""
-    server.log.info("Worker spawned (pid: %s)", worker.pid)
-
-def post_fork(server, worker):
-    """Called just after a worker has been forked."""
-    server.log.info("Worker spawned (pid: %s)", worker.pid)
+    server.log.info("Worker spawning (pid: %s)", worker.pid)
 
 def post_worker_init(worker):
     """Called just after a worker has initialized the application."""
@@ -101,3 +150,19 @@ def post_worker_init(worker):
 def worker_abort(worker):
     """Called when a worker received the SIGABRT signal."""
     worker.log.info("Worker received SIGABRT signal")
+
+def pre_request(worker, req):
+    """Called just before a worker processes the request."""
+    # Skip logging for health check endpoints to reduce noise
+    if req.path in ['/health', '/ready']:
+        req.skip_logging = True
+    worker.log.debug("%s %s", req.method, req.path)
+
+def post_request(worker, req, environ, resp):
+    """Called after a worker processes the request."""
+    # Skip logging for health checks
+    if hasattr(req, 'skip_logging') and req.skip_logging:
+        return
+    # Log successful requests at debug level
+    if resp.status_code < 400:
+        worker.log.debug("%s %s %s", req.method, req.path, resp.status_code)
