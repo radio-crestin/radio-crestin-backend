@@ -38,7 +38,7 @@ class StationsApiEndpoint(RestApiEndpoint):
         rounded_timestamp = int(current_timestamp // 10) * 10
 
         # Check if we already have the timestamp parameter
-        timestamp_param = request.GET.get('timestamp')
+        timestamp_param = request.GET.get('timestamp') or request.GET.get('_t')
 
         if not timestamp_param:
             # Return redirect response
