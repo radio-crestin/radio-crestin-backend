@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from .artists import Artists
+from ...storage.config import PublicS3Storage
 
 
 class Songs(models.Model):
@@ -8,7 +9,13 @@ class Songs(models.Model):
     updated_at = models.DateTimeField(_("Updated at"), auto_now=True)
     name = models.TextField(_("Name"))
     artist = models.ForeignKey(Artists, verbose_name=_("Artist"), on_delete=models.CASCADE, null=True, blank=True)
-    thumbnail = models.ImageField(_("Thumbnail"), blank=True, null=True)
+    thumbnail = models.ImageField(
+        _("Thumbnail"),
+        storage=PublicS3Storage,
+        upload_to='songs/',
+        blank=True,
+        null=True,
+    )
     thumbnail_url = models.URLField(_("Thumbnail URL"), blank=True, null=True)
     dirty_metadata = models.BooleanField(_("Dirty Metadata"), default=False, help_text=_("Created from automatic metadata scraping (eligible for cleanup)"))
 

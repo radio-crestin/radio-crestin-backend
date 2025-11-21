@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from .station_groups import StationGroups
+from ...storage.config import PublicS3Storage
 
 
 class Stations(models.Model):
@@ -15,7 +16,13 @@ class Stations(models.Model):
     email = models.TextField(_("Email"), blank=True, null=False, default="")
     generate_hls_stream = models.BooleanField(_("Generate HLS Stream"), default=True)
     stream_url = models.URLField(_("Stream URL"))
-    thumbnail = models.ImageField(_("Thumbnail"), blank=True, null=True)
+    thumbnail = models.ImageField(
+        _("Thumbnail"),
+        storage=PublicS3Storage,
+        upload_to='stations/',
+        blank=True,
+        null=True,
+    )
     thumbnail_url = models.URLField(_("Thumbnail URL"), blank=True, null=True)
     description = models.TextField(_("Description"), blank=True, null=True)
     description_action_title = models.TextField(_("Description Action Title"), blank=True, null=True)

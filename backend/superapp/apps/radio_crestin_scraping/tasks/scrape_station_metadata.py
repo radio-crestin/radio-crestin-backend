@@ -1,6 +1,8 @@
 import json
 import logging
 import uuid
+import hashlib
+import requests
 from typing import Dict, Any, Optional
 from celery import shared_task
 from django.utils import timezone
@@ -11,6 +13,80 @@ from ..services.station_service import StationService
 from .utils import run_scraper, merge_metadata_results
 
 logger = logging.getLogger(__name__)
+
+
+# Cache for reference image hash to avoid re-calculating
+_REFERENCE_IMAGE_HASH_CACHE = None
+
+
+def get_image_hash(image_url: str, timeout: int = 5) -> Optional[str]:
+    """
+    Fetch an image from URL and return its MD5 hash.
+
+    Args:
+        image_url: URL of the image to fetch
+        timeout: Request timeout in seconds
+
+    Returns:
+        MD5 hash of the image content, or None if fetch fails
+    """
+    try:
+        response = requests.get(image_url, timeout=timeout)
+        response.raise_for_status()
+        return hashlib.md5(response.content).hexdigest()
+    except Exception as e:
+        logger.debug(f"Failed to fetch image from {image_url}: {e}")
+        return None
+
+
+def get_reference_colinde_thumbnail_hash() -> Optional[str]:
+    """
+    Get the hash of the reference colinde thumbnail image.
+    Uses caching to avoid repeated file reads.
+
+    Returns:
+        MD5 hash of the reference image, or None if file doesn't exist
+    """
+    global _REFERENCE_IMAGE_HASH_CACHE
+
+    if _REFERENCE_IMAGE_HASH_CACHE is not None:
+        return _REFERENCE_IMAGE_HASH_CACHE
+
+    try:
+        # Try to read the reference image from local filesystem
+        reference_path = settings.BASE_DIR / 'assets' / 'asc_colinde_thumbnail.jpg'
+        if reference_path.exists():
+            with open(reference_path, 'rb') as f:
+                _REFERENCE_IMAGE_HASH_CACHE = hashlib.md5(f.read()).hexdigest()
+                return _REFERENCE_IMAGE_HASH_CACHE
+    except Exception as e:
+        logger.debug(f"Failed to read reference image: {e}")
+
+    return None
+
+
+def is_same_as_reference_colinde_thumbnail(thumbnail_url: str) -> bool:
+    """
+    Check if the thumbnail at the given URL is the same as the reference colinde thumbnail.
+
+    Args:
+        thumbnail_url: URL of the thumbnail to check
+
+    Returns:
+        True if the images have the same hash, False otherwise
+    """
+    if not thumbnail_url:
+        return False
+
+    reference_hash = get_reference_colinde_thumbnail_hash()
+    if not reference_hash:
+        return False
+
+    image_hash = get_image_hash(thumbnail_url)
+    if not image_hash:
+        return False
+
+    return image_hash == reference_hash
 
 
 @shared_task(name='radio_crestin_scraping.scrape_station_metadata', time_limit=30)
@@ -119,7 +195,17 @@ def scrape_station_metadata(station_id: int) -> Dict[str, Any]:
                         thumbnail_value = str(thumbnail_value[0]) if thumbnail_value else ''
                     else:
                         thumbnail_value = str(thumbnail_value) if thumbnail_value else ''
-                    
+
+                    # Validate thumbnail_value and clean up invalid aripisprecer.ro thumbnails
+                    if thumbnail_value:
+                        # Check for na.png from aripisprecer.ro
+                        if 'na.png' in thumbnail_value and 'aripisprecer.ro' in thumbnail_value:
+                            thumbnail_value = ''
+                        # Check if thumbnail is the same as reference colinde thumbnail by comparing image hashes
+                        elif 'aripisprecer.ro' in thumbnail_value:
+                            if is_same_as_reference_colinde_thumbnail(thumbnail_value):
+                                thumbnail_value = ''
+
                     current_song = SongData(
                         name=name_value,
                         artist=artist_value,
