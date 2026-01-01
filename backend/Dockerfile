@@ -37,8 +37,8 @@ RUN #python manage.py compilemessages
 VOLUME /app/.next/cache
 RUN useradd -m -u 1001 -s /bin/bash app && \
     mkdir -p /app/.next/cache && \
-    chown -R app:app /app/.next && \
-    chmod -R 755 /app/.next
+    chown -R app:app /app && \
+    chmod -R 755 /app
 USER 1001
 
 # Install curl for healthcheck

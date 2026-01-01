@@ -267,11 +267,30 @@ class Mutation:
 
     @staticmethod
     def _get_client_ip(request) -> str:
-        """Extract client IP from request, handling proxies."""
+        """
+        Extract client IP from request, handling various proxy configurations.
+
+        Checks headers in order of priority:
+        1. CF-Connecting-IP (Cloudflare)
+        2. X-Real-IP (Nginx proxy_set_header X-Real-IP)
+        3. X-Forwarded-For (Standard proxy header, takes first IP)
+        4. REMOTE_ADDR (Direct connection fallback)
+        """
+        # Cloudflare
+        cf_connecting_ip = request.META.get('HTTP_CF_CONNECTING_IP')
+        if cf_connecting_ip:
+            return cf_connecting_ip.strip()
+
+        # Nginx X-Real-IP (single IP set by proxy)
+        x_real_ip = request.META.get('HTTP_X_REAL_IP')
+        if x_real_ip:
+            return x_real_ip.strip()
+
+        # X-Forwarded-For (may contain chain of IPs: client, proxy1, proxy2)
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
             # Take the first IP in the chain (original client)
-            ip = x_forwarded_for.split(',')[0].strip()
-        else:
-            ip = request.META.get('REMOTE_ADDR', '')
-        return ip
+            return x_forwarded_for.split(',')[0].strip()
+
+        # Direct connection
+        return request.META.get('REMOTE_ADDR', '')
