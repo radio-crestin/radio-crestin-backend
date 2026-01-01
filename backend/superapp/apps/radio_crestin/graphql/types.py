@@ -248,12 +248,33 @@ class StationGroupType:
     station_to_station_groups: List[StationToStationGroupType] = strawberry_django.field(field_name="station_to_station_groups")
 
 
-# Placeholder for reviews type since it's not in the current Django schema
+# Review types for GraphQL API
 @strawberry.type
 class ReviewType:
     id: int
+    station_id: int
     stars: int
+    message: Optional[str]
+    user_identifier: Optional[str]
+    created_at: str
+    updated_at: str
+    verified: bool
+
+
+@strawberry.input
+class SubmitReviewInput:
+    station_id: int
+    stars: int = 5  # Default to 5 stars, validated in service to be 0-5
+    message: Optional[str] = None
+    user_identifier: Optional[str] = None
+
+
+@strawberry.type
+class SubmitReviewResponse:
+    success: bool
     message: str
+    review: Optional[ReviewType] = None
+    created: bool = False
 
 
 @strawberry.type

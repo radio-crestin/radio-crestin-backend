@@ -19,10 +19,14 @@ from .types import (
     CreateShareLinkInput,
     CreateShareLinkResponse,
     GetShareLinkResponse,
-    ShareLinkData
+    ShareLinkData,
+    SubmitReviewInput,
+    SubmitReviewResponse,
+    ReviewType
 )
 from ..models import Stations, ListeningSessions
 from ..services.share_link_service import ShareLinkService
+from ..services.review_service import ReviewService
 
 
 class IsSuperuser(BasePermission):
@@ -194,3 +198,80 @@ class Mutation:
                 message=f"Error getting share link: {str(e)}",
                 anonymous_id=anonymous_id
             )
+
+    @strawberry_django.mutation(handle_django_errors=True)
+    def submit_review(self, info: strawberry.Info, input: SubmitReviewInput) -> SubmitReviewResponse:
+        """
+        Submit or update a review for a radio station.
+
+        Reviews are unique per IP address and station. If the same IP submits
+        another review for the same station, the existing review is updated.
+        """
+        logger = logging.getLogger(__name__)
+
+        try:
+            # Extract IP address from request
+            request = info.context.request
+            ip_address = Mutation._get_client_ip(request)
+
+            if not ip_address:
+                return SubmitReviewResponse(
+                    success=False,
+                    message="Could not determine client IP address",
+                    created=False
+                )
+
+            # Use the ReviewService to upsert the review
+            result = ReviewService.upsert(
+                station_id=input.station_id,
+                ip_address=ip_address,
+                stars=input.stars,
+                message=input.message,
+                user_identifier=input.user_identifier
+            )
+
+            review_data = result['review']
+            review_type = ReviewType(
+                id=review_data['id'],
+                station_id=review_data['station_id'],
+                stars=review_data['stars'],
+                message=review_data['message'],
+                user_identifier=review_data['user_identifier'],
+                created_at=review_data['created_at'],
+                updated_at=review_data['updated_at'],
+                verified=review_data['verified']
+            )
+
+            action = "created" if result['created'] else "updated"
+            return SubmitReviewResponse(
+                success=True,
+                message=f"Review {action} successfully",
+                review=review_type,
+                created=result['created']
+            )
+
+        except ValueError as e:
+            logger.warning(f"Validation error in submit_review: {e}")
+            return SubmitReviewResponse(
+                success=False,
+                message=str(e),
+                created=False
+            )
+        except Exception as e:
+            logger.error(f"Error submitting review: {e}")
+            return SubmitReviewResponse(
+                success=False,
+                message=f"Error submitting review: {str(e)}",
+                created=False
+            )
+
+    @staticmethod
+    def _get_client_ip(request) -> str:
+        """Extract client IP from request, handling proxies."""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            # Take the first IP in the chain (original client)
+            ip = x_forwarded_for.split(',')[0].strip()
+        else:
+            ip = request.META.get('REMOTE_ADDR', '')
+        return ip
