@@ -7,7 +7,7 @@ class StationToStationGroup(models.Model):
     updated_at = models.DateTimeField(_("Updated at"), auto_now=True)
     station = models.ForeignKey('Stations', verbose_name=_("Station"), on_delete=models.CASCADE, related_name='station_to_station_groups')
     group = models.ForeignKey('StationGroups', verbose_name=_("Group"), on_delete=models.CASCADE, related_name='station_to_station_groups')
-    order = models.IntegerField(_("Order"), default=0)
+    order = models.IntegerField(_("Order"), default=0) # Deprecated, use station_to_station_group_order
     station_to_station_group_order = models.FloatField(_("Station to Station Group Order"), blank=True, null=True, default=0)
 
     class Meta:

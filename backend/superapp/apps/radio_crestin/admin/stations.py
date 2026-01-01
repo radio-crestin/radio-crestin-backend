@@ -32,14 +32,14 @@ class StationToStationGroupInline(SuperAppTabularInline):
     fk_name = 'station'
     extra = 0
     autocomplete_fields = ['group']
-    fields = ['group', 'order']
+    fields = ['group', 'station_to_station_group_order']
 
 
 class StationStreamsInline(SuperAppTabularInline):
     model = StationStreams
     fk_name = 'station'
     extra = 0
-    fields = ['stream_url', 'type', 'order']
+    fields = ['stream_url', 'type', 'station_stream_order']
 
 
 class StationsMetadataFetchInline(SuperAppStackedInline):
@@ -69,7 +69,7 @@ class StationsAdmin(SuperAppModelAdmin):
 
     fieldsets = (
         (_("Basic Information"), {
-            'fields': ('title', 'slug', 'order', 'disabled', 'website', 'email')
+            'fields': ('title', 'slug', 'station_order', 'disabled', 'website', 'email')
         }),
         (_("Streaming"), {
             'fields': ('stream_url', 'generate_hls_stream')

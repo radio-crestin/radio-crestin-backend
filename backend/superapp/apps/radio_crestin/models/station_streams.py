@@ -13,7 +13,7 @@ class StationStreams(models.Model):
     updated_at = models.DateTimeField(_("Updated at"), auto_now=True)
     station = models.ForeignKey('Stations', verbose_name=_("Station"), on_delete=models.CASCADE, related_name='station_streams')
     stream_url = models.TextField(_("Stream URL"))
-    order = models.IntegerField(_("Order"), default=0)
+    order = models.IntegerField(_("Order"), default=0) # Deprecated, use station_stream_order
     station_stream_order = models.FloatField(_("Station Stream Order"), blank=True, null=True, default=0)
     type = models.TextField(_("Type"), choices=STREAM_TYPES)
 
@@ -23,7 +23,7 @@ class StationStreams(models.Model):
         verbose_name_plural = _("Station Streams")
         db_table = 'station_streams'
         unique_together = (('station', 'stream_url'),)
-        ordering = ('station', 'order',)
+        ordering = ('station', 'station_stream_order',)
 
     def __str__(self):
         return f"{self.station}->{self.stream_url}"

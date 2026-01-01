@@ -47,7 +47,7 @@ class Stations(models.Model):
         verbose_name = _("Station")
         verbose_name_plural = _("Stations")
         db_table = 'stations'
-        ordering = ('order', 'title',)
+        ordering = ('station_order', 'title',)
 
     def __str__(self):
         return f"{self.title}"
