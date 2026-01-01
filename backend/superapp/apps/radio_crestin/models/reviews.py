@@ -48,7 +48,7 @@ class Reviews(models.Model):
     )
 
     message = models.TextField(_("Message"), blank=True, null=True)
-    verified = models.BooleanField(_("Verified"), default=False)
+    verified = models.BooleanField(_("Verified"), default=True)
 
     class Meta:
         managed = True
