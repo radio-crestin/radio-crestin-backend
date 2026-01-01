@@ -8,7 +8,7 @@ from ..models.share_links import generate_share_id
 
 class ShareLinkService:
     """Service for managing share links and tracking visits."""
-    
+
     @staticmethod
     @transaction.atomic
     def upsert_user(
@@ -20,11 +20,10 @@ class ShareLinkService:
         """
         Upsert a user based on anonymous_id.
         Creates a new user if not exists, updates if exists.
+        Handles edge case of duplicate anonymous_id records gracefully.
         """
-        user_data = {
-            'anonymous_id': anonymous_id,
-        }
-        
+        user_data = {}
+
         # Add optional fields if provided
         if first_name is not None:
             user_data['first_name'] = first_name
@@ -32,14 +31,22 @@ class ShareLinkService:
             user_data['last_name'] = last_name
         if email is not None:
             user_data['email'] = email
-        
-        # Upsert user (modified_at is auto-updated by auto_now=True)
-        user, created = AppUsers.objects.update_or_create(
-            anonymous_id=anonymous_id,
-            defaults=user_data
-        )
-        
-        return user
+
+        # Use filter().first() to handle potential duplicates gracefully
+        # This prevents MultipleObjectsReturned if duplicates exist in the database
+        existing_user = AppUsers.objects.filter(anonymous_id=anonymous_id).first()
+
+        if existing_user:
+            # Update existing user with provided fields
+            if user_data:
+                for key, value in user_data.items():
+                    setattr(existing_user, key, value)
+                existing_user.save(update_fields=list(user_data.keys()) + ['modified_at'])
+            return existing_user
+        else:
+            # Create new user
+            user_data['anonymous_id'] = anonymous_id
+            return AppUsers.objects.create(**user_data)
     
     @staticmethod
     @transaction.atomic
