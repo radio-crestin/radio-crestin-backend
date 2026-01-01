@@ -1,10 +1,14 @@
 import logging
 import time
+import urllib3
 from typing import Dict, Any, Optional
 
 import requests
 from django.conf import settings
 from django.utils import timezone
+
+# Suppress InsecureRequestWarning for uptime checks (we intentionally disable SSL verification)
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 from .base import BaseScraper
 from ..utils.data_types import StationUptimeData
@@ -182,7 +186,9 @@ class UptimeScraper(BaseScraper):
             }
             
             # Use GET request with streaming and minimal data read
-            response = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True, stream=True)
+            # Disable SSL verification for uptime checks since many radio stations have
+            # incomplete certificate chains or self-signed certificates
+            response = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True, stream=True, verify=False)
             
             # Read minimal data and close immediately
             response.raw.read(1024)
