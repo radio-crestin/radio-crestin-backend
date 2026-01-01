@@ -237,9 +237,28 @@ class StationType:
             return None
 
     @strawberry.field
-    def reviews(self) -> List[ReviewType]:
-        """Placeholder for reviews - not implemented in current schema"""
-        return []
+    def reviews(self) -> List["ReviewType"]:
+        """Get verified reviews for this station"""
+        from ..models import Reviews as ReviewsModel
+
+        reviews = ReviewsModel.objects.filter(
+            station_id=self.id,
+            verified=True
+        ).order_by('-created_at')
+
+        return [
+            ReviewType(
+                id=r.id,
+                station_id=r.station_id,
+                stars=r.stars,
+                message=r.message,
+                user_identifier=r.user_identifier,
+                created_at=r.created_at.isoformat(),
+                updated_at=r.updated_at.isoformat(),
+                verified=r.verified
+            )
+            for r in reviews
+        ]
 
 
 @strawberry_django.type(model=StationGroups, fields="__all__")
