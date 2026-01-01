@@ -4,7 +4,28 @@ Provides centralized configuration for private, public, and static file storage.
 """
 from os import environ
 from django.conf import settings
+from django.core.files.storage import FileSystemStorage
 from storages.backends.s3 import S3Storage
+
+
+def get_public_storage():
+    """
+    Returns the appropriate storage for public files based on environment configuration.
+    Uses PublicS3Storage if AWS_PUBLIC_ACCESS_KEY_ID is configured, otherwise FileSystemStorage.
+    """
+    if environ.get("AWS_PUBLIC_ACCESS_KEY_ID") and environ.get("AWS_PUBLIC_STORAGE_BUCKET_NAME"):
+        return PublicS3Storage()
+    return FileSystemStorage(location='media/public', base_url='/media/public/')
+
+
+def get_private_storage():
+    """
+    Returns the appropriate storage for private files based on environment configuration.
+    Uses PrivateS3Storage if AWS_PRIVATE_ACCESS_KEY_ID is configured, otherwise FileSystemStorage.
+    """
+    if environ.get("AWS_PRIVATE_ACCESS_KEY_ID") and environ.get("AWS_PRIVATE_STORAGE_BUCKET_NAME"):
+        return PrivateS3Storage()
+    return FileSystemStorage(location='media/private', base_url='/media/private/')
 
 
 class PrivateS3Storage(S3Storage):

@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from .station_groups import StationGroups
-from ...storage.config import PublicS3Storage
+from ...storage.config import get_public_storage
 
 
 class Stations(models.Model):
@@ -18,7 +18,7 @@ class Stations(models.Model):
     stream_url = models.URLField(_("Stream URL"))
     thumbnail = models.ImageField(
         _("Thumbnail"),
-        storage=PublicS3Storage,
+        storage=get_public_storage,
         upload_to='stations/',
         blank=True,
         null=True,

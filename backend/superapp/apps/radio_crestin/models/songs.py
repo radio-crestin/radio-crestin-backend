@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from .artists import Artists
-from ...storage.config import PublicS3Storage
+from ...storage.config import get_public_storage
 
 
 class Songs(models.Model):
@@ -11,7 +11,7 @@ class Songs(models.Model):
     artist = models.ForeignKey(Artists, verbose_name=_("Artist"), on_delete=models.CASCADE, null=True, blank=True)
     thumbnail = models.ImageField(
         _("Thumbnail"),
-        storage=PublicS3Storage,
+        storage=get_public_storage,
         upload_to='songs/',
         blank=True,
         null=True,
