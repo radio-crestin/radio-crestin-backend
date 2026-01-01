@@ -5,13 +5,12 @@ def remove_duplicate_anonymous_ids(apps, schema_editor):
     """
     Remove duplicate AppUsers records with the same anonymous_id,
     keeping only the oldest record (by id) for each anonymous_id.
-    Also handles related share_links by reassigning them to the kept user.
+    Deletes share_links from duplicate users (since user_id has a unique constraint).
     """
     from django.db import connection
 
     with connection.cursor() as cursor:
-        # First, find all duplicate anonymous_ids and their users
-        # For each duplicate group, reassign share_links to the user we're keeping (lowest id)
+        # Delete share_links from duplicate users (can't reassign due to unique constraint on user_id)
         cursor.execute("""
             WITH duplicates AS (
                 SELECT anonymous_id, MIN(id) as keep_id
@@ -21,31 +20,7 @@ def remove_duplicate_anonymous_ids(apps, schema_editor):
                 HAVING COUNT(*) > 1
             ),
             users_to_delete AS (
-                SELECT au.id as delete_id, d.keep_id
-                FROM app_users au
-                JOIN duplicates d ON au.anonymous_id = d.anonymous_id
-                WHERE au.id != d.keep_id
-            )
-            UPDATE share_links sl
-            SET user_id = utd.keep_id
-            FROM users_to_delete utd
-            WHERE sl.user_id = utd.delete_id
-        """)
-        reassigned_count = cursor.rowcount
-        if reassigned_count > 0:
-            print(f"Reassigned {reassigned_count} share_links to kept users")
-
-        # Also handle share_link_visits if they reference users
-        cursor.execute("""
-            WITH duplicates AS (
-                SELECT anonymous_id, MIN(id) as keep_id
-                FROM app_users
-                WHERE anonymous_id IS NOT NULL
-                GROUP BY anonymous_id
-                HAVING COUNT(*) > 1
-            ),
-            users_to_delete AS (
-                SELECT au.id as delete_id, d.keep_id
+                SELECT au.id as delete_id
                 FROM app_users au
                 JOIN duplicates d ON au.anonymous_id = d.anonymous_id
                 WHERE au.id != d.keep_id
@@ -55,7 +30,7 @@ def remove_duplicate_anonymous_ids(apps, schema_editor):
         """)
         deleted_links = cursor.rowcount
         if deleted_links > 0:
-            print(f"Deleted {deleted_links} orphaned share_links from duplicate users")
+            print(f"Deleted {deleted_links} share_links from duplicate users")
 
         # Now delete the duplicate app_users records
         cursor.execute("""

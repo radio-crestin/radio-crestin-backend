@@ -1,32 +1,42 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="migrate" type="PythonConfigurationType" factoryName="Python">
-    <module name="radio-crestin-backend" />
+    <module name="backend" />
+    <option name="ENV_FILES" value="$PROJECT_DIR$/backend/.env.local" />
     <option name="INTERPRETER_OPTIONS" value="" />
     <option name="PARENT_ENVS" value="true" />
     <envs>
       <env name="PYTHONUNBUFFERED" value="1" />
+      <env name="ALLOWED_HOSTS" value="" />
+      <env name="COMPOSE_PROJECT_NAME" value="radio_crestin" />
+      <env name="CSRF_TRUSTED_ORIGINS" value="" />
+      <env name="DATABASE_URL" value="postgres://postgres:yg78g98guigiugsiugsuhgiugsiviwuvuyvhjsvjhsgsg@10.5.100.125:5432/postgres" />
+      <env name="DEBUG" value="true" />
+      <env name="POSTGRES_PASSWORD" value="postgrespassword" />
+      <env name="REDIS_BROKER_URL" value="redis://:redispassword@127.0.0.1:6379" />
+      <env name="REDIS_PASSWORD" value="redispassword" />
+      <env name="SECRET_KEY" value="your_secret_key" />
     </envs>
-    <option name="SDK_HOME" value="$PROJECT_DIR$/backend/admin/venv/bin/python" />
-    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/backend/admin" />
+    <option name="SDK_HOME" value="" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/backend" />
     <option name="IS_MODULE_SDK" value="true" />
     <option name="ADD_CONTENT_ROOTS" value="true" />
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <EXTENSION ID="net.ashald.envfile">
-      <option name="IS_ENABLED" value="true" />
+      <option name="IS_ENABLED" value="false" />
       <option name="IS_SUBST" value="false" />
       <option name="IS_PATH_MACRO_SUPPORTED" value="false" />
       <option name="IS_IGNORE_MISSING_FILES" value="false" />
       <option name="IS_ENABLE_EXPERIMENTAL_INTEGRATIONS" value="false" />
       <ENTRIES>
         <ENTRY IS_ENABLED="true" PARSER="runconfig" IS_EXECUTABLE="false" />
-        <ENTRY IS_ENABLED="true" PARSER="env" IS_EXECUTABLE="false" PATH="backend/admin/.env" />
       </ENTRIES>
     </EXTENSION>
-    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/backend/admin/manage.py" />
+    <option name="RUN_TOOL" value="" />
+    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/backend/manage.py" />
     <option name="PARAMETERS" value="migrate" />
     <option name="SHOW_COMMAND_LINE" value="false" />
-    <option name="EMULATE_TERMINAL" value="true" />
+    <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />
     <option name="REDIRECT_INPUT" value="false" />
     <option name="INPUT_FILE" value="" />
