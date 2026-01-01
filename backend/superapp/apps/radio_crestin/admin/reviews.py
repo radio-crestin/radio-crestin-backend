@@ -9,18 +9,21 @@ from ..models import Reviews
 
 @admin.register(Reviews, site=superapp_admin_site)
 class ReviewsAdmin(SuperAppModelAdmin):
-    list_display = ['user', 'station', 'stars_display', 'message_preview', 'verified_status', 'created_at']
-    list_filter = ['stars', 'verified', 'created_at']
-    search_fields = ['user__email', 'user__anonymous_id', 'station__title', 'message']
+    list_display = ['station', 'ip_address', 'user_identifier', 'stars_display', 'message_preview', 'verified_status', 'created_at']
+    list_filter = ['stars', 'verified', 'created_at', 'station']
+    search_fields = ['ip_address', 'user_identifier', 'station__title', 'message', 'user__email', 'user__anonymous_id']
     autocomplete_fields = ['user', 'station']
-    readonly_fields = ['created_at', 'updated_at', 'stars_display']
+    readonly_fields = ['created_at', 'updated_at', 'stars_display', 'ip_address']
     date_hierarchy = 'created_at'
     ordering = ['-created_at']
     actions = ['verify_reviews', 'unverify_reviews']
-    
+
     fieldsets = (
         (_("Review Details"), {
-            'fields': ('user', 'station', 'stars', 'stars_display', 'message')
+            'fields': ('station', 'stars', 'stars_display', 'message')
+        }),
+        (_("Reviewer Info"), {
+            'fields': ('ip_address', 'user_identifier', 'user')
         }),
         (_("Status"), {
             'fields': ('verified',)
