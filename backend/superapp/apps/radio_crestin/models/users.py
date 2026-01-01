@@ -15,7 +15,7 @@ class AppUsers(models.Model):
     date_joined = models.DateTimeField(auto_now_add=True)
 
     # Custom fields added to the existing table
-    anonymous_id = models.CharField(max_length=512, blank=True, null=True)
+    anonymous_id = models.CharField(max_length=512, blank=True, null=True, unique=True)
     anonymous_id_verified = models.DateTimeField(blank=True, null=True)
     email_verified = models.DateTimeField(blank=True, null=True)
     phone_number = models.CharField(max_length=255, blank=True, null=True)
