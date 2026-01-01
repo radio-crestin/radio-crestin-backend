@@ -65,6 +65,8 @@ query GetStations @cache_control(max_age: 30, max_stale: 30, stale_while_revalid
       id
       stars
       message
+      created_at
+      updated_at
     }
   }
   station_groups {
