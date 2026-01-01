@@ -4,6 +4,7 @@ REST API endpoint definitions for radio_crestin app
 This module defines REST API endpoints that are backed by GraphQL queries/mutations.
 """
 
+import json
 from django.utils import timezone
 from typing import Dict, Any, Optional
 
@@ -116,8 +117,86 @@ class ShareLinksApiEndpoint(RestApiEndpoint):
         }
 
 
+class ReviewsApiEndpoint(RestApiEndpoint):
+    """
+    REST API endpoint for submitting station reviews.
+
+    POST /api/v1/reviews/
+    Body: { "station_id": int, "stars": int, "message": string?, "user_identifier": string? }
+
+    Reviews are unique per IP address and station. If the same IP submits
+    another review for the same station, the existing review is updated.
+    """
+
+    path = "api/v1/reviews/"
+    name = "api_v1_reviews"
+    method = HttpMethod.POST
+    cache_control = "no-cache"
+    cors_enabled = True
+
+    # GraphQL mutation for submitting reviews
+    graphql_query = """
+    mutation SubmitReview($input: SubmitReviewInput!) {
+      submit_review(input: $input) {
+        __typename
+        ... on SubmitReviewResponse {
+          success
+          message
+          created
+          review {
+            id
+            station_id
+            stars
+            message
+            user_identifier
+            created_at
+            updated_at
+            verified
+          }
+        }
+        ... on OperationInfo {
+          __typename
+          messages {
+            code
+            field
+            kind
+            message
+          }
+        }
+      }
+    }
+    """
+
+    @staticmethod
+    def variable_extractor(request, **kwargs) -> Dict[str, Any]:
+        """
+        Extract GraphQL variables from request body.
+
+        Args:
+            request: Django request object
+            **kwargs: URL parameters
+
+        Returns:
+            Dict with GraphQL variables
+        """
+        try:
+            body = json.loads(request.body.decode('utf-8'))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            body = {}
+
+        return {
+            'input': {
+                'station_id': body.get('station_id'),
+                'stars': body.get('stars'),
+                'message': body.get('message'),
+                'user_identifier': body.get('user_identifier'),
+            }
+        }
+
+
 # List of endpoint classes to register
 REST_ENDPOINTS = [
     StationsApiEndpoint,
     ShareLinksApiEndpoint,
+    ReviewsApiEndpoint,
 ]
