@@ -9,10 +9,22 @@ from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.conf import settings
 import unfold.decorators
+from import_export import resources
 
 from superapp.apps.admin_portal.admin import SuperAppModelAdmin, SuperAppTabularInline, SuperAppStackedInline
 from superapp.apps.admin_portal.sites import superapp_admin_site
 from ..models import Stations, StationToStationGroup, StationStreams, StationsMetadataFetch
+
+
+class StationResource(resources.ModelResource):
+    """
+    Custom resource for Station import/export.
+    Excludes FK fields that cause deadlocks during import due to circular relationships.
+    """
+    class Meta:
+        model = Stations
+        exclude = ('latest_station_uptime', 'latest_station_now_playing')
+        import_id_fields = ('id',)
 
 
 class StationToStationGroupInline(SuperAppTabularInline):
@@ -47,12 +59,13 @@ class StationsMetadataFetchInline(SuperAppStackedInline):
 
 @admin.register(Stations, site=superapp_admin_site)
 class StationsAdmin(SuperAppModelAdmin):
+    resource_class = StationResource
     list_display = ['title', 'status_indicator', 'thumbnail_preview', 'station_order', 'website_link', 'groups_display', 'latest_uptime_status']
     list_filter = ['disabled', 'generate_hls_stream', 'feature_latest_post', 'groups', 'created_at']
     search_fields = ['title', 'slug', 'website', 'email']
     prepopulated_fields = {'slug': ('title',)}
     autocomplete_fields = ['latest_station_uptime', 'latest_station_now_playing']
-    readonly_fields = ['thumbnail_url', 'created_at', 'updated_at', 'thumbnail_preview', 'now_playing_display', 'order']
+    readonly_fields = ['thumbnail_url', 'created_at', 'updated_at', 'thumbnail_preview', 'now_playing_display',]
 
     fieldsets = (
         (_("Basic Information"), {
@@ -183,16 +196,14 @@ class StationsAdmin(SuperAppModelAdmin):
 
     def _execute_station_tasks(self, station_id, sync=True):
         """Execute station tasks either synchronously (.apply) or asynchronously (.delay)"""
-        from superapp.apps.radio_crestin_scraping.tasks.scraping_tasks import (
-            scrape_station_metadata,
-            scrape_station_rss_feed,
-        )
-        from superapp.apps.radio_crestin_scraping.tasks.uptime_tasks import check_station_uptime_ffmpeg
+        from superapp.apps.radio_crestin_scraping.tasks.scrape_station_metadata import scrape_station_metadata
+        from superapp.apps.radio_crestin_scraping.tasks.scrape_station_rss_feed import scrape_station_rss_feed
+        from superapp.apps.radio_crestin_scraping.tasks.uptime_tasks import check_station_uptime
 
         if sync:
             # Execute synchronously and return results
             results = {
-                'uptime': check_station_uptime_ffmpeg.apply(args=[station_id]),
+                'uptime': check_station_uptime.apply(args=[station_id]),
                 'metadata': scrape_station_metadata.apply(args=[station_id]),
                 'rss': scrape_station_rss_feed.apply(args=[station_id])
             }
@@ -200,7 +211,7 @@ class StationsAdmin(SuperAppModelAdmin):
         else:
             # Execute asynchronously and return task objects
             return {
-                'uptime': check_station_uptime_ffmpeg.delay(station_id),
+                'uptime': check_station_uptime.delay(station_id),
                 'metadata': scrape_station_metadata.delay(station_id),
                 'rss': scrape_station_rss_feed.delay(station_id)
             }
