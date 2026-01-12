@@ -142,6 +142,34 @@ class Query:
                     # Ensure all stations have a cache entry to prevent N+1 queries
                     station._posts_cache = []
 
+        # Batch load review stats for all stations in a single query
+        from django.db.models import Avg, Count
+        from ..models import Reviews as ReviewsModel
+
+        reviews_stats = ReviewsModel.objects.filter(
+            station_id__in=station_ids,
+            verified=True
+        ).values('station_id').annotate(
+            count=Count('id'),
+            avg_rating=Avg('stars')
+        )
+
+        # Build lookup dict
+        reviews_stats_by_station = {
+            stat['station_id']: {
+                'count': stat['count'] or 0,
+                'avg_rating': round(stat['avg_rating'] or 0.0, 2)
+            }
+            for stat in reviews_stats
+        }
+
+        # Attach review stats cache to stations
+        for station in stations_list:
+            station._reviews_stats_cache = reviews_stats_by_station.get(
+                station.id,
+                {'count': 0, 'avg_rating': 0.0}
+            )
+
         return stations_list
 
     @strawberry_django.field

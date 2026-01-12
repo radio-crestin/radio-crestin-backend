@@ -274,7 +274,19 @@ class StationType:
 
     @strawberry.field
     def reviews_stats(self) -> "ReviewsStatsType":
-        """Get review statistics for this station."""
+        """Get review statistics for this station.
+
+        Uses batch-loaded _reviews_stats_cache when available to avoid N+1 queries.
+        """
+        # Use cached stats if available (batch loaded in queries.py)
+        if hasattr(self, '_reviews_stats_cache'):
+            cache = self._reviews_stats_cache
+            return ReviewsStatsType(
+                number_of_reviews=cache['count'],
+                average_rating=cache['avg_rating']
+            )
+
+        # Fallback to individual query
         from django.db.models import Avg, Count
         from ..models import Reviews as ReviewsModel
 
