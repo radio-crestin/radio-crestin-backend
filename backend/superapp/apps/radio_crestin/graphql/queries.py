@@ -5,7 +5,7 @@ import strawberry_django
 from typing import List, Optional
 from django.db.models import Prefetch
 
-from .types import StationType, StationGroupType, OrderDirection, OrderDirectionEnum, ArtistType, SongType, PostType
+from .types import StationType, StationGroupType, OrderDirection, OrderDirectionEnum, ArtistType, SongType, PostType, ReviewType
 from ..models import Stations, StationGroups, StationStreams, Posts, StationToStationGroup, Artists, Songs
 from ..services import AutocompleteService
 
@@ -289,6 +289,52 @@ class Query:
             return Posts.objects.select_related('station').get(id=id)
         except Posts.DoesNotExist:
             return None
+
+    @strawberry.field
+    def reviews(
+        self,
+        station_id: Optional[int] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+    ) -> List[ReviewType]:
+        """
+        Get verified reviews with optional filtering by station.
+
+        Args:
+            station_id: Optional station ID to filter reviews
+            limit: Maximum number of reviews to return
+            offset: Number of reviews to skip
+
+        Returns:
+            List of verified reviews ordered by created_at descending
+        """
+        from ..models import Reviews as ReviewsModel
+
+        queryset = ReviewsModel.objects.filter(verified=True)
+
+        if station_id is not None:
+            queryset = queryset.filter(station_id=station_id)
+
+        queryset = queryset.order_by('-created_at')
+
+        if offset:
+            queryset = queryset[offset:]
+        if limit:
+            queryset = queryset[:limit]
+
+        return [
+            ReviewType(
+                id=r.id,
+                station_id=r.station_id,
+                stars=r.stars,
+                message=r.message,
+                user_identifier=r.user_identifier,
+                created_at=r.created_at.isoformat(),
+                updated_at=r.updated_at.isoformat(),
+                verified=r.verified
+            )
+            for r in queryset
+        ]
 
     @strawberry.field
     def autocomplete(

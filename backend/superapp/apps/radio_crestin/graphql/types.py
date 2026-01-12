@@ -237,8 +237,20 @@ class StationType:
             return None
 
     @strawberry.field
-    def reviews(self) -> List["ReviewType"]:
-        """Get verified reviews for this station"""
+    def reviews(self, info: strawberry.Info) -> List["ReviewType"]:
+        """Get verified reviews for this station.
+
+        Returns empty array by default. Only fetches actual reviews when
+        include_reviews=true is passed in the request query parameters.
+        """
+        # Check if include_reviews is enabled in the request
+        include_reviews = False
+        if hasattr(info.context, 'request'):
+            include_reviews = info.context.request.GET.get('include_reviews', '').lower() == 'true'
+
+        if not include_reviews:
+            return []
+
         from ..models import Reviews as ReviewsModel
 
         reviews = ReviewsModel.objects.filter(
@@ -249,16 +261,35 @@ class StationType:
         return [
             ReviewType(
                 id=r.id,
-                station_id=r.station_id,
+                station_id=None,
                 stars=r.stars,
                 message=r.message,
-                user_identifier=r.user_identifier,
+                user_identifier=None,
                 created_at=r.created_at.isoformat(),
                 updated_at=r.updated_at.isoformat(),
-                verified=r.verified
+                verified=None
             )
             for r in reviews
         ]
+
+    @strawberry.field
+    def reviews_stats(self) -> "ReviewsStatsType":
+        """Get review statistics for this station."""
+        from django.db.models import Avg, Count
+        from ..models import Reviews as ReviewsModel
+
+        stats = ReviewsModel.objects.filter(
+            station_id=self.id,
+            verified=True
+        ).aggregate(
+            count=Count('id'),
+            avg_rating=Avg('stars')
+        )
+
+        return ReviewsStatsType(
+            number_of_reviews=stats['count'] or 0,
+            average_rating=round(stats['avg_rating'] or 0.0, 2)
+        )
 
 
 @strawberry_django.type(model=StationGroups, fields="__all__")
@@ -268,6 +299,13 @@ class StationGroupType:
 
 
 # Review types for GraphQL API
+@strawberry.type
+class ReviewsStatsType:
+    """Statistics about reviews for a station"""
+    number_of_reviews: int
+    average_rating: float
+
+
 @strawberry.type
 class ReviewType:
     id: int

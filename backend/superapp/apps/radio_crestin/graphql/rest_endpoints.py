@@ -9,7 +9,36 @@ from django.utils import timezone
 from typing import Dict, Any, Optional
 
 from superapp.apps.graphql.rest_api import RestApiEndpoint, HttpMethod
-from ..constants import STATIONS_GRAPHQL_QUERY
+from ..constants import STATIONS_GRAPHQL_QUERY, REVIEWS_GRAPHQL_QUERY
+
+
+def validate_timestamp_not_future(request) -> Optional[Dict[str, Any]]:
+    """
+    Validate that the timestamp parameter is not in the future (beyond current time + 2 seconds).
+
+    This prevents CDN caches from caching responses for timestamps that don't exist yet.
+
+    Returns:
+        None if valid, error dict if timestamp is too far in the future
+    """
+    timestamp_param = request.GET.get('timestamp') or request.GET.get('_t')
+    if timestamp_param:
+        try:
+            timestamp_value = int(timestamp_param)
+            current_timestamp = timezone.now().timestamp()
+            max_allowed_timestamp = current_timestamp + 2  # Allow 2 seconds of clock drift
+
+            if timestamp_value > max_allowed_timestamp:
+                return {
+                    'error': 'Timestamp is in the future. Please use a valid timestamp.',
+                    'status': 400
+                }
+        except (ValueError, TypeError):
+            return {
+                'error': 'Invalid timestamp format. Please provide a valid integer timestamp.',
+                'status': 400
+            }
+    return None
 
 
 class StationsApiEndpoint(RestApiEndpoint):
@@ -29,7 +58,7 @@ class StationsApiEndpoint(RestApiEndpoint):
     @staticmethod
     def pre_processor(request, **kwargs) -> Optional[Dict[str, Any]]:
         """
-        Add timestamp redirect for cache control
+        Add timestamp redirect for cache control and validate timestamp is not in the future.
 
         Redirects to a timestamped URL if timestamp parameter is not present.
         This helps with caching and ensures fresh data every 10 seconds.
@@ -45,6 +74,11 @@ class StationsApiEndpoint(RestApiEndpoint):
             # Return redirect response
             redirect_url = f"{request.path}?timestamp={rounded_timestamp}"
             return {'redirect': redirect_url}
+
+        # Validate timestamp is not in the future
+        validation_error = validate_timestamp_not_future(request)
+        if validation_error:
+            return validation_error
 
         # No redirect needed
         return None
@@ -194,9 +228,86 @@ class ReviewsApiEndpoint(RestApiEndpoint):
         }
 
 
+class ReviewsListApiEndpoint(RestApiEndpoint):
+    """
+    REST API endpoint for listing station reviews.
+
+    GET /api/v1/reviews?station_id=<id>&timestamp=<timestamp>
+
+    Returns verified reviews for all stations or a specific station if station_id is provided.
+    Uses the same timestamp-based cache control as the stations endpoint.
+    """
+
+    path = "api/v1/reviews"
+    graphql_query = REVIEWS_GRAPHQL_QUERY
+    method = HttpMethod.GET
+    name = "api_v1_reviews_list"
+    cache_control = "public, max-age=0, s-maxage=14400, immutable"
+    cors_enabled = True
+
+    @staticmethod
+    def pre_processor(request, **kwargs) -> Optional[Dict[str, Any]]:
+        """
+        Add timestamp redirect for cache control and validate timestamp is not in the future.
+
+        Redirects to a timestamped URL if timestamp parameter is not present.
+        This helps with caching and ensures fresh data every 10 seconds.
+        """
+        # Get current timestamp rounded to 10 seconds
+        current_timestamp = timezone.now().timestamp()
+        rounded_timestamp = int(current_timestamp // 10) * 10
+
+        # Check if we already have the timestamp parameter
+        timestamp_param = request.GET.get('timestamp') or request.GET.get('_t')
+
+        if not timestamp_param:
+            # Build redirect URL preserving other query parameters
+            query_params = dict(request.GET)
+            query_params['timestamp'] = [str(rounded_timestamp)]
+
+            # Build query string
+            query_string = '&'.join(
+                f"{k}={v[0]}" for k, v in query_params.items()
+            )
+            redirect_url = f"{request.path}?{query_string}"
+            return {'redirect': redirect_url}
+
+        # Validate timestamp is not in the future
+        validation_error = validate_timestamp_not_future(request)
+        if validation_error:
+            return validation_error
+
+        # No redirect needed
+        return None
+
+    @staticmethod
+    def variable_extractor(request, **kwargs) -> Dict[str, Any]:
+        """
+        Extract GraphQL variables from query parameters.
+
+        Args:
+            request: Django request object
+            **kwargs: URL parameters
+
+        Returns:
+            Dict with GraphQL variables
+        """
+        station_id = request.GET.get('station_id')
+
+        variables = {}
+        if station_id:
+            try:
+                variables['station_id'] = int(station_id)
+            except (ValueError, TypeError):
+                pass  # Invalid station_id will be ignored
+
+        return variables
+
+
 # List of endpoint classes to register
 REST_ENDPOINTS = [
     StationsApiEndpoint,
     ShareLinksApiEndpoint,
     ReviewsApiEndpoint,
+    ReviewsListApiEndpoint,
 ]

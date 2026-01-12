@@ -68,6 +68,11 @@ query GetStations @cache_control(max_age: 30, max_stale: 30, stale_while_revalid
       created_at
       updated_at
     }
+    reviews_stats {
+      __typename
+      number_of_reviews
+      average_rating
+    }
   }
   station_groups {
     __typename
@@ -80,6 +85,21 @@ query GetStations @cache_control(max_age: 30, max_stale: 30, stale_while_revalid
       station_id
       order
     }
+  }
+}
+'''
+
+REVIEWS_GRAPHQL_QUERY = '''
+query GetReviews($station_id: Int) @cache_control(max_age: 30, max_stale: 30, stale_while_revalidate: 30) @cached(ttl: 0) {
+  __typename
+  reviews(station_id: $station_id) {
+    __typename
+    id
+    station_id
+    stars
+    message
+    created_at
+    updated_at
   }
 }
 '''
