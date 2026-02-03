@@ -1,5 +1,5 @@
 django-guardian==2.4.*
-git+https://github.com/iosifnicolae2/django-allauth.git#egg=django-allauth[socialaccount]
+django-allauth[socialaccount] @ git+https://github.com/iosifnicolae2/django-allauth.git
 django-widget-tweaks==1.5.*
 slippers==0.6.*
 phonenumbers==9.0.*

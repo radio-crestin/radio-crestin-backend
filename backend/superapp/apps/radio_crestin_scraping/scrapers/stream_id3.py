@@ -65,7 +65,6 @@ class StreamId3Scraper(BaseScraper):
                     'multiple_requests': '1',  # Allow multiple HTTP requests
                     'seekable': '0',  # Don't try to seek (for live streams)
                     'http_persistent': '0',  # Don't use persistent connections for streams
-                    'ignore_errors': '1'  # Continue on non-fatal errors
                 }
             )
             
