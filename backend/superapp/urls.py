@@ -18,15 +18,44 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django_superapp.urls import extend_with_superapp_urlpatterns
 from django.urls import include, path
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 
 
 def health_check(request):
+    """Liveness check - verifies DB and Redis are reachable."""
+    errors = {}
+
+    # Check database
+    try:
+        from django.db import connection
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+    except Exception as e:
+        errors["database"] = str(e)
+
+    # Check Redis
+    try:
+        from django.core.cache import cache
+        cache.set("_health_check", "ok", 10)
+        if cache.get("_health_check") != "ok":
+            errors["redis"] = "cache read/write failed"
+    except Exception as e:
+        errors["redis"] = str(e)
+
+    if errors:
+        return JsonResponse({"status": "unhealthy", "errors": errors}, status=503)
+
+    return HttpResponse("OK", status=200)
+
+
+def readiness_check(request):
+    """Readiness check - lightweight, just confirms the process is responding."""
     return HttpResponse("OK", status=200)
 
 
 urlpatterns = [
     path("health/", health_check, name="health"),
+    path("ready/", readiness_check, name="ready"),
     path("__debug__/", include("debug_toolbar.urls")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

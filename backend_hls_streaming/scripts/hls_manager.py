@@ -366,8 +366,8 @@ class HLSManager:
                     'f': 'hls',
                     'hls_init_time': 6,  # Initial buffering time
                     'hls_time': 6,       # 6s segments - optimal for mobile (fewer requests, stable playback)
-                    'hls_list_size': 60, # 6 minutes of segments at 6s each
-                    'hls_delete_threshold': 12,  # Keep at least 12 segments (48s) before deletion
+                    'hls_list_size': 65, # ~6.5 minutes of segments at 6s each (guarantees at least 6 min)
+                    'hls_delete_threshold': 12,  # Keep at least 12 segments (72s) before deletion
                     'hls_flags': 'delete_segments+independent_segments+split_by_time+program_date_time',
                     'hls_start_number_source': 'epoch',
                     'hls_segment_filename': str(station_data_dir / '%d.ts'),
@@ -408,17 +408,18 @@ class HLSManager:
     def stop_ffmpeg_process(self, station_slug: str):
         """
         Stop an ffmpeg process for a station.
-        
+
         Args:
             station_slug: The station slug to stop
         """
         if station_slug in self.active_processes:
-            process = self.active_processes[station_slug]
-            
+            process_info = self.active_processes[station_slug]
+            process = process_info['process'] if isinstance(process_info, dict) else process_info
+
             try:
                 # Graceful termination
                 process.terminate()
-                
+
                 # Wait up to 10 seconds for graceful shutdown
                 try:
                     process.wait(timeout=10)
@@ -427,26 +428,25 @@ class HLSManager:
                     self.logger.warning(f"Force killing FFmpeg process for {station_slug} (PID: {process.pid})")
                     process.kill()
                     process.wait()
-                
-                runtime = datetime.now() - process_info['start_time'] if isinstance(self.active_processes[station_slug], dict) else 'unknown'
-                self.logger.info(f"✓ Stopped FFmpeg process for {station_slug} (Runtime: {runtime})")
-                
+
+                runtime = datetime.now() - process_info['start_time'] if isinstance(process_info, dict) else 'unknown'
+                self.logger.info(f"Stopped FFmpeg process for {station_slug} (Runtime: {runtime})")
+
                 # Log final status to station log if enabled
-                if (self.log_ffmpeg and isinstance(self.active_processes[station_slug], dict) 
-                    and 'log_file' in self.active_processes[station_slug]):
+                if self.log_ffmpeg and isinstance(process_info, dict) and 'log_file' in process_info:
                     try:
-                        with open(self.active_processes[station_slug]['log_file'], 'a') as log_f:
+                        with open(process_info['log_file'], 'a') as log_f:
                             log_f.write(f"\n=== FFmpeg process stopped at {datetime.now()} (Runtime: {runtime}) ===\n")
                             log_f.flush()
                     except Exception:
                         pass  # Don't let logging errors break the stop process
-                
+
             except Exception as e:
-                self.logger.error(f"✗ Error stopping FFmpeg process for {station_slug}: {e}")
+                self.logger.error(f"Error stopping FFmpeg process for {station_slug}: {e}")
                 if self.detailed_logging:
                     import traceback
                     self.logger.debug(f"Traceback: {traceback.format_exc()}")
-            
+
             finally:
                 # Clean up HLS data files
                 self.cleanup_station_hls_data(station_slug)
@@ -618,7 +618,12 @@ class HLSManager:
                 self.logger.info(f"Starting FFmpeg process for {station_slug}")
                 process = self.start_ffmpeg_process(station)
                 if process:
-                    self.active_processes[station_slug] = process
+                    self.active_processes[station_slug] = {
+                        'process': process,
+                        'station': station,
+                        'start_time': datetime.now(),
+                        'log_file': self.create_station_log_file(station_slug),
+                    }
         
         self.last_station_fetch = datetime.now()
         self.logger.info(f"Station update complete - managing {len(self.active_processes)} streams")

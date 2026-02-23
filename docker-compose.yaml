@@ -29,13 +29,26 @@ services:
     volumes:
       - redis:/data
     command: redis-server --requirepass ${REDIS_PASSWORD} --notify-keyspace-events Exe
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "5"
+        max-size: "100m"
   web:
     build:
       context: backend
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
-      - "postgres"
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
       - "8080:8080"
     volumes:
@@ -47,14 +60,27 @@ services:
     stdin_open: true
     tty: true
     command: /app/scripts/run-server.sh
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "5"
+        max-size: "100m"
   priority-worker:
     build:
       context: backend
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
-      - "postgres"
-      - "redis"
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - ./backend:/app:delegated
       - /app/__pycache__
@@ -63,10 +89,11 @@ services:
       - .env
     command: /app/scripts/run-priority-worker.sh
     healthcheck:
-      test: ["CMD", "ps", "aux", "|", "grep", "[c]elery -A superapp worker"]
+      test: ["CMD-SHELL", "celery -A superapp inspect ping --destination celery@$$HOSTNAME 2>/dev/null | grep -q OK || exit 1"]
       interval: 30s
-      timeout: 10s
+      timeout: 15s
       retries: 3
+      start_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -78,8 +105,10 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
-      - "postgres"
-      - "redis"
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - ./backend:/app:delegated
       - /app/__pycache__
@@ -88,38 +117,28 @@ services:
       - .env
     command: /app/scripts/run-worker.sh
     healthcheck:
-      test: ["CMD", "ps", "aux", "|", "grep", "[c]elery -A superapp worker"]
+      test: ["CMD-SHELL", "celery -A superapp inspect ping --destination celery@$$HOSTNAME 2>/dev/null | grep -q OK || exit 1"]
       interval: 30s
-      timeout: 10s
+      timeout: 15s
       retries: 3
+      start_period: 30s
     logging:
       driver: "json-file"
       options:
         max-file: "5"
         max-size: "100m"
-  graphql-engine:
-    image: hasura/graphql-engine:v2.33.4.cli-migrations-v3
-    ports:
-      - "8081:8080"
-    depends_on:
-      - "postgres"
-    restart: unless-stopped
-    env_file:
-      - .env
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "3"
   backend-hls-streaming:
     build:
       context: backend_hls_streaming
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
-      - "web"
-      - "postgres"
-      - "redis"
+      web:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
       - "8082:80"  # NGINX HLS serving port
     volumes:
@@ -127,7 +146,7 @@ services:
       - ./backend_hls_streaming:/app:delegated
     environment:
       # HLS Manager configuration
-      - GRAPHQL_ENDPOINT=http://web:8080/graphql
+      - GRAPHQL_ENDPOINT=http://web:8080/v1/graphql
       - GRAPHQL_TOKEN=${HLS_GRAPHQL_TOKEN:-}
       - ADMIN_GRAPHQL_SUPERUSER_API_KEY=${ADMIN_GRAPHQL_SUPERUSER_API_KEY}
       - STREAM_REFRESH_INTERVAL=60
