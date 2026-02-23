@@ -364,11 +364,11 @@ class HLSManager:
                     'map': '0:a:0',
                     'bufsize': '30000000',
                     'f': 'hls',
-                    'hls_init_time': 6,  # Increased from 2s to 6s for initial buffering
-                    'hls_time': 4,       # Reduced from 5s to 4s for more granular segments
-                    'hls_list_size': 60, # Reduced from 300 to 60 (4 minutes of segments at 4s each)
+                    'hls_init_time': 6,  # Initial buffering time
+                    'hls_time': 6,       # 6s segments - optimal for mobile (fewer requests, stable playback)
+                    'hls_list_size': 60, # 6 minutes of segments at 6s each
                     'hls_delete_threshold': 12,  # Keep at least 12 segments (48s) before deletion
-                    'hls_flags': 'delete_segments+independent_segments+split_by_time',
+                    'hls_flags': 'delete_segments+independent_segments+split_by_time+program_date_time',
                     'hls_start_number_source': 'epoch',
                     'hls_segment_filename': str(station_data_dir / '%d.ts'),
                     'master_pl_publish_rate': 1,

@@ -1,9 +1,6 @@
-from __future__ import annotations
-
 import functools
-from typing import TYPE_CHECKING
-
 import strawberry
+from strawberry.types import Info
 
 from strawberry_django.resolvers import django_resolver
 
@@ -13,9 +10,6 @@ try:
     from channels import auth as channels_auth
 except ModuleNotFoundError:
     channels_auth = None
-
-if TYPE_CHECKING:
-    from strawberry.types import Info
 
 
 @django_resolver

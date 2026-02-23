@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import strawberry
 from typing import List, Optional
 from django.db.models import Prefetch, Q

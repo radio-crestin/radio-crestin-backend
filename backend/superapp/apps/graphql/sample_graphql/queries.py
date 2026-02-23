@@ -1,7 +1,3 @@
-from __future__ import annotations
-
-from strawberry.exceptions.exception import StrawberryException
-from typing import TYPE_CHECKING
 import strawberry
 
 try:
@@ -10,9 +6,6 @@ try:
     from channels import auth as channels_auth
 except ModuleNotFoundError:
     channels_auth = None
-
-if TYPE_CHECKING:
-    from strawberry.types import Info
 
 
 @strawberry.type

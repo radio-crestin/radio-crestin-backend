@@ -1,9 +1,9 @@
-FROM python:3.11 AS requirements
+FROM python:3.14 AS requirements
 WORKDIR /app
 COPY . /app
 RUN ./scripts/generate-requirements.sh > ./unified_requirements.txt
 
-FROM python:3.11
+FROM python:3.14
 
 WORKDIR /app
 

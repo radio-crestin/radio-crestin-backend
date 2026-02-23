@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import strawberry
 import strawberry_django
 from typing import Optional, List

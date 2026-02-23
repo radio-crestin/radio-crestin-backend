@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import strawberry
 from strawberry.directive import DirectiveLocation
 from typing import Optional

@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import Optional
 
 import strawberry
@@ -8,7 +7,7 @@ from strawberry_django.auth.utils import get_current_user
 from ...authentication.graphql.types import UserType
 
 
-def resolve_current_user(info) -> Optional[UserType]:
+def resolve_current_user(info: strawberry.types.Info) -> Optional[UserType]:
     """Resolve current user, returning None for anonymous users."""
     user = get_current_user(info)
     if user and user.is_authenticated:
