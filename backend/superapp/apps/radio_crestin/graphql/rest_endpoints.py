@@ -13,6 +13,18 @@ from ..constants import STATIONS_GRAPHQL_QUERY, REVIEWS_GRAPHQL_QUERY
 from .constants_metadata import STATIONS_METADATA_GRAPHQL_QUERY, STATIONS_METADATA_HISTORY_GRAPHQL_QUERY
 
 
+def parse_slug_filters(request) -> Dict[str, Any]:
+    """Parse station_slugs and exclude_station_slugs from comma-separated query params."""
+    variables = {}
+    slugs = request.GET.get('station_slugs')
+    if slugs:
+        variables['station_slugs'] = [s.strip() for s in slugs.split(',') if s.strip()]
+    exclude = request.GET.get('exclude_station_slugs')
+    if exclude:
+        variables['exclude_station_slugs'] = [s.strip() for s in exclude.split(',') if s.strip()]
+    return variables
+
+
 def validate_timestamp_not_future(request) -> Optional[Dict[str, Any]]:
     """
     Validate that the timestamp parameter is not in the future (beyond current time + 2 seconds).
@@ -83,6 +95,10 @@ class StationsApiEndpoint(RestApiEndpoint):
 
         # No redirect needed
         return None
+
+    @staticmethod
+    def variable_extractor(request, **kwargs) -> Dict[str, Any]:
+        return parse_slug_filters(request)
 
 
 class ShareLinksApiEndpoint(RestApiEndpoint):
@@ -354,7 +370,7 @@ class StationsMetadataApiEndpoint(RestApiEndpoint):
 
     @staticmethod
     def variable_extractor(request, **kwargs) -> Dict[str, Any]:
-        variables = {}
+        variables = parse_slug_filters(request)
         changes_from = request.GET.get('changes_from_timestamp')
         if changes_from:
             try:

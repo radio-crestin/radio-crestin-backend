@@ -387,6 +387,8 @@ def api_schema_view(request):
                     "operationId": "getStations",
                     "parameters": [
                         {"name": "timestamp", "in": "query", "description": "Unix timestamp for cache control. Omit to auto-redirect with current timestamp.", "schema": {"type": "integer"}},
+                        {"name": "station_slugs", "in": "query", "description": "Comma-separated list of station slugs to include. Only these stations will be returned.", "schema": {"type": "string"}, "example": "aripi-spre-cer,radio-vocea-evangheliei"},
+                        {"name": "exclude_station_slugs", "in": "query", "description": "Comma-separated list of station slugs to exclude. These stations will be omitted from results.", "schema": {"type": "string"}, "example": "radio-trinitas"},
                     ],
                     "responses": {
                         "200": {
@@ -430,6 +432,8 @@ def api_schema_view(request):
                     "parameters": [
                         {"name": "timestamp", "in": "query", "description": "Unix timestamp for cache control and historical lookup. Omit to auto-redirect with current timestamp.", "schema": {"type": "integer"}},
                         {"name": "changes_from_timestamp", "in": "query", "description": "Only return stations whose metadata changed after this timestamp. For polling every 30s, set to `timestamp - 30`.", "schema": {"type": "integer"}},
+                        {"name": "station_slugs", "in": "query", "description": "Comma-separated list of station slugs to include. Only these stations will be returned.", "schema": {"type": "string"}, "example": "aripi-spre-cer,radio-vocea-evangheliei"},
+                        {"name": "exclude_station_slugs", "in": "query", "description": "Comma-separated list of station slugs to exclude. These stations will be omitted from results.", "schema": {"type": "string"}, "example": "radio-trinitas"},
                     ],
                     "responses": {
                         "200": {

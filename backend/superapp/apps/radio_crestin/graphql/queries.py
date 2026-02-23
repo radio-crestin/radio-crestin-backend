@@ -31,6 +31,8 @@ class Query:
         order_by: Optional[StationOrderBy] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
+        station_slugs: Optional[List[str]] = None,
+        exclude_station_slugs: Optional[List[str]] = None,
     ) -> List[StationType]:
         """
         Get stations with optimized queries for all related data.
@@ -52,6 +54,12 @@ class Query:
                 queryset=StationStreams.objects.order_by('order', 'id')
             )
         ).filter(disabled=False)
+
+        # Apply slug filters
+        if station_slugs:
+            queryset = queryset.filter(slug__in=station_slugs)
+        if exclude_station_slugs:
+            queryset = queryset.exclude(slug__in=exclude_station_slugs)
 
         # Apply ordering - default to order asc, title asc for Hasura compatibility
         if order_by:
@@ -409,6 +417,8 @@ class Query:
         self,
         timestamp: Optional[int] = None,
         changes_from_timestamp: Optional[int] = None,
+        station_slugs: Optional[List[str]] = None,
+        exclude_station_slugs: Optional[List[str]] = None,
     ) -> List[StationMetadataType]:
         """
         Lightweight station metadata - only uptime + now_playing.
@@ -477,6 +487,14 @@ class Query:
                 now_playing=now_playing,
             )
 
+        # Build base station filter kwargs
+        station_filter = {'disabled': False}
+        station_exclude = {}
+        if station_slugs:
+            station_filter['slug__in'] = station_slugs
+        if exclude_station_slugs:
+            station_exclude['slug__in'] = exclude_station_slugs
+
         # Mode 1: changes_from_timestamp — only return stations with changes
         if changes_from_timestamp is not None:
             changes_from_dt = datetime.fromtimestamp(
@@ -495,13 +513,14 @@ class Query:
                 return []
 
             # Query 2: load those stations
-            stations = list(
-                Stations.objects.filter(
-                    id__in=changed_ids, disabled=False,
-                ).select_related(
-                    'latest_station_uptime',
-                )
+            qs = Stations.objects.filter(
+                id__in=changed_ids, **station_filter,
+            ).select_related(
+                'latest_station_uptime',
             )
+            if station_exclude:
+                qs = qs.exclude(**station_exclude)
+            stations = list(qs)
 
             station_ids = [s.id for s in stations]
 
@@ -523,11 +542,12 @@ class Query:
 
         # Mode 2: timestamp only — all stations with historical now_playing
         if timestamp is not None:
-            stations = list(
-                Stations.objects.filter(disabled=False).select_related(
-                    'latest_station_uptime',
-                ).order_by('order', 'title')
-            )
+            qs = Stations.objects.filter(**station_filter).select_related(
+                'latest_station_uptime',
+            ).order_by('order', 'title')
+            if station_exclude:
+                qs = qs.exclude(**station_exclude)
+            stations = list(qs)
 
             station_ids = [s.id for s in stations]
 
@@ -548,14 +568,15 @@ class Query:
             ]
 
         # Mode 3: default — current data
-        stations = list(
-            Stations.objects.filter(disabled=False).select_related(
-                'latest_station_uptime',
-                'latest_station_now_playing',
-                'latest_station_now_playing__song',
-                'latest_station_now_playing__song__artist',
-            ).order_by('order', 'title')
-        )
+        qs = Stations.objects.filter(**station_filter).select_related(
+            'latest_station_uptime',
+            'latest_station_now_playing',
+            'latest_station_now_playing__song',
+            'latest_station_now_playing__song__artist',
+        ).order_by('order', 'title')
+        if station_exclude:
+            qs = qs.exclude(**station_exclude)
+        stations = list(qs)
         return [_build_metadata(s) for s in stations]
 
     @strawberry.field

@@ -82,6 +82,32 @@ class StationsMetadataPerformanceTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn('timestamp=', response['Location'])
 
+    def test_stations_filter_by_station_slugs(self):
+        """GET /api/v1/stations with station_slugs returns only matching stations."""
+        ts = int(timezone.now().timestamp())
+        response = self.client.get('/api/v1/stations', {
+            'timestamp': ts,
+            'station_slugs': 'station-0,station-2,station-4',
+        })
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        slugs = [s['slug'] for s in data['data']['stations']]
+        self.assertEqual(sorted(slugs), ['station-0', 'station-2', 'station-4'])
+
+    def test_stations_filter_by_exclude_station_slugs(self):
+        """GET /api/v1/stations with exclude_station_slugs omits matching stations."""
+        ts = int(timezone.now().timestamp())
+        response = self.client.get('/api/v1/stations', {
+            'timestamp': ts,
+            'exclude_station_slugs': 'station-0,station-1',
+        })
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        slugs = [s['slug'] for s in data['data']['stations']]
+        self.assertEqual(len(slugs), 8)
+        self.assertNotIn('station-0', slugs)
+        self.assertNotIn('station-1', slugs)
+
     # ──────────────────────────────────────────────
     # /api/v1/stations-metadata
     # ──────────────────────────────────────────────
@@ -145,6 +171,45 @@ class StationsMetadataPerformanceTests(TestCase):
         response = self.client.get('/api/v1/stations-metadata')
         self.assertEqual(response.status_code, 302)
         self.assertIn('timestamp=', response['Location'])
+
+    def test_stations_metadata_filter_by_station_slugs(self):
+        """GET /api/v1/stations-metadata with station_slugs returns only matching stations."""
+        ts = int(timezone.now().timestamp())
+        response = self.client.get('/api/v1/stations-metadata', {
+            'timestamp': ts,
+            'station_slugs': 'station-1,station-3',
+        })
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        slugs = [s['slug'] for s in data['data']['stations_metadata']]
+        self.assertEqual(sorted(slugs), ['station-1', 'station-3'])
+
+    def test_stations_metadata_filter_by_exclude_station_slugs(self):
+        """GET /api/v1/stations-metadata with exclude_station_slugs omits matching stations."""
+        ts = int(timezone.now().timestamp())
+        response = self.client.get('/api/v1/stations-metadata', {
+            'timestamp': ts,
+            'exclude_station_slugs': 'station-0,station-1,station-2',
+        })
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        slugs = [s['slug'] for s in data['data']['stations_metadata']]
+        self.assertEqual(len(slugs), 7)
+        for excluded in ['station-0', 'station-1', 'station-2']:
+            self.assertNotIn(excluded, slugs)
+
+    def test_stations_metadata_combined_slug_filters(self):
+        """station_slugs and exclude_station_slugs can be combined."""
+        ts = int(timezone.now().timestamp())
+        response = self.client.get('/api/v1/stations-metadata', {
+            'timestamp': ts,
+            'station_slugs': 'station-0,station-1,station-2,station-3',
+            'exclude_station_slugs': 'station-2',
+        })
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        slugs = [s['slug'] for s in data['data']['stations_metadata']]
+        self.assertEqual(sorted(slugs), ['station-0', 'station-1', 'station-3'])
 
     # ──────────────────────────────────────────────
     # /api/v1/stations-metadata-history

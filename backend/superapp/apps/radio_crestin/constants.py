@@ -1,9 +1,9 @@
 # GraphQL query constants
 
 STATIONS_GRAPHQL_QUERY = '''
-query GetStations @cache_control(max_age: 30, max_stale: 30, stale_while_revalidate: 30) @cached(ttl: 0) {
+query GetStations($station_slugs: [String!], $exclude_station_slugs: [String!]) @cache_control(max_age: 30, max_stale: 30, stale_while_revalidate: 30) @cached(ttl: 0) {
   __typename
-  stations(order_by: {order: asc, title: asc}) {
+  stations(order_by: {order: asc, title: asc}, station_slugs: $station_slugs, exclude_station_slugs: $exclude_station_slugs) {
     __typename
     id
     slug

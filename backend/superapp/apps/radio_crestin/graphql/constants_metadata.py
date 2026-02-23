@@ -1,6 +1,6 @@
 STATIONS_METADATA_GRAPHQL_QUERY = '''
-query GetStationsMetadata($timestamp: Int, $changes_from_timestamp: Int) @cached(ttl: 0) {
-  stations_metadata(timestamp: $timestamp, changes_from_timestamp: $changes_from_timestamp) {
+query GetStationsMetadata($timestamp: Int, $changes_from_timestamp: Int, $station_slugs: [String!], $exclude_station_slugs: [String!]) @cached(ttl: 0) {
+  stations_metadata(timestamp: $timestamp, changes_from_timestamp: $changes_from_timestamp, station_slugs: $station_slugs, exclude_station_slugs: $exclude_station_slugs) {
     id
     slug
     title
