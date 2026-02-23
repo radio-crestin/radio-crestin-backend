@@ -368,7 +368,7 @@ class HLSManager:
                     'hls_time': 6,       # 6s segments - optimal for mobile (fewer requests, stable playback)
                     'hls_list_size': 65, # ~6.5 minutes of segments at 6s each (guarantees at least 6 min)
                     'hls_delete_threshold': 12,  # Keep at least 12 segments (72s) before deletion
-                    'hls_flags': 'delete_segments+independent_segments+split_by_time+program_date_time',
+                    'hls_flags': 'delete_segments+independent_segments+split_by_time+program_date_time+omit_endlist',
                     'hls_start_number_source': 'epoch',
                     'hls_segment_filename': str(station_data_dir / '%d.ts'),
                     'master_pl_publish_rate': 1,
