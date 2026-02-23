@@ -219,9 +219,28 @@ class Mutation:
                     created=False
                 )
 
+            # Resolve station_id from station_slug if needed
+            station_id = input.station_id
+            if not station_id and input.station_slug:
+                station = Stations.objects.filter(slug=input.station_slug, disabled=False).first()
+                if not station:
+                    return SubmitReviewResponse(
+                        success=False,
+                        message=f"Station '{input.station_slug}' not found",
+                        created=False,
+                    )
+                station_id = station.id
+
+            if not station_id:
+                return SubmitReviewResponse(
+                    success=False,
+                    message="Either station_id or station_slug is required",
+                    created=False,
+                )
+
             # Use the ReviewService to upsert the review
             result = ReviewService.upsert(
-                station_id=input.station_id,
+                station_id=station_id,
                 ip_address=ip_address,
                 stars=input.stars,
                 message=input.message,

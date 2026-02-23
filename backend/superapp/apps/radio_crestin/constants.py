@@ -90,9 +90,9 @@ query GetStations @cache_control(max_age: 30, max_stale: 30, stale_while_revalid
 '''
 
 REVIEWS_GRAPHQL_QUERY = '''
-query GetReviews($station_id: Int) @cache_control(max_age: 30, max_stale: 30, stale_while_revalidate: 30) @cached(ttl: 0) {
+query GetReviews($station_id: Int, $station_slug: String) @cache_control(max_age: 30, max_stale: 30, stale_while_revalidate: 30) @cached(ttl: 0) {
   __typename
-  reviews(station_id: $station_id) {
+  reviews(station_id: $station_id, station_slug: $station_slug) {
     __typename
     id
     station_id

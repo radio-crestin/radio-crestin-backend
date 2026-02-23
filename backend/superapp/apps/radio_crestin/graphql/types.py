@@ -330,7 +330,8 @@ class ReviewType:
 
 @strawberry.input
 class SubmitReviewInput:
-    station_id: int
+    station_id: Optional[int] = None
+    station_slug: Optional[str] = None
     stars: int = 5  # Default to 5 stars, validated in service to be 0-5
     message: Optional[str] = None
     user_identifier: Optional[str] = None
@@ -342,6 +343,69 @@ class SubmitReviewResponse:
     message: str
     review: Optional[ReviewType] = None
     created: bool = False
+
+
+@strawberry.type
+class StationMetadataType:
+    """Lightweight station metadata - only uptime + now_playing."""
+    id: int
+    slug: str
+    title: str
+    uptime: Optional["StationMetadataUptimeType"]
+    now_playing: Optional["StationMetadataNowPlayingType"]
+
+
+@strawberry.type
+class StationMetadataUptimeType:
+    """Uptime info for metadata endpoint."""
+    is_up: bool
+    latency_ms: Optional[int]
+    timestamp: str
+
+
+@strawberry.type
+class StationMetadataNowPlayingType:
+    """Now playing info for metadata endpoint."""
+    timestamp: str
+    listeners: Optional[int]
+    song: Optional["StationMetadataSongType"]
+
+
+@strawberry.type
+class StationMetadataSongType:
+    """Song info for metadata endpoint."""
+    id: int
+    name: str
+    thumbnail_url: Optional[str]
+    artist: Optional["StationMetadataArtistType"]
+
+
+@strawberry.type
+class StationMetadataArtistType:
+    """Artist info for metadata endpoint."""
+    id: int
+    name: str
+    thumbnail_url: Optional[str]
+
+
+@strawberry.type
+class StationMetadataHistoryEntryType:
+    """A single historical metadata record."""
+    timestamp: str
+    listeners: Optional[int]
+    song: Optional[StationMetadataSongType]
+
+
+@strawberry.type
+class StationMetadataHistoryType:
+    """Historical metadata for a station in a time range."""
+    station_id: int
+    station_slug: str
+    station_title: str
+    from_timestamp: int
+    to_timestamp: int
+    count: int
+    history: List[StationMetadataHistoryEntryType]
 
 
 @strawberry.type

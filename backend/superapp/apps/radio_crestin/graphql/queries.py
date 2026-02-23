@@ -3,8 +3,17 @@ import strawberry_django
 from typing import List, Optional
 from django.db.models import Prefetch
 
-from .types import StationType, StationGroupType, OrderDirection, OrderDirectionEnum, ArtistType, SongType, PostType, ReviewType
+from datetime import datetime, timedelta, timezone as dt_tz
+
+from .types import (
+    StationType, StationGroupType, OrderDirection, OrderDirectionEnum,
+    ArtistType, SongType, PostType, ReviewType,
+    StationMetadataType, StationMetadataUptimeType, StationMetadataNowPlayingType,
+    StationMetadataSongType, StationMetadataArtistType,
+    StationMetadataHistoryType, StationMetadataHistoryEntryType,
+)
 from ..models import Stations, StationGroups, StationStreams, Posts, StationToStationGroup, Artists, Songs
+from ..models import StationsNowPlayingHistory
 from ..services import AutocompleteService
 
 
@@ -320,14 +329,17 @@ class Query:
     def reviews(
         self,
         station_id: Optional[int] = None,
+        station_slug: Optional[str] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
     ) -> List[ReviewType]:
         """
         Get verified reviews with optional filtering by station.
+        At least one of station_id or station_slug is required.
 
         Args:
             station_id: Optional station ID to filter reviews
+            station_slug: Optional station slug to filter reviews
             limit: Maximum number of reviews to return
             offset: Number of reviews to skip
 
@@ -340,6 +352,12 @@ class Query:
 
         if station_id is not None:
             queryset = queryset.filter(station_id=station_id)
+        elif station_slug:
+            station = Stations.objects.filter(slug=station_slug, disabled=False).first()
+            if station:
+                queryset = queryset.filter(station_id=station.id)
+            else:
+                return []
 
         queryset = queryset.order_by('-created_at')
 
@@ -384,6 +402,246 @@ class Query:
             query=query,
             search_type=search_type or "combined",
             limit=limit or 10
+        )
+
+    @strawberry.field
+    def stations_metadata(
+        self,
+        timestamp: Optional[int] = None,
+        changes_from_timestamp: Optional[int] = None,
+    ) -> List[StationMetadataType]:
+        """
+        Lightweight station metadata - only uptime + now_playing.
+        Supports historical lookups via timestamp and change detection
+        via changes_from_timestamp.
+        """
+        from django.utils import timezone as tz
+
+        now = tz.now()
+        as_of_dt = (
+            datetime.fromtimestamp(timestamp, tz=dt_tz.utc)
+            if timestamp else now
+        )
+
+        def _build_song_type(song):
+            if not song:
+                return None
+            artist = None
+            if song.artist:
+                artist = StationMetadataArtistType(
+                    id=song.artist.id,
+                    name=song.artist.name,
+                    thumbnail_url=song.artist.thumbnail_url if hasattr(song.artist, 'thumbnail_url') else None,
+                )
+            return StationMetadataSongType(
+                id=song.id,
+                name=song.name,
+                thumbnail_url=song.thumbnail_url if hasattr(song, 'thumbnail_url') else None,
+                artist=artist,
+            )
+
+        def _build_metadata(station, np_override=None):
+            # Uptime
+            uptime = None
+            up = getattr(station, 'latest_station_uptime', None)
+            if up:
+                uptime = StationMetadataUptimeType(
+                    is_up=up.is_up,
+                    latency_ms=up.latency_ms,
+                    timestamp=up.timestamp.isoformat() if up.timestamp else '',
+                )
+
+            # Now playing
+            now_playing = None
+            if np_override is not None:
+                # Use historical record
+                now_playing = StationMetadataNowPlayingType(
+                    timestamp=np_override.timestamp.isoformat(),
+                    listeners=np_override.listeners,
+                    song=_build_song_type(np_override.song),
+                )
+            else:
+                np = getattr(station, 'latest_station_now_playing', None)
+                if np:
+                    now_playing = StationMetadataNowPlayingType(
+                        timestamp=np.timestamp.isoformat(),
+                        listeners=np.listeners,
+                        song=_build_song_type(np.song),
+                    )
+
+            return StationMetadataType(
+                id=station.id,
+                slug=station.slug,
+                title=station.title,
+                uptime=uptime,
+                now_playing=now_playing,
+            )
+
+        # Mode 1: changes_from_timestamp — only return stations with changes
+        if changes_from_timestamp is not None:
+            changes_from_dt = datetime.fromtimestamp(
+                changes_from_timestamp, tz=dt_tz.utc
+            )
+
+            # Query 1: index-only scan on idx_snph_ts_station
+            changed_ids = set(
+                StationsNowPlayingHistory.objects.filter(
+                    timestamp__gt=changes_from_dt,
+                    timestamp__lte=as_of_dt,
+                ).values_list('station_id', flat=True).distinct()
+            )
+
+            if not changed_ids:
+                return []
+
+            # Query 2: load those stations
+            stations = list(
+                Stations.objects.filter(
+                    id__in=changed_ids, disabled=False,
+                ).select_related(
+                    'latest_station_uptime',
+                )
+            )
+
+            station_ids = [s.id for s in stations]
+
+            # Query 3: DISTINCT ON for latest history per station
+            history_records = list(
+                StationsNowPlayingHistory.objects.filter(
+                    station_id__in=station_ids,
+                    timestamp__lte=as_of_dt,
+                ).select_related(
+                    'song', 'song__artist',
+                ).order_by('station_id', '-timestamp').distinct('station_id')
+            )
+            history_by_station = {h.station_id: h for h in history_records}
+
+            return [
+                _build_metadata(s, np_override=history_by_station.get(s.id))
+                for s in stations
+            ]
+
+        # Mode 2: timestamp only — all stations with historical now_playing
+        if timestamp is not None:
+            stations = list(
+                Stations.objects.filter(disabled=False).select_related(
+                    'latest_station_uptime',
+                ).order_by('order', 'title')
+            )
+
+            station_ids = [s.id for s in stations]
+
+            # DISTINCT ON for latest history per station at as_of_dt
+            history_records = list(
+                StationsNowPlayingHistory.objects.filter(
+                    station_id__in=station_ids,
+                    timestamp__lte=as_of_dt,
+                ).select_related(
+                    'song', 'song__artist',
+                ).order_by('station_id', '-timestamp').distinct('station_id')
+            )
+            history_by_station = {h.station_id: h for h in history_records}
+
+            return [
+                _build_metadata(s, np_override=history_by_station.get(s.id))
+                for s in stations
+            ]
+
+        # Mode 3: default — current data
+        stations = list(
+            Stations.objects.filter(disabled=False).select_related(
+                'latest_station_uptime',
+                'latest_station_now_playing',
+                'latest_station_now_playing__song',
+                'latest_station_now_playing__song__artist',
+            ).order_by('order', 'title')
+        )
+        return [_build_metadata(s) for s in stations]
+
+    @strawberry.field
+    def stations_metadata_history(
+        self,
+        station_slug: str,
+        from_timestamp: Optional[int] = None,
+        to_timestamp: Optional[int] = None,
+    ) -> StationMetadataHistoryType:
+        """
+        Historical metadata for a station in a time range (max 24h).
+        Defaults: from_timestamp = now - 1 hour, to_timestamp = now.
+        """
+        from django.utils import timezone as tz
+
+        now_ts = int(tz.now().timestamp())
+
+        # Default to_timestamp to current time
+        if to_timestamp is None or to_timestamp == 0:
+            to_timestamp = now_ts
+
+        # Default from_timestamp to 1 hour ago
+        if from_timestamp is None or from_timestamp == 0:
+            from_timestamp = now_ts - 3600
+
+        # Validation: max 24h range
+        if to_timestamp - from_timestamp > 86400:
+            raise ValueError("Time range cannot exceed 24 hours (86400 seconds).")
+
+        # Validation: to_timestamp not in the future (+ 2s tolerance)
+        if to_timestamp > now_ts + 2:
+            raise ValueError("to_timestamp cannot be in the future.")
+
+        from_dt = datetime.fromtimestamp(from_timestamp, tz=dt_tz.utc)
+        to_dt = datetime.fromtimestamp(to_timestamp, tz=dt_tz.utc)
+
+        # Query 1: find station
+        station = Stations.objects.filter(
+            slug=station_slug, disabled=False,
+        ).first()
+        if not station:
+            raise ValueError(f"Station '{station_slug}' not found.")
+
+        # Query 2: fetch history records
+        records = list(
+            StationsNowPlayingHistory.objects.filter(
+                station=station,
+                timestamp__gte=from_dt,
+                timestamp__lte=to_dt,
+            ).select_related('song', 'song__artist').order_by('timestamp')
+        )
+
+        def _build_song(song):
+            if not song:
+                return None
+            artist = None
+            if song.artist:
+                artist = StationMetadataArtistType(
+                    id=song.artist.id,
+                    name=song.artist.name,
+                    thumbnail_url=song.artist.thumbnail_url if hasattr(song.artist, 'thumbnail_url') else None,
+                )
+            return StationMetadataSongType(
+                id=song.id,
+                name=song.name,
+                thumbnail_url=song.thumbnail_url if hasattr(song, 'thumbnail_url') else None,
+                artist=artist,
+            )
+
+        history = [
+            StationMetadataHistoryEntryType(
+                timestamp=r.timestamp.isoformat(),
+                listeners=r.listeners,
+                song=_build_song(r.song),
+            )
+            for r in records
+        ]
+
+        return StationMetadataHistoryType(
+            station_id=station.id,
+            station_slug=station.slug,
+            station_title=station.title,
+            from_timestamp=from_timestamp,
+            to_timestamp=to_timestamp,
+            count=len(history),
+            history=history,
         )
 
 

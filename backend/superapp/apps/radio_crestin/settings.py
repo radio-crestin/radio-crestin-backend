@@ -56,6 +56,12 @@ def extend_superapp_settings(main_settings):
                     "permission": lambda request: request.user.has_perm("radio_crestin.view_stationsnowplaying"),
                 },
                 {
+                    "title": lambda request: _("Now Playing History"),
+                    "icon": "history",
+                    "link": reverse_lazy("admin:radio_crestin_stationsnowplayinghistory_changelist"),
+                    "permission": lambda request: request.user.has_perm("radio_crestin.view_stationsnowplayinghistory"),
+                },
+                {
                     "title": lambda request: _("Station Uptime"),
                     "icon": "trending_up",
                     "link": reverse_lazy("admin:radio_crestin_stationsuptime_changelist"),
@@ -133,5 +139,9 @@ def extend_superapp_settings(main_settings):
             'delete-old-anonymous-users': {
                 'task': 'superapp.apps.radio_crestin.tasks.delete_old_anonymous_users.delete_old_anonymous_users',
                 'schedule': crontab(hour=2, minute=0),  # Daily at 2 AM
+            },
+            'delete-old-now-playing-history': {
+                'task': 'superapp.apps.radio_crestin.tasks.delete_old_now_playing_history.delete_old_now_playing_history',
+                'schedule': crontab(hour=2, minute=15),  # Daily at 2:15 AM
             },
         })

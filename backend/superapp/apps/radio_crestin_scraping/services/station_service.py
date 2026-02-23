@@ -6,7 +6,7 @@ from django.db import transaction, IntegrityError
 from django.utils import timezone
 
 from superapp.apps.radio_crestin.models import (
-    Stations, StationsNowPlaying,
+    Stations, StationsNowPlaying, StationsNowPlayingHistory,
     Songs, Artists, Posts
 )
 from ..utils.data_types import (
@@ -50,6 +50,11 @@ class StationService:
             if data.current_song and (data.current_song.name or data.current_song.artist):
                 song = StationService._upsert_song(data.current_song, dirty_metadata)
 
+            # Capture previous state before update (1 indexed single-row SELECT)
+            previous = StationsNowPlaying.objects.filter(
+                station_id=station_id
+            ).values('song_id', 'listeners').first()
+
             # Upsert station now playing record
             now_playing, created = StationsNowPlaying.objects.update_or_create(
                 station_id=station_id,
@@ -61,6 +66,24 @@ class StationService:
                     'error': data.error,
                 }
             )
+
+            # Write history only if metadata actually changed
+            new_song_id = song.id if song else None
+            new_listeners = data.listeners
+            now_timestamp = data.timestamp or timezone.now()
+
+            metadata_changed = (
+                created
+                or (previous['song_id'] if previous else None) != new_song_id
+                or (previous['listeners'] if previous else None) != new_listeners
+            )
+            if metadata_changed:
+                StationsNowPlayingHistory.objects.create(
+                    station_id=station_id,
+                    timestamp=now_timestamp,
+                    song=song,
+                    listeners=new_listeners,
+                )
 
             # Update station's latest_station_now_playing reference
             Stations.objects.filter(id=station_id).update(

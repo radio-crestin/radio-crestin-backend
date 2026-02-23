@@ -11,6 +11,8 @@ from .models import Songs, Artists
 from .services import AutocompleteService
 from .services.share_link_service import ShareLinkService
 
+logger = logging.getLogger(__name__)
+
 
 class FastSongAutocompleteView(AutocompleteJsonView):
     """Fast autocomplete view for songs using trigram indexes"""
@@ -317,3 +319,262 @@ class ShareLinkRedirectView(View):
         return redirect(target_url)
 
 
+def api_landing_view(request):
+    """API landing page with links to REST docs and GraphQL playground."""
+    html = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radio Crestin API</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8f9fa; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .container { max-width: 600px; width: 100%; padding: 2rem; }
+  h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.5rem; color: #1a1a2e; }
+  p { color: #6b7280; margin-bottom: 2rem; font-size: 0.95rem; }
+  .cards { display: flex; flex-direction: column; gap: 1rem; }
+  a.card { display: block; padding: 1.25rem 1.5rem; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; text-decoration: none; transition: box-shadow 0.15s, border-color 0.15s; }
+  a.card:hover { border-color: #3b82f6; box-shadow: 0 4px 12px rgba(59,130,246,0.12); }
+  .card-title { font-size: 1.1rem; font-weight: 600; color: #1a1a2e; margin-bottom: 0.25rem; }
+  .card-desc { font-size: 0.85rem; color: #6b7280; }
+  .badge { display: inline-block; font-size: 0.7rem; font-weight: 600; padding: 2px 8px; border-radius: 9999px; margin-left: 0.5rem; vertical-align: middle; }
+  .badge-blue { background: #dbeafe; color: #1d4ed8; }
+  .badge-purple { background: #ede9fe; color: #6d28d9; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Radio Crestin API</h1>
+  <p>Choose an API interface to get started.</p>
+  <div class="cards">
+    <a href="/api/v1/docs/" class="card">
+      <div class="card-title">REST API <span class="badge badge-blue">Recommended</span></div>
+      <div class="card-desc">CDN-cached, fast, with interactive Scalar documentation.</div>
+    </a>
+    <a href="/graphql" class="card">
+      <div class="card-title">GraphQL API <span class="badge badge-purple">Flexible</span></div>
+      <div class="card-desc">Flexible queries with the GraphiQL playground.</div>
+    </a>
+  </div>
+</div>
+</body>
+</html>'''
+    return HttpResponse(html, content_type='text/html')
+
+
+def api_schema_view(request):
+    """OpenAPI 3.0 schema for REST API endpoints with sample responses."""
+    import time
+    now_ts = int(time.time())
+    one_hour_ago_ts = now_ts - 3600
+
+    schema = {
+        "openapi": "3.0.3",
+        "info": {
+            "title": "Radio Crestin API",
+            "version": "1.0.0",
+            "description": "Christian Radio Stations Directory API. All endpoints return data wrapped in a `data` key (GraphQL convention).",
+        },
+        "servers": [
+            {"url": "/", "description": "Current server"},
+        ],
+        "paths": {
+            "/api/v1/stations": {
+                "get": {
+                    "summary": "Get all stations",
+                    "description": "Returns all active radio stations with full details including streams, uptime, now playing, posts, and reviews. If `timestamp` is omitted, redirects (302) to a timestamped URL rounded to 10s for CDN caching.",
+                    "operationId": "getStations",
+                    "parameters": [
+                        {"name": "timestamp", "in": "query", "description": "Unix timestamp for cache control. Omit to auto-redirect with current timestamp.", "schema": {"type": "integer"}},
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "Stations data",
+                            "content": {"application/json": {"example": {
+                                "data": {
+                                    "stations": [
+                                        {
+                                            "id": 0, "slug": "aripi-spre-cer", "order": 0,
+                                            "title": "Aripi Spre Cer", "website": "https://aripisprecer.ro",
+                                            "email": "", "stream_url": "https://stream.aripisprecer.ro/listen",
+                                            "proxy_stream_url": "https://proxy.radio-crestin.com/https://stream.aripisprecer.ro/listen",
+                                            "hls_stream_url": "https://hls-staging.radio-crestin.com/aripi-spre-cer/index.m3u8",
+                                            "thumbnail_url": "https://cdn.radio-crestin.com/stations/aripi-spre-cer.webp",
+                                            "total_listeners": 95, "radio_crestin_listeners": 5,
+                                            "description": None, "description_action_title": None, "description_link": None,
+                                            "feature_latest_post": True, "facebook_page_id": None,
+                                            "station_streams": [{"order": 0, "type": "audio/mpeg", "stream_url": "https://stream.aripisprecer.ro/listen"}],
+                                            "posts": [{"id": 10, "title": "Emisiune noua", "description": "...", "link": "https://...", "published": "2026-02-20T12:00:00+00:00"}],
+                                            "uptime": {"is_up": True, "latency_ms": 181, "timestamp": "2026-02-23T12:00:00+00:00"},
+                                            "now_playing": {"id": 1, "timestamp": "2026-02-23T12:00:00+00:00", "song": {"id": 2558, "name": "Chiar daca muntii", "thumbnail_url": "https://pictures.aripisprecer.ro/general/az_42540_VA%2052_Diana%20Scridon%20%26%20Ovidiu%20Opris.jpg", "artist": {"id": 1382, "name": "Diana Scridon & Ovidiu Opris", "thumbnail_url": None}}},
+                                            "reviews": [], "reviews_stats": {"number_of_reviews": 12, "average_rating": 4.8},
+                                        }
+                                    ],
+                                    "station_groups": [
+                                        {"id": 1, "name": "Populare", "order": 0, "slug": "populare", "station_to_station_groups": [{"station_id": 0, "order": 0}]}
+                                    ],
+                                }
+                            }}},
+                        },
+                        "302": {"description": "Redirect to timestamped URL when `timestamp` is omitted"},
+                        "400": {"description": "Timestamp is in the future or invalid format"},
+                    },
+                },
+            },
+            "/api/v1/stations-metadata": {
+                "get": {
+                    "summary": "Get station metadata (lightweight)",
+                    "description": "Returns lightweight station metadata (uptime + now_playing only). Much smaller payload than `/api/v1/stations`. Use `changes_from_timestamp` for efficient polling (only returns stations that changed).",
+                    "operationId": "getStationsMetadata",
+                    "parameters": [
+                        {"name": "timestamp", "in": "query", "description": "Unix timestamp for cache control and historical lookup. Omit to auto-redirect with current timestamp.", "schema": {"type": "integer"}},
+                        {"name": "changes_from_timestamp", "in": "query", "description": "Only return stations whose metadata changed after this timestamp. For polling every 30s, set to `timestamp - 30`.", "schema": {"type": "integer"}},
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "Station metadata list",
+                            "content": {"application/json": {"example": {
+                                "data": {
+                                    "stations_metadata": [
+                                        {
+                                            "id": 0, "slug": "aripi-spre-cer", "title": "Aripi Spre Cer",
+                                            "uptime": {"is_up": True, "latency_ms": 181, "timestamp": "2026-02-23T12:00:00+00:00"},
+                                            "now_playing": {
+                                                "timestamp": "2026-02-23T12:00:00+00:00", "listeners": 95,
+                                                "song": {"id": 2558, "name": "Chiar daca muntii", "thumbnail_url": "https://pictures.aripisprecer.ro/general/az_42540_VA%2052_Diana%20Scridon%20%26%20Ovidiu%20Opris.jpg", "artist": {"id": 1382, "name": "Diana Scridon & Ovidiu Opris", "thumbnail_url": None}},
+                                            },
+                                        }
+                                    ]
+                                }
+                            }}},
+                        },
+                        "302": {"description": "Redirect to timestamped URL when `timestamp` is omitted"},
+                        "400": {"description": "Timestamp is in the future or invalid format"},
+                    },
+                },
+            },
+            "/api/v1/stations-metadata-history": {
+                "get": {
+                    "summary": "Get station metadata history",
+                    "description": "Returns historical metadata snapshots for a specific station within a time range. Maximum range is 24 hours. Defaults: `from_timestamp` = now - 1 hour, `to_timestamp` = now.",
+                    "operationId": "getStationsMetadataHistory",
+                    "parameters": [
+                        {"name": "station_slug", "in": "query", "required": True, "description": "Station slug identifier", "schema": {"type": "string"}, "example": "aripi-spre-cer"},
+                        {"name": "from_timestamp", "in": "query", "description": "Start of time range (Unix timestamp). Defaults to now - 1 hour.", "schema": {"type": "integer"}, "example": one_hour_ago_ts},
+                        {"name": "to_timestamp", "in": "query", "description": "End of time range (Unix timestamp). Defaults to now.", "schema": {"type": "integer"}, "example": now_ts},
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "Station metadata history",
+                            "content": {"application/json": {"example": {
+                                "data": {
+                                    "stations_metadata_history": {
+                                        "station_id": 0, "station_slug": "aripi-spre-cer", "station_title": "Aripi Spre Cer",
+                                        "from_timestamp": one_hour_ago_ts, "to_timestamp": now_ts, "count": 3,
+                                        "history": [
+                                            {"timestamp": "2026-02-23T11:00:00+00:00", "listeners": 102, "song": {"id": 2401, "name": "Battle Belongs", "thumbnail_url": "https://pictures.aripisprecer.ro/general/az_42550_VA%2052_Phil%20Wickham.jpg", "artist": {"id": 23, "name": "Phil Wickham", "thumbnail_url": None}}},
+                                            {"timestamp": "2026-02-23T11:30:00+00:00", "listeners": 100, "song": {"id": 2558, "name": "Chiar daca muntii", "thumbnail_url": "https://pictures.aripisprecer.ro/general/az_42540_VA%2052_Diana%20Scridon%20%26%20Ovidiu%20Opris.jpg", "artist": {"id": 1382, "name": "Diana Scridon & Ovidiu Opris", "thumbnail_url": None}}},
+                                            {"timestamp": "2026-02-23T12:00:00+00:00", "listeners": 95, "song": {"id": 2558, "name": "Chiar daca muntii", "thumbnail_url": "https://pictures.aripisprecer.ro/general/az_42540_VA%2052_Diana%20Scridon%20%26%20Ovidiu%20Opris.jpg", "artist": {"id": 1382, "name": "Diana Scridon & Ovidiu Opris", "thumbnail_url": None}}},
+                                        ],
+                                    }
+                                }
+                            }}},
+                        },
+                    },
+                },
+            },
+            "/api/v1/reviews": {
+                "get": {
+                    "summary": "Get reviews",
+                    "description": "Returns verified reviews. Filter by `station_id` or `station_slug`. If `timestamp` is omitted, redirects to a timestamped URL for CDN caching.",
+                    "operationId": "getReviews",
+                    "parameters": [
+                        {"name": "station_id", "in": "query", "description": "Filter by station ID", "schema": {"type": "integer"}, "example": 0},
+                        {"name": "station_slug", "in": "query", "description": "Filter by station slug (alternative to station_id)", "schema": {"type": "string"}, "example": "aripi-spre-cer"},
+                        {"name": "timestamp", "in": "query", "description": "Unix timestamp for cache control", "schema": {"type": "integer"}},
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "Reviews list",
+                            "content": {"application/json": {"example": {
+                                "data": {
+                                    "reviews": [
+                                        {"id": 1, "station_id": 0, "stars": 5, "message": "Foarte frumos!", "created_at": "2026-02-20T10:00:00+00:00", "updated_at": "2026-02-20T10:00:00+00:00"},
+                                        {"id": 2, "station_id": 0, "stars": 4, "message": "Bun", "created_at": "2026-02-19T08:00:00+00:00", "updated_at": "2026-02-19T08:00:00+00:00"},
+                                    ]
+                                }
+                            }}},
+                        },
+                        "302": {"description": "Redirect to timestamped URL when `timestamp` is omitted"},
+                    },
+                },
+            },
+            "/api/v1/reviews/": {
+                "post": {
+                    "summary": "Submit a review",
+                    "description": "Submit or update a station review. Reviews are unique per IP address and station. Provide either `station_id` or `station_slug`.",
+                    "operationId": "submitReview",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["stars"],
+                                    "properties": {
+                                        "station_id": {"type": "integer", "description": "Station ID (provide this or station_slug)"},
+                                        "station_slug": {"type": "string", "description": "Station slug (provide this or station_id)"},
+                                        "stars": {"type": "integer", "minimum": 0, "maximum": 5},
+                                        "message": {"type": "string", "nullable": True},
+                                        "user_identifier": {"type": "string", "nullable": True},
+                                    },
+                                },
+                                "examples": {
+                                    "with_station_id": {
+                                        "summary": "Using station_id",
+                                        "value": {"station_id": 0, "stars": 5, "message": "Foarte frumos!"},
+                                    },
+                                    "with_station_slug": {
+                                        "summary": "Using station_slug",
+                                        "value": {"station_slug": "aripi-spre-cer", "stars": 5, "message": "Foarte frumos!"},
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    "responses": {
+                        "200": {
+                            "description": "Review submitted",
+                            "content": {"application/json": {"example": {
+                                "data": {
+                                    "submit_review": {
+                                        "success": True, "message": "Review created successfully", "created": True,
+                                        "review": {"id": 42, "station_id": 0, "stars": 5, "message": "Foarte frumos!", "user_identifier": None, "created_at": "2026-02-23T12:00:00+00:00", "updated_at": "2026-02-23T12:00:00+00:00", "verified": False},
+                                    }
+                                }
+                            }}},
+                        },
+                    },
+                },
+            },
+        },
+    }
+    return JsonResponse(schema)
+
+
+def api_docs_view(request):
+    """Scalar API documentation UI with client-side dynamic timestamp defaults."""
+    html = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radio Crestin API Docs</title>
+</head>
+<body>
+<script id="api-reference" data-configuration='{"spec":{"url":"/api/v1/schema/"}}'></script>
+<script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+</body>
+</html>'''
+    return HttpResponse(html, content_type='text/html')
