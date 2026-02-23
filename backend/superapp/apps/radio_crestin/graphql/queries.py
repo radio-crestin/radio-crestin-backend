@@ -620,7 +620,9 @@ class Query:
         if not station:
             raise ValueError(f"Station '{station_slug}' not found.")
 
-        # Query 2: fetch history records
+        # Query 2: fetch history records, deduplicated to song changes only.
+        # We fetch all rows in the time range ordered by timestamp, then keep
+        # only rows where the song_id differs from the previous row.
         records = list(
             StationsNowPlayingHistory.objects.filter(
                 station=station,
@@ -628,6 +630,15 @@ class Query:
                 timestamp__lte=to_dt,
             ).select_related('song', 'song__artist').order_by('timestamp')
         )
+
+        # Deduplicate: keep only entries where song changed from the previous entry
+        deduplicated = []
+        prev_song_id = None
+        for r in records:
+            current_song_id = r.song_id
+            if current_song_id != prev_song_id:
+                deduplicated.append(r)
+                prev_song_id = current_song_id
 
         def _build_song(song):
             if not song:
@@ -652,7 +663,7 @@ class Query:
                 listeners=r.listeners,
                 song=_build_song(r.song),
             )
-            for r in records
+            for r in deduplicated
         ]
 
         return StationMetadataHistoryType(

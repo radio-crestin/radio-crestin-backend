@@ -3,6 +3,8 @@ from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
 from django.urls import reverse
 
+from unfold.contrib.filters.admin import RangeDateTimeFilter, AutocompleteSelectFilter
+
 from superapp.apps.admin_portal.admin import SuperAppModelAdmin
 from superapp.apps.admin_portal.sites import superapp_admin_site
 from ..models import StationsNowPlayingHistory
@@ -11,12 +13,15 @@ from ..models import StationsNowPlayingHistory
 @admin.register(StationsNowPlayingHistory, site=superapp_admin_site)
 class StationsNowPlayingHistoryAdmin(SuperAppModelAdmin):
     list_display = ['pk', 'station_link', 'song_link', 'timestamp', 'listeners']
-    list_filter = ['timestamp', 'station']
-    search_fields = ['station__title', 'song__name', 'song__artist__name']
+    list_filter = [
+        ('timestamp', RangeDateTimeFilter),
+        ('station', AutocompleteSelectFilter),
+    ]
+    search_fields = ['station__title', 'song__name']
     autocomplete_fields = ['station', 'song']
     readonly_fields = ['timestamp', 'station', 'song', 'listeners']
-    date_hierarchy = 'timestamp'
     list_select_related = ['station', 'song', 'song__artist']
+    ordering = ['-timestamp']
 
     list_per_page = 25
     show_full_result_count = False

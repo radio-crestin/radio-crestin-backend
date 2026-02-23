@@ -67,7 +67,7 @@ class StationService:
                 }
             )
 
-            # Write history only if metadata actually changed
+            # Write history when metadata changes (song or listener count)
             new_song_id = song.id if song else None
             new_listeners = data.listeners
             now_timestamp = data.timestamp or timezone.now()

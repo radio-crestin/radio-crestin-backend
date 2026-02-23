@@ -337,7 +337,7 @@ class StationsMetadataApiEndpoint(RestApiEndpoint):
     graphql_query = STATIONS_METADATA_GRAPHQL_QUERY
     method = HttpMethod.GET
     name = "api_v1_stations_metadata"
-    cache_control = "public, max-age=0, s-maxage=30, stale-while-revalidate=30"
+    cache_control = "public, max-age=0, s-maxage=14400, immutable, no-store"
     cors_enabled = True
 
     @staticmethod

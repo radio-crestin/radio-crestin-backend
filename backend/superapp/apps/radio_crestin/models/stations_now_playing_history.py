@@ -32,5 +32,4 @@ class StationsNowPlayingHistory(models.Model):
         ]
 
     def __str__(self):
-        song_display = self.song if self.song else "No song"
-        return f"{self.station} - {song_display} ({self.timestamp})"
+        return f"NowPlaying #{self.pk} ({self.timestamp})"
