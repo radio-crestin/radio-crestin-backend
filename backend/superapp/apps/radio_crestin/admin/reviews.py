@@ -9,10 +9,10 @@ from ..models import Reviews
 
 @admin.register(Reviews, site=superapp_admin_site)
 class ReviewsAdmin(SuperAppModelAdmin):
-    list_display = ['station', 'ip_address', 'user_identifier', 'stars_display', 'message_preview', 'verified_status', 'created_at']
+    list_display = ['station', 'song', 'ip_address', 'user_identifier', 'stars_display', 'message_preview', 'verified_status', 'created_at']
     list_filter = ['stars', 'verified', 'created_at', 'station']
     search_fields = ['ip_address', 'user_identifier', 'station__title', 'message', 'user__email', 'user__anonymous_id']
-    autocomplete_fields = ['user', 'station']
+    autocomplete_fields = ['user', 'station', 'song']
     readonly_fields = ['created_at', 'updated_at', 'stars_display', 'ip_address']
     date_hierarchy = 'created_at'
     ordering = ['-created_at']
@@ -20,7 +20,7 @@ class ReviewsAdmin(SuperAppModelAdmin):
 
     fieldsets = (
         (_("Review Details"), {
-            'fields': ('station', 'stars', 'stars_display', 'message')
+            'fields': ('station', 'song', 'stars', 'stars_display', 'message')
         }),
         (_("Reviewer Info"), {
             'fields': ('ip_address', 'user_identifier', 'user')
@@ -71,4 +71,4 @@ class ReviewsAdmin(SuperAppModelAdmin):
     unverify_reviews.short_description = _("Unverify selected reviews")
     
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('user', 'station')
+        return super().get_queryset(request).select_related('user', 'station', 'song')

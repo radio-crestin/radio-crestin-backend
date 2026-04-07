@@ -378,6 +378,7 @@ class Query:
             ReviewType(
                 id=r.id,
                 station_id=r.station_id,
+                song_id=r.song_id,
                 stars=r.stars,
                 message=r.message,
                 user_identifier=r.user_identifier,

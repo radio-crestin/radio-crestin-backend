@@ -197,6 +197,7 @@ class ReviewsApiEndpoint(RestApiEndpoint):
           review {
             id
             station_id
+            song_id
             stars
             message
             user_identifier
@@ -244,6 +245,8 @@ class ReviewsApiEndpoint(RestApiEndpoint):
             input_vars['station_id'] = body.get('station_id')
         if body.get('station_slug'):
             input_vars['station_slug'] = body.get('station_slug')
+        if body.get('song_id'):
+            input_vars['song_id'] = body.get('song_id')
         return {'input': input_vars}
 
 

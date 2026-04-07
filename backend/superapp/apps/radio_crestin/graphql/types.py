@@ -260,6 +260,7 @@ class StationType:
             ReviewType(
                 id=r.id,
                 station_id=None,
+                song_id=r.song_id,
                 stars=r.stars,
                 message=r.message,
                 user_identifier=None,
@@ -320,6 +321,7 @@ class ReviewsStatsType:
 class ReviewType:
     id: int
     station_id: int
+    song_id: Optional[int]
     stars: int
     message: Optional[str]
     user_identifier: Optional[str]
@@ -332,6 +334,7 @@ class ReviewType:
 class SubmitReviewInput:
     station_id: Optional[int] = None
     station_slug: Optional[str] = None
+    song_id: Optional[int] = None
     stars: int = 5  # Default to 5 stars, validated in service to be 0-5
     message: Optional[str] = None
     user_identifier: Optional[str] = None

@@ -6,8 +6,8 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 class Reviews(models.Model):
     """
     Model for user reviews of radio stations.
-    Reviews are unique per IP address and station - if same IP submits another review
-    for the same station, the existing review is updated.
+    Reviews are unique per (station, ip_address, song). A user can leave one review
+    per station without a song, and one review per station+song combination.
     """
     created_at = models.DateTimeField(_("Created at"), auto_now_add=True)
     updated_at = models.DateTimeField(_("Updated at"), auto_now=True)
@@ -26,6 +26,16 @@ class Reviews(models.Model):
         verbose_name=_("Station"),
         on_delete=models.CASCADE,
         related_name='reviews'
+    )
+
+    song = models.ForeignKey(
+        'Songs',
+        verbose_name=_("Song"),
+        on_delete=models.SET_NULL,
+        related_name='reviews',
+        blank=True,
+        null=True,
+        help_text=_("Optional song being reviewed. If set, allows a separate review per song.")
     )
 
     ip_address = models.GenericIPAddressField(
@@ -56,12 +66,25 @@ class Reviews(models.Model):
         verbose_name_plural = _("Reviews")
         db_table = 'reviews'
         ordering = ('-created_at',)
-        unique_together = [['station', 'ip_address']]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['station', 'ip_address'],
+                name='unique_review_station_ip_no_song',
+                condition=models.Q(song__isnull=True)
+            ),
+            models.UniqueConstraint(
+                fields=['station', 'ip_address', 'song'],
+                name='unique_review_station_ip_song',
+                condition=models.Q(song__isnull=False)
+            ),
+        ]
         indexes = [
             models.Index(fields=['station', 'ip_address']),
             models.Index(fields=['user_identifier']),
+            models.Index(fields=['song']),
         ]
 
     def __str__(self):
         station_title = self.station.title if self.station else "Unknown"
-        return f"{self.ip_address} - {station_title} - {self.stars} stars"
+        song_info = f" - {self.song}" if self.song else ""
+        return f"{self.ip_address} - {station_title}{song_info} - {self.stars} stars"

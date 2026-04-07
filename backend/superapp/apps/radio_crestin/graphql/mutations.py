@@ -244,13 +244,15 @@ class Mutation:
                 ip_address=ip_address,
                 stars=input.stars,
                 message=input.message,
-                user_identifier=input.user_identifier
+                user_identifier=input.user_identifier,
+                song_id=input.song_id
             )
 
             review_data = result['review']
             review_type = ReviewType(
                 id=review_data['id'],
                 station_id=review_data['station_id'],
+                song_id=review_data['song_id'],
                 stars=review_data['stars'],
                 message=review_data['message'],
                 user_identifier=review_data['user_identifier'],

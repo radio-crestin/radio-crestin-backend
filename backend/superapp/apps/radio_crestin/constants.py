@@ -96,6 +96,7 @@ query GetReviews($station_id: Int, $station_slug: String) @cache_control(max_age
     __typename
     id
     station_id
+    song_id
     stars
     message
     created_at
