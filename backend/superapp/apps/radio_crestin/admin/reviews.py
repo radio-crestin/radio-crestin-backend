@@ -2,33 +2,23 @@ from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
 
+from unfold.contrib.filters.admin import AutocompleteSelectFilter
+
 from superapp.apps.admin_portal.admin import SuperAppModelAdmin
 from superapp.apps.admin_portal.sites import superapp_admin_site
 from ..models import Reviews
 
 
-class HasSongFilter(admin.SimpleListFilter):
-    title = _("Has Song")
-    parameter_name = "has_song"
-
-    def lookups(self, request, model_admin):
-        return [
-            ("yes", _("With song")),
-            ("no", _("Without song")),
-        ]
-
-    def queryset(self, request, queryset):
-        if self.value() == "yes":
-            return queryset.filter(song__isnull=False)
-        if self.value() == "no":
-            return queryset.filter(song__isnull=True)
-        return queryset
-
-
 @admin.register(Reviews, site=superapp_admin_site)
 class ReviewsAdmin(SuperAppModelAdmin):
     list_display = ['station', 'song', 'ip_address', 'user_identifier', 'stars_display', 'message_preview', 'verified_status', 'created_at']
-    list_filter = ['stars', 'verified', 'created_at', 'station', HasSongFilter]
+    list_filter = [
+        'stars',
+        'verified',
+        'created_at',
+        ('station', AutocompleteSelectFilter),
+        ('song', AutocompleteSelectFilter),
+    ]
     search_fields = ['ip_address', 'user_identifier', 'station__title', 'message', 'user__email', 'user__anonymous_id', 'song__name']
     autocomplete_fields = ['user', 'station', 'song']
     readonly_fields = ['created_at', 'updated_at', 'stars_display', 'ip_address']
