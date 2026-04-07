@@ -8,7 +8,7 @@ from django.apps import apps
 from django.db import connection
 from strawberry.extensions import Extension, ParserCache
 from strawberry.tools import merge_types
-from strawberry.types.base import TypeDefinition
+from strawberry.types.base import StrawberryObjectDefinition
 from strawberry_django.extensions.django_validation_cache import DjangoValidationCache
 from strawberry_django.optimizer import DjangoOptimizerExtension
 from .graphql.extensions import CacheControlExtension, CacheExtension
@@ -171,7 +171,7 @@ def combine_types(base_class_name: str, types: List[Type]) -> Type:
     # Create a new type with combined fields
     combined_fields = {}
     for type_ in types:
-        type_def: TypeDefinition = type_._type_definition
+        type_def: StrawberryObjectDefinition = type_._type_definition
         for field in type_def.fields:
             combined_fields[field.python_name] = field
 
