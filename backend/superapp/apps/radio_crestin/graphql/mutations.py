@@ -24,7 +24,7 @@ from .types import (
     DeleteReviewResponse,
     ReviewType
 )
-from ..models import Stations, ListeningSessions
+from ..models import Stations, ListeningSessions, AppUsers
 from ..services.share_link_service import ShareLinkService
 from ..services.review_service import ReviewService
 
@@ -61,22 +61,37 @@ class Mutation:
         processed_count = 0
 
         try:
+            # Cache user and station lookups within the batch to avoid repeated queries
+            user_cache = {}
+            station_cache = {}
+
             for event_input in events:
                 logger.info("Processing event: %s", event_input)
                 try:
                     # Parse timestamp
                     timestamp = datetime.fromisoformat(event_input.timestamp.replace('Z', '+00:00'))
 
-                    # Find or get station by slug
-                    try:
-                        station = Stations.objects.get(slug=event_input.station_slug)
-                    except Stations.DoesNotExist:
-                        logger.warning(f"Station not found: {event_input.station_slug}")
+                    # Find or get station by slug (cached)
+                    station_slug = event_input.station_slug
+                    if station_slug not in station_cache:
+                        try:
+                            station_cache[station_slug] = Stations.objects.get(slug=station_slug)
+                        except Stations.DoesNotExist:
+                            station_cache[station_slug] = None
+                            logger.warning(f"Station not found: {station_slug}")
+                    station = station_cache[station_slug]
+                    if station is None:
                         continue
 
-                    # For anonymous sessions, don't create AppUser records
-                    # Anonymous sessions are tracked by session ID only
-                    anonymous_user = None
+                    # Get or create AppUsers by anonymous_id (same device ID from ?s= param)
+                    # Links the same user across listening sessions, reviews, and share links
+                    session_id = event_input.anonymous_session_id
+                    if session_id not in user_cache:
+                        user, _ = AppUsers.objects.get_or_create(
+                            anonymous_id=session_id
+                        )
+                        user_cache[session_id] = user
+                    anonymous_user = user_cache[session_id]
 
                     # Get or create listening session and update activity
                     session, created = ListeningSessions.get_or_create_session(
@@ -84,7 +99,8 @@ class Mutation:
                         station=station,
                         anonymous_session_id=event_input.anonymous_session_id,
                         ip_address=event_input.ip_address,
-                        user_agent=event_input.user_agent
+                        user_agent=event_input.user_agent,
+                        referer=event_input.referer
                     )
 
                     # Update session activity with new event data

@@ -30,6 +30,7 @@ class ListeningEventInput:
     request_duration: float
     status_code: int
     request_count: Optional[int] = None
+    referer: Optional[str] = None
 
 from ..models import (
     Artists,

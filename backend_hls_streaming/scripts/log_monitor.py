@@ -64,7 +64,7 @@ class LogMonitor:
         Parse a single NGINX log line and extract relevant information.
         
         Expected format from nginx.conf session_access log format:
-        '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" session_id="$arg_s" real_ip="$http_x_forwarded_for"'
+        '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" session_id="$arg_s" ref="$arg_ref" real_ip="$http_x_forwarded_for" cf_ip="$http_cf_connecting_ip"'
         
         Args:
             line: Raw log line from NGINX
@@ -83,7 +83,9 @@ class LogMonitor:
                 r'"(?P<http_referer>[^"]*)" '
                 r'"(?P<http_user_agent>[^"]*)" '
                 r'session_id="(?P<session_id>[^"]*)" '
-                r'real_ip="(?P<real_ip>[^"]*)"'
+                r'ref="(?P<ref>[^"]*)" '
+                r'real_ip="(?P<real_ip>[^"]*)" '
+                r'cf_ip="(?P<cf_ip>[^"]*)"'
             )
             
             match = re.match(pattern, line.strip())
@@ -116,18 +118,31 @@ class LogMonitor:
             else:
                 return None  # Skip if we can't determine the station
             
-            # Use real_ip if available, fallback to remote_addr
-            real_client_ip = data.get('real_ip', '').strip()
-            if not real_client_ip or real_client_ip == '-':
+            # Extract client IP matching the reviews endpoint logic:
+            # 1. CF-Connecting-IP (Cloudflare)
+            # 2. X-Forwarded-For (first IP in the chain = original client)
+            # 3. remote_addr (direct connection / NGINX resolved)
+            cf_ip = data.get('cf_ip', '').strip()
+            x_forwarded = data.get('real_ip', '').strip()
+
+            if cf_ip and cf_ip != '-':
+                real_client_ip = cf_ip
+            elif x_forwarded and x_forwarded != '-':
+                real_client_ip = x_forwarded.split(',')[0].strip()
+            else:
                 real_client_ip = data['remote_addr']
             
+            # Use ?ref= query param if present, fall back to HTTP Referer header
+            ref_param = data.get('ref', '').strip()
+            referer = ref_param if ref_param and ref_param != '-' else data['http_referer']
+
             return {
                 'timestamp': timestamp,
                 'ip_address': real_client_ip,
                 'session_id': data['session_id'],
                 'station_slug': station_slug,
                 'user_agent': data['http_user_agent'],
-                'referer': data['http_referer'],
+                'referer': referer,
                 'status': int(data['status']),
                 'bytes_sent': int(data['body_bytes_sent']),
                 'request_time': 0.0,  # Not available in this log format
@@ -162,7 +177,8 @@ class LogMonitor:
             'event_type': 'playlist_request' if event_data['is_playlist'] else 'segment_request',
             'bytes_transferred': event_data['bytes_sent'],
             'request_duration': event_data['request_time'],
-            'status_code': event_data['status']
+            'status_code': event_data['status'],
+            'referer': event_data['referer'],
         }
     
     def submit_batch_to_graphql(self, events: List[Dict]):

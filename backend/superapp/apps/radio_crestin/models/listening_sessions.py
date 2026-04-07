@@ -55,7 +55,7 @@ class ListeningSessions(models.Model):
     # User context
     ip_address = models.GenericIPAddressField(_("IP Address"), blank=True, null=True)
     user_agent = models.TextField(_("User Agent"), blank=True, null=True)
-    referer = models.URLField(_("Referer"), blank=True, null=True)
+    referer = models.CharField(_("Referer"), max_length=512, blank=True, null=True)
     
     # Status tracking
     is_active = models.BooleanField(
