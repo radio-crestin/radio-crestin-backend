@@ -348,6 +348,19 @@ class SubmitReviewResponse:
     created: bool = False
 
 
+@strawberry.input
+class DeleteReviewInput:
+    station_id: Optional[int] = None
+    station_slug: Optional[str] = None
+    song_id: Optional[int] = None
+
+
+@strawberry.type
+class DeleteReviewResponse:
+    success: bool
+    message: str
+
+
 @strawberry.type
 class StationMetadataType:
     """Lightweight station metadata - only uptime + now_playing."""

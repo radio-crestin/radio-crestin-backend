@@ -20,6 +20,8 @@ from .types import (
     ShareLinkData,
     SubmitReviewInput,
     SubmitReviewResponse,
+    DeleteReviewInput,
+    DeleteReviewResponse,
     ReviewType
 )
 from ..models import Stations, ListeningSessions
@@ -282,6 +284,64 @@ class Mutation:
                 success=False,
                 message=f"Error submitting review: {str(e)}",
                 created=False
+            )
+
+    @strawberry_django.mutation(handle_django_errors=True)
+    def delete_review(self, info: strawberry.Info, input: DeleteReviewInput) -> DeleteReviewResponse:
+        """
+        Delete a review for a radio station, optionally scoped to a specific song.
+        The review is identified by the caller's IP address + station + optional song.
+        """
+        logger = logging.getLogger(__name__)
+
+        try:
+            request = info.context.request
+            ip_address = Mutation._get_client_ip(request)
+
+            if not ip_address:
+                return DeleteReviewResponse(
+                    success=False,
+                    message="Could not determine client IP address"
+                )
+
+            station_id = input.station_id
+            if not station_id and input.station_slug:
+                station = Stations.objects.filter(slug=input.station_slug, disabled=False).first()
+                if not station:
+                    return DeleteReviewResponse(
+                        success=False,
+                        message=f"Station '{input.station_slug}' not found"
+                    )
+                station_id = station.id
+
+            if not station_id:
+                return DeleteReviewResponse(
+                    success=False,
+                    message="Either station_id or station_slug is required"
+                )
+
+            deleted = ReviewService.delete(
+                station_id=station_id,
+                ip_address=ip_address,
+                song_id=input.song_id
+            )
+
+            if deleted:
+                return DeleteReviewResponse(
+                    success=True,
+                    message="Review deleted successfully"
+                )
+            else:
+                return DeleteReviewResponse(
+                    success=False,
+                    message="Review not found"
+                )
+
+        except Exception as e:
+            logger.error(f"Error deleting review: {e}")
+            return DeleteReviewResponse(
+                success=False,
+                message=f"Error deleting review: {str(e)}"
             )
 
     @staticmethod

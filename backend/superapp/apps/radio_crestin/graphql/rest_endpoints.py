@@ -250,6 +250,60 @@ class ReviewsApiEndpoint(RestApiEndpoint):
         return {'input': input_vars}
 
 
+class DeleteReviewApiEndpoint(RestApiEndpoint):
+    """
+    REST API endpoint for deleting a review.
+
+    DELETE /api/v1/reviews/delete/
+    Body: { "station_id": int?, "station_slug": string?, "song_id": int? }
+
+    Deletes the review matching the caller's IP + station + optional song.
+    """
+
+    path = "api/v1/reviews/delete/"
+    name = "api_v1_reviews_delete"
+    method = HttpMethod.POST
+    cache_control = "no-cache"
+    cors_enabled = True
+
+    graphql_query = """
+    mutation DeleteReview($input: DeleteReviewInput!) {
+      delete_review(input: $input) {
+        __typename
+        ... on DeleteReviewResponse {
+          success
+          message
+        }
+        ... on OperationInfo {
+          __typename
+          messages {
+            code
+            field
+            kind
+            message
+          }
+        }
+      }
+    }
+    """
+
+    @staticmethod
+    def variable_extractor(request, **kwargs) -> Dict[str, Any]:
+        try:
+            body = json.loads(request.body.decode('utf-8'))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            body = {}
+
+        input_vars: Dict[str, Any] = {}
+        if body.get('station_id'):
+            input_vars['station_id'] = body.get('station_id')
+        if body.get('station_slug'):
+            input_vars['station_slug'] = body.get('station_slug')
+        if body.get('song_id'):
+            input_vars['song_id'] = body.get('song_id')
+        return {'input': input_vars}
+
+
 class ReviewsListApiEndpoint(RestApiEndpoint):
     """
     REST API endpoint for listing station reviews.
@@ -422,5 +476,6 @@ REST_ENDPOINTS = [
     StationsMetadataHistoryApiEndpoint,
     ShareLinksApiEndpoint,
     ReviewsApiEndpoint,
+    DeleteReviewApiEndpoint,
     ReviewsListApiEndpoint,
 ]

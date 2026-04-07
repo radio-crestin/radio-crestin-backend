@@ -10,7 +10,7 @@ from ..models import Reviews
 @admin.register(Reviews, site=superapp_admin_site)
 class ReviewsAdmin(SuperAppModelAdmin):
     list_display = ['station', 'song', 'ip_address', 'user_identifier', 'stars_display', 'message_preview', 'verified_status', 'created_at']
-    list_filter = ['stars', 'verified', 'created_at', 'station']
+    list_filter = ['stars', 'verified', 'created_at', 'station', 'song']
     search_fields = ['ip_address', 'user_identifier', 'station__title', 'message', 'user__email', 'user__anonymous_id']
     autocomplete_fields = ['user', 'station', 'song']
     readonly_fields = ['created_at', 'updated_at', 'stars_display', 'ip_address']
