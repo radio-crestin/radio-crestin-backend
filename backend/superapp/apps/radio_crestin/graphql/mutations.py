@@ -362,7 +362,7 @@ class Mutation:
                 message=f"Error deleting review: {str(e)}"
             )
 
-    @strawberry_django.mutation(handle_django_errors=True)
+    @strawberry.mutation
     def insert_analytics_events_one(self, object: AnalyticsEventInput) -> AnalyticsEventResponse:
         """
         Legacy Hasura-compatible mutation for analytics events.
