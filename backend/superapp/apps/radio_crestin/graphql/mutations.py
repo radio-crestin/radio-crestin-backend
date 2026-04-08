@@ -22,7 +22,9 @@ from .types import (
     SubmitReviewResponse,
     DeleteReviewInput,
     DeleteReviewResponse,
-    ReviewType
+    ReviewType,
+    AnalyticsEventInput,
+    AnalyticsEventResponse
 )
 from ..models import Stations, ListeningSessions, AppUsers
 from ..services.share_link_service import ShareLinkService
@@ -359,6 +361,14 @@ class Mutation:
                 success=False,
                 message=f"Error deleting review: {str(e)}"
             )
+
+    @strawberry_django.mutation(handle_django_errors=True)
+    def insert_analytics_events_one(self, object: AnalyticsEventInput) -> AnalyticsEventResponse:
+        """
+        Legacy Hasura-compatible mutation for analytics events.
+        Accepts the request but does nothing — analytics are tracked via PostHog.
+        """
+        return AnalyticsEventResponse(id=0)
 
     @staticmethod
     def _get_client_ip(request) -> str:

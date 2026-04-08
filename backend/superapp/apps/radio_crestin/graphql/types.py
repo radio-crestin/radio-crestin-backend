@@ -6,7 +6,7 @@ from enum import Enum
 
 from django.conf import settings
 
-from .scalars import timestamptz
+from .scalars import timestamptz, jsonb
 
 class OrderDirection(Enum):
     asc = "asc"
@@ -360,6 +360,17 @@ class DeleteReviewInput:
 class DeleteReviewResponse:
     success: bool
     message: str
+
+
+@strawberry.input
+class AnalyticsEventInput:
+    name: str
+    info: Optional[jsonb] = None
+
+
+@strawberry.type
+class AnalyticsEventResponse:
+    id: Optional[int] = None
 
 
 @strawberry.type
