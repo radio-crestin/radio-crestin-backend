@@ -7,6 +7,7 @@ from enum import Enum
 from django.conf import settings
 
 from .scalars import timestamptz, jsonb
+from ..utils.cdn_proxy import proxy_image_url
 
 class OrderDirection(Enum):
     asc = "asc"
@@ -105,8 +106,11 @@ class StationType:
     uptime: Optional[StationUptimeType] = strawberry_django.field(field_name="latest_station_uptime")
     now_playing: Optional[StationNowPlayingType] = strawberry_django.field(field_name="latest_station_now_playing")
 
-    # Add snake_case aliases for backward compatibility
-    thumbnail_url: Optional[str] = strawberry_django.field()
+    # Proxy thumbnail through CDN
+    @strawberry.field(name="thumbnail_url")
+    def proxied_thumbnail_url(self) -> Optional[str]:
+        raw = getattr(self, 'thumbnail_url', None)
+        return proxy_image_url(raw)
     description_action_title: Optional[str] = strawberry_django.field()
     description_link: Optional[str] = strawberry_django.field()
     feature_latest_post: bool = strawberry_django.field()

@@ -252,6 +252,11 @@ else:
         },
     }
 ######################################################################
+# CDN Image Proxy
+######################################################################
+CDN_SIGNING_SECRET = environ.get('CDN_SIGNING_SECRET', '')
+
+######################################################################
 # SUPERAPP dynamic settings and urls
 ######################################################################
 from django_superapp.settings import extend_superapp_settings

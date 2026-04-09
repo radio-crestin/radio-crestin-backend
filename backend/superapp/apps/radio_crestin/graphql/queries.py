@@ -15,6 +15,7 @@ from .types import (
 from ..models import Stations, StationGroups, StationStreams, Posts, StationToStationGroup, Artists, Songs
 from ..models import StationsNowPlayingHistory
 from ..services import AutocompleteService
+from ..utils.cdn_proxy import proxy_image_url
 
 
 @strawberry.input
@@ -442,12 +443,12 @@ class Query:
                 artist = StationMetadataArtistType(
                     id=song.artist.id,
                     name=song.artist.name,
-                    thumbnail_url=song.artist.thumbnail_url if hasattr(song.artist, 'thumbnail_url') else None,
+                    thumbnail_url=proxy_image_url(song.artist.thumbnail_url) if hasattr(song.artist, 'thumbnail_url') else None,
                 )
             return StationMetadataSongType(
                 id=song.id,
                 name=song.name,
-                thumbnail_url=song.thumbnail_url if hasattr(song, 'thumbnail_url') else None,
+                thumbnail_url=proxy_image_url(song.thumbnail_url) if hasattr(song, 'thumbnail_url') else None,
                 artist=artist,
             )
 
@@ -649,12 +650,12 @@ class Query:
                 artist = StationMetadataArtistType(
                     id=song.artist.id,
                     name=song.artist.name,
-                    thumbnail_url=song.artist.thumbnail_url if hasattr(song.artist, 'thumbnail_url') else None,
+                    thumbnail_url=proxy_image_url(song.artist.thumbnail_url) if hasattr(song.artist, 'thumbnail_url') else None,
                 )
             return StationMetadataSongType(
                 id=song.id,
                 name=song.name,
-                thumbnail_url=song.thumbnail_url if hasattr(song, 'thumbnail_url') else None,
+                thumbnail_url=proxy_image_url(song.thumbnail_url) if hasattr(song, 'thumbnail_url') else None,
                 artist=artist,
             )
 
