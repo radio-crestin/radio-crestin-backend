@@ -443,12 +443,12 @@ class Query:
                 artist = StationMetadataArtistType(
                     id=song.artist.id,
                     name=song.artist.name,
-                    thumbnail_url=proxy_image_url(song.artist.thumbnail_url) if hasattr(song.artist, 'thumbnail_url') else None,
+                    thumbnail_url=proxy_image_url(song.artist.thumbnail_url, width=250, format="webp") if hasattr(song.artist, 'thumbnail_url') else None,
                 )
             return StationMetadataSongType(
                 id=song.id,
                 name=song.name,
-                thumbnail_url=proxy_image_url(song.thumbnail_url) if hasattr(song, 'thumbnail_url') else None,
+                thumbnail_url=proxy_image_url(song.thumbnail_url, width=250, format="webp") if hasattr(song, 'thumbnail_url') else None,
                 artist=artist,
             )
 
@@ -650,12 +650,12 @@ class Query:
                 artist = StationMetadataArtistType(
                     id=song.artist.id,
                     name=song.artist.name,
-                    thumbnail_url=proxy_image_url(song.artist.thumbnail_url) if hasattr(song.artist, 'thumbnail_url') else None,
+                    thumbnail_url=proxy_image_url(song.artist.thumbnail_url, width=250, format="webp") if hasattr(song.artist, 'thumbnail_url') else None,
                 )
             return StationMetadataSongType(
                 id=song.id,
                 name=song.name,
-                thumbnail_url=proxy_image_url(song.thumbnail_url) if hasattr(song, 'thumbnail_url') else None,
+                thumbnail_url=proxy_image_url(song.thumbnail_url, width=250, format="webp") if hasattr(song, 'thumbnail_url') else None,
                 artist=artist,
             )
 

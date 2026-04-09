@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+from typing import Optional
 from urllib.parse import urlencode
 from django.conf import settings
 
@@ -19,8 +20,24 @@ def sign_url(url: str) -> str:
     return hmac.new(secret.encode(), url.encode(), hashlib.sha256).hexdigest()
 
 
-def proxy_image_url(url: str | None) -> str | None:
+def proxy_image_url(
+    url: str | None,
+    *,
+    width: Optional[int] = None,
+    height: Optional[int] = None,
+    format: Optional[str] = None,
+    quality: Optional[int] = None,
+    max_age: Optional[int] = None,
+) -> str | None:
     """Convert a remote image URL to a CDN-proxied URL with HMAC signature.
+
+    Args:
+        url: The original image URL to proxy.
+        width: Resize width (max 2048).
+        height: Resize height (max 2048).
+        format: Output format — webp, avif, jpeg, png.
+        quality: Output quality 1-100.
+        max_age: Client-side Cache-Control max-age in seconds.
 
     Returns the original URL if CDN signing is not configured.
     """
@@ -32,5 +49,17 @@ def proxy_image_url(url: str | None) -> str | None:
         return url
 
     sig = sign_url(url)
-    params = urlencode({"url": url, "sig": sig})
-    return f"{CDN_BASE_URL}/?{params}"
+    params = {"url": url, "sig": sig}
+
+    if width:
+        params["w"] = width
+    if height:
+        params["h"] = height
+    if format:
+        params["f"] = format
+    if quality:
+        params["q"] = quality
+    if max_age is not None:
+        params["max_age"] = max_age
+
+    return f"{CDN_BASE_URL}/?{urlencode(params)}"
