@@ -110,7 +110,7 @@ class StationType:
     @strawberry.field(name="thumbnail_url")
     def proxied_thumbnail_url(self) -> Optional[str]:
         raw = getattr(self, 'thumbnail_url', None)
-        return proxy_image_url(raw, width=250, format="webp")
+        return proxy_image_url(raw, width=250, format="webp", max_age=2592000)
     description_action_title: Optional[str] = strawberry_django.field()
     description_link: Optional[str] = strawberry_django.field()
     feature_latest_post: bool = strawberry_django.field()
