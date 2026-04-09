@@ -51,12 +51,22 @@ from ..models import (
 class ArtistType:
     id: int = strawberry_django.field()
 
+    @strawberry.field(name="thumbnail_url")
+    def proxied_thumbnail_url(self) -> Optional[str]:
+        raw = getattr(self, 'thumbnail_url', None)
+        return proxy_image_url(raw, width=250, format="webp")
+
 
 @strawberry_django.type(model=Songs, fields="__all__")
 class SongType:
     id: int = strawberry_django.field()
     artist_id: Optional[int] = strawberry_django.field()
     artist: Optional[ArtistType] = strawberry_django.field()
+
+    @strawberry.field(name="thumbnail_url")
+    def proxied_thumbnail_url(self) -> Optional[str]:
+        raw = getattr(self, 'thumbnail_url', None)
+        return proxy_image_url(raw, width=250, format="webp")
 
 
 @strawberry_django.type(model=StationStreams, fields="__all__")
