@@ -15,29 +15,39 @@ RETENTION_DAYS="${RETENTION_DAYS:-7}"
 OPUS_BITRATE_LOW="${OPUS_BITRATE_LOW:-32k}"
 OPUS_BITRATE_HIGH="${OPUS_BITRATE_HIGH:-64k}"
 HLS_SEGMENT_DURATION="${HLS_SEGMENT_DURATION:-6}"
+LOCAL_RETENTION_MINUTES="${LOCAL_RETENTION_MINUTES:-10}"
 
 export HLS_SEGMENT_DURATION
 
 echo "Starting live streaming for station: $STATION_SLUG"
 echo "Stream URL: $STREAM_URL"
-echo "Retention: ${RETENTION_DAYS} days"
+echo "Retention: ${RETENTION_DAYS} days (local: ${LOCAL_RETENTION_MINUTES} min)"
 echo "HLS segment duration: ${HLS_SEGMENT_DURATION}s"
 echo "DASH qualities: ${OPUS_BITRATE_LOW} / ${OPUS_BITRATE_HIGH}"
+echo "S3: ${S3_BUCKET:-disabled}"
 
 # Ensure data directories exist
-# segments/ subfolder keeps .ts files separate from FFmpeg's live.m3u8
-# cache/playlist/ stores NGINX proxy cache for timestamped playlists
-mkdir -p /data/hls/segments /data/dash /data/cache/playlist
+mkdir -p /data/hls/segments /data/dash /data/cache/playlist /data/cache/s3
+
+# Render NGINX config with env vars (S3_BUCKET, S3_ENDPOINT, STATION_SLUG)
+export S3_BUCKET="${S3_BUCKET:-}"
+export S3_ENDPOINT="${S3_ENDPOINT:-}"
+envsubst '${STATION_SLUG} ${S3_BUCKET} ${S3_ENDPOINT}' < /app/nginx/nginx.conf > /tmp/nginx/nginx.conf
 
 # Start NGINX in background
 echo "Starting NGINX..."
-nginx -c /app/nginx/nginx.conf -g 'daemon off;' &
+nginx -c /tmp/nginx/nginx.conf -g 'daemon off;' &
 NGINX_PID=$!
 
 # Start dynamic HLS playlist generator in background
 echo "Starting playlist generator..."
 python3 /app/scripts/playlist_generator.py &
 PLAYLIST_PID=$!
+
+# Start S3 uploader in background
+echo "Starting S3 uploader..."
+python3 /app/scripts/s3_uploader.py &
+S3_PID=$!
 
 # Start cleanup loop in background
 echo "Starting cleanup loop..."
@@ -50,6 +60,7 @@ cleanup() {
     kill -TERM "$FFMPEG_PID" 2>/dev/null || true
     kill -TERM "$NGINX_PID" 2>/dev/null || true
     kill -TERM "$PLAYLIST_PID" 2>/dev/null || true
+    kill -TERM "$S3_PID" 2>/dev/null || true
     kill -TERM "$CLEANUP_PID" 2>/dev/null || true
     wait
     echo "All processes stopped."
@@ -58,9 +69,6 @@ cleanup() {
 trap cleanup SIGTERM SIGINT
 
 # Start FFmpeg with dual output (HLS + DASH multi-bitrate)
-# HLS: segments named by epoch timestamp in /data/hls/segments/
-# DASH: segments in /data/dash/
-# Segment deletion is handled by cleanup.sh (7-day TTL), not FFmpeg
 echo "Starting FFmpeg..."
 ffmpeg -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 30 \
     -i "$STREAM_URL" -y \

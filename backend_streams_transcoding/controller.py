@@ -36,6 +36,11 @@ LEGACY_INGRESS_HOST = os.environ.get("LEGACY_INGRESS_HOST", "hls.radiocrestin.ro
 PVC_STORAGE_SIZE = os.environ.get("PVC_STORAGE_SIZE", "5Gi")
 PVC_STORAGE_CLASS = os.environ.get("PVC_STORAGE_CLASS", "")
 USE_PVC = os.environ.get("USE_PVC", "false").lower() in ("true", "1", "yes")
+S3_ENDPOINT = os.environ.get("S3_ENDPOINT", "")
+S3_BUCKET = os.environ.get("S3_BUCKET", "")
+S3_ACCESS_KEY = os.environ.get("S3_ACCESS_KEY", "")
+S3_SECRET_KEY = os.environ.get("S3_SECRET_KEY", "")
+S3_REGION = os.environ.get("S3_REGION", "")
 
 SLUG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*[a-z0-9]$")
 LABEL_APP = "live-stream"
@@ -98,8 +103,11 @@ def pvc_name(slug: str) -> str:
     return f"stream-{slug}"
 
 
+EMPTYDIR_SIZE_LIMIT = os.environ.get("EMPTYDIR_SIZE_LIMIT", "200Mi")
+
+
 def _build_data_volume(slug: str) -> client.V1Volume:
-    """Build the data volume — emptyDir by default, PVC if USE_PVC is set."""
+    """Build the data volume — emptyDir with size limit by default, PVC if USE_PVC is set."""
     if USE_PVC:
         return client.V1Volume(
             name="data",
@@ -109,7 +117,9 @@ def _build_data_volume(slug: str) -> client.V1Volume:
         )
     return client.V1Volume(
         name="data",
-        empty_dir=client.V1EmptyDirVolumeSource(),
+        empty_dir=client.V1EmptyDirVolumeSource(
+            size_limit=EMPTYDIR_SIZE_LIMIT,
+        ),
     )
 
 
@@ -154,6 +164,11 @@ def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
                                 client.V1EnvVar(name="RETENTION_DAYS", value=RETENTION_DAYS),
                                 client.V1EnvVar(name="OPUS_BITRATE_LOW", value=OPUS_BITRATE_LOW),
                                 client.V1EnvVar(name="OPUS_BITRATE_HIGH", value=OPUS_BITRATE_HIGH),
+                                client.V1EnvVar(name="S3_ENDPOINT", value=S3_ENDPOINT),
+                                client.V1EnvVar(name="S3_BUCKET", value=S3_BUCKET),
+                                client.V1EnvVar(name="S3_ACCESS_KEY", value=S3_ACCESS_KEY),
+                                client.V1EnvVar(name="S3_SECRET_KEY", value=S3_SECRET_KEY),
+                                client.V1EnvVar(name="S3_REGION", value=S3_REGION),
                             ],
                             ports=[client.V1ContainerPort(container_port=8080)],
                             volume_mounts=[
