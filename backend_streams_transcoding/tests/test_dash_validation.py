@@ -166,15 +166,15 @@ class TestDashPatcher(unittest.TestCase):
             content = f.read()
         self.assertIn(f'minBufferTime="PT{dash_patcher.MIN_BUFFER}S"', content)
 
-    def test_fixes_webm_mime_type(self):
+    def test_preserves_webm_mime_type(self):
+        """WebM is the correct mime type for Opus — FFmpeg writes WebM containers."""
         mpd_with_webm = SAMPLE_MPD.replace('mimeType="audio/mp4"', 'mimeType="audio/webm"')
         with open(self.mpd, "w") as f:
             f.write(mpd_with_webm)
         dash_patcher.patch_manifest()
         with open(self.mpd) as f:
             content = f.read()
-        self.assertNotIn('audio/webm', content)
-        self.assertIn('audio/mp4', content)
+        self.assertIn('audio/webm', content)
 
     def test_overrides_existing_presentation_delay(self):
         mpd_with_delay = SAMPLE_MPD.replace('type="dynamic"',

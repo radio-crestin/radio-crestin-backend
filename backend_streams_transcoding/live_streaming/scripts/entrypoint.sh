@@ -82,7 +82,6 @@ ffmpeg -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 30 \
         -use_template 1 \
         -utc_timing_url "https://time.akamai.com/?iso" \
         -adaptation_sets "id=0,streams=0,1" \
-        -format_options "movflags=+cmaf" \
         -media_seg_name '$RepresentationID$/chunk-$Number%09d$.m4s' \
         -init_seg_name '$RepresentationID$/init.m4s' \
         /data/dash/manifest.mpd \

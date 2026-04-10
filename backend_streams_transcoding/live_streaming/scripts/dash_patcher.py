@@ -59,9 +59,9 @@ def patch_manifest():
                     f'minBufferTime="PT{MIN_BUFFER}S"',
                 )
 
-        # Fix mime type: FFmpeg outputs audio/webm for Opus in fMP4,
-        # but the correct type is audio/mp4 (these are fMP4 containers, not WebM)
-        content = content.replace('mimeType="audio/webm"', 'mimeType="audio/mp4"')
+        # FFmpeg writes Opus in WebM containers (not fMP4).
+        # Keep mimeType as audio/webm since that matches the actual container format.
+        # DASH players (dash.js, Shaka) support WebM segments natively.
 
         if content != original:
             with open(MANIFEST, "w") as f:
