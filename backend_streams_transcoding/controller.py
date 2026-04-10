@@ -98,6 +98,21 @@ def pvc_name(slug: str) -> str:
     return f"stream-{slug}"
 
 
+def _build_data_volume(slug: str) -> client.V1Volume:
+    """Build the data volume — emptyDir by default, PVC if USE_PVC is set."""
+    if USE_PVC:
+        return client.V1Volume(
+            name="data",
+            persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(
+                claim_name=pvc_name(slug),
+            ),
+        )
+    return client.V1Volume(
+        name="data",
+        empty_dir=client.V1EmptyDirVolumeSource(),
+    )
+
+
 def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
     """Build Deployment spec for a station streamer with fast restart on failure."""
     labels = {"app": LABEL_APP, "station": slug}
@@ -170,17 +185,7 @@ def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
                             ),
                         )
                     ],
-                    volumes=[
-                        client.V1Volume(
-                            name="data",
-                            persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(
-                                claim_name=pvc_name(slug),
-                            ),
-                        ) if USE_PVC else client.V1Volume(
-                            name="data",
-                            empty_dir=client.V1EmptyDirVolumeSource(),
-                        ),
-                    ],
+                    volumes=[_build_data_volume(slug)],
                 ),
             ),
         ),
