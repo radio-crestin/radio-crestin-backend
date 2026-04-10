@@ -43,6 +43,10 @@ echo "Starting playlist generator..."
 python3 /app/scripts/playlist_generator.py &
 PLAYLIST_PID=$!
 
+echo "Starting DASH patcher..."
+python3 /app/scripts/dash_patcher.py &
+DASH_PID=$!
+
 echo "Starting S3 uploader..."
 python3 /app/scripts/s3_uploader.py &
 S3_PID=$!
@@ -53,7 +57,7 @@ CLEANUP_PID=$!
 
 cleanup() {
     echo "Shutting down..."
-    kill -TERM "$FFMPEG_PID" "$NGINX_PID" "$PLAYLIST_PID" "$S3_PID" "$CLEANUP_PID" 2>/dev/null || true
+    kill -TERM "$FFMPEG_PID" "$NGINX_PID" "$PLAYLIST_PID" "$DASH_PID" "$S3_PID" "$CLEANUP_PID" 2>/dev/null || true
     wait
     exit 0
 }
@@ -69,13 +73,16 @@ ffmpeg -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 30 \
     -map 0:a:0 -c:a:1 libopus -b:a:1 "$OPUS_BITRATE_HIGH" -ac 2 -ar 48000 \
     -f dash \
         -seg_duration "$SEGMENT_DURATION" \
+        -frag_duration 2 \
         -window_size 0 \
         -extra_window_size 0 \
         -remove_at_exit 0 \
+        -streaming 1 \
         -use_timeline 1 \
         -use_template 1 \
         -utc_timing_url "https://time.akamai.com/?iso" \
         -adaptation_sets "id=0,streams=0 id=1,streams=1" \
+        -format_options "movflags=+cmaf" \
         -media_seg_name '$RepresentationID$/chunk-$Number%09d$.m4s' \
         -init_seg_name '$RepresentationID$/init.m4s' \
         /data/dash/manifest.mpd \
