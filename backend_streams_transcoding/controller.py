@@ -517,16 +517,18 @@ def sync_once(
     to_delete = existing_slugs - desired_slugs
     to_check = desired_slugs & existing_slugs
 
-    # Check for stream_url changes (need update)
+    # Check for stream_url or image changes (need update)
     to_update = set()
     for slug in to_check:
         dep = existing_deployments[slug]
         current_url = dep.metadata.annotations.get("stream-url", "")
+        current_image = dep.spec.template.spec.containers[0].image if dep.spec.template.spec.containers else ""
+
         if current_url != desired_map[slug]:
-            log.info(
-                "Stream URL changed for %s: %r -> %r",
-                slug, current_url, desired_map[slug],
-            )
+            log.info("Stream URL changed for %s: %r -> %r", slug, current_url, desired_map[slug])
+            to_update.add(slug)
+        elif current_image != STREAMER_IMAGE:
+            log.info("Image changed for %s: %r -> %r", slug, current_image, STREAMER_IMAGE)
             to_update.add(slug)
 
     # 4. Apply changes

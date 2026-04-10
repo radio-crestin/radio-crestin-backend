@@ -267,11 +267,14 @@ class TestFetchStations(unittest.TestCase):
 class TestSyncOnce(unittest.TestCase):
     """Test the sync_once logic with mocked K8s clients."""
 
-    def _mock_deployment(self, slug, stream_url):
+    def _mock_deployment(self, slug, stream_url, image=None):
         dep = MagicMock()
         dep.metadata.name = f"live-stream-{slug}"
         dep.metadata.labels = {"app": "live-stream", "station": slug}
         dep.metadata.annotations = {"stream-url": stream_url}
+        container = MagicMock()
+        container.image = image or controller.STREAMER_IMAGE
+        dep.spec.template.spec.containers = [container]
         return dep
 
     def _mock_service(self, slug):
