@@ -77,11 +77,11 @@ class TestBuildDeploymentSpec(unittest.TestCase):
         self.assertEqual(env_map["STATION_SLUG"], "test-station")
         self.assertEqual(env_map["STREAM_URL"], "https://stream.example.com/live")
 
-    def test_deployment_has_pvc_volume(self):
+    def test_deployment_has_emptydir_volume_by_default(self):
         dep = controller.build_deployment_spec("test-station", "https://stream.example.com/live")
         volume = dep.spec.template.spec.volumes[0]
         self.assertEqual(volume.name, "data")
-        self.assertEqual(volume.persistent_volume_claim.claim_name, "stream-test-station")
+        self.assertIsNotNone(volume.empty_dir)
 
     def test_deployment_has_probes(self):
         dep = controller.build_deployment_spec("test-station", "https://stream.example.com/live")
@@ -307,8 +307,7 @@ class TestSyncOnce(unittest.TestCase):
 
         controller.sync_once(core_v1, apps_v1, networking_v1)
 
-        # Should create PVC, deployment, and service
-        core_v1.create_namespaced_persistent_volume_claim.assert_called_once()
+        # Should create deployment and service (no PVC when USE_PVC=false)
         apps_v1.create_namespaced_deployment.assert_called_once()
         core_v1.create_namespaced_service.assert_called_once()
         mock_update_ingress.assert_called_once()

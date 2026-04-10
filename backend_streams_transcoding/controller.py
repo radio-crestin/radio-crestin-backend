@@ -35,6 +35,7 @@ INGRESS_HOST = os.environ.get("INGRESS_HOST", "live.radiocrestin.ro")
 LEGACY_INGRESS_HOST = os.environ.get("LEGACY_INGRESS_HOST", "hls.radiocrestin.ro")
 PVC_STORAGE_SIZE = os.environ.get("PVC_STORAGE_SIZE", "5Gi")
 PVC_STORAGE_CLASS = os.environ.get("PVC_STORAGE_CLASS", "")
+USE_PVC = os.environ.get("USE_PVC", "false").lower() in ("true", "1", "yes")
 
 SLUG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*[a-z0-9]$")
 LABEL_APP = "live-stream"
@@ -175,6 +176,9 @@ def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
                             persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(
                                 claim_name=pvc_name(slug),
                             ),
+                        ) if USE_PVC else client.V1Volume(
+                            name="data",
+                            empty_dir=client.V1EmptyDirVolumeSource(),
                         ),
                     ],
                 ),
@@ -361,7 +365,9 @@ def get_existing_pvcs(core_v1: client.CoreV1Api) -> set[str]:
 # ── CRUD operations ────────────────────────────────────────────────
 
 def ensure_pvc(core_v1: client.CoreV1Api, slug: str, existing_pvcs: set[str]):
-    """Create PVC if it doesn't exist."""
+    """Create PVC if it doesn't exist. Skip if USE_PVC is false."""
+    if not USE_PVC:
+        return
     if slug in existing_pvcs:
         return
     log.info("Creating PVC for station: %s", slug)
