@@ -230,7 +230,7 @@ def build_hls_variant(manifest: DashManifest, rep_id: str, window_size: int = LI
         "#EXT-X-VERSION:7",
         f"#EXT-X-TARGETDURATION:{target_duration}",
         f"#EXT-X-MEDIA-SEQUENCE:{first_seq}",
-        f'#EXT-X-MAP:URI="/{rep["init_seg"]}"',
+        f'#EXT-X-MAP:URI="../{rep["init_seg"]}"',
     ]
 
     if is_event:
@@ -240,7 +240,7 @@ def build_hls_variant(manifest: DashManifest, rep_id: str, window_size: int = LI
         filename = _segment_filename(rep["media_template"], rep_id, num)
         lines.append(f"#EXT-X-PROGRAM-DATE-TIME:{_epoch_to_pdt(epoch)}")
         lines.append(f"#EXTINF:{dur:.6f},")
-        lines.append(f"/{filename}")
+        lines.append(f"../{filename}")
 
     if not is_live:
         lines.append("#EXT-X-ENDLIST")
@@ -263,7 +263,7 @@ def build_hls_master(manifest: DashManifest) -> str:
         name = quality_names[i] if i < len(quality_names) else f"q{i}"
         bw = rep_data["bandwidth"]
         lines.append(f'#EXT-X-STREAM-INF:BANDWIDTH={bw},CODECS="opus",AUDIO="audio"')
-        lines.append(f"/hls/{name}.m3u8")
+        lines.append(f"hls/{name}.m3u8")
 
     return "\n".join(lines) + "\n"
 
