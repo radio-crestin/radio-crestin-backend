@@ -141,17 +141,17 @@ class TestHlsVariant(unittest.TestCase):
     def test_has_ext_x_map(self):
         m = playlist_generator.get_manifest()
         playlist = playlist_generator.build_hls_variant(m, "0")
-        self.assertIn('#EXT-X-MAP:URI="segments/init-0.m4s"', playlist)
+        self.assertIn('#EXT-X-MAP:URI="/segments/init-0.m4s"', playlist)
 
     def test_version_7(self):
         m = playlist_generator.get_manifest()
         playlist = playlist_generator.build_hls_variant(m, "0")
         self.assertIn("#EXT-X-VERSION:7", playlist)
 
-    def test_segment_references(self):
+    def test_segment_references_absolute(self):
         m = playlist_generator.get_manifest()
         playlist = playlist_generator.build_hls_variant(m, "0")
-        self.assertIn("segments/chunk-0-000000001.m4s", playlist)
+        self.assertIn("/segments/chunk-0-000000001.m4s", playlist)
         # Must NOT have double segments/ prefix
         self.assertNotIn("segments/segments/", playlist)
 
@@ -186,8 +186,8 @@ class TestHlsMaster(unittest.TestCase):
     def test_has_two_variants(self):
         m = playlist_generator.get_manifest()
         playlist = playlist_generator.build_hls_master(m)
-        self.assertIn("hls/low.m3u8", playlist)
-        self.assertIn("hls/high.m3u8", playlist)
+        self.assertIn("/hls/low.m3u8", playlist)
+        self.assertIn("/hls/high.m3u8", playlist)
 
     def test_has_bandwidth(self):
         m = playlist_generator.get_manifest()
