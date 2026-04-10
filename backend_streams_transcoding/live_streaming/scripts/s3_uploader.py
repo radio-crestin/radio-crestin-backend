@@ -18,8 +18,7 @@ from datetime import datetime, timezone
 from http.client import HTTPSConnection
 from urllib.parse import quote
 
-SEGMENTS_DIR = "/data/hls/segments"
-DASH_DIR = "/data/dash"
+SEGMENTS_DIR = "/data/segments"
 STATION_SLUG = os.environ.get("STATION_SLUG", "")
 S3_ENDPOINT = os.environ.get("S3_ENDPOINT", "")
 S3_BUCKET = os.environ.get("S3_BUCKET", "")
@@ -124,35 +123,22 @@ def upload_file(local_path: str, s3_key: str) -> bool:
 
 
 def sync_segments():
-    """Upload new HLS segments to S3."""
+    """Upload new fMP4 segments to S3 (shared between DASH and HLS)."""
     try:
         for name in os.listdir(SEGMENTS_DIR):
-            if not name.endswith(".ts"):
+            if not name.endswith(".m4s"):
                 continue
-            key = f"{STATION_SLUG}/hls/segments/{name}"
+            key = f"{STATION_SLUG}/segments/{name}"
+            # Always re-upload init segments (small, may change on restart)
+            if name.startswith("init-"):
+                local_path = os.path.join(SEGMENTS_DIR, name)
+                upload_file(local_path, key)
+                continue
             if key in _uploaded:
                 continue
             local_path = os.path.join(SEGMENTS_DIR, name)
             if upload_file(local_path, key):
                 _uploaded.add(key)
-    except FileNotFoundError:
-        pass
-
-
-def sync_dash():
-    """Upload new DASH segments to S3."""
-    try:
-        for name in os.listdir(DASH_DIR):
-            if not (name.endswith(".m4s") or name.endswith(".mpd")):
-                continue
-            key = f"{STATION_SLUG}/dash/{name}"
-            # Always re-upload manifest (it changes), skip already-uploaded segments
-            if name.endswith(".m4s") and key in _uploaded:
-                continue
-            local_path = os.path.join(DASH_DIR, name)
-            if upload_file(local_path, key):
-                if name.endswith(".m4s"):
-                    _uploaded.add(key)
     except FileNotFoundError:
         pass
 
@@ -168,7 +154,6 @@ def main():
 
     while True:
         sync_segments()
-        sync_dash()
         time.sleep(UPLOAD_INTERVAL)
 
 
