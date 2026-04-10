@@ -22,7 +22,7 @@ _last_mtime = 0.0
 
 
 def patch_manifest():
-    """Patch FFmpeg's DASH manifest with buffer hints."""
+    """Patch FFmpeg's DASH manifest with buffer hints and fix mime types."""
     global _last_mtime
 
     try:
@@ -34,17 +34,22 @@ def patch_manifest():
         with open(MANIFEST, "r") as f:
             content = f.read()
 
-        modified = False
+        original = content
 
-        # Add suggestedPresentationDelay if missing
-        if "suggestedPresentationDelay" not in content:
+        # Fix suggestedPresentationDelay — override FFmpeg's default (too small)
+        spd_match = re.search(r'suggestedPresentationDelay="[^"]*"', content)
+        if spd_match:
+            content = content.replace(
+                spd_match.group(0),
+                f'suggestedPresentationDelay="PT{BUFFER_SECONDS}S"',
+            )
+        elif "type=" in content:
             content = content.replace(
                 'type="dynamic"',
                 f'type="dynamic" suggestedPresentationDelay="PT{BUFFER_SECONDS}S"',
             )
-            modified = True
 
-        # Fix minBufferTime if too small
+        # Fix minBufferTime — ensure it's at least MIN_BUFFER
         mbt_match = re.search(r'minBufferTime="PT(\d+(?:\.\d+)?)S"', content)
         if mbt_match:
             current_mbt = float(mbt_match.group(1))
@@ -53,9 +58,12 @@ def patch_manifest():
                     mbt_match.group(0),
                     f'minBufferTime="PT{MIN_BUFFER}S"',
                 )
-                modified = True
 
-        if modified:
+        # Fix mime type: FFmpeg outputs audio/webm for Opus in fMP4,
+        # but the correct type is audio/mp4 (these are fMP4 containers, not WebM)
+        content = content.replace('mimeType="audio/webm"', 'mimeType="audio/mp4"')
+
+        if content != original:
             with open(MANIFEST, "w") as f:
                 f.write(content)
 
