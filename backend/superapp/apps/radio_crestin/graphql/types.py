@@ -132,12 +132,19 @@ class StationType:
         """Backward-compatible alias for transcode_enabled"""
         return self.transcode_enabled
 
-    # Hasura-compatible computed fields
+    # Stream URLs
     @strawberry.field
     def hls_stream_url(self) -> Optional[str]:
-        """Generate HLS stream URL for the station"""
+        """HLS stream URL (AAC 64k, .ts segments — works with hls.js/Safari)"""
         if self.transcode_enabled:
-            return f"https://hls-staging.radio-crestin.com/{self.slug}/index.m3u8"
+            return f"https://hls.radiocrestin.ro/hls/{self.slug}/index.m3u8"
+        return None
+
+    @strawberry.field
+    def dash_stream_url(self) -> Optional[str]:
+        """DASH stream URL (Opus 32k + 96k, fMP4 — works with dash.js/Shaka)"""
+        if self.transcode_enabled:
+            return f"https://hls.radiocrestin.ro/dash/{self.slug}/manifest.mpd"
         return None
 
     @strawberry.field

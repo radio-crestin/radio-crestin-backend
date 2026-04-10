@@ -65,14 +65,14 @@ class StationsAdmin(SuperAppModelAdmin):
     search_fields = ['title', 'slug', 'website', 'email']
     prepopulated_fields = {'slug': ('title',)}
     autocomplete_fields = ['latest_station_uptime', 'latest_station_now_playing']
-    readonly_fields = ['thumbnail_url', 'created_at', 'updated_at', 'thumbnail_preview', 'now_playing_display',]
+    readonly_fields = ['thumbnail_url', 'created_at', 'updated_at', 'thumbnail_preview', 'now_playing_display', 'hls_url_display', 'dash_url_display',]
 
     fieldsets = (
         (_("Basic Information"), {
             'fields': ('title', 'slug', 'station_order', 'disabled', 'website', 'email')
         }),
         (_("Live Transcoding"), {
-            'fields': ('stream_url', 'transcode_enabled')
+            'fields': ('stream_url', 'transcode_enabled', 'hls_url_display', 'dash_url_display')
         }),
         (_("Media"), {
             'fields': ('thumbnail', 'thumbnail_preview', 'thumbnail_url')
@@ -93,6 +93,20 @@ class StationsAdmin(SuperAppModelAdmin):
     )
 
     inlines = [StationToStationGroupInline, StationStreamsInline, StationsMetadataFetchInline]
+
+    def hls_url_display(self, obj):
+        if obj.transcode_enabled:
+            url = f"https://hls.radiocrestin.ro/hls/{obj.slug}/index.m3u8"
+            return format_html('<a href="{}" target="_blank">{}</a>', url, url)
+        return _("Transcoding disabled")
+    hls_url_display.short_description = _("HLS URL (AAC)")
+
+    def dash_url_display(self, obj):
+        if obj.transcode_enabled:
+            url = f"https://hls.radiocrestin.ro/dash/{obj.slug}/manifest.mpd"
+            return format_html('<a href="{}" target="_blank">{}</a>', url, url)
+        return _("Transcoding disabled")
+    dash_url_display.short_description = _("DASH URL (Opus)")
 
     def status_indicator(self, obj):
         if obj.disabled:
