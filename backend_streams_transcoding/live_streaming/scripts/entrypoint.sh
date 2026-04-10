@@ -10,7 +10,7 @@ if ! echo "$STATION_SLUG" | grep -qE '^[a-z0-9][a-z0-9-]*[a-z0-9]$'; then
 fi
 
 RETENTION_DAYS="${RETENTION_DAYS:-7}"
-OPUS_BITRATE_LOW="${OPUS_BITRATE_LOW:-32k}"
+OPUS_BITRATE_LOW="${OPUS_BITRATE_LOW:-48k}"
 OPUS_BITRATE_HIGH="${OPUS_BITRATE_HIGH:-96k}"
 SEGMENT_DURATION="${SEGMENT_DURATION:-6}"
 LOCAL_RETENTION_MINUTES="${LOCAL_RETENTION_MINUTES:-10}"
@@ -81,7 +81,7 @@ ffmpeg -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 30 \
         -use_timeline 1 \
         -use_template 1 \
         -utc_timing_url "https://time.akamai.com/?iso" \
-        -adaptation_sets "id=0,streams=0 id=1,streams=1" \
+        -adaptation_sets "id=0,streams=0,1" \
         -format_options "movflags=+cmaf" \
         -media_seg_name '$RepresentationID$/chunk-$Number%09d$.m4s' \
         -init_seg_name '$RepresentationID$/init.m4s' \
