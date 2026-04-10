@@ -192,13 +192,29 @@ class TestFetchStations(unittest.TestCase):
         mock_post.return_value.json.return_value = {
             "data": {
                 "stations": [
-                    {"slug": "radio-a", "stream_url": "https://stream-a.com"},
-                    {"slug": "radio-b", "stream_url": "https://stream-b.com"},
+                    {"slug": "radio-a", "stream_url": "https://stream-a.com", "transcode_enabled": True},
+                    {"slug": "radio-b", "stream_url": "https://stream-b.com", "transcode_enabled": True},
                 ]
             }
         }
         stations = controller.fetch_stations()
         self.assertEqual(len(stations), 2)
+        self.assertEqual(stations[0]["slug"], "radio-a")
+
+    @patch("controller.requests.post")
+    def test_filters_transcode_disabled(self, mock_post):
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.raise_for_status = MagicMock()
+        mock_post.return_value.json.return_value = {
+            "data": {
+                "stations": [
+                    {"slug": "radio-a", "stream_url": "https://stream.com", "transcode_enabled": True},
+                    {"slug": "radio-b", "stream_url": "https://stream.com", "transcode_enabled": False},
+                ]
+            }
+        }
+        stations = controller.fetch_stations()
+        self.assertEqual(len(stations), 1)
         self.assertEqual(stations[0]["slug"], "radio-a")
 
     @patch("controller.requests.post")
@@ -208,9 +224,9 @@ class TestFetchStations(unittest.TestCase):
         mock_post.return_value.json.return_value = {
             "data": {
                 "stations": [
-                    {"slug": "valid-slug", "stream_url": "https://stream.com"},
-                    {"slug": "INVALID", "stream_url": "https://stream.com"},
-                    {"slug": "../traversal", "stream_url": "https://stream.com"},
+                    {"slug": "valid-slug", "stream_url": "https://stream.com", "transcode_enabled": True},
+                    {"slug": "INVALID", "stream_url": "https://stream.com", "transcode_enabled": True},
+                    {"slug": "../traversal", "stream_url": "https://stream.com", "transcode_enabled": True},
                 ]
             }
         }

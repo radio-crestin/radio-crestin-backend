@@ -37,12 +37,14 @@ PVC_STORAGE_CLASS = os.environ.get("PVC_STORAGE_CLASS", "")
 SLUG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*[a-z0-9]$")
 LABEL_APP = "live-stream"
 
-# GraphQL query to fetch stations with transcoding enabled
+# GraphQL query to fetch stations (disabled=False is applied server-side by default)
+# We fetch transcode_enabled to filter client-side
 STATIONS_QUERY = """
 query {
-    stations(where: {disabled: {_eq: false}, generate_hls_stream: {_eq: true}}) {
+    stations(order_by: {order: asc}) {
         slug
         stream_url
+        transcode_enabled
     }
 }
 """
@@ -64,10 +66,12 @@ def fetch_stations() -> list[dict]:
             return []
 
         stations = data.get("data", {}).get("stations", [])
-        # Validate slugs
+        # Filter to only stations with transcoding enabled, validate slugs
         valid = []
         for s in stations:
             slug = s.get("slug", "")
+            if not s.get("transcode_enabled", False):
+                continue
             if SLUG_PATTERN.match(slug):
                 valid.append(s)
             else:
@@ -373,6 +377,19 @@ def delete_service(core_v1: client.CoreV1Api, slug: str):
 
 def update_ingress(networking_v1: client.NetworkingV1Api, active_slugs: list[str]):
     """Create or update the live-streaming ingress."""
+    if not active_slugs:
+        # No stations → delete ingress if it exists, otherwise do nothing
+        try:
+            networking_v1.delete_namespaced_ingress(
+                name="live-streaming",
+                namespace=NAMESPACE,
+            )
+            log.info("Deleted ingress (no active stations)")
+        except client.ApiException as e:
+            if e.status != 404:
+                raise
+        return
+
     ingress = build_ingress(active_slugs)
     try:
         networking_v1.read_namespaced_ingress(
