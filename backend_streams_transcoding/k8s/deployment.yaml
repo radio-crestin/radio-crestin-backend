@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stream-controller
+  namespace: radio-crestin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stream-controller
+  template:
+    metadata:
+      labels:
+        app: stream-controller
+    spec:
+      serviceAccountName: stream-controller
+      automountServiceAccountToken: true
+      containers:
+        - name: controller
+          image: radio-crestin/stream-controller:latest
+          env:
+            - name: GRAPHQL_ENDPOINT
+              value: "http://web:8080/v1/graphql"
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: STREAMER_IMAGE
+              value: "radio-crestin/live-streaming:latest"
+            - name: RETENTION_DAYS
+              value: "7"
+            - name: OPUS_BITRATE_LOW
+              value: "32k"
+            - name: OPUS_BITRATE_HIGH
+              value: "64k"
+            - name: SYNC_INTERVAL
+              value: "60"
+            - name: INGRESS_HOST
+              value: "live.radiocrestin.ro"
+            - name: LEGACY_INGRESS_HOST
+              value: "hls.radiocrestin.ro"
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          livenessProbe:
+            exec:
+              command: ["python3", "-c", "import sys; sys.exit(0)"]
+            periodSeconds: 30

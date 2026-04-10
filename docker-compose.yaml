@@ -127,48 +127,43 @@ services:
       options:
         max-file: "5"
         max-size: "100m"
-  backend-hls-streaming:
+  # Stream controller (manages per-station live streaming pods in K8s)
+  # In local dev, runs as a single container for all stations
+  stream-controller:
     build:
-      context: backend_hls_streaming
+      context: backend_streams_transcoding
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
       web:
         condition: service_healthy
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    ports:
-      - "8082:80"  # NGINX HLS serving port
-    volumes:
-      # Mount backend_hls_streaming directory for development
-      - ./backend_hls_streaming:/app:delegated
     environment:
-      # HLS Manager configuration
       - GRAPHQL_ENDPOINT=http://web:8080/v1/graphql
-      - GRAPHQL_TOKEN=${HLS_GRAPHQL_TOKEN:-}
-      - ADMIN_GRAPHQL_SUPERUSER_API_KEY=${ADMIN_GRAPHQL_SUPERUSER_API_KEY}
-      - STREAM_REFRESH_INTERVAL=60
-      - LOG_LEVEL=DEBUG
-      - MAX_LOG_SIZE_MB=20
-      # Log Monitor configuration
-      - NGINX_LOG_PATH=/tmp/nginx_session_access.log
-      - BATCH_INTERVAL_SECONDS=10
-      - SESSION_TIMEOUT_MINUTES=5
-      # Enhanced Logging Configuration
-      - DETAILED_LOGGING=true
-      - VERBOSE_LOGGING=false
-      - LOG_PROCESSES=true
-      - LOG_FFMPEG=true
-      - LOG_NGINX=true
-      - LOG_FORMAT=%(asctime)s - %(name)s - %(levelname)s - %(message)s
-    healthcheck:
-      test: ["CMD", "python3", "scripts/health_check.py"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+      - SYNC_INTERVAL=60
+      - INGRESS_HOST=live.radiocrestin.ro
+      - LEGACY_INGRESS_HOST=hls.radiocrestin.ro
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "5"
+        max-size: "100m"
+
+  # Live streaming station pod (for local dev testing with a single station)
+  live-streaming:
+    build:
+      context: backend_streams_transcoding/live_streaming
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8082:8080"  # NGINX streaming port
+    environment:
+      - STATION_SLUG=${DEV_STATION_SLUG:-radio-emanuel}
+      - STREAM_URL=${DEV_STREAM_URL:-https://stream2.radioemanuel.ro/}
+      - RETENTION_DAYS=7
+      - OPUS_BITRATE_LOW=32k
+      - OPUS_BITRATE_HIGH=64k
+    volumes:
+      - live_streaming_data:/data
     logging:
       driver: "json-file"
       options:
@@ -178,3 +173,4 @@ services:
 volumes:
   db_data:
   redis:
+  live_streaming_data:

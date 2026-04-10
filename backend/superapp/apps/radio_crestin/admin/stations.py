@@ -61,7 +61,7 @@ class StationsMetadataFetchInline(SuperAppStackedInline):
 class StationsAdmin(SuperAppModelAdmin):
     resource_class = StationResource
     list_display = ['title', 'status_indicator', 'thumbnail_preview', 'station_order', 'website_link', 'groups_display', 'latest_uptime_status']
-    list_filter = ['disabled', 'generate_hls_stream', 'feature_latest_post', 'groups', 'created_at']
+    list_filter = ['disabled', 'transcode_enabled', 'feature_latest_post', 'groups', 'created_at']
     search_fields = ['title', 'slug', 'website', 'email']
     prepopulated_fields = {'slug': ('title',)}
     autocomplete_fields = ['latest_station_uptime', 'latest_station_now_playing']
@@ -71,8 +71,8 @@ class StationsAdmin(SuperAppModelAdmin):
         (_("Basic Information"), {
             'fields': ('title', 'slug', 'station_order', 'disabled', 'website', 'email')
         }),
-        (_("Streaming"), {
-            'fields': ('stream_url', 'generate_hls_stream')
+        (_("Live Transcoding"), {
+            'fields': ('stream_url', 'transcode_enabled')
         }),
         (_("Media"), {
             'fields': ('thumbnail', 'thumbnail_preview', 'thumbnail_url')

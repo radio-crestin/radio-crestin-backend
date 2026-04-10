@@ -14,7 +14,7 @@ class Stations(models.Model):
     title = models.TextField(_("Title"))
     website = models.URLField(_("Website"))
     email = models.TextField(_("Email"), blank=True, null=False, default="")
-    generate_hls_stream = models.BooleanField(_("Generate HLS Stream"), default=True)
+    transcode_enabled = models.BooleanField(_("Live Transcoding"), default=True)
     stream_url = models.URLField(_("Stream URL"))
     thumbnail = models.ImageField(
         _("Thumbnail"),
@@ -51,6 +51,14 @@ class Stations(models.Model):
 
     def __str__(self):
         return f"{self.title}"
+
+    @property
+    def generate_hls_stream(self):
+        return self.transcode_enabled
+
+    @generate_hls_stream.setter
+    def generate_hls_stream(self, value):
+        self.transcode_enabled = value
 
     def save(self, *args, **kwargs):
         self.order = round(self.station_order)

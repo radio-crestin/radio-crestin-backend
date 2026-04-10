@@ -126,12 +126,17 @@ class StationType:
     feature_latest_post: bool = strawberry_django.field()
     facebook_page_id: Optional[str] = strawberry_django.field()
 
+    # Backward-compatible alias for transcode_enabled (renamed from generate_hls_stream)
+    @strawberry.field
+    def generate_hls_stream(self) -> bool:
+        """Backward-compatible alias for transcode_enabled"""
+        return self.transcode_enabled
+
     # Hasura-compatible computed fields
     @strawberry.field
     def hls_stream_url(self) -> Optional[str]:
         """Generate HLS stream URL for the station"""
-        if hasattr(self, 'generate_hls_stream') and self.generate_hls_stream:
-            # Generate HLS URL based on station slug or ID
+        if self.transcode_enabled:
             return f"https://hls-staging.radio-crestin.com/{self.slug}/index.m3u8"
         return None
 
