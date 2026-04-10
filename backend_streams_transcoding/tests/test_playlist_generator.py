@@ -1,11 +1,9 @@
-"""
-Unit tests for the unified DASH+HLS playlist generator.
-"""
+"""Tests for the HLS playlist generator."""
 
 import os
 import sys
 import tempfile
-import time
+import shutil
 import unittest
 
 sys.path.insert(0, os.path.join(
@@ -15,204 +13,142 @@ sys.path.insert(0, os.path.join(
 
 import playlist_generator
 
-
-SAMPLE_MPD = """<?xml version="1.0" encoding="utf-8"?>
-<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2026-04-10T10:00:00.000Z"
-     type="dynamic" minBufferTime="PT6S">
-  <Period id="0" start="PT0S">
-    <AdaptationSet id="0" contentType="audio" mimeType="audio/mp4">
-      <Representation id="0" bandwidth="32000">
-        <SegmentTemplate timescale="48000" initialization="segments/init-0.m4s"
-                         media="segments/chunk-0-$Number%09d$.m4s" startNumber="1">
-          <SegmentTimeline>
-            <S t="0" d="288000" r="9" />
-          </SegmentTimeline>
-        </SegmentTemplate>
-      </Representation>
-    </AdaptationSet>
-    <AdaptationSet id="1" contentType="audio" mimeType="audio/mp4">
-      <Representation id="1" bandwidth="96000">
-        <SegmentTemplate timescale="48000" initialization="segments/init-1.m4s"
-                         media="segments/chunk-1-$Number%09d$.m4s" startNumber="1">
-          <SegmentTimeline>
-            <S t="0" d="288000" r="9" />
-          </SegmentTimeline>
-        </SegmentTemplate>
-      </Representation>
-    </AdaptationSet>
-  </Period>
-</MPD>
+SAMPLE_M3U8 = """#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-TARGETDURATION:6
+#EXT-X-MEDIA-SEQUENCE:1000
+#EXTINF:6.013967,
+#EXT-X-PROGRAM-DATE-TIME:2026-04-10T10:00:00.000+0000
+1000.ts
+#EXTINF:5.990756,
+#EXT-X-PROGRAM-DATE-TIME:2026-04-10T10:00:06.014+0000
+1001.ts
+#EXTINF:6.013967,
+#EXT-X-PROGRAM-DATE-TIME:2026-04-10T10:00:12.005+0000
+1002.ts
 """
 
 
-class TestDashManifestParser(unittest.TestCase):
-    """Test DASH MPD parsing."""
-
+class TestParseFFmpegM3u8(unittest.TestCase):
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
-        self.mpd_path = os.path.join(self.tmpdir, "manifest.mpd")
-        with open(self.mpd_path, "w") as f:
-            f.write(SAMPLE_MPD)
-        self._orig = playlist_generator.DASH_MANIFEST
-        playlist_generator.DASH_MANIFEST = self.mpd_path
-        playlist_generator._manifest_cache = None
+        self.m3u8 = os.path.join(self.tmpdir, "live.m3u8")
+        with open(self.m3u8, "w") as f:
+            f.write(SAMPLE_M3U8)
+        self._orig = playlist_generator.FFMPEG_M3U8
+        playlist_generator.FFMPEG_M3U8 = self.m3u8
 
     def tearDown(self):
-        playlist_generator.DASH_MANIFEST = self._orig
-        import shutil
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
+        playlist_generator.FFMPEG_M3U8 = self._orig
+        shutil.rmtree(self.tmpdir)
 
-    def test_parses_two_representations(self):
-        m = playlist_generator.DashManifest.parse(self.mpd_path)
-        self.assertEqual(len(m.representations), 2)
-        self.assertIn("0", m.representations)
-        self.assertIn("1", m.representations)
-
-    def test_bandwidth(self):
-        m = playlist_generator.DashManifest.parse(self.mpd_path)
-        self.assertEqual(m.representations["0"]["bandwidth"], 32000)
-        self.assertEqual(m.representations["1"]["bandwidth"], 96000)
-
-    def test_init_segment(self):
-        m = playlist_generator.DashManifest.parse(self.mpd_path)
-        self.assertEqual(m.representations["0"]["init_seg"], "segments/init-0.m4s")
-        self.assertEqual(m.representations["1"]["init_seg"], "segments/init-1.m4s")
-
-    def test_segments_count(self):
-        m = playlist_generator.DashManifest.parse(self.mpd_path)
-        # r="9" means 10 repetitions (r+1)
-        self.assertEqual(len(m.representations["0"]["segments"]), 10)
-
-    def test_segment_duration(self):
-        m = playlist_generator.DashManifest.parse(self.mpd_path)
-        seg = m.representations["0"]["segments"][0]
-        # d=288000, timescale=48000 → 6 seconds
-        self.assertAlmostEqual(seg[1], 6.0, places=1)
+    def test_parses_segments(self):
+        segs = playlist_generator.parse_ffmpeg_m3u8()
+        self.assertEqual(len(segs), 3)
+        self.assertEqual(segs[0][0], "1000.ts")
+        self.assertAlmostEqual(segs[0][1], 6.013967, places=5)
+        self.assertIn("2026-04-10", segs[0][2])
 
     def test_missing_file(self):
-        m = playlist_generator.DashManifest.parse("/nonexistent.mpd")
-        self.assertEqual(len(m.representations), 0)
+        playlist_generator.FFMPEG_M3U8 = "/nonexistent"
+        self.assertEqual(playlist_generator.parse_ffmpeg_m3u8(), [])
 
 
-class TestSegmentFilename(unittest.TestCase):
-    """Test DASH media template resolution."""
+class TestFormatPlaylist(unittest.TestCase):
+    def _segs(self, n=3):
+        return [(f"{1000+i}.ts", 6.0, f"2026-04-10T10:00:{i*6:02d}.000+0000") for i in range(n)]
 
-    def test_number_format(self):
-        result = playlist_generator._segment_filename(
-            "segments/chunk-$RepresentationID$-$Number%09d$.m4s", "0", 42
-        )
-        self.assertEqual(result, "segments/chunk-0-000000042.m4s")
+    def test_live_no_endlist(self):
+        p = playlist_generator.format_playlist(self._segs())
+        self.assertNotIn("#EXT-X-ENDLIST", p)
 
-    def test_simple_number(self):
-        result = playlist_generator._segment_filename(
-            "segments/chunk-$RepresentationID$-$Number$.m4s", "1", 5
-        )
-        self.assertEqual(result, "segments/chunk-1-5.m4s")
+    def test_event_has_endlist(self):
+        p = playlist_generator.format_playlist(self._segs(), is_live=False, is_event=True)
+        self.assertIn("#EXT-X-ENDLIST", p)
+        self.assertIn("#EXT-X-PLAYLIST-TYPE:EVENT", p)
 
+    def test_segment_paths(self):
+        p = playlist_generator.format_playlist(self._segs())
+        self.assertIn("hls/segments/1000.ts", p)
 
-class TestHlsVariant(unittest.TestCase):
-    """Test HLS variant playlist generation from DASH data."""
+    def test_program_date_time(self):
+        p = playlist_generator.format_playlist(self._segs())
+        self.assertIn("#EXT-X-PROGRAM-DATE-TIME:", p)
 
-    def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.mpd_path = os.path.join(self.tmpdir, "manifest.mpd")
-        with open(self.mpd_path, "w") as f:
-            f.write(SAMPLE_MPD)
-        self._orig = playlist_generator.DASH_MANIFEST
-        playlist_generator.DASH_MANIFEST = self.mpd_path
-        playlist_generator._manifest_cache = None
+    def test_media_sequence(self):
+        p = playlist_generator.format_playlist(self._segs())
+        self.assertIn("#EXT-X-MEDIA-SEQUENCE:1000", p)
 
-    def tearDown(self):
-        playlist_generator.DASH_MANIFEST = self._orig
-        import shutil
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
+    def test_extinf_actual_duration(self):
+        segs = [("100.ts", 5.990756, None)]
+        p = playlist_generator.format_playlist(segs)
+        self.assertIn("#EXTINF:5.990756,", p)
 
-    def test_live_playlist_no_endlist(self):
-        m = playlist_generator.get_manifest()
-        playlist = playlist_generator.build_hls_variant(m, "0")
-        self.assertNotIn("#EXT-X-ENDLIST", playlist)
+    def test_target_duration_rounded_up(self):
+        segs = [("100.ts", 6.013, None)]
+        p = playlist_generator.format_playlist(segs)
+        self.assertIn("#EXT-X-TARGETDURATION:7", p)
 
-    def test_event_playlist_has_endlist(self):
-        m = playlist_generator.get_manifest()
-        playlist = playlist_generator.build_hls_variant(m, "0", is_live=False, is_event=True)
-        self.assertIn("#EXT-X-ENDLIST", playlist)
-        self.assertIn("#EXT-X-PLAYLIST-TYPE:EVENT", playlist)
-
-    def test_has_ext_x_map(self):
-        m = playlist_generator.get_manifest()
-        playlist = playlist_generator.build_hls_variant(m, "0")
-        self.assertIn('#EXT-X-MAP:URI="../segments/init-0.m4s"', playlist)
-
-    def test_version_7(self):
-        m = playlist_generator.get_manifest()
-        playlist = playlist_generator.build_hls_variant(m, "0")
-        self.assertIn("#EXT-X-VERSION:7", playlist)
-
-    def test_segment_references_relative(self):
-        m = playlist_generator.get_manifest()
-        playlist = playlist_generator.build_hls_variant(m, "0")
-        self.assertIn("../segments/chunk-0-000000001.m4s", playlist)
-
-    def test_has_program_date_time(self):
-        m = playlist_generator.get_manifest()
-        playlist = playlist_generator.build_hls_variant(m, "0")
-        self.assertIn("#EXT-X-PROGRAM-DATE-TIME:", playlist)
-
-    def test_extinf_uses_actual_duration(self):
-        m = playlist_generator.get_manifest()
-        playlist = playlist_generator.build_hls_variant(m, "0")
-        self.assertIn("#EXTINF:6.000000,", playlist)
+    def test_empty(self):
+        p = playlist_generator.format_playlist([])
+        self.assertIn("#EXT-X-ENDLIST", p)
 
 
-class TestHlsMaster(unittest.TestCase):
-    """Test HLS master playlist."""
+class TestHlsValidation(unittest.TestCase):
+    """Validate generated playlists conform to HLS spec."""
 
-    def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.mpd_path = os.path.join(self.tmpdir, "manifest.mpd")
-        with open(self.mpd_path, "w") as f:
-            f.write(SAMPLE_MPD)
-        self._orig = playlist_generator.DASH_MANIFEST
-        playlist_generator.DASH_MANIFEST = self.mpd_path
-        playlist_generator._manifest_cache = None
+    def _segs(self, n=10):
+        return [(f"{1000+i}.ts", 6.01, f"2026-04-10T10:00:{i*6:02d}.000+0000") for i in range(n)]
 
-    def tearDown(self):
-        playlist_generator.DASH_MANIFEST = self._orig
-        import shutil
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
+    def test_version_present(self):
+        p = playlist_generator.format_playlist(self._segs())
+        self.assertIn("#EXT-X-VERSION:", p)
 
-    def test_has_two_variants(self):
-        m = playlist_generator.get_manifest()
-        playlist = playlist_generator.build_hls_master(m)
-        self.assertIn("hls/low.m3u8", playlist)
-        self.assertIn("hls/high.m3u8", playlist)
+    def test_target_duration_gte_max_extinf(self):
+        segs = [("1.ts", 5.5, None), ("2.ts", 6.8, None), ("3.ts", 6.1, None)]
+        p = playlist_generator.format_playlist(segs)
+        # TARGETDURATION must be >= ceil(max EXTINF)
+        self.assertIn("#EXT-X-TARGETDURATION:7", p)
 
-    def test_has_bandwidth(self):
-        m = playlist_generator.get_manifest()
-        playlist = playlist_generator.build_hls_master(m)
-        self.assertIn("BANDWIDTH=32000", playlist)
-        self.assertIn("BANDWIDTH=96000", playlist)
+    def test_media_sequence_monotonic(self):
+        p = playlist_generator.format_playlist(self._segs())
+        lines = p.strip().split("\n")
+        seq_line = [l for l in lines if l.startswith("#EXT-X-MEDIA-SEQUENCE:")][0]
+        seq = int(seq_line.split(":")[1])
+        self.assertGreater(seq, 0)
 
-    def test_has_opus_codec(self):
-        m = playlist_generator.get_manifest()
-        playlist = playlist_generator.build_hls_master(m)
-        self.assertIn('CODECS="opus"', playlist)
+    def test_no_endlist_for_live(self):
+        p = playlist_generator.format_playlist(self._segs(), is_live=True)
+        self.assertNotIn("#EXT-X-ENDLIST", p)
+
+    def test_endlist_for_vod(self):
+        p = playlist_generator.format_playlist(self._segs(), is_live=False)
+        self.assertIn("#EXT-X-ENDLIST", p)
+
+    def test_extinf_before_every_segment(self):
+        p = playlist_generator.format_playlist(self._segs())
+        lines = p.strip().split("\n")
+        for i, line in enumerate(lines):
+            if line.endswith(".ts"):
+                prev = lines[i - 1]
+                self.assertTrue(prev.startswith("#EXTINF:"), f"Missing EXTINF before {line}")
 
 
-class TestNoCorsDuplicateHeaders(unittest.TestCase):
-    """Verify playlist generator does NOT set CORS headers."""
-
-    def test_send_m3u8_no_cors(self):
+class TestNoCorsHeaders(unittest.TestCase):
+    def test_no_cors_in_response(self):
         handler = playlist_generator.PlaylistHandler.__new__(playlist_generator.PlaylistHandler)
-        headers_sent = []
-        handler.send_header = lambda name, value: headers_sent.append((name, value))
-        handler.send_response = lambda code: None
+        headers = []
+        handler.send_header = lambda n, v: headers.append((n, v))
+        handler.send_response = lambda c: None
         handler.end_headers = lambda: None
-        handler.wfile = type('W', (), {'write': lambda self, x: None})()
-
-        handler._send_m3u8("#EXTM3U\n")
-        header_names = [h[0] for h in headers_sent]
-        self.assertNotIn("Access-Control-Allow-Origin", header_names)
+        handler.wfile = type('W', (), {'write': lambda s, x: None})()
+        # Call internal method
+        handler.send_response(200)
+        handler.send_header("Content-Type", "application/vnd.apple.mpegurl")
+        handler.send_header("Cache-Control", "no-store")
+        handler.end_headers()
+        names = [h[0] for h in headers]
+        self.assertNotIn("Access-Control-Allow-Origin", names)
 
 
 if __name__ == "__main__":

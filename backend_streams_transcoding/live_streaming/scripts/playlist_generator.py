@@ -1,246 +1,179 @@
 """
-Unified playlist generator for DASH + HLS from shared Opus fMP4 segments.
+HLS playlist generator — serves FFmpeg's AAC HLS playlist with windowing.
 
-FFmpeg outputs a single DASH stream with 2 Opus qualities. This generator:
-  - Serves the DASH manifest as-is
-  - Generates HLS playlists (m3u8) pointing to the same fMP4 segments
-  - HLS v7 supports fMP4 via EXT-X-MAP (no separate AAC encoding needed)
+FFmpeg writes AAC .ts segments to /data/hls/segments/<epoch>.ts and a
+raw playlist to /data/hls/live.m3u8. This generator reads FFmpeg's
+playlist and serves a windowed version for live playback.
 
-Segment layout on disk:
-  /data/manifest.mpd                           - DASH manifest
-  /data/segments/init-0.m4s                    - Init segment (low quality)
-  /data/segments/init-1.m4s                    - Init segment (high quality)
-  /data/segments/chunk-0-000000001.m4s         - Audio segment (low)
-  /data/segments/chunk-1-000000001.m4s         - Audio segment (high)
+Endpoints (proxied by NGINX on port 8080):
+  /index.m3u8                   → Live HLS playlist (AAC 64k, latest 65 segments)
+  /index.m3u8?timestamp=<epoch> → Historical playlist starting at timestamp
 
-HLS endpoints:
-  /index.m3u8                       - Master playlist (two variants)
-  /hls/low.m3u8                     - Low quality Opus variant
-  /hls/high.m3u8                    - High quality Opus variant
-  /index.m3u8?timestamp=<epoch>     - Historical playlist starting at timestamp
-  /index.m3u8?quality=low           - Direct low quality
+DASH is served directly by NGINX from /data/dash/manifest.mpd.
 
 Runs on 127.0.0.1:8081.
 """
 
 import calendar
 import os
-import re
-import sys
 import time
-import xml.etree.ElementTree as ET
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
-DASH_MANIFEST = "/data/manifest.mpd"
-SEGMENTS_DIR = "/data/segments"
-SEGMENT_DURATION = int(os.environ.get("SEGMENT_DURATION", "6"))
+FFMPEG_M3U8 = "/data/hls/live.m3u8"
+SEGMENTS_DIR = "/data/hls/segments"
 LIVE_WINDOW_SIZE = 65
 HISTORICAL_WINDOW_SIZE = 300
 
-# Segment info from DASH manifest parsing
-# (segment_number, duration_seconds, representation_id)
+# (filename, duration, program_date_time)
 SegmentInfo = tuple
 
-
-# ── DASH manifest parser ──────────────────────────────────────────
-
-_manifest_cache = None
-_manifest_cache_time = 0.0
+_cache: list[SegmentInfo] = []
+_cache_time = 0.0
 _CACHE_TTL = 2
 
 
-class DashManifest:
-    """Parsed DASH manifest data."""
-
-    def __init__(self):
-        self.availability_start_time = 0.0
-        self.representations = {}  # rep_id -> {bandwidth, init_seg, segments: [(number, duration, start_time)]}
-
-    @staticmethod
-    def parse(path: str) -> "DashManifest":
-        """Parse a DASH MPD manifest."""
-        result = DashManifest()
-        try:
-            tree = ET.parse(path)
-        except (ET.ParseError, FileNotFoundError):
-            return result
-
-        root = tree.getroot()
-        ns = ""
-        # Handle namespace
-        m = re.match(r"\{(.+)\}", root.tag)
-        if m:
-            ns = m.group(1)
-
-        def tag(name):
-            return f"{{{ns}}}{name}" if ns else name
-
-        # Parse availabilityStartTime
-        ast = root.get("availabilityStartTime", "")
-        if ast:
-            result.availability_start_time = _parse_iso_to_epoch(ast)
-
-        # Parse adaptation sets and representations
-        for period in root.iter(tag("Period")):
-            for adapt_set in period.iter(tag("AdaptationSet")):
-                for rep in adapt_set.iter(tag("Representation")):
-                    rep_id = rep.get("id", "0")
-                    bandwidth = int(rep.get("bandwidth", "0"))
-
-                    # Find SegmentTemplate
-                    seg_template = rep.find(tag("SegmentTemplate"))
-                    if seg_template is None:
-                        seg_template = adapt_set.find(tag("SegmentTemplate"))
-                    if seg_template is None:
-                        continue
-
-                    init_seg = seg_template.get("initialization", "")
-                    media_template = seg_template.get("media", "")
-                    timescale = int(seg_template.get("timescale", "1"))
-                    start_number = int(seg_template.get("startNumber", "1"))
-
-                    # Replace $RepresentationID$
-                    init_seg = init_seg.replace("$RepresentationID$", rep_id)
-
-                    # Parse SegmentTimeline
-                    segments = []
-                    timeline = seg_template.find(tag("SegmentTimeline"))
-                    if timeline is not None:
-                        current_time = 0
-                        seg_num = start_number
-                        for s_elem in timeline.iter(tag("S")):
-                            t = int(s_elem.get("t", str(current_time)))
-                            d = int(s_elem.get("d", "0"))
-                            r = int(s_elem.get("r", "0"))
-
-                            current_time = t
-                            for _ in range(r + 1):
-                                start_epoch = result.availability_start_time + current_time / timescale
-                                duration = d / timescale
-                                segments.append((seg_num, duration, start_epoch))
-                                current_time += d
-                                seg_num += 1
-
-                    result.representations[rep_id] = {
-                        "bandwidth": bandwidth,
-                        "init_seg": init_seg,
-                        "media_template": media_template,
-                        "segments": segments,
-                    }
-
-        return result
-
-
-def get_manifest() -> DashManifest:
-    """Get parsed DASH manifest with caching."""
-    global _manifest_cache, _manifest_cache_time
-    now = time.time()
-    if _manifest_cache and now - _manifest_cache_time < _CACHE_TTL:
-        return _manifest_cache
-    _manifest_cache = DashManifest.parse(DASH_MANIFEST)
-    _manifest_cache_time = now
-    return _manifest_cache
-
-
-def _parse_iso_to_epoch(iso_str: str) -> float:
-    """Parse ISO 8601 datetime to epoch seconds."""
-    clean = iso_str.strip().rstrip("Z")
-    if "+" in clean[10:]:
-        clean = clean[:clean.index("+", 10)]
-    elif clean.count("-") > 2:
-        # Has timezone offset like -0000
-        pass
+def parse_ffmpeg_m3u8() -> list[SegmentInfo]:
+    """Parse FFmpeg's live.m3u8 for segment list with durations."""
     try:
-        if "." in clean:
-            main, frac = clean.split(".")
-            t = time.strptime(main, "%Y-%m-%dT%H:%M:%S")
-            return float(calendar.timegm(t)) + float(f"0.{frac[:3]}")
+        with open(FFMPEG_M3U8, "r") as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        return []
+
+    segments = []
+    duration = 6.0
+    pdt = None
+
+    for line in lines:
+        line = line.strip()
+        if line.startswith("#EXTINF:"):
+            try:
+                duration = float(line.split(":")[1].rstrip(","))
+            except (ValueError, IndexError):
+                duration = 6.0
+        elif line.startswith("#EXT-X-PROGRAM-DATE-TIME:"):
+            pdt = line.split(":", 1)[1]
+        elif line and not line.startswith("#"):
+            segments.append((line, duration, pdt))
+            pdt = None
+            duration = 6.0
+
+    return segments
+
+
+def get_all_segments() -> list[SegmentInfo]:
+    """Get segments combining FFmpeg's m3u8 (recent) + disk scan (older)."""
+    global _cache, _cache_time
+
+    now = time.time()
+    if _cache and now - _cache_time < _CACHE_TTL:
+        return _cache
+
+    ffmpeg_segs = parse_ffmpeg_m3u8()
+    ffmpeg_files = {s[0] for s in ffmpeg_segs}
+
+    # Compute average duration and first timestamp for estimating old segments
+    avg_dur = 6.0
+    first_num = None
+    first_epoch = None
+    if ffmpeg_segs:
+        durations = [s[1] for s in ffmpeg_segs]
+        avg_dur = sum(durations) / len(durations)
+        try:
+            first_num = int(ffmpeg_segs[0][0].replace(".ts", ""))
+        except ValueError:
+            pass
+        if ffmpeg_segs[0][2]:
+            first_epoch = _parse_pdt(ffmpeg_segs[0][2])
+
+    # Scan disk for all .ts files
+    disk_nums = []
+    try:
+        for name in os.listdir(SEGMENTS_DIR):
+            if name.endswith(".ts"):
+                try:
+                    disk_nums.append(int(name[:-3]))
+                except ValueError:
+                    pass
+    except FileNotFoundError:
+        pass
+    disk_nums.sort()
+
+    result: list[SegmentInfo] = []
+    for num in disk_nums:
+        fname = f"{num}.ts"
+        if fname in ffmpeg_files:
+            for seg in ffmpeg_segs:
+                if seg[0] == fname:
+                    result.append(seg)
+                    break
         else:
-            t = time.strptime(clean[:19], "%Y-%m-%dT%H:%M:%S")
-            return float(calendar.timegm(t))
+            # Estimate timestamp for old segments
+            pdt = None
+            if first_num is not None and first_epoch is not None:
+                est_epoch = first_epoch + (num - first_num) * avg_dur
+                pdt = _epoch_to_pdt(est_epoch)
+            result.append((fname, avg_dur, pdt))
+
+    _cache = result
+    _cache_time = now
+    return result
+
+
+def _parse_pdt(pdt_str: str) -> float:
+    clean = pdt_str.strip()
+    if clean.endswith("Z"):
+        clean = clean[:-1] + "+0000"
+    if len(clean) > 5 and clean[-3] == ":":
+        clean = clean[:-3] + clean[-2:]
+    try:
+        t = time.strptime(clean[:19], "%Y-%m-%dT%H:%M:%S")
+        epoch = float(calendar.timegm(t))
+        if "." in clean:
+            ms = clean.split(".")[1][:3]
+            epoch += int(ms) / 1000.0
+        return epoch
     except (ValueError, IndexError):
         return time.time()
 
 
 def _epoch_to_pdt(epoch: float) -> str:
-    """Convert epoch to HLS PROGRAM-DATE-TIME format."""
     t = time.gmtime(epoch)
     ms = int((epoch % 1) * 1000)
     return time.strftime(f"%Y-%m-%dT%H:%M:%S.{ms:03d}+0000", t)
 
 
-def _segment_filename(media_template: str, rep_id: str, number: int) -> str:
-    """Resolve DASH media template to actual filename."""
-    name = media_template
-    name = name.replace("$RepresentationID$", rep_id)
-    # Handle $Number%09d$ pattern
-    num_match = re.search(r"\$Number%(\d+)d\$", name)
-    if num_match:
-        width = int(num_match.group(1))
-        name = re.sub(r"\$Number%\d+d\$", str(number).zfill(width), name)
-    else:
-        name = name.replace("$Number$", str(number))
-    return name
+def _seg_epoch(seg: SegmentInfo) -> float:
+    return _parse_pdt(seg[2]) if seg[2] else 0.0
 
 
-# ── HLS playlist generation ───────────────────────────────────────
+def format_playlist(segs: list[SegmentInfo], is_live=True, is_event=False) -> str:
+    if not segs:
+        return "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:7\n#EXT-X-ENDLIST\n"
 
-def build_hls_variant(manifest: DashManifest, rep_id: str, window_size: int = LIVE_WINDOW_SIZE,
-                      is_live: bool = True, is_event: bool = False,
-                      start_epoch: float = 0) -> str:
-    """Build an HLS variant playlist for a specific representation."""
-    rep = manifest.representations.get(rep_id)
-    if not rep or not rep["segments"]:
-        return "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:7\n#EXT-X-ENDLIST\n"
+    try:
+        first_seq = int(segs[0][0].replace(".ts", ""))
+    except ValueError:
+        first_seq = 0
 
-    segments = rep["segments"]
-
-    # If seeking to a specific timestamp
-    if start_epoch > 0:
-        idx = 0
-        for i, (num, dur, epoch) in enumerate(segments):
-            if epoch >= start_epoch:
-                idx = i
-                break
-        else:
-            idx = len(segments)
-
-        if is_event:
-            segments = segments[idx:idx + HISTORICAL_WINDOW_SIZE]
-        else:
-            live_edge = max(0, len(segments) - window_size)
-            if idx >= live_edge:
-                segments = segments[-window_size:]
-            else:
-                segments = segments[idx:idx + window_size]
-    else:
-        # Live: latest window
-        segments = segments[-window_size:] if len(segments) > window_size else segments
-
-    if not segments:
-        return "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:7\n#EXT-X-ENDLIST\n"
-
-    max_dur = max(s[1] for s in segments)
-    target_duration = int(max_dur) + 1
-    first_seq = segments[0][0]
+    max_dur = max(s[1] for s in segs)
+    td = int(max_dur) + 1
 
     lines = [
         "#EXTM3U",
-        "#EXT-X-VERSION:7",
-        f"#EXT-X-TARGETDURATION:{target_duration}",
+        "#EXT-X-VERSION:3",
+        f"#EXT-X-TARGETDURATION:{td}",
         f"#EXT-X-MEDIA-SEQUENCE:{first_seq}",
-        f'#EXT-X-MAP:URI="../{rep["init_seg"]}"',
     ]
-
     if is_event:
         lines.append("#EXT-X-PLAYLIST-TYPE:EVENT")
 
-    for num, dur, epoch in segments:
-        filename = _segment_filename(rep["media_template"], rep_id, num)
-        lines.append(f"#EXT-X-PROGRAM-DATE-TIME:{_epoch_to_pdt(epoch)}")
+    for fname, dur, pdt in segs:
+        if pdt:
+            lines.append(f"#EXT-X-PROGRAM-DATE-TIME:{pdt}")
         lines.append(f"#EXTINF:{dur:.6f},")
-        lines.append(f"../{filename}")
+        lines.append(f"hls/segments/{fname}")
 
     if not is_live:
         lines.append("#EXT-X-ENDLIST")
@@ -248,109 +181,71 @@ def build_hls_variant(manifest: DashManifest, rep_id: str, window_size: int = LI
     return "\n".join(lines) + "\n"
 
 
-def build_hls_master(manifest: DashManifest) -> str:
-    """Build HLS master playlist with quality variants."""
-    lines = [
-        "#EXTM3U",
-        "#EXT-X-VERSION:7",
-    ]
-
-    # Sort representations by bandwidth (low first)
-    sorted_reps = sorted(manifest.representations.items(), key=lambda x: x[1]["bandwidth"])
-
-    quality_names = ["low", "high"]
-    for i, (rep_id, rep_data) in enumerate(sorted_reps):
-        name = quality_names[i] if i < len(quality_names) else f"q{i}"
-        bw = rep_data["bandwidth"]
-        lines.append(f'#EXT-X-STREAM-INF:BANDWIDTH={bw},CODECS="opus",AUDIO="audio"')
-        lines.append(f"hls/{name}.m3u8")
-
-    return "\n".join(lines) + "\n"
-
-
-# ── HTTP handler ───────────────────────────────────────────────────
-
 class PlaylistHandler(BaseHTTPRequestHandler):
-    """HTTP handler for HLS playlist generation from DASH segments."""
 
     def do_GET(self):
         parsed = urlparse(self.path)
         params = parse_qs(parsed.query)
-        path = parsed.path
 
-        manifest = get_manifest()
-
-        # Master playlist
-        if path == "/index.m3u8" and "timestamp" not in params and "quality" not in params:
-            playlist = build_hls_master(manifest)
-            self._send_m3u8(playlist, cacheable=False)
+        if parsed.path not in ("/index.m3u8",):
+            self.send_error(404)
             return
 
-        # Quality variant or timestamped request
-        if path in ("/index.m3u8", "/hls/low.m3u8", "/hls/high.m3u8"):
-            # Determine quality
-            quality = params.get("quality", ["high"])[0]
-            if path == "/hls/low.m3u8":
-                quality = "low"
-            elif path == "/hls/high.m3u8":
-                quality = "high"
+        segs = get_all_segments()
+        if not segs:
+            self.send_error(503, "No segments yet")
+            return
 
-            # Map quality name to representation ID
-            sorted_reps = sorted(manifest.representations.items(), key=lambda x: x[1]["bandwidth"])
-            if quality == "low" and sorted_reps:
-                rep_id = sorted_reps[0][0]
-            elif sorted_reps:
-                rep_id = sorted_reps[-1][0]
-            else:
-                self.send_error(503, "No representations available")
+        ts_param = params.get("timestamp", [None])[0]
+        mode = params.get("mode", ["live"])[0]
+        cacheable = False
+
+        if ts_param:
+            try:
+                target = float(ts_param)
+            except ValueError:
+                self.send_error(400, "Invalid timestamp")
                 return
 
-            timestamp_param = params.get("timestamp", [None])[0]
-            mode = params.get("mode", ["live"])[0]
-            cacheable = False
-            start_epoch = 0
+            oldest = _seg_epoch(segs[0])
+            newest = _seg_epoch(segs[-1])
+            if target < oldest:
+                target = oldest
+            if target > newest + 10:
+                playlist = format_playlist(segs[-LIVE_WINDOW_SIZE:])
+            elif mode == "event":
+                idx = next((i for i, s in enumerate(segs) if _seg_epoch(s) >= target), len(segs))
+                playlist = format_playlist(segs[idx:idx + HISTORICAL_WINDOW_SIZE], is_live=False, is_event=True)
+                cacheable = True
+            else:
+                idx = next((i for i, s in enumerate(segs) if _seg_epoch(s) >= target), len(segs))
+                live_edge = max(0, len(segs) - LIVE_WINDOW_SIZE)
+                if idx >= live_edge:
+                    playlist = format_playlist(segs[-LIVE_WINDOW_SIZE:])
+                else:
+                    playlist = format_playlist(segs[idx:idx + LIVE_WINDOW_SIZE])
+        else:
+            window = segs[-LIVE_WINDOW_SIZE:] if len(segs) > LIVE_WINDOW_SIZE else segs
+            playlist = format_playlist(window)
 
-            if timestamp_param:
-                try:
-                    start_epoch = float(timestamp_param)
-                    cacheable = True
-                except ValueError:
-                    self.send_error(400, "Invalid timestamp")
-                    return
-
-            playlist = build_hls_variant(
-                manifest, rep_id,
-                is_live=(mode != "event"),
-                is_event=(mode == "event"),
-                start_epoch=start_epoch,
-            )
-            self._send_m3u8(playlist, cacheable=cacheable)
-            return
-
-        self.send_error(404, "Not found")
-
-    def _send_m3u8(self, text: str, cacheable: bool = False):
         self.send_response(200)
         self.send_header("Content-Type", "application/vnd.apple.mpegurl")
-        if cacheable:
-            self.send_header("Cache-Control", "public, max-age=86400")
-        else:
-            self.send_header("Cache-Control", "no-store, must-revalidate")
+        self.send_header("Cache-Control", "public, max-age=86400" if cacheable else "no-store, must-revalidate")
         self.end_headers()
-        self.wfile.write(text.encode("utf-8"))
+        self.wfile.write(playlist.encode())
 
     def do_OPTIONS(self):
         self.send_response(204)
         self.end_headers()
 
-    def log_message(self, format, *args):
+    def log_message(self, fmt, *args):
         pass
 
 
 def main():
     port = int(os.environ.get("PLAYLIST_PORT", "8081"))
     server = HTTPServer(("127.0.0.1", port), PlaylistHandler)
-    print(f"Playlist generator listening on 127.0.0.1:{port}", flush=True)
+    print(f"Playlist generator on 127.0.0.1:{port}", flush=True)
     server.serve_forever()
 
 
