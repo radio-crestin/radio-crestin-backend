@@ -137,14 +137,14 @@ class StationType:
     def hls_stream_url(self) -> Optional[str]:
         """HLS stream URL (AAC 64k, .ts segments — works with hls.js/Safari)"""
         if self.transcode_enabled:
-            return f"https://hls.radiocrestin.ro/hls/{self.slug}/index.m3u8"
+            return f"https://live.radiocrestin.ro/hls/{self.slug}/index.m3u8"
         return None
 
     @strawberry.field
     def dash_stream_url(self) -> Optional[str]:
         """DASH stream URL (Opus 32k + 96k, fMP4 — works with dash.js/Shaka)"""
         if self.transcode_enabled:
-            return f"https://hls.radiocrestin.ro/dash/{self.slug}/manifest.mpd"
+            return f"https://live.radiocrestin.ro/dash/{self.slug}/manifest.mpd"
         return None
 
     @strawberry.field

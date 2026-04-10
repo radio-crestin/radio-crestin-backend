@@ -96,14 +96,14 @@ class StationsAdmin(SuperAppModelAdmin):
 
     def hls_url_display(self, obj):
         if obj.transcode_enabled:
-            url = f"https://hls.radiocrestin.ro/hls/{obj.slug}/index.m3u8"
+            url = f"https://live.radiocrestin.ro/hls/{obj.slug}/index.m3u8"
             return format_html('<a href="{}" target="_blank">{}</a>', url, url)
         return _("Transcoding disabled")
     hls_url_display.short_description = _("HLS URL (AAC)")
 
     def dash_url_display(self, obj):
         if obj.transcode_enabled:
-            url = f"https://hls.radiocrestin.ro/dash/{obj.slug}/manifest.mpd"
+            url = f"https://live.radiocrestin.ro/dash/{obj.slug}/manifest.mpd"
             return format_html('<a href="{}" target="_blank">{}</a>', url, url)
         return _("Transcoding disabled")
     dash_url_display.short_description = _("DASH URL (Opus)")
