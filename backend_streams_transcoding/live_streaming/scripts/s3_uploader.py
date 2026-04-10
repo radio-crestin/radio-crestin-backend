@@ -1,12 +1,18 @@
 """
-S3 segment uploader — watches for new HLS/DASH segments and uploads them to S3.
+S3 uploader — mirrors the full station output to S3.
 
-Runs as a background process alongside FFmpeg. Uploads segments as they appear,
-then local cleanup removes files older than LOCAL_RETENTION_MINUTES (default 10 min).
-S3 handles 7-day retention via lifecycle policy.
+Uploads:
+  - fMP4 segments (chunk-*.m4s, init-*.m4s) — immutable, uploaded once
+  - DASH manifest (manifest.mpd) — re-uploaded every cycle
+  - HLS playlists (index.m3u8, hls/low.m3u8, hls/high.m3u8) — re-uploaded every cycle
 
-Segments are uploaded to: s3://<bucket>/<station_slug>/hls/segments/<num>.ts
-                           s3://<bucket>/<station_slug>/dash/<file>.m4s
+S3 layout mirrors the local layout:
+  s3://<bucket>/<station_slug>/segments/init-0.m4s
+  s3://<bucket>/<station_slug>/segments/chunk-0-000000001.m4s
+  s3://<bucket>/<station_slug>/manifest.mpd
+  s3://<bucket>/<station_slug>/index.m3u8
+  s3://<bucket>/<station_slug>/hls/low.m3u8
+  s3://<bucket>/<station_slug>/hls/high.m3u8
 """
 
 import hashlib
@@ -61,6 +67,26 @@ def _sign_v4(method, path, headers_to_sign, payload_hash, timestamp, region, ser
     return f"AWS4-HMAC-SHA256 Credential={S3_ACCESS_KEY}/{credential_scope}, SignedHeaders={signed_headers}, Signature={signature}"
 
 
+def _content_type_for(s3_key: str) -> str:
+    if s3_key.endswith(".m4s"):
+        return "video/mp4"
+    elif s3_key.endswith(".mpd"):
+        return "application/dash+xml"
+    elif s3_key.endswith(".m3u8"):
+        return "application/vnd.apple.mpegurl"
+    elif s3_key.endswith(".ts"):
+        return "video/mp2t"
+    return "application/octet-stream"
+
+
+def _cache_control_for(s3_key: str) -> str:
+    """Segments are immutable. Manifests/playlists change frequently."""
+    if s3_key.endswith(".m4s") or s3_key.endswith(".ts"):
+        return "public, max-age=31536000, immutable"
+    # Manifests and playlists: short cache so S3-hosted copies stay fresh
+    return "public, max-age=5"
+
+
 def upload_file(local_path: str, s3_key: str) -> bool:
     """Upload a file to S3 using raw HTTPS + AWS Signature V4."""
     try:
@@ -70,19 +96,9 @@ def upload_file(local_path: str, s3_key: str) -> bool:
         content_hash = hashlib.sha256(body).hexdigest()
         now = datetime.now(timezone.utc)
         timestamp = now.strftime("%Y%m%dT%H%M%SZ")
-        date_str = now.strftime("%a, %d %b %Y %H:%M:%S GMT")
 
         host = f"{S3_BUCKET}.{S3_ENDPOINT}"
         path = f"/{s3_key}"
-
-        # Determine content type
-        content_type = "video/mp2t"
-        if s3_key.endswith(".m4s"):
-            content_type = "video/mp4"
-        elif s3_key.endswith(".mpd"):
-            content_type = "application/dash+xml"
-        elif s3_key.endswith(".m3u8"):
-            content_type = "application/vnd.apple.mpegurl"
 
         headers_to_sign = {
             "host": host,
@@ -99,22 +115,22 @@ def upload_file(local_path: str, s3_key: str) -> bool:
             body=body,
             headers={
                 "Host": host,
-                "Content-Type": content_type,
+                "Content-Type": _content_type_for(s3_key),
                 "Content-Length": str(len(body)),
                 "x-amz-content-sha256": content_hash,
                 "x-amz-date": timestamp,
                 "Authorization": auth,
-                "Cache-Control": "public, max-age=31536000, immutable",
+                "Cache-Control": _cache_control_for(s3_key),
             },
         )
         resp = conn.getresponse()
+        resp.read()  # drain response body
         conn.close()
 
         if resp.status in (200, 201, 204):
             return True
         else:
-            body_text = resp.read().decode("utf-8", errors="replace")[:200]
-            print(f"S3 upload failed for {s3_key}: HTTP {resp.status} {body_text}", flush=True)
+            print(f"S3 upload failed for {s3_key}: HTTP {resp.status}", flush=True)
             return False
 
     except Exception as e:
@@ -143,10 +159,76 @@ def sync_segments():
         pass
 
 
+PLAYLIST_URL = "http://127.0.0.1:8081"
+
+
+def sync_manifests():
+    """Upload DASH manifest and HLS playlists to S3 (re-uploaded every cycle)."""
+    # DASH manifest
+    mpd_path = "/data/manifest.mpd"
+    if os.path.isfile(mpd_path):
+        upload_file(mpd_path, f"{STATION_SLUG}/manifest.mpd")
+
+    # HLS playlists — fetch from the playlist generator (it builds them dynamically)
+    for path, s3_name in [
+        ("/index.m3u8", "index.m3u8"),
+        ("/hls/low.m3u8", "hls/low.m3u8"),
+        ("/hls/high.m3u8", "hls/high.m3u8"),
+    ]:
+        try:
+            from http.client import HTTPConnection
+            conn = HTTPConnection("127.0.0.1", 8081, timeout=5)
+            conn.request("GET", path)
+            resp = conn.getresponse()
+            if resp.status == 200:
+                body = resp.read()
+                s3_key = f"{STATION_SLUG}/{s3_name}"
+                _upload_bytes(body, s3_key, "application/vnd.apple.mpegurl", "public, max-age=5")
+            else:
+                resp.read()
+            conn.close()
+        except Exception as e:
+            pass  # Playlist generator not ready yet, skip
+
+
+def _upload_bytes(body: bytes, s3_key: str, content_type: str, cache_control: str) -> bool:
+    """Upload raw bytes to S3."""
+    try:
+        content_hash = hashlib.sha256(body).hexdigest()
+        now = datetime.now(timezone.utc)
+        timestamp = now.strftime("%Y%m%dT%H%M%SZ")
+
+        host = f"{S3_BUCKET}.{S3_ENDPOINT}"
+        path = f"/{s3_key}"
+
+        headers_to_sign = {
+            "host": host,
+            "x-amz-content-sha256": content_hash,
+            "x-amz-date": timestamp,
+        }
+        auth = _sign_v4("PUT", path, headers_to_sign, content_hash, timestamp, S3_REGION)
+
+        conn = HTTPSConnection(host, timeout=30)
+        conn.request("PUT", path, body=body, headers={
+            "Host": host,
+            "Content-Type": content_type,
+            "Content-Length": str(len(body)),
+            "x-amz-content-sha256": content_hash,
+            "x-amz-date": timestamp,
+            "Authorization": auth,
+            "Cache-Control": cache_control,
+        })
+        resp = conn.getresponse()
+        resp.read()
+        conn.close()
+        return resp.status in (200, 201, 204)
+    except Exception:
+        return False
+
+
 def main():
     if not all([S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY, S3_SECRET_KEY, STATION_SLUG]):
         print("S3 uploader: missing config, skipping (S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY, S3_SECRET_KEY required)", flush=True)
-        # Sleep forever so entrypoint doesn't think we crashed
         while True:
             time.sleep(3600)
 
@@ -154,6 +236,7 @@ def main():
 
     while True:
         sync_segments()
+        sync_manifests()
         time.sleep(UPLOAD_INTERVAL)
 
 
