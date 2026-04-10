@@ -226,6 +226,103 @@ def _upload_bytes(body: bytes, s3_key: str, content_type: str, cache_control: st
         return False
 
 
+RETENTION_DAYS = int(os.environ.get("RETENTION_DAYS", "7"))
+_bucket_configured = False
+
+
+def configure_bucket():
+    """Configure S3 bucket CORS and lifecycle (idempotent, runs once)."""
+    global _bucket_configured
+    if _bucket_configured:
+        return
+
+    host = f"{S3_BUCKET}.{S3_ENDPOINT}"
+
+    # 1. Set CORS — allow all origins for HLS/DASH playback
+    cors_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<CORSConfiguration>
+  <CORSRule>
+    <AllowedOrigin>*</AllowedOrigin>
+    <AllowedMethod>GET</AllowedMethod>
+    <AllowedMethod>HEAD</AllowedMethod>
+    <AllowedHeader>*</AllowedHeader>
+    <ExposeHeader>Content-Length</ExposeHeader>
+    <ExposeHeader>Content-Range</ExposeHeader>
+    <MaxAgeSeconds>86400</MaxAgeSeconds>
+  </CORSRule>
+</CORSConfiguration>"""
+
+    if _s3_put_config(host, "/?cors", cors_xml.encode(), "application/xml"):
+        print("S3: CORS configured", flush=True)
+    else:
+        print("S3: CORS config failed (may already be set)", flush=True)
+
+    # 2. Set lifecycle — auto-delete segments after RETENTION_DAYS
+    lifecycle_xml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<LifecycleConfiguration>
+  <Rule>
+    <ID>expire-segments</ID>
+    <Filter>
+      <Prefix></Prefix>
+    </Filter>
+    <Status>Enabled</Status>
+    <Expiration>
+      <Days>{RETENTION_DAYS}</Days>
+    </Expiration>
+  </Rule>
+</LifecycleConfiguration>"""
+
+    lifecycle_body = lifecycle_xml.encode()
+    lifecycle_md5 = hashlib.md5(lifecycle_body).digest()
+    import base64
+    lifecycle_md5_b64 = base64.b64encode(lifecycle_md5).decode()
+
+    if _s3_put_config(host, "/?lifecycle", lifecycle_body, "application/xml",
+                      extra_headers={"Content-MD5": lifecycle_md5_b64}):
+        print(f"S3: Lifecycle configured ({RETENTION_DAYS}-day expiration)", flush=True)
+    else:
+        print("S3: Lifecycle config failed (may already be set)", flush=True)
+
+    _bucket_configured = True
+
+
+def _s3_put_config(host: str, path: str, body: bytes, content_type: str,
+                   extra_headers: dict = None) -> bool:
+    """PUT a bucket configuration (CORS, lifecycle, etc.)."""
+    try:
+        content_hash = hashlib.sha256(body).hexdigest()
+        now = datetime.now(timezone.utc)
+        timestamp = now.strftime("%Y%m%dT%H%M%SZ")
+
+        headers_to_sign = {
+            "host": host,
+            "x-amz-content-sha256": content_hash,
+            "x-amz-date": timestamp,
+        }
+        auth = _sign_v4("PUT", path.split("?")[0], headers_to_sign, content_hash, timestamp, S3_REGION)
+
+        req_headers = {
+            "Host": host,
+            "Content-Type": content_type,
+            "Content-Length": str(len(body)),
+            "x-amz-content-sha256": content_hash,
+            "x-amz-date": timestamp,
+            "Authorization": auth,
+        }
+        if extra_headers:
+            req_headers.update(extra_headers)
+
+        conn = HTTPSConnection(host, timeout=30)
+        conn.request("PUT", path, body=body, headers=req_headers)
+        resp = conn.getresponse()
+        resp.read()
+        conn.close()
+        return resp.status in (200, 204)
+    except Exception as e:
+        print(f"S3 config error for {path}: {e}", flush=True)
+        return False
+
+
 def main():
     if not all([S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY, S3_SECRET_KEY, STATION_SLUG]):
         print("S3 uploader: missing config, skipping (S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY, S3_SECRET_KEY required)", flush=True)
@@ -233,6 +330,9 @@ def main():
             time.sleep(3600)
 
     print(f"S3 uploader started: bucket={S3_BUCKET}.{S3_ENDPOINT}, station={STATION_SLUG}", flush=True)
+
+    # Configure bucket CORS and lifecycle on first run
+    configure_bucket()
 
     while True:
         sync_segments()

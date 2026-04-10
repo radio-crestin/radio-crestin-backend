@@ -141,7 +141,7 @@ class TestHlsVariant(unittest.TestCase):
     def test_has_ext_x_map(self):
         m = playlist_generator.get_manifest()
         playlist = playlist_generator.build_hls_variant(m, "0")
-        self.assertIn('#EXT-X-MAP:URI="segments/segments/init-0.m4s"', playlist)
+        self.assertIn('#EXT-X-MAP:URI="segments/init-0.m4s"', playlist)
 
     def test_version_7(self):
         m = playlist_generator.get_manifest()
@@ -151,7 +151,9 @@ class TestHlsVariant(unittest.TestCase):
     def test_segment_references(self):
         m = playlist_generator.get_manifest()
         playlist = playlist_generator.build_hls_variant(m, "0")
-        self.assertIn("segments/segments/chunk-0-000000001.m4s", playlist)
+        self.assertIn("segments/chunk-0-000000001.m4s", playlist)
+        # Must NOT have double segments/ prefix
+        self.assertNotIn("segments/segments/", playlist)
 
     def test_has_program_date_time(self):
         m = playlist_generator.get_manifest()

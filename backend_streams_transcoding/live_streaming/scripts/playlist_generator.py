@@ -230,7 +230,7 @@ def build_hls_variant(manifest: DashManifest, rep_id: str, window_size: int = LI
         "#EXT-X-VERSION:7",
         f"#EXT-X-TARGETDURATION:{target_duration}",
         f"#EXT-X-MEDIA-SEQUENCE:{first_seq}",
-        f'#EXT-X-MAP:URI="segments/{rep["init_seg"]}"',
+        f'#EXT-X-MAP:URI="{rep["init_seg"]}"',
     ]
 
     if is_event:
@@ -240,7 +240,7 @@ def build_hls_variant(manifest: DashManifest, rep_id: str, window_size: int = LI
         filename = _segment_filename(rep["media_template"], rep_id, num)
         lines.append(f"#EXT-X-PROGRAM-DATE-TIME:{_epoch_to_pdt(epoch)}")
         lines.append(f"#EXTINF:{dur:.6f},")
-        lines.append(f"segments/{filename}")
+        lines.append(filename)
 
     if not is_live:
         lines.append("#EXT-X-ENDLIST")
