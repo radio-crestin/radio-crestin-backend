@@ -1,13 +1,12 @@
 """
 Unit tests for the stream controller.
 
-Tests slug validation, pod/service/PVC spec building, ingress generation,
+Tests slug validation, deployment/service/PVC spec building, ingress generation,
 and the sync logic with mocked K8s API.
 """
 
-import re
 import unittest
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import sys
 import os
@@ -51,8 +50,8 @@ class TestSlugValidation(unittest.TestCase):
 class TestNaming(unittest.TestCase):
     """Test resource naming conventions."""
 
-    def test_pod_name(self):
-        self.assertEqual(controller.pod_name("radio-emanuel"), "live-stream-radio-emanuel")
+    def test_deployment_name(self):
+        self.assertEqual(controller.deployment_name("radio-emanuel"), "live-stream-radio-emanuel")
 
     def test_service_name(self):
         self.assertEqual(controller.service_name("radio-emanuel"), "live-stream-radio-emanuel")
@@ -61,46 +60,62 @@ class TestNaming(unittest.TestCase):
         self.assertEqual(controller.pvc_name("radio-emanuel"), "stream-radio-emanuel")
 
 
-class TestBuildPodSpec(unittest.TestCase):
-    """Test pod spec generation."""
+class TestBuildDeploymentSpec(unittest.TestCase):
+    """Test deployment spec generation."""
 
-    def test_pod_has_correct_metadata(self):
-        pod = controller.build_pod_spec("test-station", "https://stream.example.com/live")
-        self.assertEqual(pod.metadata.name, "live-stream-test-station")
-        self.assertEqual(pod.metadata.labels["app"], "live-stream")
-        self.assertEqual(pod.metadata.labels["station"], "test-station")
-        self.assertEqual(pod.metadata.annotations["stream-url"], "https://stream.example.com/live")
+    def test_deployment_has_correct_metadata(self):
+        dep = controller.build_deployment_spec("test-station", "https://stream.example.com/live")
+        self.assertEqual(dep.metadata.name, "live-stream-test-station")
+        self.assertEqual(dep.metadata.labels["app"], "live-stream")
+        self.assertEqual(dep.metadata.labels["station"], "test-station")
+        self.assertEqual(dep.metadata.annotations["stream-url"], "https://stream.example.com/live")
 
-    def test_pod_has_correct_env_vars(self):
-        pod = controller.build_pod_spec("test-station", "https://stream.example.com/live")
-        container = pod.spec.containers[0]
+    def test_deployment_has_correct_env_vars(self):
+        dep = controller.build_deployment_spec("test-station", "https://stream.example.com/live")
+        container = dep.spec.template.spec.containers[0]
         env_map = {e.name: e.value for e in container.env}
         self.assertEqual(env_map["STATION_SLUG"], "test-station")
         self.assertEqual(env_map["STREAM_URL"], "https://stream.example.com/live")
 
-    def test_pod_has_pvc_volume(self):
-        pod = controller.build_pod_spec("test-station", "https://stream.example.com/live")
-        volume = pod.spec.volumes[0]
+    def test_deployment_has_pvc_volume(self):
+        dep = controller.build_deployment_spec("test-station", "https://stream.example.com/live")
+        volume = dep.spec.template.spec.volumes[0]
         self.assertEqual(volume.name, "data")
         self.assertEqual(volume.persistent_volume_claim.claim_name, "stream-test-station")
 
-    def test_pod_has_probes(self):
-        pod = controller.build_pod_spec("test-station", "https://stream.example.com/live")
-        container = pod.spec.containers[0]
+    def test_deployment_has_probes(self):
+        dep = controller.build_deployment_spec("test-station", "https://stream.example.com/live")
+        container = dep.spec.template.spec.containers[0]
         self.assertIsNotNone(container.liveness_probe)
         self.assertIsNotNone(container.readiness_probe)
+        self.assertIsNotNone(container.startup_probe)
         self.assertEqual(container.liveness_probe.http_get.path, "/health")
-        self.assertEqual(container.liveness_probe.http_get.port, 8080)
 
-    def test_pod_has_resource_limits(self):
-        pod = controller.build_pod_spec("test-station", "https://stream.example.com/live")
-        container = pod.spec.containers[0]
+    def test_deployment_has_resource_limits(self):
+        dep = controller.build_deployment_spec("test-station", "https://stream.example.com/live")
+        container = dep.spec.template.spec.containers[0]
         self.assertIn("cpu", container.resources.requests)
         self.assertIn("memory", container.resources.limits)
 
-    def test_pod_restart_policy(self):
-        pod = controller.build_pod_spec("test-station", "https://stream.example.com/live")
-        self.assertEqual(pod.spec.restart_policy, "Always")
+    def test_deployment_uses_recreate_strategy(self):
+        dep = controller.build_deployment_spec("test-station", "https://stream.example.com/live")
+        self.assertEqual(dep.spec.strategy.type, "Recreate")
+
+    def test_deployment_has_fast_termination(self):
+        dep = controller.build_deployment_spec("test-station", "https://stream.example.com/live")
+        self.assertEqual(dep.spec.template.spec.termination_grace_period_seconds, 10)
+
+    def test_deployment_has_label_selector(self):
+        dep = controller.build_deployment_spec("test-station", "https://stream.example.com/live")
+        self.assertEqual(dep.spec.selector.match_labels["app"], "live-stream")
+        self.assertEqual(dep.spec.selector.match_labels["station"], "test-station")
+
+    def test_liveness_probe_fast_failure_detection(self):
+        dep = controller.build_deployment_spec("test-station", "https://stream.example.com/live")
+        container = dep.spec.template.spec.containers[0]
+        # 2 failures × 10s period = 20s to detect failure
+        self.assertEqual(container.liveness_probe.failure_threshold, 2)
+        self.assertEqual(container.liveness_probe.period_seconds, 10)
 
 
 class TestBuildServiceSpec(unittest.TestCase):
@@ -136,13 +151,11 @@ class TestBuildIngress(unittest.TestCase):
     def test_ingress_with_stations(self):
         ingress = controller.build_ingress(["radio-a", "radio-b"])
         self.assertEqual(ingress.metadata.name, "live-streaming")
-        # Should have rules for both new and legacy hosts
         self.assertIsNotNone(ingress.spec.rules)
         self.assertGreaterEqual(len(ingress.spec.rules), 1)
 
     def test_ingress_empty_stations(self):
         ingress = controller.build_ingress([])
-        # No rules when no stations
         self.assertIsNone(ingress.spec.rules)
 
     def test_ingress_has_regex_annotation(self):
@@ -172,7 +185,6 @@ class TestBuildIngress(unittest.TestCase):
 
     def test_legacy_paths_have_hls_prefix(self):
         ingress = controller.build_ingress(["radio-a"])
-        # Find the legacy host rule
         legacy_rule = None
         for rule in ingress.spec.rules:
             if rule.host == controller.LEGACY_INGRESS_HOST:
@@ -255,12 +267,12 @@ class TestFetchStations(unittest.TestCase):
 class TestSyncOnce(unittest.TestCase):
     """Test the sync_once logic with mocked K8s clients."""
 
-    def _mock_pod(self, slug, stream_url):
-        pod = MagicMock()
-        pod.metadata.name = f"live-stream-{slug}"
-        pod.metadata.labels = {"app": "live-stream", "station": slug}
-        pod.metadata.annotations = {"stream-url": stream_url}
-        return pod
+    def _mock_deployment(self, slug, stream_url):
+        dep = MagicMock()
+        dep.metadata.name = f"live-stream-{slug}"
+        dep.metadata.labels = {"app": "live-stream", "station": slug}
+        dep.metadata.annotations = {"stream-url": stream_url}
+        return dep
 
     def _mock_service(self, slug):
         svc = MagicMock()
@@ -278,22 +290,23 @@ class TestSyncOnce(unittest.TestCase):
     @patch("controller.update_ingress")
     def test_creates_new_station(self, mock_update_ingress, mock_fetch):
         mock_fetch.return_value = [
-            {"slug": "radio-new", "stream_url": "https://stream.com"}
+            {"slug": "radio-new", "stream_url": "https://stream.com", "transcode_enabled": True}
         ]
 
         core_v1 = MagicMock()
+        apps_v1 = MagicMock()
         networking_v1 = MagicMock()
 
         # No existing resources
-        core_v1.list_namespaced_pod.return_value.items = []
+        apps_v1.list_namespaced_deployment.return_value.items = []
         core_v1.list_namespaced_service.return_value.items = []
         core_v1.list_namespaced_persistent_volume_claim.return_value.items = []
 
-        controller.sync_once(core_v1, networking_v1)
+        controller.sync_once(core_v1, apps_v1, networking_v1)
 
-        # Should create PVC, pod, and service
+        # Should create PVC, deployment, and service
         core_v1.create_namespaced_persistent_volume_claim.assert_called_once()
-        core_v1.create_namespaced_pod.assert_called_once()
+        apps_v1.create_namespaced_deployment.assert_called_once()
         core_v1.create_namespaced_service.assert_called_once()
         mock_update_ingress.assert_called_once()
 
@@ -303,11 +316,12 @@ class TestSyncOnce(unittest.TestCase):
         mock_fetch.return_value = []  # No stations wanted
 
         core_v1 = MagicMock()
+        apps_v1 = MagicMock()
         networking_v1 = MagicMock()
 
-        # One existing pod
-        core_v1.list_namespaced_pod.return_value.items = [
-            self._mock_pod("radio-old", "https://old.com")
+        # One existing deployment
+        apps_v1.list_namespaced_deployment.return_value.items = [
+            self._mock_deployment("radio-old", "https://old.com")
         ]
         core_v1.list_namespaced_service.return_value.items = [
             self._mock_service("radio-old")
@@ -316,26 +330,27 @@ class TestSyncOnce(unittest.TestCase):
             self._mock_pvc("radio-old")
         ]
 
-        controller.sync_once(core_v1, networking_v1)
+        controller.sync_once(core_v1, apps_v1, networking_v1)
 
-        # Should delete pod and service (but not PVC — kept for archive)
-        core_v1.delete_namespaced_pod.assert_called_once()
+        # Should delete deployment and service (but not PVC — kept for archive)
+        apps_v1.delete_namespaced_deployment.assert_called_once()
         core_v1.delete_namespaced_service.assert_called_once()
         core_v1.delete_namespaced_persistent_volume_claim.assert_not_called()
 
     @patch("controller.fetch_stations")
     @patch("controller.update_ingress")
-    def test_recreates_on_url_change(self, mock_update_ingress, mock_fetch):
+    def test_updates_on_url_change(self, mock_update_ingress, mock_fetch):
         mock_fetch.return_value = [
-            {"slug": "radio-a", "stream_url": "https://new-url.com"}
+            {"slug": "radio-a", "stream_url": "https://new-url.com", "transcode_enabled": True}
         ]
 
         core_v1 = MagicMock()
+        apps_v1 = MagicMock()
         networking_v1 = MagicMock()
 
-        # Existing pod with old URL
-        core_v1.list_namespaced_pod.return_value.items = [
-            self._mock_pod("radio-a", "https://old-url.com")
+        # Existing deployment with old URL
+        apps_v1.list_namespaced_deployment.return_value.items = [
+            self._mock_deployment("radio-a", "https://old-url.com")
         ]
         core_v1.list_namespaced_service.return_value.items = [
             self._mock_service("radio-a")
@@ -344,25 +359,27 @@ class TestSyncOnce(unittest.TestCase):
             self._mock_pvc("radio-a")
         ]
 
-        controller.sync_once(core_v1, networking_v1)
+        controller.sync_once(core_v1, apps_v1, networking_v1)
 
-        # Should delete old pod and create new one
-        core_v1.delete_namespaced_pod.assert_called_once()
-        core_v1.create_namespaced_pod.assert_called_once()
+        # Should patch the deployment (not delete+create)
+        apps_v1.patch_namespaced_deployment.assert_called_once()
+        apps_v1.delete_namespaced_deployment.assert_not_called()
+        apps_v1.create_namespaced_deployment.assert_not_called()
 
     @patch("controller.fetch_stations")
     @patch("controller.update_ingress")
     def test_no_changes_when_in_sync(self, mock_update_ingress, mock_fetch):
         mock_fetch.return_value = [
-            {"slug": "radio-a", "stream_url": "https://stream.com"}
+            {"slug": "radio-a", "stream_url": "https://stream.com", "transcode_enabled": True}
         ]
 
         core_v1 = MagicMock()
+        apps_v1 = MagicMock()
         networking_v1 = MagicMock()
 
-        # Existing pod with same URL
-        core_v1.list_namespaced_pod.return_value.items = [
-            self._mock_pod("radio-a", "https://stream.com")
+        # Existing deployment with same URL
+        apps_v1.list_namespaced_deployment.return_value.items = [
+            self._mock_deployment("radio-a", "https://stream.com")
         ]
         core_v1.list_namespaced_service.return_value.items = [
             self._mock_service("radio-a")
@@ -371,12 +388,12 @@ class TestSyncOnce(unittest.TestCase):
             self._mock_pvc("radio-a")
         ]
 
-        controller.sync_once(core_v1, networking_v1)
+        controller.sync_once(core_v1, apps_v1, networking_v1)
 
-        # Should not create or delete anything
-        core_v1.create_namespaced_pod.assert_not_called()
-        core_v1.delete_namespaced_pod.assert_not_called()
-        core_v1.create_namespaced_service.assert_not_called()
+        # Should not create, delete, or update anything
+        apps_v1.create_namespaced_deployment.assert_not_called()
+        apps_v1.delete_namespaced_deployment.assert_not_called()
+        apps_v1.patch_namespaced_deployment.assert_not_called()
         # But ingress is still updated
         mock_update_ingress.assert_called_once()
 
