@@ -310,6 +310,10 @@ def build_ingress(active_slugs: list[str]) -> client.V1Ingress:
             annotations={
                 "nginx.ingress.kubernetes.io/use-regex": "true",
                 "nginx.ingress.kubernetes.io/rewrite-target": "/$1",
+                "nginx.ingress.kubernetes.io/enable-cors": "true",
+                "nginx.ingress.kubernetes.io/cors-allow-origin": "*",
+                "nginx.ingress.kubernetes.io/cors-allow-methods": "GET, HEAD, OPTIONS",
+                "nginx.ingress.kubernetes.io/cors-allow-headers": "Range, Content-Type, Accept, Origin",
             },
         ),
         spec=client.V1IngressSpec(

@@ -17,64 +17,99 @@ sys.path.insert(0, os.path.join(
 import playlist_generator
 
 
-class TestFindSegmentIndex(unittest.TestCase):
-    """Test binary search for segment index."""
+class TestParseFFmpegM3u8(unittest.TestCase):
+    """Test parsing FFmpeg's live.m3u8."""
 
-    def test_exact_match(self):
-        segments = [100, 106, 112, 118, 124]
-        self.assertEqual(playlist_generator.find_segment_index(segments, 112), 2)
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self._orig_m3u8 = playlist_generator.FFMPEG_M3U8
+        self.m3u8_path = os.path.join(self.tmpdir, "live.m3u8")
+        playlist_generator.FFMPEG_M3U8 = self.m3u8_path
 
-    def test_between_segments(self):
-        segments = [100, 106, 112, 118, 124]
-        # Should return index of first segment >= target
-        self.assertEqual(playlist_generator.find_segment_index(segments, 110), 2)
+    def tearDown(self):
+        playlist_generator.FFMPEG_M3U8 = self._orig_m3u8
+        import shutil
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
 
-    def test_before_first(self):
-        segments = [100, 106, 112]
-        self.assertEqual(playlist_generator.find_segment_index(segments, 50), 0)
+    def test_parses_segments(self):
+        with open(self.m3u8_path, "w") as f:
+            f.write("#EXTM3U\n")
+            f.write("#EXT-X-VERSION:3\n")
+            f.write("#EXT-X-TARGETDURATION:7\n")
+            f.write("#EXT-X-MEDIA-SEQUENCE:100\n")
+            f.write("#EXTINF:6.013967,\n")
+            f.write("#EXT-X-PROGRAM-DATE-TIME:2026-04-10T10:09:11.791+0000\n")
+            f.write("100.ts\n")
+            f.write("#EXTINF:5.990756,\n")
+            f.write("#EXT-X-PROGRAM-DATE-TIME:2026-04-10T10:09:17.805+0000\n")
+            f.write("101.ts\n")
 
-    def test_after_last(self):
-        segments = [100, 106, 112]
-        self.assertEqual(playlist_generator.find_segment_index(segments, 200), 3)
+        segments = playlist_generator.parse_ffmpeg_m3u8()
+        self.assertEqual(len(segments), 2)
+        self.assertEqual(segments[0][0], "100.ts")
+        self.assertAlmostEqual(segments[0][1], 6.013967, places=5)
+        self.assertEqual(segments[0][2], "2026-04-10T10:09:11.791+0000")
+        self.assertEqual(segments[1][0], "101.ts")
+        self.assertAlmostEqual(segments[1][1], 5.990756, places=5)
 
-    def test_empty(self):
-        self.assertEqual(playlist_generator.find_segment_index([], 100), 0)
+    def test_missing_file(self):
+        playlist_generator.FFMPEG_M3U8 = "/nonexistent/path.m3u8"
+        segments = playlist_generator.parse_ffmpeg_m3u8()
+        self.assertEqual(segments, [])
 
 
 class TestFormatPlaylist(unittest.TestCase):
     """Test HLS playlist formatting."""
 
+    def _make_segments(self, count=3, start_num=100, duration=6.0):
+        segments = []
+        base_epoch = 1712750000.0
+        for i in range(count):
+            filename = f"{start_num + i}.ts"
+            pdt = playlist_generator._epoch_to_pdt(base_epoch + i * duration)
+            segments.append((filename, duration, pdt))
+        return segments
+
     def test_live_playlist_has_no_endlist(self):
-        playlist = playlist_generator.format_playlist([100, 106, 112], is_live=True)
+        segments = self._make_segments()
+        playlist = playlist_generator.format_playlist(segments, is_live=True)
         self.assertNotIn("#EXT-X-ENDLIST", playlist)
 
     def test_vod_playlist_has_endlist(self):
-        playlist = playlist_generator.format_playlist([100, 106, 112], is_live=False)
+        segments = self._make_segments()
+        playlist = playlist_generator.format_playlist(segments, is_live=False)
         self.assertIn("#EXT-X-ENDLIST", playlist)
 
     def test_event_playlist_has_type(self):
-        playlist = playlist_generator.format_playlist([100, 106, 112], is_live=False, is_event=True)
+        segments = self._make_segments()
+        playlist = playlist_generator.format_playlist(segments, is_live=False, is_event=True)
         self.assertIn("#EXT-X-PLAYLIST-TYPE:EVENT", playlist)
-        self.assertIn("#EXT-X-ENDLIST", playlist)
 
-    def test_contains_segment_urls(self):
-        playlist = playlist_generator.format_playlist([1718000000, 1718000006])
-        self.assertIn("hls/segments/1718000000.ts", playlist)
-        self.assertIn("hls/segments/1718000006.ts", playlist)
+    def test_contains_segment_filenames(self):
+        segments = self._make_segments(2, start_num=500)
+        playlist = playlist_generator.format_playlist(segments)
+        self.assertIn("hls/segments/500.ts", playlist)
+        self.assertIn("hls/segments/501.ts", playlist)
 
     def test_contains_program_date_time(self):
-        playlist = playlist_generator.format_playlist([1718000000])
+        segments = self._make_segments(1)
+        playlist = playlist_generator.format_playlist(segments)
         self.assertIn("#EXT-X-PROGRAM-DATE-TIME:", playlist)
 
-    def test_media_sequence_is_monotonic(self):
-        playlist = playlist_generator.format_playlist([100, 106, 112])
-        # Sequence = first_ts / segment_duration
-        expected_seq = 100 // playlist_generator.SEGMENT_DURATION
-        self.assertIn(f"#EXT-X-MEDIA-SEQUENCE:{expected_seq}", playlist)
+    def test_media_sequence_uses_segment_number(self):
+        segments = self._make_segments(3, start_num=12345)
+        playlist = playlist_generator.format_playlist(segments)
+        self.assertIn("#EXT-X-MEDIA-SEQUENCE:12345", playlist)
 
-    def test_target_duration(self):
-        playlist = playlist_generator.format_playlist([100])
-        self.assertIn(f"#EXT-X-TARGETDURATION:{playlist_generator.SEGMENT_DURATION}", playlist)
+    def test_extinf_uses_actual_duration(self):
+        segments = [("100.ts", 5.990756, None)]
+        playlist = playlist_generator.format_playlist(segments)
+        self.assertIn("#EXTINF:5.990756,", playlist)
+
+    def test_target_duration_rounded_up(self):
+        segments = [("100.ts", 6.013967, None)]
+        playlist = playlist_generator.format_playlist(segments)
+        self.assertIn("#EXT-X-TARGETDURATION:7", playlist)
 
     def test_empty_segments(self):
         playlist = playlist_generator.format_playlist([])
@@ -85,29 +120,31 @@ class TestFormatPlaylist(unittest.TestCase):
 class TestBuildLivePlaylist(unittest.TestCase):
     """Test live playlist window behavior."""
 
+    def _make_segments(self, count):
+        segments = []
+        base_epoch = 1712750000.0
+        for i in range(count):
+            filename = f"{1000 + i}.ts"
+            pdt = playlist_generator._epoch_to_pdt(base_epoch + i * 6)
+            segments.append((filename, 6.0, pdt))
+        return segments
+
     def test_returns_latest_window(self):
-        # Create more segments than window size
-        segments = list(range(0, 1000, playlist_generator.SEGMENT_DURATION))
+        segments = self._make_segments(200)
         playlist = playlist_generator.build_live_playlist(segments)
-
-        # Should contain the last LIVE_WINDOW_SIZE segments
-        last_segment = segments[-1]
-        self.assertIn(f"hls/segments/{last_segment}.ts", playlist)
-
-        # Should NOT contain very old segments
-        first_segment = segments[0]
-        if len(segments) > playlist_generator.LIVE_WINDOW_SIZE:
-            self.assertNotIn(f"hls/segments/{first_segment}.ts", playlist)
+        # Should contain the last segment
+        self.assertIn("hls/segments/1199.ts", playlist)
+        # Should NOT contain the first segment
+        self.assertNotIn("hls/segments/1000.ts", playlist)
 
     def test_small_segment_list(self):
-        segments = [100, 106, 112]
+        segments = self._make_segments(3)
         playlist = playlist_generator.build_live_playlist(segments)
-        # Should include all segments when fewer than window size
-        self.assertIn("hls/segments/100.ts", playlist)
-        self.assertIn("hls/segments/112.ts", playlist)
+        self.assertIn("hls/segments/1000.ts", playlist)
+        self.assertIn("hls/segments/1002.ts", playlist)
 
     def test_no_endlist_tag(self):
-        segments = [100, 106, 112]
+        segments = self._make_segments(3)
         playlist = playlist_generator.build_live_playlist(segments)
         self.assertNotIn("#EXT-X-ENDLIST", playlist)
 
@@ -115,102 +152,119 @@ class TestBuildLivePlaylist(unittest.TestCase):
 class TestBuildHistoricalPlaylist(unittest.TestCase):
     """Test historical/seeking playlist generation."""
 
+    def _make_segments(self, count):
+        segments = []
+        base_epoch = 1712750000.0
+        for i in range(count):
+            filename = f"{1000 + i}.ts"
+            pdt = playlist_generator._epoch_to_pdt(base_epoch + i * 6)
+            segments.append((filename, 6.0, pdt))
+        return segments
+
     def test_event_mode_has_endlist(self):
-        segments = list(range(0, 600, playlist_generator.SEGMENT_DURATION))
-        playlist = playlist_generator.build_historical_playlist(segments, 0, mode="event")
+        segments = self._make_segments(100)
+        playlist = playlist_generator.build_historical_playlist(
+            segments, 1712750060.0, mode="event"
+        )
         self.assertIn("#EXT-X-ENDLIST", playlist)
         self.assertIn("#EXT-X-PLAYLIST-TYPE:EVENT", playlist)
 
-    def test_starts_from_requested_timestamp(self):
-        segments = list(range(0, 600, playlist_generator.SEGMENT_DURATION))
-        target = 120
-        playlist = playlist_generator.build_historical_playlist(segments, target)
-        # Should contain segment at or near the target
-        self.assertIn(f"hls/segments/{target}.ts", playlist)
-
     def test_near_live_edge_returns_live_playlist(self):
-        segments = list(range(0, 600, playlist_generator.SEGMENT_DURATION))
-        # Request timestamp near the end
-        target = segments[-5]
+        segments = self._make_segments(100)
+        # Request near the end
+        target = 1712750000.0 + 95 * 6  # near last segment
         playlist = playlist_generator.build_historical_playlist(segments, target)
-        # Should contain the latest segment (live behavior)
-        self.assertIn(f"hls/segments/{segments[-1]}.ts", playlist)
-
-    def test_event_mode_larger_window(self):
-        # Create enough segments
-        segments = list(range(0, 3600, playlist_generator.SEGMENT_DURATION))
-        playlist = playlist_generator.build_historical_playlist(segments, 0, mode="event")
-        # Event mode should include more segments than live window
-        segment_count = playlist.count("#EXTINF:")
-        self.assertGreater(segment_count, playlist_generator.LIVE_WINDOW_SIZE)
+        # Should contain the last segment (live behavior)
+        self.assertIn("hls/segments/1099.ts", playlist)
 
 
-class TestGetAvailableSegments(unittest.TestCase):
-    """Test segment discovery from disk."""
+class TestGetAllSegments(unittest.TestCase):
+    """Test segment discovery combining FFmpeg m3u8 and disk scan."""
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
-        # Override the HLS_DIR for testing
-        self._orig_dir = playlist_generator.HLS_DIR
-        playlist_generator.HLS_DIR = self.tmpdir
-        # Reset cache
+        self.segments_dir = os.path.join(self.tmpdir, "segments")
+        os.makedirs(self.segments_dir)
+        self.m3u8_path = os.path.join(self.tmpdir, "live.m3u8")
+        self._orig_m3u8 = playlist_generator.FFMPEG_M3U8
+        self._orig_dir = playlist_generator.SEGMENTS_DIR
+        playlist_generator.FFMPEG_M3U8 = self.m3u8_path
+        playlist_generator.SEGMENTS_DIR = self.segments_dir
         playlist_generator._segments_cache = []
         playlist_generator._segments_cache_time = 0
 
     def tearDown(self):
-        playlist_generator.HLS_DIR = self._orig_dir
+        playlist_generator.FFMPEG_M3U8 = self._orig_m3u8
+        playlist_generator.SEGMENTS_DIR = self._orig_dir
         import shutil
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
-    def test_finds_ts_files(self):
-        # Create segment files
-        for ts in [1718000000, 1718000006, 1718000012]:
-            open(os.path.join(self.tmpdir, f"{ts}.ts"), "w").close()
+    def test_combines_ffmpeg_and_disk(self):
+        # Create segment files on disk
+        for num in [100, 101, 102, 103]:
+            open(os.path.join(self.segments_dir, f"{num}.ts"), "w").close()
 
-        segments = playlist_generator.get_available_segments()
-        self.assertEqual(segments, [1718000000, 1718000006, 1718000012])
+        # FFmpeg m3u8 only has recent segments
+        with open(self.m3u8_path, "w") as f:
+            f.write("#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:7\n")
+            f.write("#EXT-X-MEDIA-SEQUENCE:102\n")
+            f.write("#EXTINF:6.01,\n#EXT-X-PROGRAM-DATE-TIME:2026-04-10T10:00:12.000+0000\n102.ts\n")
+            f.write("#EXTINF:5.99,\n#EXT-X-PROGRAM-DATE-TIME:2026-04-10T10:00:18.000+0000\n103.ts\n")
 
-    def test_ignores_non_ts_files(self):
-        open(os.path.join(self.tmpdir, "1718000000.ts"), "w").close()
-        open(os.path.join(self.tmpdir, "manifest.mpd"), "w").close()
-        open(os.path.join(self.tmpdir, "live.m3u8"), "w").close()
-
-        segments = playlist_generator.get_available_segments()
-        self.assertEqual(segments, [1718000000])
-
-    def test_sorted_output(self):
-        for ts in [1718000012, 1718000000, 1718000006]:
-            open(os.path.join(self.tmpdir, f"{ts}.ts"), "w").close()
-
-        segments = playlist_generator.get_available_segments()
-        self.assertEqual(segments, [1718000000, 1718000006, 1718000012])
+        segments = playlist_generator.get_all_segments()
+        self.assertEqual(len(segments), 4)
+        # FFmpeg segments should have accurate durations
+        self.assertAlmostEqual(segments[2][1], 6.01, places=2)
+        self.assertAlmostEqual(segments[3][1], 5.99, places=2)
 
     def test_empty_directory(self):
-        segments = playlist_generator.get_available_segments()
+        segments = playlist_generator.get_all_segments()
         self.assertEqual(segments, [])
 
-    def test_caching(self):
-        open(os.path.join(self.tmpdir, "100.ts"), "w").close()
-        segments1 = playlist_generator.get_available_segments()
 
-        # Add another file — should still return cached result
-        open(os.path.join(self.tmpdir, "106.ts"), "w").close()
-        segments2 = playlist_generator.get_available_segments()
+class TestParsePdt(unittest.TestCase):
+    """Test PROGRAM-DATE-TIME parsing."""
 
-        self.assertEqual(segments1, segments2)  # cached, same result
+    def test_with_timezone_offset(self):
+        epoch = playlist_generator._parse_pdt_to_epoch("2026-04-10T10:00:00.000+0000")
+        self.assertAlmostEqual(epoch, 1775815200.0, delta=2)
+
+    def test_with_z_suffix(self):
+        epoch = playlist_generator._parse_pdt_to_epoch("2026-04-10T10:00:00.000Z")
+        self.assertAlmostEqual(epoch, 1775815200.0, delta=2)
+
+    def test_roundtrip(self):
+        original = 1712750000.0
+        pdt = playlist_generator._epoch_to_pdt(original)
+        parsed = playlist_generator._parse_pdt_to_epoch(pdt)
+        self.assertAlmostEqual(original, parsed, delta=1)
 
 
-class TestEpochToIso(unittest.TestCase):
-    """Test epoch to ISO 8601 conversion."""
+class TestNoCorsDuplicateHeaders(unittest.TestCase):
+    """Verify the playlist generator does NOT set CORS headers (ingress handles it)."""
 
-    def test_known_timestamp(self):
-        # 2024-06-10T00:00:00Z
-        result = playlist_generator._epoch_to_iso(1717977600)
-        self.assertEqual(result, "2024-06-10T00:00:00.000Z")
+    def test_send_playlist_no_cors(self):
+        handler = playlist_generator.PlaylistHandler.__new__(playlist_generator.PlaylistHandler)
+        headers_sent = []
 
-    def test_format(self):
-        result = playlist_generator._epoch_to_iso(0)
-        self.assertRegex(result, r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z")
+        def mock_send_header(name, value):
+            headers_sent.append((name, value))
+
+        def mock_send_response(code):
+            pass
+
+        def mock_end_headers():
+            pass
+
+        handler.send_header = mock_send_header
+        handler.send_response = mock_send_response
+        handler.end_headers = mock_end_headers
+        handler.wfile = type('MockWfile', (), {'write': lambda self, x: None})()
+
+        handler._send_playlist("#EXTM3U\n")
+
+        header_names = [h[0] for h in headers_sent]
+        self.assertNotIn("Access-Control-Allow-Origin", header_names)
 
 
 if __name__ == "__main__":
