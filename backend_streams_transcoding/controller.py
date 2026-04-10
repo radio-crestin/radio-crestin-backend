@@ -25,6 +25,7 @@ log = logging.getLogger("stream-controller")
 GRAPHQL_ENDPOINT = os.environ.get("GRAPHQL_ENDPOINT", "http://web:8080/v1/graphql")
 NAMESPACE = os.environ.get("NAMESPACE", "radio-crestin")
 STREAMER_IMAGE = os.environ.get("STREAMER_IMAGE", "radio-crestin/live-streaming:latest")
+IMAGE_PULL_SECRET = os.environ.get("IMAGE_PULL_SECRET", "")
 RETENTION_DAYS = os.environ.get("RETENTION_DAYS", "7")
 OPUS_BITRATE_LOW = os.environ.get("OPUS_BITRATE_LOW", "32k")
 OPUS_BITRATE_HIGH = os.environ.get("OPUS_BITRATE_HIGH", "64k")
@@ -108,6 +109,9 @@ def build_pod_spec(slug: str, stream_url: str) -> client.V1Pod:
         ),
         spec=client.V1PodSpec(
             restart_policy="Always",
+            image_pull_secrets=[
+                client.V1LocalObjectReference(name=IMAGE_PULL_SECRET)
+            ] if IMAGE_PULL_SECRET else None,
             containers=[
                 client.V1Container(
                     name="streamer",
