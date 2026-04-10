@@ -249,41 +249,34 @@ def build_pvc_spec(slug: str) -> client.V1PersistentVolumeClaim:
     )
 
 
+def _make_path(path_pattern: str, slug: str) -> client.V1HTTPIngressPath:
+    return client.V1HTTPIngressPath(
+        path=path_pattern,
+        path_type="ImplementationSpecific",
+        backend=client.V1IngressBackend(
+            service=client.V1IngressServiceBackend(
+                name=service_name(slug),
+                port=client.V1ServiceBackendPort(number=8080),
+            ),
+        ),
+    )
+
+
 def _build_paths_for_slugs(active_slugs: list[str]) -> list[client.V1HTTPIngressPath]:
-    """Build ingress paths for a list of station slugs."""
+    """Build ingress paths: /hls/<slug>/ and /dash/<slug>/ for new host."""
     paths = []
     for slug in sorted(active_slugs):
-        paths.append(
-            client.V1HTTPIngressPath(
-                path=f"/{slug}/(.*)",
-                path_type="ImplementationSpecific",
-                backend=client.V1IngressBackend(
-                    service=client.V1IngressServiceBackend(
-                        name=service_name(slug),
-                        port=client.V1ServiceBackendPort(number=8080),
-                    ),
-                ),
-            )
-        )
+        paths.append(_make_path(f"/hls/{slug}/(.*)", slug))
+        paths.append(_make_path(f"/dash/{slug}/(.*)", slug))
     return paths
 
 
 def _build_legacy_paths_for_slugs(active_slugs: list[str]) -> list[client.V1HTTPIngressPath]:
-    """Build backward-compatible ingress paths: /hls/<slug>/(.*) -> station pod."""
+    """Build backward-compatible ingress paths on legacy host."""
     paths = []
     for slug in sorted(active_slugs):
-        paths.append(
-            client.V1HTTPIngressPath(
-                path=f"/hls/{slug}/(.*)",
-                path_type="ImplementationSpecific",
-                backend=client.V1IngressBackend(
-                    service=client.V1IngressServiceBackend(
-                        name=service_name(slug),
-                        port=client.V1ServiceBackendPort(number=8080),
-                    ),
-                ),
-            )
-        )
+        paths.append(_make_path(f"/hls/{slug}/(.*)", slug))
+        paths.append(_make_path(f"/dash/{slug}/(.*)", slug))
     return paths
 
 

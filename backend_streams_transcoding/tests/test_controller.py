@@ -175,15 +175,16 @@ class TestBuildIngress(unittest.TestCase):
     def test_ingress_paths_are_sorted(self):
         ingress = controller.build_ingress(["z-station", "a-station"])
         new_paths = ingress.spec.rules[0].http.paths
-        self.assertEqual(new_paths[0].path, "/a-station/(.*)")
-        self.assertEqual(new_paths[1].path, "/z-station/(.*)")
+        # First station alphabetically gets both /hls/ and /dash/ paths
+        self.assertEqual(new_paths[0].path, "/hls/a-station/(.*)")
+        self.assertEqual(new_paths[1].path, "/dash/a-station/(.*)")
 
     def test_ingress_has_tls(self):
         ingress = controller.build_ingress(["radio-a"])
         self.assertIsNotNone(ingress.spec.tls)
         self.assertGreater(len(ingress.spec.tls), 0)
 
-    def test_legacy_paths_have_hls_prefix(self):
+    def test_legacy_paths_have_hls_and_dash(self):
         ingress = controller.build_ingress(["radio-a"])
         legacy_rule = None
         for rule in ingress.spec.rules:
@@ -191,7 +192,9 @@ class TestBuildIngress(unittest.TestCase):
                 legacy_rule = rule
                 break
         self.assertIsNotNone(legacy_rule, "Should have a legacy host rule")
-        self.assertEqual(legacy_rule.http.paths[0].path, "/hls/radio-a/(.*)")
+        paths = [p.path for p in legacy_rule.http.paths]
+        self.assertIn("/hls/radio-a/(.*)", paths)
+        self.assertIn("/dash/radio-a/(.*)", paths)
 
 
 class TestFetchStations(unittest.TestCase):
