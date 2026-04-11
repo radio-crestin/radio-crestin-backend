@@ -10,8 +10,6 @@ if ! echo "$STATION_SLUG" | grep -qE '^[a-z0-9][a-z0-9-]*[a-z0-9]$'; then
 fi
 
 RETENTION_DAYS="${RETENTION_DAYS:-7}"
-OPUS_BITRATE_LOW="${OPUS_BITRATE_LOW:-48k}"
-OPUS_BITRATE_HIGH="${OPUS_BITRATE_HIGH:-96k}"
 SEGMENT_DURATION="${SEGMENT_DURATION:-6}"
 LOCAL_RETENTION_MINUTES="${LOCAL_RETENTION_MINUTES:-10}"
 
@@ -19,16 +17,19 @@ export SEGMENT_DURATION
 
 echo "Station: $STATION_SLUG"
 echo "Stream:  $STREAM_URL"
-echo "Opus:    ${OPUS_BITRATE_LOW} / ${OPUS_BITRATE_HIGH}"
+echo "HLS:     AAC+ 64k + Opus 48k"
 echo "S3:      ${S3_BUCKET:-disabled}"
 
 # Directory layout:
-#   /data/dash/manifest.mpd          DASH manifest
-#   /data/dash/0/init.m4s + chunks   Opus 32k segments
-#   /data/dash/1/init.m4s + chunks   Opus 96k segments
-#   /data/hls/live.m3u8              FFmpeg HLS playlist
-#   /data/hls/segments/<epoch>.ts    AAC 64k segments
-mkdir -p /data/dash/0 /data/dash/1 /data/hls/segments /data/cache/playlist /data/cache/s3
+#   /data/hls/aac/live.m3u8              FFmpeg AAC+ playlist
+#   /data/hls/aac/segments/<epoch>.ts    HE-AAC 64k segments
+#   /data/hls/opus/live.m3u8             FFmpeg Opus playlist
+#   /data/hls/opus/segments/<epoch>.m4s  Opus 64k fMP4 segments
+#   /data/hls/opus/init.mp4              Opus init segment
+mkdir -p /data/hls/aac/segments /data/hls/opus/segments /data/cache/playlist /data/cache/s3
+
+# Record pod start time for gap tracking
+date +%s > /data/pod_started_at
 
 # Render NGINX config with env vars
 export S3_BUCKET="${S3_BUCKET:-}"
@@ -43,56 +44,85 @@ echo "Starting playlist generator..."
 python3 /app/scripts/playlist_generator.py &
 PLAYLIST_PID=$!
 
-echo "Starting DASH patcher..."
-python3 /app/scripts/dash_patcher.py &
-DASH_PID=$!
-
 echo "Starting S3 uploader..."
 python3 /app/scripts/s3_uploader.py &
 S3_PID=$!
+
+echo "Starting health server..."
+python3 /app/scripts/health_server.py &
+HEALTH_PID=$!
+
+echo "Starting metadata monitor..."
+python3 /app/scripts/metadata_monitor.py &
+METADATA_PID=$!
+
+echo "Starting ID3 injector..."
+python3 /app/scripts/id3_injector.py &
+ID3_PID=$!
 
 echo "Starting cleanup..."
 /app/scripts/cleanup.sh &
 CLEANUP_PID=$!
 
 cleanup() {
-    echo "Shutting down..."
-    kill -TERM "$FFMPEG_PID" "$NGINX_PID" "$PLAYLIST_PID" "$DASH_PID" "$S3_PID" "$CLEANUP_PID" 2>/dev/null || true
+    echo "Shutting down gracefully..."
+    # 1. Stop FFmpeg (stop producing new segments)
+    kill -TERM "$FFMPEG_PID" 2>/dev/null || true
+    # 2. Stop metadata monitor
+    kill -TERM "$METADATA_PID" "$ID3_PID" "$CLEANUP_PID" 2>/dev/null || true
+    # 3. Final S3 sync — upload remaining segments + metadata before dying
+    echo "Final S3 sync..."
+    python3 -c "
+import sys; sys.path.insert(0, '/app/scripts')
+from s3_uploader import sync_all, write_s3_index, upload_file, upload_bytes, STATION_SLUG
+try:
+    sync_all()
+    write_s3_index()
+    # Upload metadata to S3
+    import os, glob
+    for f in glob.glob('/data/metadata/**/*.json', recursive=True):
+        key = STATION_SLUG + '/metadata/' + os.path.relpath(f, '/data/metadata')
+        upload_file(f, key)
+    print('Final S3 sync complete', flush=True)
+except Exception as e:
+    print(f'Final S3 sync error: {e}', flush=True)
+" 2>/dev/null || true
+    # 4. Kill health server so readiness probe fails
+    kill -TERM "$HEALTH_PID" 2>/dev/null || true
+    # 5. Keep NGINX alive to serve cached/S3 segments for in-flight requests
+    sleep 5
+    # 6. Stop NGINX and playlist generator
+    kill -TERM "$S3_PID" "$NGINX_PID" "$PLAYLIST_PID" 2>/dev/null || true
     wait
     exit 0
 }
 trap cleanup SIGTERM SIGINT
 
-# ── FFmpeg: DASH (Opus) + HLS (AAC) ──
-# DASH: 2 Opus qualities in fMP4 (for dash.js / Shaka Player)
-# HLS:  AAC 64k in .ts (for hls.js / Safari — Opus fMP4 not supported)
+# ── FFmpeg: dual HLS (AAC+ .ts + Opus fMP4) ──
+# AAC+: HE-AAC 64k in .ts — universal compatibility (Safari, all browsers)
+# Opus: Opus 64k in fMP4 — better quality, supported by hls.js / Chrome / Firefox
 echo "Starting FFmpeg..."
-ffmpeg -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 30 \
+ffmpeg -reconnect 1 -reconnect_streamed 1 -reconnect_on_network_error 1 -reconnect_delay_max 30 \
     -i "$STREAM_URL" -y \
-    -map 0:a:0 -c:a:0 libopus -b:a:0 "$OPUS_BITRATE_LOW" -ac 2 -ar 48000 \
-    -map 0:a:0 -c:a:1 libopus -b:a:1 "$OPUS_BITRATE_HIGH" -ac 2 -ar 48000 \
-    -f dash \
-        -seg_duration "$SEGMENT_DURATION" \
-        -frag_duration 2 \
-        -window_size 0 \
-        -extra_window_size 0 \
-        -remove_at_exit 0 \
-        -streaming 1 \
-        -use_timeline 1 \
-        -use_template 1 \
-        -utc_timing_url "https://time.akamai.com/?iso" \
-        -adaptation_sets "id=0,streams=0,1" \
-        -media_seg_name '$RepresentationID$/chunk-$Number%09d$.m4s' \
-        -init_seg_name '$RepresentationID$/init.m4s' \
-        /data/dash/manifest.mpd \
-    -map 0:a:0 -c:a aac -profile:a aac_low -b:a 64k -ac 2 -ar 44100 \
+    -map 0:a:0 -c:a libfdk_aac -profile:a aac_he -b:a 64k -ac 2 -ar 44100 \
     -f hls \
         -hls_time "$SEGMENT_DURATION" \
         -hls_list_size 0 \
-        -hls_flags independent_segments+split_by_time+program_date_time+omit_endlist \
+        -hls_flags split_by_time+program_date_time+omit_endlist \
         -hls_start_number_source epoch \
-        -hls_segment_filename '/data/hls/segments/%d.ts' \
-        /data/hls/live.m3u8 &
+        -hls_segment_filename '/data/hls/aac/segments/%d.ts' \
+        /data/hls/aac/live.m3u8 \
+    -map 0:a:0 -c:a libopus -b:a 48k -ac 2 -ar 48000 \
+        -application audio -vbr on -compression_level 10 -frame_duration 20 \
+    -f hls \
+        -hls_time "$SEGMENT_DURATION" \
+        -hls_list_size 0 \
+        -hls_segment_type fmp4 \
+        -hls_fmp4_init_filename init.mp4 \
+        -hls_flags split_by_time+program_date_time+omit_endlist \
+        -hls_start_number_source epoch \
+        -hls_segment_filename '/data/hls/opus/segments/%d.m4s' \
+        /data/hls/opus/live.m3u8 &
 FFMPEG_PID=$!
 
 echo "FFmpeg started (PID $FFMPEG_PID)"

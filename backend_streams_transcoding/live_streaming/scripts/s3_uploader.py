@@ -2,13 +2,12 @@
 S3 uploader — mirrors station output to S3.
 
 Layout on S3 (mirrors local):
-  <station>/hls/segments/<epoch>.ts     AAC HLS segments
-  <station>/dash/manifest.mpd           DASH manifest
-  <station>/dash/0/init.m4s             Opus 32k init
-  <station>/dash/0/chunk-*.m4s          Opus 32k segments
-  <station>/dash/1/init.m4s             Opus 96k init
-  <station>/dash/1/chunk-*.m4s          Opus 96k segments
-  <station>/index.m3u8                  HLS playlist
+  <station>/hls/aac/segments/<epoch>.ts     AAC+ HLS segments
+  <station>/hls/opus/segments/<epoch>.m4s   Opus HLS fMP4 segments
+  <station>/hls/opus/init.mp4               Opus init segment
+  <station>/aac/index.m3u8                  AAC+ playlist
+  <station>/opus/index.m3u8                 Opus playlist
+  <station>/master.m3u8                     Master playlist
 """
 
 import base64
@@ -30,6 +29,9 @@ RETENTION_DAYS = int(os.environ.get("RETENTION_DAYS", "7"))
 UPLOAD_INTERVAL = int(os.environ.get("UPLOAD_INTERVAL", "5"))
 
 _uploaded: set[str] = set()
+S3_INDEX_PATH = "/data/s3_index.json"
+# Track uploaded segment numbers per codec for the index
+_uploaded_segments: dict[str, set[int]] = {"aac": set(), "opus": set()}
 
 
 def _sign_v4(method, path, headers_to_sign, payload_hash, timestamp, region, service="s3"):
@@ -51,14 +53,14 @@ def _sign_v4(method, path, headers_to_sign, payload_hash, timestamp, region, ser
 
 def _content_type(key):
     if key.endswith(".m4s"): return "video/mp4"
+    if key.endswith(".mp4"): return "video/mp4"
     if key.endswith(".ts"): return "video/mp2t"
-    if key.endswith(".mpd"): return "application/dash+xml"
     if key.endswith(".m3u8"): return "application/vnd.apple.mpegurl"
     return "application/octet-stream"
 
 
 def _cache_control(key):
-    if key.endswith(".m4s") or key.endswith(".ts"):
+    if key.endswith(".m4s") or key.endswith(".ts") or key.endswith(".mp4"):
         return "public, max-age=31536000, immutable"
     return "public, max-age=5"
 
@@ -93,54 +95,232 @@ def upload_file(path: str, s3_key: str) -> bool:
         return False
 
 
-def sync_hls():
-    """Upload HLS AAC .ts segments."""
-    d = "/data/hls/segments"
+def sync_segments(local_dir, s3_prefix, extension, codec):
+    """Upload segments from a local directory to S3 and track in index."""
     try:
-        for name in os.listdir(d):
-            if not name.endswith(".ts"): continue
-            key = f"{STATION_SLUG}/hls/segments/{name}"
-            if key in _uploaded: continue
-            if upload_file(f"{d}/{name}", key):
+        for name in os.listdir(local_dir):
+            if not name.endswith(extension):
+                continue
+            key = f"{STATION_SLUG}/{s3_prefix}/{name}"
+            if key in _uploaded:
+                # Already uploaded, still track the number
+                try:
+                    _uploaded_segments[codec].add(int(name.replace(extension, "")))
+                except ValueError:
+                    pass
+                continue
+            if upload_file(f"{local_dir}/{name}", key):
                 _uploaded.add(key)
+                try:
+                    _uploaded_segments[codec].add(int(name.replace(extension, "")))
+                except ValueError:
+                    pass
     except FileNotFoundError:
         pass
 
 
-def sync_dash():
-    """Upload DASH Opus fMP4 segments."""
-    for rep_id in ("0", "1"):
-        d = f"/data/dash/{rep_id}"
-        try:
-            for name in os.listdir(d):
-                if not name.endswith(".m4s"): continue
-                key = f"{STATION_SLUG}/dash/{rep_id}/{name}"
-                if name.startswith("init"):
-                    upload_file(f"{d}/{name}", key)  # always re-upload init
-                    continue
-                if key in _uploaded: continue
-                if upload_file(f"{d}/{name}", key):
-                    _uploaded.add(key)
-        except FileNotFoundError:
-            pass
+def restore_index_from_s3():
+    """On startup, list S3 objects to rebuild the segment index."""
+    import json as _json
+    import xml.etree.ElementTree as ET
+
+    if not all([S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY, S3_SECRET_KEY, STATION_SLUG]):
+        return
+
+    print("Restoring segment index from S3...", flush=True)
+    host = f"{S3_BUCKET}.{S3_ENDPOINT}"
+
+    for codec, prefix, ext in [
+        ("aac", f"{STATION_SLUG}/hls/aac/segments/", ".ts"),
+        ("opus", f"{STATION_SLUG}/hls/opus/segments/", ".m4s"),
+    ]:
+        marker = ""
+        total = 0
+        while True:
+            try:
+                path = f"/?prefix={prefix}&max-keys=1000"
+                if marker:
+                    path += f"&marker={marker}"
+                ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                payload_hash = hashlib.sha256(b"").hexdigest()
+                hs = {"host": host, "x-amz-content-sha256": payload_hash, "x-amz-date": ts}
+                auth = _sign_v4("GET", "/", hs, payload_hash, ts, S3_REGION)
+                conn = HTTPSConnection(host, timeout=30)
+                conn.request("GET", path, headers={
+                    "Host": host, "x-amz-content-sha256": payload_hash,
+                    "x-amz-date": ts, "Authorization": auth,
+                })
+                r = conn.getresponse()
+                body = r.read()
+                conn.close()
+
+                if r.status != 200:
+                    print(f"S3 list error for {codec}: HTTP {r.status}", flush=True)
+                    break
+
+                root = ET.fromstring(body)
+                ns = root.tag.split("}")[0] + "}" if "}" in root.tag else ""
+                keys = [e.text for e in root.findall(f".//{ns}Key") if e.text]
+                truncated = root.find(f"{ns}IsTruncated")
+
+                for key in keys:
+                    name = key.rsplit("/", 1)[-1] if "/" in key else key
+                    if name.endswith(ext):
+                        try:
+                            num = int(name.replace(ext, ""))
+                            _uploaded_segments[codec].add(num)
+                            _uploaded.add(key)
+                            total += 1
+                        except ValueError:
+                            pass
+
+                if truncated is not None and truncated.text == "true":
+                    marker = keys[-1] if keys else ""
+                else:
+                    break
+            except Exception as e:
+                print(f"S3 list error for {codec}: {e}", flush=True)
+                break
+
+        print(f"  {codec}: restored {total} segments from S3", flush=True)
+
+    write_s3_index()
+    print("S3 index restored", flush=True)
 
 
-def sync_manifests():
-    """Upload playlists and manifests."""
-    # DASH manifest
-    upload_file("/data/dash/manifest.mpd", f"{STATION_SLUG}/dash/manifest.mpd")
-    # HLS playlist from generator
+def write_s3_index():
+    """Write the S3 segment index for the playlist generator."""
+    import json as _json
+    index = {}
+    for codec, nums in _uploaded_segments.items():
+        if nums:
+            index[codec] = {"segments": sorted(nums)}
     try:
-        conn = HTTPConnection("127.0.0.1", 8081, timeout=5)
-        conn.request("GET", "/index.m3u8")
+        with open(S3_INDEX_PATH, "w") as f:
+            _json.dump(index, f)
+    except Exception as e:
+        print(f"S3 index write error: {e}", flush=True)
+
+
+def sync_metadata():
+    """Upload metadata files to S3."""
+    import glob as _glob
+    metadata_dir = "/data/metadata"
+    for f in _glob.glob(f"{metadata_dir}/**/*.json", recursive=True):
+        rel = os.path.relpath(f, metadata_dir)
+        key = f"{STATION_SLUG}/metadata/{rel}"
+        # Always re-upload index.json (changes frequently)
+        if rel == "index.json":
+            upload_file(f, key)
+        elif key not in _uploaded:
+            # Slot files are immutable once written
+            if upload_file(f, key):
+                _uploaded.add(key)
+
+
+def restore_metadata_from_s3():
+    """Download metadata index + recent slot files from S3 on startup."""
+    if not all([S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY, S3_SECRET_KEY, STATION_SLUG]):
+        return
+
+    print("Restoring metadata from S3...", flush=True)
+    host = f"{S3_BUCKET}.{S3_ENDPOINT}"
+
+    # Download index.json
+    _download_s3_file(
+        f"{STATION_SLUG}/metadata/index.json",
+        "/data/metadata/index.json",
+    )
+
+    # List and download recent slot files (last 24h worth)
+    import xml.etree.ElementTree as ET
+    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+
+    now = _dt.now(_tz.utc)
+    total = 0
+    for day_offset in range(2):  # Today + yesterday
+        day = now - _td(days=day_offset)
+        prefix = f"{STATION_SLUG}/metadata/{day.strftime('%Y/%m/%d')}/"
+        try:
+            ts = _dt.now(_tz.utc).strftime("%Y%m%dT%H%M%SZ")
+            payload_hash = hashlib.sha256(b"").hexdigest()
+            hs = {"host": host, "x-amz-content-sha256": payload_hash, "x-amz-date": ts}
+            auth = _sign_v4("GET", "/", hs, payload_hash, ts, S3_REGION)
+            conn = HTTPSConnection(host, timeout=30)
+            conn.request("GET", f"/?prefix={prefix}&max-keys=100", headers={
+                "Host": host, "x-amz-content-sha256": payload_hash,
+                "x-amz-date": ts, "Authorization": auth,
+            })
+            r = conn.getresponse()
+            body = r.read()
+            conn.close()
+            if r.status != 200:
+                continue
+            root = ET.fromstring(body)
+            ns = root.tag.split("}")[0] + "}" if "}" in root.tag else ""
+            for e in root.findall(f".//{ns}Key"):
+                key = e.text
+                if key and key.endswith(".json"):
+                    local_path = "/data/metadata/" + key.split("/metadata/", 1)[-1]
+                    if _download_s3_file(key, local_path):
+                        total += 1
+        except Exception as e:
+            print(f"metadata restore error: {e}", flush=True)
+
+    print(f"  Restored {total} metadata slot files from S3", flush=True)
+
+
+def _download_s3_file(s3_key: str, local_path: str) -> bool:
+    """Download a file from S3 to local disk."""
+    try:
+        host = f"{S3_BUCKET}.{S3_ENDPOINT}"
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        payload_hash = hashlib.sha256(b"").hexdigest()
+        path = f"/{s3_key}"
+        hs = {"host": host, "x-amz-content-sha256": payload_hash, "x-amz-date": ts}
+        auth = _sign_v4("GET", path, hs, payload_hash, ts, S3_REGION)
+        conn = HTTPSConnection(host, timeout=30)
+        conn.request("GET", path, headers={
+            "Host": host, "x-amz-content-sha256": payload_hash,
+            "x-amz-date": ts, "Authorization": auth,
+        })
         r = conn.getresponse()
-        if r.status == 200:
-            upload_bytes(r.read(), f"{STATION_SLUG}/index.m3u8")
-        else:
-            r.read()
+        body = r.read()
         conn.close()
-    except Exception:
-        pass
+        if r.status == 200 and body:
+            os.makedirs(os.path.dirname(local_path), exist_ok=True)
+            with open(local_path, "wb") as f:
+                f.write(body)
+            return True
+        return False
+    except Exception as e:
+        print(f"S3 download error {s3_key}: {e}", flush=True)
+        return False
+
+
+def sync_all():
+    # AAC segments
+    sync_segments("/data/hls/aac/segments", "hls/aac/segments", ".ts", "aac")
+    # Opus segments
+    sync_segments("/data/hls/opus/segments", "hls/opus/segments", ".m4s", "opus")
+    # Opus init segment (always re-upload)
+    upload_file("/data/hls/opus/init.mp4", f"{STATION_SLUG}/hls/opus/init.mp4")
+    # Metadata
+    sync_metadata()
+    # Playlists from generator
+    for path in ("/master.m3u8", "/aac/index.m3u8", "/opus/index.m3u8"):
+        try:
+            conn = HTTPConnection("127.0.0.1", 8081, timeout=5)
+            conn.request("GET", path)
+            r = conn.getresponse()
+            if r.status == 200:
+                s3_path = path.lstrip("/")
+                upload_bytes(r.read(), f"{STATION_SLUG}/{s3_path}")
+            else:
+                r.read()
+            conn.close()
+        except Exception:
+            pass
 
 
 def configure_bucket():
@@ -197,10 +377,13 @@ def main():
     print(f"S3 uploader: {S3_BUCKET}.{S3_ENDPOINT}/{STATION_SLUG}/", flush=True)
     configure_bucket()
 
+    # On startup, restore state from S3
+    restore_index_from_s3()
+    restore_metadata_from_s3()
+
     while True:
-        sync_hls()
-        sync_dash()
-        sync_manifests()
+        sync_all()
+        write_s3_index()
         time.sleep(UPLOAD_INTERVAL)
 
 

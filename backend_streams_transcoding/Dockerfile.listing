@@ -1,0 +1,7 @@
+FROM mirror.gcr.io/library/python:3.12-alpine
+
+RUN pip install --no-cache-dir requests
+
+COPY station_listing.py /app/station_listing.py
+
+CMD ["python3", "/app/station_listing.py"]

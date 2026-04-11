@@ -27,12 +27,10 @@ spec:
                   fieldPath: metadata.namespace
             - name: STREAMER_IMAGE
               value: "radio-crestin/live-streaming:latest"
+            - name: LISTING_IMAGE
+              value: "radio-crestin/station-listing:latest"
             - name: RETENTION_DAYS
               value: "7"
-            - name: OPUS_BITRATE_LOW
-              value: "32k"
-            - name: OPUS_BITRATE_HIGH
-              value: "64k"
             - name: SYNC_INTERVAL
               value: "60"
             - name: INGRESS_HOST

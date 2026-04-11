@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Radio Crestin Live</title>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/htm@3/dist/htm.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,system-ui,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f0f1a;color:#e0e0e0;overflow-x:hidden}
+:root{--accent:#00d4ff;--bg-card:#161625;--bg-dark:#0a0a14;--border:#2a2a3a;--text-dim:#666;--gap-red:#ff4444;--song-a:#1a3a6a;--song-b:#142a52}
+.container{max-width:900px;margin:0 auto;padding:12px}
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row.spread{justify-content:space-between}
+button{background:#1a2a4a;color:#ddd;border:1px solid var(--border);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit;transition:background .15s}
+button:hover{background:#243a5a}
+button:active{background:var(--accent);color:#000}
+button.active{background:var(--accent);color:#000;font-weight:600}
+button.live-btn{background:var(--accent);color:#000;font-weight:700}
+input,select{background:var(--bg-dark);color:#ddd;border:1px solid var(--border);padding:6px 10px;border-radius:6px;font-size:13px;font-family:inherit}
+input:focus,select:focus{outline:none;border-color:var(--accent)}
+label{font-size:12px;color:var(--text-dim)}
+audio{width:100%;border-radius:6px;margin:6px 0}
+.now-playing{display:flex;align-items:center;gap:14px;padding:4px 0}
+.now-icon{width:44px;height:44px;background:#1a2a4a;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.now-title{font-size:15px;color:var(--accent);font-weight:600}
+.now-artist{font-size:13px;color:#999}
+.timeline-wrap{margin:8px 0}
+.timeline-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-bottom:3px}
+.timeline-labels .cur{color:var(--accent)}
+.tl-avail{height:10px;background:var(--bg-dark);border-radius:4px 4px 0 0;position:relative;cursor:pointer;overflow:hidden}
+.tl-songs{height:26px;background:var(--bg-dark);border-radius:0 0 4px 4px;position:relative;cursor:pointer;overflow:hidden}
+.tl-cursor{position:absolute;top:0;width:2px;height:100%;background:var(--accent);z-index:4;pointer-events:none;transition:left .3s linear}
+.tl-tooltip{display:none;position:absolute;bottom:42px;background:var(--bg-card);border:1px solid #444;padding:5px 10px;border-radius:6px;font-size:12px;white-space:nowrap;pointer-events:none;z-index:5;box-shadow:0 4px 12px rgba(0,0,0,.6)}
+.tl-range{position:absolute;top:0;height:100%;border-radius:3px}
+.tl-gap{position:absolute;top:0;height:100%;background:var(--gap-red);opacity:.6;border-radius:2px}
+.tl-song{position:absolute;top:0;height:100%;overflow:hidden;border-right:1px solid rgba(255,255,255,.1);transition:opacity .15s}
+.tl-song:hover{opacity:.85}
+.tl-song span{position:absolute;left:5px;top:5px;font-size:10px;color:rgba(255,255,255,.75);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 10px);pointer-events:none}
+.tl-legend{display:flex;gap:12px;margin-top:4px;font-size:10px;color:var(--text-dim)}
+.tl-legend i{display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:middle;margin-right:3px}
+.playlist-item{display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;font-size:13px}
+.playlist-item:hover{background:rgba(0,212,255,.05)}
+.playlist-item.active{background:rgba(0,212,255,.1)}
+.playlist-item .time{color:var(--text-dim);margin-right:8px;flex-shrink:0;font-variant-numeric:tabular-nums}
+.playlist-item .song{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.playlist-item .dur{color:var(--text-dim);margin-left:8px;flex-shrink:0;font-variant-numeric:tabular-nums}
+.playlist-item.active .song{color:var(--accent)}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:4px;font-size:12px}
+.stat{padding:4px 8px;background:var(--bg-dark);border-radius:4px;display:flex;justify-content:space-between}
+.stat .k{color:var(--text-dim)}.stat .v{color:var(--accent)}
+.url-bar{display:flex;gap:6px;margin-top:6px}
+.url-bar input{flex:1;font-size:12px;color:var(--accent);cursor:pointer}
+.section-title{font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;font-weight:600}
+@media(max-width:600px){
+  .container{padding:8px}
+  .card{padding:8px;margin-bottom:8px}
+  .row{gap:4px}
+  button{padding:5px 10px;font-size:12px}
+  .stats{grid-template-columns:1fr 1fr}
+  .now-title{font-size:14px}
+  .tl-songs{height:22px}
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const h = htm.bind(React.createElement);
+const{useState,useEffect,useRef,useCallback}=React;
+
+function detectBaseUrl(){
+  const p=location.pathname;
+  const i=p.indexOf('/player.html');
+  if(i>0)return location.origin+p.substring(0,i);
+  if(p.length>1&&p.endsWith('/'))return location.origin+p.slice(0,-1);
+  return location.origin;
+}
+
+const retryPolicy={maxNumRetry:5,retryDelayMs:1000,maxRetryDelayMs:8000};
+const hlsRetryConfig={
+  fragLoadPolicy:{default:{maxTimeToFirstByteMs:10000,maxLoadTimeMs:30000,timeoutRetry:retryPolicy,errorRetry:retryPolicy}},
+  manifestLoadPolicy:{default:{maxTimeToFirstByteMs:10000,maxLoadTimeMs:15000,timeoutRetry:retryPolicy,errorRetry:retryPolicy}},
+  playlistLoadPolicy:{default:{maxTimeToFirstByteMs:15000,maxLoadTimeMs:20000,timeoutRetry:retryPolicy,errorRetry:retryPolicy}},
+};
+
+function fmt(s){if(!s)return'';const m=Math.floor(s/60),ss=Math.round(s%60);return m+':'+(ss<10?'0':'')+ss}
+function fmtBytes(b){return b>=1048576?(b/1048576).toFixed(1)+'MB':b>=1024?(b/1024).toFixed(1)+'KB':Math.round(b)+'B'}
+
+function App(){
+  const[baseUrl]=useState(detectBaseUrl);
+  const[codec,setCodec]=useState('aac');
+  const[status,setStatus]=useState(null);
+  const[avail,setAvail]=useState(null);
+  const[playing,setPlaying]=useState(false);
+  const[currentUrl,setCurrentUrl]=useState('');
+  const[curSong,setCurSong]=useState(null);
+  const[songs,setSongs]=useState([]);
+  const[stats,setStats]=useState({});
+  const[seekTs,setSeekTs]=useState('');
+  const[seekEpoch,setSeekEpoch]=useState('');
+  const audioRef=useRef(null);
+  const hlsRef=useRef(null);
+  const intervalRef=useRef(null);
+
+  // Fetch status
+  useEffect(()=>{
+    const f=()=>{
+      fetch(baseUrl+'/status.json').then(r=>r.json()).then(d=>{
+        setStatus(d);
+        if(d.metadata){
+          const all=[];
+          if(d.metadata.recent)all.push(...d.metadata.recent);
+          if(d.metadata.current&&d.metadata.current.raw)all.push(d.metadata.current);
+          all.sort((a,b)=>a.started_at-b.started_at);
+          setSongs(all);
+        }
+      }).catch(()=>{});
+      fetch(baseUrl+'/availability.json').then(r=>r.json()).then(setAvail).catch(()=>{});
+    };
+    f();
+    const id=setInterval(f,8000);
+    return()=>clearInterval(id);
+  },[baseUrl]);
+
+  const destroyHls=useCallback(()=>{
+    if(hlsRef.current){hlsRef.current.destroy();hlsRef.current=null}
+    if(audioRef.current){audioRef.current.removeAttribute('src');audioRef.current.load()}
+  },[]);
+
+  const loadLive=useCallback((c)=>{
+    destroyHls();
+    const url=c==='master'?baseUrl+'/master.m3u8':c==='opus'?baseUrl+'/opus/index.m3u8':baseUrl+'/aac/index.m3u8';
+    setCurrentUrl(url);
+    if(c==='original'){
+      if(audioRef.current){audioRef.current.src=document.getElementById('origInput')?.value||'';audioRef.current.play().catch(()=>{})}
+      return;
+    }
+    if(!Hls.isSupported()){audioRef.current.src=url;audioRef.current.play().catch(()=>{});return}
+    const hls=new Hls(Object.assign({debug:false,enableWorker:true,liveSyncDurationCount:3,liveMaxLatencyDurationCount:10,liveDurationInfinity:true,maxBufferLength:30,maxMaxBufferLength:120,backBufferLength:300,maxBufferHole:.5},hlsRetryConfig));
+    hls.on(Hls.Events.MANIFEST_PARSED,()=>{audioRef.current?.play().catch(()=>{})});
+    hls.on(Hls.Events.ERROR,(_,d)=>{if(d.fatal){if(d.type===Hls.ErrorTypes.NETWORK_ERROR)hls.startLoad();else if(d.type===Hls.ErrorTypes.MEDIA_ERROR)hls.recoverMediaError()}});
+    hls.attachMedia(audioRef.current);
+    hls.loadSource(url);
+    hlsRef.current=hls;
+  },[baseUrl,destroyHls]);
+
+  const seekToTimestamp=useCallback((ts)=>{
+    destroyHls();
+    const c=codec==='master'||codec==='original'?'aac':codec;
+    const url=baseUrl+'/'+c+'/index.m3u8?timestamp='+ts;
+    setCurrentUrl(url);
+    const hls=new Hls(Object.assign({debug:false,enableWorker:true,startPosition:0,liveSyncDuration:999999,liveMaxLatencyDuration:9999999,maxBufferLength:60,maxMaxBufferLength:600,backBufferLength:600},hlsRetryConfig));
+    hls.on(Hls.Events.MANIFEST_PARSED,()=>{if(audioRef.current){audioRef.current.currentTime=0;audioRef.current.play().catch(()=>{})}});
+    hls.on(Hls.Events.ERROR,(_,d)=>{if(d.fatal){if(d.type===Hls.ErrorTypes.NETWORK_ERROR)hls.startLoad();else if(d.type===Hls.ErrorTypes.MEDIA_ERROR)hls.recoverMediaError()}});
+    hls.attachMedia(audioRef.current);
+    hls.loadSource(url);
+    hlsRef.current=hls;
+  },[baseUrl,codec,destroyHls]);
+
+  // Switch codec
+  const switchCodec=useCallback((c)=>{setCodec(c);loadLive(c)},[loadLive]);
+
+  // Auto-load on mount
+  useEffect(()=>{loadLive('aac')},[]);
+
+  // Stats update loop
+  useEffect(()=>{
+    const id=setInterval(()=>{
+      const a=audioRef.current;if(!a)return;
+      const buf=a.buffered.length>0?a.buffered.end(a.buffered.length-1)-a.currentTime:0;
+      let lat='N/A';try{if(hlsRef.current?.latency)lat=hlsRef.current.latency.toFixed(1)+'s'}catch(e){}
+      let seek='N/A';if(a.seekable.length>0){const s=a.seekable.start(0),e2=a.seekable.end(a.seekable.length-1);seek=((e2-s)/60).toFixed(1)+'min'}
+      // Find current song from playback position
+      let epoch=null;
+      try{if(hlsRef.current?.playingDate)epoch=hlsRef.current.playingDate.getTime()/1000}catch(e){}
+      if(!epoch&&status?.aac?.newest_epoch&&a.duration&&isFinite(a.duration)){epoch=status.aac.newest_epoch-(a.duration-a.currentTime)}
+      let song=null;
+      if(epoch&&songs.length){for(let i=songs.length-1;i>=0;i--){if(epoch>=songs[i].started_at){song=songs[i];break}}}
+      setCurSong(song);
+      setPlaying(!a.paused);
+      setStats({buffer:buf.toFixed(1)+'s',latency:lat,seekable:seek,time:a.currentTime.toFixed(1)+'s',rate:a.playbackRate+'x',paused:String(a.paused),epoch:epoch?Math.floor(epoch):''});
+    },500);
+    intervalRef.current=id;
+    return()=>clearInterval(id);
+  },[status,songs]);
+
+  // Timeline range
+  const tlRange=React.useMemo(()=>{
+    if(avail?.aac?.ranges?.length){const r=avail.aac.ranges;return{oldest:r[0].start,newest:r[r.length-1].end}}
+    if(status?.aac?.segments>1)return{oldest:status.aac.oldest_epoch,newest:status.aac.newest_epoch};
+    return null;
+  },[avail,status]);
+
+  const onTlClick=useCallback((e)=>{
+    if(!tlRange)return;
+    const rect=e.currentTarget.getBoundingClientRect();
+    const pct=Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width));
+    const ts=Math.floor(tlRange.oldest+pct*(tlRange.newest-tlRange.oldest));
+    seekToTimestamp(ts);
+  },[tlRange,seekToTimestamp]);
+
+  const handleSeekEpoch=useCallback(()=>{
+    const v=parseInt(seekEpoch);if(v>1e9)seekToTimestamp(v);
+  },[seekEpoch,seekToTimestamp]);
+
+  const handleSeekDatetime=useCallback(()=>{
+    if(!seekTs)return;
+    const ts=Math.floor(new Date(seekTs).getTime()/1000);
+    if(ts>1e9)seekToTimestamp(ts);
+  },[seekTs,seekToTimestamp]);
+
+  return h`
+    <div class="container">
+      ${curSong&&h`
+        <div class="card">
+          <div class="now-playing">
+            <div class="now-icon">${'\u266B'}</div>
+            <div>
+              <div class="now-title">${curSong.title||curSong.raw||'-'}</div>
+              <div class="now-artist">${curSong.artist||''}</div>
+            </div>
+          </div>
+        </div>
+      `}
+
+      <div class="card">
+        <audio ref=${audioRef} controls></audio>
+
+        <${Timeline} range=${tlRange} avail=${avail} songs=${songs} status=${status}
+          curSong=${curSong} stats=${stats} onClick=${onTlClick} onSeek=${seekToTimestamp} />
+
+        <div class="row" style="margin-top:8px">
+          <button class=${codec==='aac'?'active':''} onClick=${()=>switchCodec('aac')}>AAC+</button>
+          <button class=${codec==='opus'?'active':''} onClick=${()=>switchCodec('opus')}>Opus</button>
+          <button class=${codec==='master'?'active':''} onClick=${()=>switchCodec('master')}>Auto</button>
+          <button class=${codec==='original'?'active':''} onClick=${()=>switchCodec('original')}>Original</button>
+          <button class="live-btn" onClick=${()=>loadLive(codec)}>LIVE</button>
+        </div>
+
+        <div class="row" style="margin-top:6px">
+          <label>Seek:</label>
+          <button onClick=${()=>{const a=audioRef.current;if(a)a.currentTime-=60}}>-1m</button>
+          <button onClick=${()=>{const a=audioRef.current;if(a)a.currentTime-=10}}>-10s</button>
+          <button onClick=${()=>{const a=audioRef.current;if(a)a.currentTime+=10}}>+10s</button>
+          <button onClick=${()=>{const a=audioRef.current;if(a)a.currentTime+=60}}>+1m</button>
+          <label>Jump:</label>
+          <input type="datetime-local" step="1" value=${seekTs} onInput=${e=>setSeekTs(e.target.value)} style="width:180px" />
+          <button onClick=${handleSeekDatetime}>Go</button>
+          <input type="number" placeholder="epoch" value=${seekEpoch} onInput=${e=>setSeekEpoch(e.target.value)} style="width:110px" />
+          <button onClick=${handleSeekEpoch}>Go</button>
+        </div>
+
+        <div class="url-bar">
+          <label>URL:</label>
+          <input readonly value=${currentUrl} onClick=${e=>e.target.select()} />
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Playlist</div>
+        <div style="max-height:260px;overflow-y:auto">
+          ${songs.slice().reverse().map((s,i)=>h`
+            <div key=${s.started_at} class=${'playlist-item'+(curSong&&Math.floor(curSong.started_at)===Math.floor(s.started_at)?' active':'')}
+              onClick=${()=>seekToTimestamp(Math.floor(s.started_at))}>
+              <span class="time">${new Date(s.started_at*1000).toLocaleTimeString()}</span>
+              <span class="song">${s.artist?s.artist+' - ':''}${s.title||s.raw||''}</span>
+              <span class="dur">${s.duration_seconds?fmt(s.duration_seconds):'LIVE'}</span>
+            </div>
+          `)}
+          ${songs.length===0&&h`<div style="padding:10px;color:var(--text-dim);text-align:center">Waiting for song data...</div>`}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Stats</div>
+        <div class="stats">
+          ${Object.entries(stats).map(([k,v])=>h`<div class="stat" key=${k}><span class="k">${k}</span><span class="v">${v}</span></div>`)}
+          ${status?.aac&&h`
+            <div class="stat"><span class="k">segments</span><span class="v">${status.aac.segments}</span></div>
+            <div class="stat"><span class="k">history</span><span class="v">${status.aac.duration_human}</span></div>
+            <div class="stat"><span class="k">gaps</span><span class="v">${status.aac.gap_count}</span></div>
+          `}
+        </div>
+      </div>
+
+      <div class="card" style="display:none">
+        <label>Original stream:</label>
+        <input id="origInput" value="https://c40.radioboss.fm/stream/170" style="width:100%" />
+      </div>
+    </div>
+  `;
+}
+
+function Timeline({range,avail,songs,status,curSong,stats,onClick,onSeek}){
+  const[tooltip,setTooltip]=useState(null);
+  const availRef=useRef(null);
+  const songsRef=useRef(null);
+
+  if(!range)return h`<div class="timeline-wrap"><div class="tl-avail" style="height:36px"><div style="padding:10px;color:var(--text-dim);font-size:12px;text-align:center">Loading timeline...</div></div></div>`;
+
+  const{oldest,newest}=range;
+  const dur=newest-oldest;
+  if(dur<=0)return null;
+  const pct=v=>((v-oldest)/dur)*100;
+
+  // Cursor position from playback epoch
+  let cursorPct=100;
+  const ep=stats?.epoch;
+  if(ep&&ep>=oldest)cursorPct=Math.max(0,Math.min(100,pct(ep)));
+
+  // Availability ranges + gaps
+  const ranges=avail?.aac?.ranges||[];
+
+  // Build gap list between ranges
+  const gaps=[];
+  for(let i=0;i<ranges.length-1;i++){
+    const gStart=ranges[i].end,gEnd=ranges[i+1].start;
+    if(gEnd-gStart>6)gaps.push({start:gStart,end:gEnd});
+  }
+
+  const onMove=useCallback(e=>{
+    const rect=(e.currentTarget.closest('.tl-avail')||e.currentTarget.closest('.tl-songs')||e.currentTarget).getBoundingClientRect();
+    const p=Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width));
+    const epoch=oldest+p*dur;
+    let text=new Date(epoch*1000).toLocaleTimeString();
+    // Find song
+    for(let i=songs.length-1;i>=0;i--){if(epoch>=songs[i].started_at){text+='  '+((songs[i].artist?songs[i].artist+' - ':'')+( songs[i].title||songs[i].raw||''));break}}
+    setTooltip({left:p*100,text,align:p>.8?'right':p<.2?'left':'center'});
+  },[oldest,dur,songs]);
+
+  const onLeave=useCallback(()=>setTooltip(null),[]);
+
+  const colors=['var(--song-a)','var(--song-b)'];
+
+  return h`
+    <div class="timeline-wrap">
+      <div class="timeline-labels">
+        <span>${new Date(oldest*1000).toLocaleTimeString()}</span>
+        <span class="cur">${ep?new Date(ep*1000).toLocaleTimeString():'--:--:--'}</span>
+        <span>${new Date(newest*1000).toLocaleTimeString()} (LIVE)</span>
+      </div>
+
+      <div class="tl-avail" onClick=${onClick} onMouseMove=${onMove} onMouseLeave=${onLeave}>
+        ${ranges.map((r,i)=>h`<div key=${'r'+i} class="tl-range" style=${{left:pct(r.start)+'%',width:Math.max(.3,pct(r.end)-pct(r.start))+'%',background:'#0f3460'}} title=${'Available: '+r.segments+' segments'} />`)}
+        ${gaps.map((g,i)=>h`<div key=${'g'+i} class="tl-gap" style=${{left:pct(g.start)+'%',width:Math.max(.3,pct(g.end)-pct(g.start))+'%'}} title=${'Gap: '+Math.round(g.end-g.start)+'s'} />`)}
+        <div class="tl-cursor" style=${{left:cursorPct+'%',height:'250%'}} />
+        ${tooltip&&h`<div class="tl-tooltip" style=${{display:'block',left:tooltip.left+'%',transform:tooltip.align==='right'?'translateX(-100%)':tooltip.align==='center'?'translateX(-50%)':'none'}}>${tooltip.text}</div>`}
+      </div>
+
+      <div class="tl-songs" onClick=${onClick} onMouseMove=${onMove} onMouseLeave=${onLeave}>
+        ${songs.map((s,i)=>{
+          const sEnd=s.ended_at||(i<songs.length-1?songs[i+1].started_at:newest);
+          const l=Math.max(0,pct(Math.max(s.started_at,oldest)));
+          const w=Math.max(.3,pct(Math.min(sEnd,newest))-l);
+          if(l>=100||l+w<=0)return null;
+          const isActive=curSong&&Math.floor(curSong.started_at)===Math.floor(s.started_at);
+          const label=(s.artist?s.artist+' - ':'')+(s.title||s.raw||'');
+          return h`<div key=${s.started_at} class="tl-song" style=${{left:l+'%',width:w+'%',background:isActive?'var(--accent)':colors[i%2],opacity:isActive?.3:1}}
+            title=${new Date(s.started_at*1000).toLocaleTimeString()+' | '+label}
+            onClick=${e=>{e.stopPropagation();onSeek(Math.floor(s.started_at))}}>
+            ${w>4&&h`<span>${label}</span>`}
+          </div>`;
+        })}
+      </div>
+
+      <div class="tl-legend">
+        <span><i style="background:#0f3460" /> Available</span>
+        <span><i style="background:var(--gap-red)" /> Gap</span>
+        <span><i style="background:var(--song-a)" /> Song</span>
+      </div>
+    </div>
+  `;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(h`<${App} />`);
+</script>
+</body>
+</html>

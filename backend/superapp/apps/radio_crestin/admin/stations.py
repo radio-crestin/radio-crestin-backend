@@ -65,14 +65,14 @@ class StationsAdmin(SuperAppModelAdmin):
     search_fields = ['title', 'slug', 'website', 'email']
     prepopulated_fields = {'slug': ('title',)}
     autocomplete_fields = ['latest_station_uptime', 'latest_station_now_playing']
-    readonly_fields = ['thumbnail_url', 'created_at', 'updated_at', 'thumbnail_preview', 'now_playing_display', 'hls_url_display', 'dash_url_display',]
+    readonly_fields = ['thumbnail_url', 'created_at', 'updated_at', 'thumbnail_preview', 'now_playing_display', 'hls_url_display', 'player_link_display',]
 
     fieldsets = (
         (_("Basic Information"), {
             'fields': ('title', 'slug', 'station_order', 'disabled', 'website', 'email')
         }),
         (_("Live Transcoding"), {
-            'fields': ('stream_url', 'transcode_enabled', 'hls_url_display', 'dash_url_display')
+            'fields': ('stream_url', 'transcode_enabled', 'hls_url_display', 'player_link_display')
         }),
         (_("Media"), {
             'fields': ('thumbnail', 'thumbnail_preview', 'thumbnail_url')
@@ -96,17 +96,37 @@ class StationsAdmin(SuperAppModelAdmin):
 
     def hls_url_display(self, obj):
         if obj.transcode_enabled:
-            url = f"https://live.radiocrestin.ro/hls/{obj.slug}/index.m3u8"
-            return format_html('<a href="{}" target="_blank">{}</a>', url, url)
+            base = f"https://live.radiocrestin.ro/{obj.slug}"
+            aac_url = f"{base}/aac/index.m3u8"
+            opus_url = f"{base}/opus/index.m3u8"
+            master_url = f"{base}/master.m3u8"
+            compat_url = f"{base}/index.m3u8"
+            return format_html(
+                '<div style="display:flex; flex-direction:column; gap:4px;">'
+                '<a href="{}" target="_blank">AAC+: {}</a>'
+                '<a href="{}" target="_blank">Opus: {}</a>'
+                '<a href="{}" target="_blank">Master: {}</a>'
+                '<a href="{}" target="_blank">Compat: {}</a>'
+                '</div>',
+                aac_url, aac_url,
+                opus_url, opus_url,
+                master_url, master_url,
+                compat_url, compat_url,
+            )
         return _("Transcoding disabled")
-    hls_url_display.short_description = _("HLS URL (AAC)")
+    hls_url_display.short_description = _("HLS URLs")
 
-    def dash_url_display(self, obj):
+    def player_link_display(self, obj):
         if obj.transcode_enabled:
-            url = f"https://live.radiocrestin.ro/dash/{obj.slug}/manifest.mpd"
-            return format_html('<a href="{}" target="_blank">{}</a>', url, url)
+            player_url = f"https://live.radiocrestin.ro/{obj.slug}/"
+            return format_html(
+                '<a href="{}" target="_blank" style="display:inline-block; padding:6px 16px; '
+                'background:#0f3460; color:#fff; border-radius:4px; text-decoration:none;">'
+                'Open Player</a>',
+                player_url,
+            )
         return _("Transcoding disabled")
-    dash_url_display.short_description = _("DASH URL (Opus)")
+    player_link_display.short_description = _("Dev Player")
 
     def status_indicator(self, obj):
         if obj.disabled:

@@ -26,10 +26,11 @@ log = logging.getLogger("stream-controller")
 GRAPHQL_ENDPOINT = os.environ.get("GRAPHQL_ENDPOINT", "http://web:8080/v1/graphql")
 NAMESPACE = os.environ.get("NAMESPACE", "radio-crestin")
 STREAMER_IMAGE = os.environ.get("STREAMER_IMAGE", "radio-crestin/live-streaming:latest")
+LISTING_IMAGE = os.environ.get("LISTING_IMAGE", "radio-crestin/station-listing:latest")
 IMAGE_PULL_SECRET = os.environ.get("IMAGE_PULL_SECRET", "")
 RETENTION_DAYS = os.environ.get("RETENTION_DAYS", "7")
-OPUS_BITRATE_LOW = os.environ.get("OPUS_BITRATE_LOW", "32k")
-OPUS_BITRATE_HIGH = os.environ.get("OPUS_BITRATE_HIGH", "64k")
+
+
 SYNC_INTERVAL = int(os.environ.get("SYNC_INTERVAL", "60"))
 INGRESS_HOST = os.environ.get("INGRESS_HOST", "live.radiocrestin.ro")
 LEGACY_INGRESS_HOST = os.environ.get("LEGACY_INGRESS_HOST", "hls.radiocrestin.ro")
@@ -138,8 +139,16 @@ def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
         ),
         spec=client.V1DeploymentSpec(
             replicas=1,
-            # Recreate strategy — no overlap, fast restart
-            strategy=client.V1DeploymentStrategy(type="Recreate"),
+            # RollingUpdate: new pod starts first, old pod serves until new is ready
+            # maxSurge=1: allow 1 extra pod during update (old + new run simultaneously)
+            # maxUnavailable=0: never kill old pod before new one is ready
+            strategy=client.V1DeploymentStrategy(
+                type="RollingUpdate",
+                rolling_update=client.V1RollingUpdateDeployment(
+                    max_surge=1,
+                    max_unavailable=0,
+                ),
+            ),
             selector=client.V1LabelSelector(match_labels=labels),
             template=client.V1PodTemplateSpec(
                 metadata=client.V1ObjectMeta(
@@ -147,9 +156,9 @@ def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
                     annotations={"stream-url": stream_url},
                 ),
                 spec=client.V1PodSpec(
-                    # Fast restart: minimal backoff
                     restart_policy="Always",
-                    termination_grace_period_seconds=10,
+                    # Grace period must exceed preStop sleep to allow connection draining
+                    termination_grace_period_seconds=30,
                     image_pull_secrets=[
                         client.V1LocalObjectReference(name=IMAGE_PULL_SECRET)
                     ] if IMAGE_PULL_SECRET else None,
@@ -162,8 +171,6 @@ def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
                                 client.V1EnvVar(name="STATION_SLUG", value=slug),
                                 client.V1EnvVar(name="STREAM_URL", value=stream_url),
                                 client.V1EnvVar(name="RETENTION_DAYS", value=RETENTION_DAYS),
-                                client.V1EnvVar(name="OPUS_BITRATE_LOW", value=OPUS_BITRATE_LOW),
-                                client.V1EnvVar(name="OPUS_BITRATE_HIGH", value=OPUS_BITRATE_HIGH),
                                 client.V1EnvVar(name="S3_ENDPOINT", value=S3_ENDPOINT),
                                 client.V1EnvVar(name="S3_BUCKET", value=S3_BUCKET),
                                 client.V1EnvVar(name="S3_ACCESS_KEY", value=S3_ACCESS_KEY),
@@ -178,6 +185,15 @@ def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
                                 requests={"cpu": "50m", "memory": "64Mi"},
                                 limits={"cpu": "200m", "memory": "256Mi"},
                             ),
+                            # preStop: sleep to let K8s remove pod from endpoints
+                            # before SIGTERM arrives — prevents traffic to dying pod
+                            lifecycle=client.V1Lifecycle(
+                                pre_stop=client.V1LifecycleHandler(
+                                    _exec=client.V1ExecAction(
+                                        command=["sh", "-c", "sleep 5"],
+                                    ),
+                                ),
+                            ),
                             # Startup probe: generous window for FFmpeg to produce first segments
                             startup_probe=client.V1Probe(
                                 http_get=client.V1HTTPGetAction(path="/health", port=8080),
@@ -188,8 +204,8 @@ def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
                             # Liveness: fast detection, fast restart
                             liveness_probe=client.V1Probe(
                                 http_get=client.V1HTTPGetAction(path="/health", port=8080),
-                                period_seconds=10,
-                                failure_threshold=2,  # 20s to detect failure
+                                period_seconds=5,
+                                failure_threshold=2,  # 10s to detect failure after staleness
                                 timeout_seconds=5,
                             ),
                             readiness_probe=client.V1Probe(
@@ -263,21 +279,131 @@ def _make_path(path_pattern: str, slug: str) -> client.V1HTTPIngressPath:
 
 
 def _build_paths_for_slugs(active_slugs: list[str]) -> list[client.V1HTTPIngressPath]:
-    """Build ingress paths: /hls/<slug>/ and /dash/<slug>/ for new host."""
+    """Build ingress paths: /<slug>/ for live host."""
     paths = []
     for slug in sorted(active_slugs):
-        paths.append(_make_path(f"/hls/{slug}/(.*)", slug))
-        paths.append(_make_path(f"/dash/{slug}/(.*)", slug))
+        paths.append(_make_path(f"/{slug}/(.*)", slug))
     return paths
 
 
 def _build_legacy_paths_for_slugs(active_slugs: list[str]) -> list[client.V1HTTPIngressPath]:
-    """Build backward-compatible ingress paths on legacy host."""
+    """Build backward-compatible ingress paths on legacy host (hls.radiocrestin.ro)."""
     paths = []
     for slug in sorted(active_slugs):
         paths.append(_make_path(f"/hls/{slug}/(.*)", slug))
-        paths.append(_make_path(f"/dash/{slug}/(.*)", slug))
     return paths
+
+
+LISTING_SERVICE_NAME = "station-listing"
+LISTING_DEPLOYMENT_NAME = "station-listing"
+
+
+def _make_listing_path() -> client.V1HTTPIngressPath:
+    """Root path that routes to the station listing service."""
+    return client.V1HTTPIngressPath(
+        path="/(.*)",
+        path_type="ImplementationSpecific",
+        backend=client.V1IngressBackend(
+            service=client.V1IngressServiceBackend(
+                name=LISTING_SERVICE_NAME,
+                port=client.V1ServiceBackendPort(number=8080),
+            ),
+        ),
+    )
+
+
+def ensure_listing_deployment(
+    apps_v1: client.AppsV1Api,
+    core_v1: client.CoreV1Api,
+):
+    """Create or update the station listing deployment and service."""
+    labels = {"app": "station-listing"}
+
+    deployment = client.V1Deployment(
+        api_version="apps/v1",
+        kind="Deployment",
+        metadata=client.V1ObjectMeta(
+            name=LISTING_DEPLOYMENT_NAME,
+            namespace=NAMESPACE,
+            labels=labels,
+        ),
+        spec=client.V1DeploymentSpec(
+            replicas=1,
+            selector=client.V1LabelSelector(match_labels=labels),
+            template=client.V1PodTemplateSpec(
+                metadata=client.V1ObjectMeta(labels=labels),
+                spec=client.V1PodSpec(
+                    image_pull_secrets=[
+                        client.V1LocalObjectReference(name=IMAGE_PULL_SECRET)
+                    ] if IMAGE_PULL_SECRET else None,
+                    containers=[
+                        client.V1Container(
+                            name="listing",
+                            image=LISTING_IMAGE,
+                            image_pull_policy="Always",
+                            env=[
+                                client.V1EnvVar(name="GRAPHQL_ENDPOINT", value=GRAPHQL_ENDPOINT),
+                                client.V1EnvVar(name="INGRESS_HOST", value=INGRESS_HOST),
+                            ],
+                            ports=[client.V1ContainerPort(container_port=8080)],
+                            resources=client.V1ResourceRequirements(
+                                requests={"cpu": "5m", "memory": "16Mi"},
+                                limits={"cpu": "50m", "memory": "64Mi"},
+                            ),
+                            liveness_probe=client.V1Probe(
+                                http_get=client.V1HTTPGetAction(path="/health", port=8080),
+                                period_seconds=30,
+                            ),
+                        )
+                    ],
+                ),
+            ),
+        ),
+    )
+
+    svc = client.V1Service(
+        api_version="v1",
+        kind="Service",
+        metadata=client.V1ObjectMeta(
+            name=LISTING_SERVICE_NAME,
+            namespace=NAMESPACE,
+            labels=labels,
+        ),
+        spec=client.V1ServiceSpec(
+            selector=labels,
+            ports=[client.V1ServicePort(port=8080, target_port=8080)],
+        ),
+    )
+
+    # Deployment
+    try:
+        existing = apps_v1.read_namespaced_deployment(
+            name=LISTING_DEPLOYMENT_NAME, namespace=NAMESPACE,
+        )
+        current_image = ""
+        if existing.spec.template.spec.containers:
+            current_image = existing.spec.template.spec.containers[0].image
+        if current_image != LISTING_IMAGE:
+            log.info("Updating listing deployment image: %s -> %s", current_image, LISTING_IMAGE)
+            apps_v1.patch_namespaced_deployment(
+                name=LISTING_DEPLOYMENT_NAME, namespace=NAMESPACE, body=deployment,
+            )
+    except client.ApiException as e:
+        if e.status == 404:
+            log.info("Creating listing deployment")
+            apps_v1.create_namespaced_deployment(namespace=NAMESPACE, body=deployment)
+        else:
+            raise
+
+    # Service
+    try:
+        core_v1.read_namespaced_service(name=LISTING_SERVICE_NAME, namespace=NAMESPACE)
+    except client.ApiException as e:
+        if e.status == 404:
+            log.info("Creating listing service")
+            core_v1.create_namespaced_service(namespace=NAMESPACE, body=svc)
+        else:
+            raise
 
 
 def build_ingress(active_slugs: list[str]) -> client.V1Ingress:
@@ -289,11 +415,14 @@ def build_ingress(active_slugs: list[str]) -> client.V1Ingress:
     hosts = []
 
     # New host: live.radiocrestin.ro/<slug>/...
+    # Station paths first, listing root last (NGINX matches longest prefix first)
     if new_paths:
+        # Add root listing path AFTER station paths — NGINX ingress uses longest match
+        all_paths = new_paths + [_make_listing_path()]
         rules.append(
             client.V1IngressRule(
                 host=INGRESS_HOST,
-                http=client.V1HTTPIngressRuleValue(paths=new_paths),
+                http=client.V1HTTPIngressRuleValue(paths=all_paths),
             )
         )
         hosts.append(INGRESS_HOST)
@@ -566,7 +695,10 @@ def sync_once(
         create_deployment(apps_v1, slug, desired_map[slug])
         ensure_service(core_v1, slug, existing_services)
 
-    # 5. Update ingress to match active stations
+    # 5. Ensure listing deployment exists
+    ensure_listing_deployment(apps_v1, core_v1)
+
+    # 6. Update ingress to match active stations
     active_slugs = list(desired_slugs)
     update_ingress(networking_v1, active_slugs)
 

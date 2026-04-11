@@ -97,3 +97,51 @@ create-new-release:
 	echo "Step 5: Updating deploy submodule reference..."; \
 	cd "$$ROOT_DIR" && git add deploy && git commit -m "chore: update deploy submodule to $$NEXT_TAG"; \
 	echo "=== Release $$NEXT_TAG created successfully ==="
+
+# Live Streaming Dev
+STREAM_STATION ?= radio-eldad
+STREAM_URL ?= https://c40.radioboss.fm/stream/170
+
+dev-stream-build:
+	docker build --load -t live-streaming-dev backend_streams_transcoding/live_streaming/
+
+dev-stream: dev-stream-build
+	@docker stop live-stream-dev 2>/dev/null || true
+	docker run --rm -d --name live-stream-dev \
+		-e STATION_SLUG=$(STREAM_STATION) \
+		-e STREAM_URL=$(STREAM_URL) \
+		-e S3_ENDPOINT="" \
+		-e S3_BUCKET="" \
+		-p 8080:8080 \
+		live-streaming-dev
+	@echo ""
+	@echo "=== Live stream dev running ==="
+	@echo "  DASH manifest: http://localhost:8080/dash/manifest.mpd"
+	@echo "  HLS playlist:  http://localhost:8080/index.m3u8"
+	@echo "  Health:         http://localhost:8080/health"
+	@echo ""
+	@echo "  Dev player:     opening in browser..."
+	@echo "  Logs:           make dev-stream-logs"
+	@echo "  Stop:           make dev-stream-stop"
+	@echo ""
+	@sleep 2 && open http://localhost:8080/
+
+dev-stream-logs:
+	docker logs -f live-stream-dev
+
+dev-stream-stop:
+	docker stop live-stream-dev
+
+dev-stream-test: dev-stream-build
+	@docker stop live-stream-dev 2>/dev/null || true
+	docker run --rm -d --name live-stream-dev \
+		-e STATION_SLUG=$(STREAM_STATION) \
+		-e STREAM_URL=$(STREAM_URL) \
+		-e S3_ENDPOINT="" \
+		-e S3_BUCKET="" \
+		-p 8080:8080 \
+		live-streaming-dev
+	@echo "Waiting for segments to build up..."
+	@sleep 15
+	python3 -m pytest backend_streams_transcoding/tests/test_hls_stream.py -v
+	@docker stop live-stream-dev
