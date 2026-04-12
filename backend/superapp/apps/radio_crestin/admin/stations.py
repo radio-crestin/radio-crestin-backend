@@ -27,24 +27,33 @@ class StationToStationGroupInline(SuperAppTabularInline):
     model = StationToStationGroup
     fk_name = 'station'
     extra = 0
+    tab = True
     autocomplete_fields = ['group']
     fields = ['group', 'station_to_station_group_order']
+    verbose_name = _("Group")
+    verbose_name_plural = _("Groups")
 
 
 class StationStreamsInline(SuperAppTabularInline):
     model = StationStreams
     fk_name = 'station'
     extra = 0
+    tab = True
     fields = ['stream_url', 'type', 'station_stream_order']
+    verbose_name = _("Stream")
+    verbose_name_plural = _("Streams")
 
 
 class StationsMetadataFetchInline(SuperAppStackedInline):
     model = StationsMetadataFetch
     fk_name = 'station'
     extra = 0
+    tab = True
     autocomplete_fields = ['station_metadata_fetch_category']
     readonly_fields = ['url_link']
     fields = ['station_metadata_fetch_category', 'url', 'url_link', 'priority', 'dirty_metadata', 'split_character', 'station_name_regex', 'artist_regex', 'title_regex']
+    verbose_name = _("Metadata Scraper")
+    verbose_name_plural = _("Metadata Scrapers")
 
     def url_link(self, obj):
         if obj.url:
@@ -117,7 +126,7 @@ class StationsAdmin(SuperAppModelAdmin):
         }),
     )
 
-    inlines = [StationToStationGroupInline, StationStreamsInline, StationsMetadataFetchInline]
+    inlines = [StationStreamsInline, StationsMetadataFetchInline, StationToStationGroupInline]
 
     def hls_url_display(self, obj):
         if obj.transcode_enabled:
