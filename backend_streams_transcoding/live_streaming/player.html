@@ -91,6 +91,7 @@ const hlsRetryConfig={
 
 function fmt(s){if(!s)return'';const m=Math.floor(s/60),ss=Math.round(s%60);return m+':'+(ss<10?'0':'')+ss}
 function fmtBytes(b){return b>=1048576?(b/1048576).toFixed(1)+'MB':b>=1024?(b/1024).toFixed(1)+'KB':Math.round(b)+'B'}
+function qs(params){const p=new URLSearchParams(params);p.set('ref','dev-player');p.set('s','dev-user');return '?'+p.toString()}
 
 function App(){
   const[baseUrl]=useState(detectBaseUrl);
@@ -135,7 +136,7 @@ function App(){
 
   const loadLive=useCallback((c)=>{
     destroyHls();
-    const url=c==='master'?baseUrl+'/master.m3u8':c==='opus'?baseUrl+'/opus/index.m3u8':baseUrl+'/aac/index.m3u8';
+    const url=c==='master'?baseUrl+'/master.m3u8'+qs():c==='opus'?baseUrl+'/opus/index.m3u8'+qs():baseUrl+'/aac/index.m3u8'+qs();
     setCurrentUrl(url);
     if(c==='original'){
       if(audioRef.current){audioRef.current.src=document.getElementById('origInput')?.value||'';audioRef.current.play().catch(()=>{})}
@@ -153,7 +154,7 @@ function App(){
   const seekToTimestamp=useCallback((ts)=>{
     destroyHls();
     const c=codec==='master'||codec==='original'?'aac':codec;
-    const url=baseUrl+'/'+c+'/index.m3u8?timestamp='+ts;
+    const url=baseUrl+'/'+c+'/index.m3u8'+qs({timestamp:ts});
     setCurrentUrl(url);
     const hls=new Hls(Object.assign({debug:false,enableWorker:true,startPosition:0,liveSyncDuration:999999,liveMaxLatencyDuration:9999999,maxBufferLength:60,maxMaxBufferLength:600,backBufferLength:600},hlsRetryConfig));
     hls.on(Hls.Events.MANIFEST_PARSED,()=>{if(audioRef.current){audioRef.current.currentTime=0;audioRef.current.play().catch(()=>{})}});
