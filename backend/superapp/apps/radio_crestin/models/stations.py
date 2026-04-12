@@ -4,6 +4,12 @@ from .station_groups import StationGroups
 from ...storage.config import get_public_storage
 
 
+class MetadataTimestampSource(models.TextChoices):
+    MEL_ANALYSIS = 'mel_analysis', _('Mel Spectrogram Analysis')
+    ID3_METADATA = 'id3_metadata', _('ID3 Stream Metadata')
+    SCRAPER = 'scraper', _('External Scraper (periodic)')
+
+
 class Stations(models.Model):
     created_at = models.DateTimeField(_("Created at"), auto_now_add=True)
     updated_at = models.DateTimeField(_("Updated at"), auto_now=True)
@@ -16,6 +22,30 @@ class Stations(models.Model):
     email = models.TextField(_("Email"), blank=True, null=False, default="")
     transcode_enabled = models.BooleanField(_("Live Transcoding"), default=True)
     stream_url = models.URLField(_("Stream URL"))
+
+    # Metadata timestamp source configuration
+    metadata_timestamp_source = models.CharField(
+        _("Metadata Timestamp Source"),
+        max_length=20,
+        choices=MetadataTimestampSource.choices,
+        default=MetadataTimestampSource.SCRAPER,
+        help_text=_("Which detection method triggers metadata scraping: mel analysis (audio change), ID3 tags, or periodic scraper interval"),
+    )
+    metadata_scrape_interval = models.IntegerField(
+        _("Metadata Scrape Interval (seconds)"),
+        default=30,
+        help_text=_("How often to scrape metadata when using 'scraper' timestamp source"),
+    )
+    id3_metadata_delay_offset = models.FloatField(
+        _("ID3 Metadata Delay Offset (seconds)"),
+        default=0.0,
+        help_text=_("Time offset to shift ID3 metadata timing (positive = delay, negative = advance)"),
+    )
+    config_version = models.PositiveIntegerField(
+        _("Config Version"),
+        default=1,
+        help_text=_("Incremented on config changes to notify streaming pods to reload"),
+    )
     thumbnail = models.ImageField(
         _("Thumbnail"),
         storage=get_public_storage,

@@ -20,6 +20,33 @@ class StationsNowPlayingHistory(models.Model):
     )
     listeners = models.IntegerField(_("Listeners"), blank=True, null=True)
 
+    # Multiple timestamp sources for song change detection
+    mel_timestamp = models.DateTimeField(
+        _("Mel Analysis Timestamp"),
+        blank=True,
+        null=True,
+        help_text=_("When mel spectrogram analysis detected a song change"),
+    )
+    id3_timestamp = models.DateTimeField(
+        _("ID3 Metadata Timestamp"),
+        blank=True,
+        null=True,
+        help_text=_("When ID3 stream metadata indicated a song change"),
+    )
+    scraper_timestamp = models.DateTimeField(
+        _("Scraper Timestamp"),
+        blank=True,
+        null=True,
+        help_text=_("When external metadata scraper detected a song change"),
+    )
+    timestamp_source = models.CharField(
+        _("Timestamp Source"),
+        max_length=20,
+        blank=True,
+        default='',
+        help_text=_("Which source triggered this history entry (mel_analysis, id3_metadata, scraper)"),
+    )
+
     class Meta:
         managed = True
         verbose_name = _("Station Now Playing History")

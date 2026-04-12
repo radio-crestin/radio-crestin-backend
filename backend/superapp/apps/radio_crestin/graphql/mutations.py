@@ -1,7 +1,8 @@
+import os
 import typing
 
 import strawberry
-from typing import List
+from typing import List, Optional
 
 import strawberry_django
 from datetime import datetime
@@ -24,7 +25,11 @@ from .types import (
     DeleteReviewResponse,
     ReviewType,
     AnalyticsEventInput,
-    AnalyticsEventResponse
+    AnalyticsEventResponse,
+    ReportStationMetadataInput,
+    ReportStationMetadataResponse,
+    ReportMelTimestampInput,
+    ReportMelTimestampResponse,
 )
 from ..models import Stations, ListeningSessions, AppUsers
 from ..services.share_link_service import ShareLinkService
@@ -34,7 +39,6 @@ from ..services.review_service import ReviewService
 class IsSuperuser(BasePermission):
     message = "User is not a superuser"
 
-    # This method can also be async!
     def has_permission(
             self, source: typing.Any, info: strawberry.Info, **kwargs
     ) -> bool:
@@ -42,6 +46,20 @@ class IsSuperuser(BasePermission):
         if not user or not user.is_authenticated or not getattr(user, "is_superuser", False):
             return False
         return True
+
+
+class IsStreamingPod(BasePermission):
+    message = "Invalid streaming pod API key"
+
+    def has_permission(
+            self, source: typing.Any, info: strawberry.Info, **kwargs
+    ) -> bool:
+        request = info.context.request
+        api_key = request.headers.get('X-Streaming-Api-Key', '')
+        expected_key = os.getenv('STREAMING_POD_API_KEY', '')
+        if not expected_key:
+            return False
+        return api_key == expected_key
 
 
 @strawberry.type
@@ -369,6 +387,56 @@ class Mutation:
         Accepts the request but does nothing — analytics are tracked via PostHog.
         """
         return AnalyticsEventResponse(id=0)
+
+    @strawberry_django.mutation(handle_django_errors=True, permission_classes=[IsStreamingPod])
+    def report_station_metadata(self, input: ReportStationMetadataInput) -> ReportStationMetadataResponse:
+        """Report metadata from a streaming pod back to Django.
+        Called by pods when they detect a song change via their configured scrapers."""
+        logger = logging.getLogger(__name__)
+        try:
+            from ..services.pod_metadata_service import PodMetadataService
+            result = PodMetadataService.report_metadata(input)
+            return ReportStationMetadataResponse(
+                success=True,
+                message=f"Metadata reported for station {input.station_slug}",
+                song_id=result.get('song_id'),
+                thumbnail_url=result.get('thumbnail_url'),
+            )
+        except Stations.DoesNotExist:
+            return ReportStationMetadataResponse(
+                success=False,
+                message=f"Station '{input.station_slug}' not found",
+            )
+        except Exception as e:
+            logger.error(f"Error reporting station metadata: {e}")
+            return ReportStationMetadataResponse(
+                success=False,
+                message=f"Error: {str(e)}",
+            )
+
+    @strawberry_django.mutation(handle_django_errors=True, permission_classes=[IsStreamingPod])
+    def report_mel_timestamp(self, input: ReportMelTimestampInput) -> ReportMelTimestampResponse:
+        """Report a mel analysis song-change timestamp from a streaming pod.
+        Only records the timestamp — metadata is fetched separately by the pod."""
+        logger = logging.getLogger(__name__)
+        try:
+            from ..services.pod_metadata_service import PodMetadataService
+            PodMetadataService.report_mel_timestamp(input)
+            return ReportMelTimestampResponse(
+                success=True,
+                message=f"Mel timestamp recorded for station {input.station_slug}",
+            )
+        except Stations.DoesNotExist:
+            return ReportMelTimestampResponse(
+                success=False,
+                message=f"Station '{input.station_slug}' not found",
+            )
+        except Exception as e:
+            logger.error(f"Error reporting mel timestamp: {e}")
+            return ReportMelTimestampResponse(
+                success=False,
+                message=f"Error: {str(e)}",
+            )
 
     @staticmethod
     def _get_client_ip(request) -> str:

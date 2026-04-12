@@ -11,6 +11,7 @@ class StationsNowPlaying(models.Model):
     raw_data = models.JSONField(_("Raw Data"))
     error = models.JSONField(_("Error"), blank=True, null=True)
     listeners = models.IntegerField(_("Listeners"), blank=True, null=True)
+    thumbnail_url = models.URLField(_("Thumbnail URL"), blank=True, null=True, help_text=_("Current song thumbnail for real-time HLS metadata embedding"))
 
     class Meta:
         managed = True

@@ -513,3 +513,69 @@ class GetShareLinkResponse:
     message: str
     anonymous_id: Optional[str] = None
     share_link: Optional[ShareLinkData] = None
+
+
+# --- Streaming Pod Metadata Reporting ---
+
+@strawberry.input
+class ReportStationMetadataInput:
+    station_slug: str
+    song_title: Optional[str] = None
+    song_artist: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    listeners: Optional[int] = None
+    raw_title: Optional[str] = None
+    timestamp_source: str = 'scraper'  # mel_analysis, id3_metadata, scraper
+    mel_timestamp: Optional[str] = None  # ISO format
+    id3_timestamp: Optional[str] = None  # ISO format
+    scraper_timestamp: Optional[str] = None  # ISO format
+    dirty_metadata: bool = True
+
+
+@strawberry.type
+class ReportStationMetadataResponse:
+    success: bool
+    message: str
+    song_id: Optional[int] = None
+    thumbnail_url: Optional[str] = None
+
+
+@strawberry.input
+class ReportMelTimestampInput:
+    station_slug: str
+    timestamp: str  # ISO format — when the mel analysis detected a song change
+    confidence: Optional[float] = None
+
+
+@strawberry.type
+class ReportMelTimestampResponse:
+    success: bool
+    message: str
+
+
+# --- Streaming Pod Config Query Types ---
+
+@strawberry.type
+class StationScraperConfigType:
+    category_slug: str
+    url: str
+    priority: int
+    dirty_metadata: bool
+    split_character: str
+    station_name_regex: Optional[str]
+    artist_regex: Optional[str]
+    title_regex: Optional[str]
+
+
+@strawberry.type
+class StationStreamingConfigType:
+    station_id: int
+    slug: str
+    title: str
+    stream_url: str
+    transcode_enabled: bool
+    metadata_timestamp_source: str
+    metadata_scrape_interval: int
+    id3_metadata_delay_offset: float
+    config_version: int
+    scrapers: List[StationScraperConfigType]

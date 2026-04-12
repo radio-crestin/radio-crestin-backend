@@ -11,6 +11,7 @@ from .types import (
     StationMetadataType, StationMetadataUptimeType, StationMetadataNowPlayingType,
     StationMetadataSongType, StationMetadataArtistType,
     StationMetadataHistoryType, StationMetadataHistoryEntryType,
+    StationStreamingConfigType, StationScraperConfigType,
 )
 from ..models import Stations, StationGroups, StationStreams, Posts, StationToStationGroup, Artists, Songs
 from ..models import StationsNowPlayingHistory
@@ -677,5 +678,58 @@ class Query:
             count=len(history),
             history=history,
         )
+
+    @strawberry.field
+    def streaming_station_configs(
+        self,
+        info: strawberry.Info,
+        station_slugs: Optional[List[str]] = None,
+    ) -> List[StationStreamingConfigType]:
+        """Get station streaming configs for pod bootstrap.
+        Protected by X-Streaming-Api-Key header."""
+        import os
+        request = info.context.request
+        api_key = request.headers.get('X-Streaming-Api-Key', '')
+        expected_key = os.getenv('STREAMING_POD_API_KEY', '')
+        if not expected_key or api_key != expected_key:
+            raise PermissionError("Invalid streaming pod API key")
+
+        qs = Stations.objects.filter(
+            disabled=False, transcode_enabled=True
+        ).prefetch_related(
+            'station_metadata_fetches__station_metadata_fetch_category'
+        ).order_by('station_order', 'title')
+
+        if station_slugs:
+            qs = qs.filter(slug__in=station_slugs)
+
+        results = []
+        for station in qs:
+            scrapers = [
+                StationScraperConfigType(
+                    category_slug=f.station_metadata_fetch_category.slug,
+                    url=f.url,
+                    priority=f.priority,
+                    dirty_metadata=f.dirty_metadata,
+                    split_character=f.split_character,
+                    station_name_regex=str(f.station_name_regex) if f.station_name_regex else None,
+                    artist_regex=str(f.artist_regex) if f.artist_regex else None,
+                    title_regex=str(f.title_regex) if f.title_regex else None,
+                )
+                for f in station.station_metadata_fetches.all()
+            ]
+            results.append(StationStreamingConfigType(
+                station_id=station.id,
+                slug=station.slug,
+                title=station.title,
+                stream_url=station.stream_url,
+                transcode_enabled=station.transcode_enabled,
+                metadata_timestamp_source=station.metadata_timestamp_source,
+                metadata_scrape_interval=station.metadata_scrape_interval,
+                id3_metadata_delay_offset=station.id3_metadata_delay_offset,
+                config_version=station.config_version,
+                scrapers=scrapers,
+            ))
+        return results
 
 
