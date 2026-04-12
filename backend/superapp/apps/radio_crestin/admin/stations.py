@@ -27,7 +27,6 @@ class StationToStationGroupInline(SuperAppTabularInline):
     model = StationToStationGroup
     fk_name = 'station'
     extra = 0
-    tab = True
     autocomplete_fields = ['group']
     fields = ['group', 'station_to_station_group_order']
     verbose_name = _("Group")
@@ -38,7 +37,6 @@ class StationStreamsInline(SuperAppTabularInline):
     model = StationStreams
     fk_name = 'station'
     extra = 0
-    tab = True
     fields = ['stream_url', 'type', 'station_stream_order']
     verbose_name = _("Stream")
     verbose_name_plural = _("Streams")
@@ -48,7 +46,6 @@ class StationsMetadataFetchInline(SuperAppStackedInline):
     model = StationsMetadataFetch
     fk_name = 'station'
     extra = 0
-    tab = True
     autocomplete_fields = ['station_metadata_fetch_category']
     readonly_fields = ['url_link']
     fields = ['station_metadata_fetch_category', 'url', 'url_link', 'priority', 'dirty_metadata', 'split_character', 'station_name_regex', 'artist_regex', 'title_regex']
@@ -77,19 +74,22 @@ class StationsAdmin(SuperAppModelAdmin):
     ]
 
     fieldsets = (
-        (None, {
+        (_("General"), {
+            'classes': ['tab'],
             'fields': (
                 'title', 'slug', 'station_order', 'disabled',
                 'website', 'email',
             ),
         }),
         (_("Streaming"), {
+            'classes': ['tab'],
             'fields': (
                 'stream_url', 'transcode_enabled',
                 'hls_url_display', 'player_link_display',
             ),
         }),
-        (_("Metadata Config"), {
+        (_("Metadata"), {
+            'classes': ['tab'],
             'fields': (
                 'metadata_timestamp_source',
                 'metadata_scrape_interval',
@@ -97,25 +97,27 @@ class StationsAdmin(SuperAppModelAdmin):
                 'config_version',
             ),
         }),
-        (_("Content & Media"), {
+        (_("Media"), {
+            'classes': ['tab'],
             'fields': (
                 'thumbnail', 'thumbnail_preview', 'thumbnail_url',
-                'description', 'description_action_title', 'description_link',
             ),
         }),
-        (_("RSS & Social"), {
-            'fields': ('rss_feed', 'feature_latest_post', 'facebook_page_id'),
+        (_("Content"), {
+            'classes': ['tab'],
+            'fields': (
+                'description', 'description_action_title', 'description_link',
+                'rss_feed', 'feature_latest_post', 'facebook_page_id',
+            ),
         }),
         (_("Status"), {
+            'classes': ['tab'],
             'fields': (
                 'check_uptime',
                 'latest_station_uptime', 'latest_station_now_playing',
                 'now_playing_display',
+                'created_at', 'updated_at',
             ),
-        }),
-        (_("Timestamps"), {
-            'classes': ['collapse'],
-            'fields': ('created_at', 'updated_at'),
         }),
     )
 
