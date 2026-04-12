@@ -4,9 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Radio Crestin Live</title>
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script crossorigin src="https://unpkg.com/htm@3/dist/htm.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -216,17 +217,7 @@ function App(){
 
   return h`
     <div class="container">
-      ${curSong&&h`
-        <div class="card">
-          <div class="now-playing">
-            <div class="now-icon">${'\u266B'}</div>
-            <div>
-              <div class="now-title">${curSong.title||curSong.raw||'-'}</div>
-              <div class="now-artist">${curSong.artist||''}</div>
-            </div>
-          </div>
-        </div>
-      `}
+      ${curSong?h`<div class="card"><div class="now-playing"><div class="now-icon">${'\u266B'}</div><div><div class="now-title">${curSong.title||curSong.raw||'-'}</div><div class="now-artist">${curSong.artist||''}</div></div></div></div>`:null}
 
       <div class="card">
         <audio ref=${audioRef} controls></audio>
@@ -234,7 +225,7 @@ function App(){
         <${Timeline} range=${tlRange} avail=${avail} songs=${songs} status=${status}
           curSong=${curSong} stats=${stats} onClick=${onTlClick} onSeek=${seekToTimestamp} />
 
-        <div class="row" style="margin-top:8px">
+        <div class="row" style=${{marginTop:'8px'}}>
           <button class=${codec==='aac'?'active':''} onClick=${()=>switchCodec('aac')}>AAC+</button>
           <button class=${codec==='opus'?'active':''} onClick=${()=>switchCodec('opus')}>Opus</button>
           <button class=${codec==='master'?'active':''} onClick=${()=>switchCodec('master')}>Auto</button>
@@ -242,28 +233,28 @@ function App(){
           <button class="live-btn" onClick=${()=>loadLive(codec)}>LIVE</button>
         </div>
 
-        <div class="row" style="margin-top:6px">
+        <div class="row" style=${{marginTop:'6px'}}>
           <label>Seek:</label>
           <button onClick=${()=>{const a=audioRef.current;if(a)a.currentTime-=60}}>-1m</button>
           <button onClick=${()=>{const a=audioRef.current;if(a)a.currentTime-=10}}>-10s</button>
           <button onClick=${()=>{const a=audioRef.current;if(a)a.currentTime+=10}}>+10s</button>
           <button onClick=${()=>{const a=audioRef.current;if(a)a.currentTime+=60}}>+1m</button>
           <label>Jump:</label>
-          <input type="datetime-local" step="1" value=${seekTs} onInput=${e=>setSeekTs(e.target.value)} style="width:180px" />
+          <input type="datetime-local" step="1" value=${seekTs} onInput=${e=>setSeekTs(e.target.value)} style=${{width:'180px'}} />
           <button onClick=${handleSeekDatetime}>Go</button>
-          <input type="number" placeholder="epoch" value=${seekEpoch} onInput=${e=>setSeekEpoch(e.target.value)} style="width:110px" />
+          <input type="number" placeholder="epoch" value=${seekEpoch} onInput=${e=>setSeekEpoch(e.target.value)} style=${{width:'110px'}} />
           <button onClick=${handleSeekEpoch}>Go</button>
         </div>
 
         <div class="url-bar">
           <label>URL:</label>
-          <input readonly value=${currentUrl} onClick=${e=>e.target.select()} />
+          <input readOnly value=${currentUrl} onClick=${e=>e.target.select()} />
         </div>
       </div>
 
       <div class="card">
         <div class="section-title">Playlist</div>
-        <div style="max-height:260px;overflow-y:auto">
+        <div style=${{maxHeight:'260px',overflowY:'auto'}}>
           ${songs.slice().reverse().map((s,i)=>h`
             <div key=${s.started_at} class=${'playlist-item'+(curSong&&Math.floor(curSong.started_at)===Math.floor(s.started_at)?' active':'')}
               onClick=${()=>seekToTimestamp(Math.floor(s.started_at))}>
@@ -272,7 +263,7 @@ function App(){
               <span class="dur">${s.duration_seconds?fmt(s.duration_seconds):'LIVE'}</span>
             </div>
           `)}
-          ${songs.length===0&&h`<div style="padding:10px;color:var(--text-dim);text-align:center">Waiting for song data...</div>`}
+          ${songs.length===0?h`<div style=${{padding:'10px',color:'var(--text-dim)',textAlign:'center'}}>Waiting for song data...</div>`:null}
         </div>
       </div>
 
@@ -288,9 +279,9 @@ function App(){
         </div>
       </div>
 
-      <div class="card" style="display:none">
+      <div class="card" style=${{display:'none'}}>
         <label>Original stream:</label>
-        <input id="origInput" value="https://c40.radioboss.fm/stream/170" style="width:100%" />
+        <input id="origInput" value="https://c40.radioboss.fm/stream/170" style=${{width:'100%'}} />
       </div>
     </div>
   `;
@@ -301,39 +292,38 @@ function Timeline({range,avail,songs,status,curSong,stats,onClick,onSeek}){
   const availRef=useRef(null);
   const songsRef=useRef(null);
 
-  if(!range)return h`<div class="timeline-wrap"><div class="tl-avail" style="height:36px"><div style="padding:10px;color:var(--text-dim);font-size:12px;text-align:center">Loading timeline...</div></div></div>`;
-
-  const{oldest,newest}=range;
+  // All hooks MUST be above any early return (Rules of Hooks)
+  const oldest=range?range.oldest:0;
+  const newest=range?range.newest:0;
   const dur=newest-oldest;
-  if(dur<=0)return null;
-  const pct=v=>((v-oldest)/dur)*100;
 
-  // Cursor position from playback epoch
-  let cursorPct=100;
+  const onMove=useCallback(e=>{
+    if(!dur)return;
+    const rect=(e.currentTarget.closest('.tl-avail')||e.currentTarget.closest('.tl-songs')||e.currentTarget).getBoundingClientRect();
+    const p=Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width));
+    const epoch=oldest+p*dur;
+    let text=new Date(epoch*1000).toLocaleTimeString();
+    for(let i=songs.length-1;i>=0;i--){if(epoch>=songs[i].started_at){text+='  '+((songs[i].artist?songs[i].artist+' - ':'')+(songs[i].title||songs[i].raw||''));break}}
+    setTooltip({left:p*100,text,align:p>.8?'right':p<.2?'left':'center'});
+  },[oldest,dur,songs]);
+
+  const onLeave=useCallback(()=>setTooltip(null),[]);
+
+  // Early returns AFTER all hooks
+  if(!range)return h`<div class="timeline-wrap"><div class="tl-avail" style=${{height:'36px'}}><div style=${{padding:'10px',color:'var(--text-dim)',fontSize:'12px',textAlign:'center'}}>Loading timeline...</div></div></div>`;
+  if(dur<=0)return null;
+
+  const pct=v=>((v-oldest)/dur)*100;
   const ep=stats?.epoch;
+  let cursorPct=100;
   if(ep&&ep>=oldest)cursorPct=Math.max(0,Math.min(100,pct(ep)));
 
-  // Availability ranges + gaps
   const ranges=avail?.aac?.ranges||[];
-
-  // Build gap list between ranges
   const gaps=[];
   for(let i=0;i<ranges.length-1;i++){
     const gStart=ranges[i].end,gEnd=ranges[i+1].start;
     if(gEnd-gStart>6)gaps.push({start:gStart,end:gEnd});
   }
-
-  const onMove=useCallback(e=>{
-    const rect=(e.currentTarget.closest('.tl-avail')||e.currentTarget.closest('.tl-songs')||e.currentTarget).getBoundingClientRect();
-    const p=Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width));
-    const epoch=oldest+p*dur;
-    let text=new Date(epoch*1000).toLocaleTimeString();
-    // Find song
-    for(let i=songs.length-1;i>=0;i--){if(epoch>=songs[i].started_at){text+='  '+((songs[i].artist?songs[i].artist+' - ':'')+( songs[i].title||songs[i].raw||''));break}}
-    setTooltip({left:p*100,text,align:p>.8?'right':p<.2?'left':'center'});
-  },[oldest,dur,songs]);
-
-  const onLeave=useCallback(()=>setTooltip(null),[]);
 
   const colors=['var(--song-a)','var(--song-b)'];
 
@@ -349,7 +339,7 @@ function Timeline({range,avail,songs,status,curSong,stats,onClick,onSeek}){
         ${ranges.map((r,i)=>h`<div key=${'r'+i} class="tl-range" style=${{left:pct(r.start)+'%',width:Math.max(.3,pct(r.end)-pct(r.start))+'%',background:'#0f3460'}} title=${'Available: '+r.segments+' segments'}></div>`)}
         ${gaps.map((g,i)=>h`<div key=${'g'+i} class="tl-gap" style=${{left:pct(g.start)+'%',width:Math.max(.3,pct(g.end)-pct(g.start))+'%'}} title=${'Gap: '+Math.round(g.end-g.start)+'s'}></div>`)}
         <div class="tl-cursor" style=${{left:cursorPct+'%',height:'250%'}}></div>
-        ${tooltip&&h`<div class="tl-tooltip" style=${{display:'block',left:tooltip.left+'%',transform:tooltip.align==='right'?'translateX(-100%)':tooltip.align==='center'?'translateX(-50%)':'none'}}>${tooltip.text}</div>`}
+        ${tooltip?h`<div class="tl-tooltip" style=${{display:'block',left:tooltip.left+'%',transform:tooltip.align==='right'?'translateX(-100%)':tooltip.align==='center'?'translateX(-50%)':'none'}}>${tooltip.text}</div>`:null}
       </div>
 
       <div class="tl-songs" onClick=${onClick} onMouseMove=${onMove} onMouseLeave=${onLeave}>
@@ -363,15 +353,15 @@ function Timeline({range,avail,songs,status,curSong,stats,onClick,onSeek}){
           return h`<div key=${s.started_at} class="tl-song" style=${{left:l+'%',width:w+'%',background:isActive?'var(--accent)':colors[i%2],opacity:isActive?.3:1}}
             title=${new Date(s.started_at*1000).toLocaleTimeString()+' | '+label}
             onClick=${e=>{e.stopPropagation();onSeek(Math.floor(s.started_at))}}>
-            ${w>4&&h`<span>${label}</span>`}
+            ${w>4?h`<span>${label}</span>`:null}
           </div>`;
         })}
       </div>
 
       <div class="tl-legend">
-        <span><i style="background:#0f3460" /> Available</span>
-        <span><i style="background:var(--gap-red)" /> Gap</span>
-        <span><i style="background:var(--song-a)" /> Song</span>
+        <span><i style=${{background:'#0f3460'}}></i> Available</span>
+        <span><i style=${{background:'var(--gap-red)'}}></i> Gap</span>
+        <span><i style=${{background:'var(--song-a)'}}></i> Song</span>
       </div>
     </div>
   `;
