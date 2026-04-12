@@ -280,11 +280,11 @@ function App(){
         <div class="section-title">Stats</div>
         <div class="stats">
           ${Object.entries(stats).map(([k,v])=>h`<div class="stat" key=${k}><span class="k">${k}</span><span class="v">${v}</span></div>`)}
-          ${status?.aac&&h`
-            <div class="stat"><span class="k">segments</span><span class="v">${status.aac.segments}</span></div>
-            <div class="stat"><span class="k">history</span><span class="v">${status.aac.duration_human}</span></div>
-            <div class="stat"><span class="k">gaps</span><span class="v">${status.aac.gap_count}</span></div>
-          `}
+          ${status&&status.aac?[
+            h`<div class="stat" key="seg"><span class="k">segments</span><span class="v">${status.aac.segments}</span></div>`,
+            h`<div class="stat" key="hist"><span class="k">history</span><span class="v">${status.aac.duration_human}</span></div>`,
+            h`<div class="stat" key="gaps"><span class="k">gaps</span><span class="v">${status.aac.gap_count}</span></div>`,
+          ]:null}
         </div>
       </div>
 
@@ -346,9 +346,9 @@ function Timeline({range,avail,songs,status,curSong,stats,onClick,onSeek}){
       </div>
 
       <div class="tl-avail" onClick=${onClick} onMouseMove=${onMove} onMouseLeave=${onLeave}>
-        ${ranges.map((r,i)=>h`<div key=${'r'+i} class="tl-range" style=${{left:pct(r.start)+'%',width:Math.max(.3,pct(r.end)-pct(r.start))+'%',background:'#0f3460'}} title=${'Available: '+r.segments+' segments'} />`)}
-        ${gaps.map((g,i)=>h`<div key=${'g'+i} class="tl-gap" style=${{left:pct(g.start)+'%',width:Math.max(.3,pct(g.end)-pct(g.start))+'%'}} title=${'Gap: '+Math.round(g.end-g.start)+'s'} />`)}
-        <div class="tl-cursor" style=${{left:cursorPct+'%',height:'250%'}} />
+        ${ranges.map((r,i)=>h`<div key=${'r'+i} class="tl-range" style=${{left:pct(r.start)+'%',width:Math.max(.3,pct(r.end)-pct(r.start))+'%',background:'#0f3460'}} title=${'Available: '+r.segments+' segments'}></div>`)}
+        ${gaps.map((g,i)=>h`<div key=${'g'+i} class="tl-gap" style=${{left:pct(g.start)+'%',width:Math.max(.3,pct(g.end)-pct(g.start))+'%'}} title=${'Gap: '+Math.round(g.end-g.start)+'s'}></div>`)}
+        <div class="tl-cursor" style=${{left:cursorPct+'%',height:'250%'}}></div>
         ${tooltip&&h`<div class="tl-tooltip" style=${{display:'block',left:tooltip.left+'%',transform:tooltip.align==='right'?'translateX(-100%)':tooltip.align==='center'?'translateX(-50%)':'none'}}>${tooltip.text}</div>`}
       </div>
 
