@@ -1,3 +1,8 @@
 #nav-sidebar .simplebar-placeholder {
     height: fit-content !important;
 }
+
+/* Prevent layout shift when scrollbar appears/disappears on tab switch */
+html {
+    overflow-y: scroll;
+}

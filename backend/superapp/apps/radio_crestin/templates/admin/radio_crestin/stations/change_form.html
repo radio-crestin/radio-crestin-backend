@@ -5,6 +5,9 @@
   Unified tab bar: merges fieldset tabs + inline tabs into ONE single tab bar.
   Uses activeTab (top-level Alpine.js state from unfold skeleton) for everything.
   Prefixes: "fieldset-<slug>" for field groups, "inline-<prefix>" for inlines.
+
+  Deep linking: clicking a tab sets window.location.hash to the tab id.
+  Opening a URL with #<tab-id> activates that tab on page load.
 #}
 
 {% block field_sets %}
@@ -18,10 +21,27 @@
 
         {% with tabs=adminform|tabs %}
             {% if tabs or inline_admin_formsets %}
-                {# Set initial activeTab to first fieldset tab #}
+                {# Build a list of valid tab IDs and resolve hash on init #}
                 {% for fieldset in tabs %}
                     {% if forloop.first %}
-                        <div x-init="activeTab = (window.location.hash.replace('#','') || 'fieldset-{{ fieldset.name|unicoded_slugify }}')"></div>
+                        <div x-init="
+                            const validTabs = [
+                                {% for fs in tabs %}'fieldset-{{ fs.name|unicoded_slugify }}',{% endfor %}
+                                {% for inl in inline_admin_formsets %}'inline-{{ inl.formset.prefix|slugify }}',{% endfor %}
+                            ];
+                            const hash = window.location.hash.replace('#', '');
+                            if (hash && validTabs.includes(hash)) {
+                                activeTab = hash;
+                            } else if (hash) {
+                                // Try matching without prefix (e.g. #station_streams -> inline-station-streams)
+                                const slugHash = hash.replace(/_/g, '-');
+                                const match = validTabs.find(t => t === 'fieldset-' + slugHash || t === 'inline-' + slugHash || t.endsWith('-' + slugHash) || t.endsWith('-' + hash));
+                                if (match) activeTab = match;
+                                else activeTab = 'fieldset-{{ fieldset.name|unicoded_slugify }}';
+                            } else {
+                                activeTab = 'fieldset-{{ fieldset.name|unicoded_slugify }}';
+                            }
+                        "></div>
                     {% endif %}
                 {% endfor %}
 
@@ -30,7 +50,8 @@
                     <nav class="bg-base-100 cursor-pointer flex flex-col font-medium gap-1 p-1 rounded-default text-important dark:border-base-700 md:inline-flex md:flex-row md:flex-wrap md:w-auto dark:bg-white/[.06] *:flex *:flex-row *:gap-1 *:items-center *:px-2.5 *:py-[5px] *:rounded-default *:hover:bg-base-700/[.06] *:dark:hover:bg-white/[.06] [&>.active]:bg-white [&>.active]:shadow-xs [&>.active]:dark:bg-base-700 [&>.active]:hover:bg-white [&>.active]:dark:hover:bg-base-700">
                         {# Fieldset tabs #}
                         {% for fieldset in tabs %}
-                            <a x-on:click.prevent="activeTab = 'fieldset-{{ fieldset.name|unicoded_slugify }}'"
+                            <a href="#fieldset-{{ fieldset.name|unicoded_slugify }}"
+                               x-on:click.prevent="activeTab = 'fieldset-{{ fieldset.name|unicoded_slugify }}'; window.location.hash = 'fieldset-{{ fieldset.name|unicoded_slugify }}'"
                                x-bind:class="activeTab == 'fieldset-{{ fieldset.name|unicoded_slugify }}' && 'active'">
                                 {{ fieldset.name }}
                                 {% with error_count=fieldset|tabs_errors_count %}
@@ -45,7 +66,8 @@
 
                         {# Inline tabs #}
                         {% for inline_admin_formset in inline_admin_formsets %}
-                            <a x-on:click.prevent="activeTab = 'inline-{{ inline_admin_formset.formset.prefix|slugify }}'"
+                            <a href="#inline-{{ inline_admin_formset.formset.prefix|slugify }}"
+                               x-on:click.prevent="activeTab = 'inline-{{ inline_admin_formset.formset.prefix|slugify }}'; window.location.hash = 'inline-{{ inline_admin_formset.formset.prefix|slugify }}'"
                                x-bind:class="activeTab == 'inline-{{ inline_admin_formset.formset.prefix|slugify }}' && 'active'">
                                 {% if inline_admin_formset.formset.max_num == 1 %}
                                     {{ inline_admin_formset.opts.verbose_name|capfirst }}
