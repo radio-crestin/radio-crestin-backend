@@ -22,10 +22,11 @@ class StationService:
 
     @staticmethod
     def get_stations_with_metadata_fetchers():
-        """Get all stations with their metadata fetch configurations"""
+        """Get non-transcoded stations with their metadata fetch configurations.
+        Transcoded stations are scraped by their streaming pods instead."""
         return Stations.objects.select_related().prefetch_related(
             'station_metadata_fetches__station_metadata_fetch_category'
-        ).filter(disabled=False)
+        ).filter(disabled=False, transcode_enabled=False)
 
     @staticmethod
     def get_stations_with_rss_feeds():

@@ -42,6 +42,8 @@ S3_BUCKET = os.environ.get("S3_BUCKET", "")
 S3_ACCESS_KEY = os.environ.get("S3_ACCESS_KEY", "")
 S3_SECRET_KEY = os.environ.get("S3_SECRET_KEY", "")
 S3_REGION = os.environ.get("S3_REGION", "")
+STREAMING_POD_API_KEY = os.environ.get("STREAMING_POD_API_KEY", "")
+DJANGO_GRAPHQL_URL = os.environ.get("DJANGO_GRAPHQL_URL", "http://web:8080/v1/graphql")
 
 SLUG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*[a-z0-9]$")
 LABEL_APP = "live-stream"
@@ -176,14 +178,16 @@ def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
                                 client.V1EnvVar(name="S3_ACCESS_KEY", value=S3_ACCESS_KEY),
                                 client.V1EnvVar(name="S3_SECRET_KEY", value=S3_SECRET_KEY),
                                 client.V1EnvVar(name="S3_REGION", value=S3_REGION),
+                                client.V1EnvVar(name="STREAMING_POD_API_KEY", value=STREAMING_POD_API_KEY),
+                                client.V1EnvVar(name="DJANGO_GRAPHQL_URL", value=DJANGO_GRAPHQL_URL),
                             ],
                             ports=[client.V1ContainerPort(container_port=8080)],
                             volume_mounts=[
                                 client.V1VolumeMount(name="data", mount_path="/data"),
                             ],
                             resources=client.V1ResourceRequirements(
-                                requests={"cpu": "50m", "memory": "64Mi"},
-                                limits={"cpu": "200m", "memory": "256Mi"},
+                                requests={"cpu": "50m", "memory": "96Mi"},
+                                limits={"cpu": "300m", "memory": "384Mi"},
                             ),
                             # preStop: sleep to let K8s remove pod from endpoints
                             # before SIGTERM arrives — prevents traffic to dying pod
