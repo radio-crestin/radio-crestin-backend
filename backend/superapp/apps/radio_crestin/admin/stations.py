@@ -76,24 +76,20 @@ class StationsAdmin(SuperAppModelAdmin):
         'config_version',
     ]
 
-    # ── Fieldsets organized into tabs (all tabs, nothing outside) ──
     fieldsets = (
-        (_("General"), {
-            'classes': ['tab'],
+        (None, {
             'fields': (
                 'title', 'slug', 'station_order', 'disabled',
                 'website', 'email',
             ),
         }),
         (_("Streaming"), {
-            'classes': ['tab'],
             'fields': (
                 'stream_url', 'transcode_enabled',
                 'hls_url_display', 'player_link_display',
             ),
         }),
         (_("Metadata Config"), {
-            'classes': ['tab'],
             'fields': (
                 'metadata_timestamp_source',
                 'metadata_scrape_interval',
@@ -102,18 +98,15 @@ class StationsAdmin(SuperAppModelAdmin):
             ),
         }),
         (_("Content & Media"), {
-            'classes': ['tab'],
             'fields': (
                 'thumbnail', 'thumbnail_preview', 'thumbnail_url',
                 'description', 'description_action_title', 'description_link',
             ),
         }),
         (_("RSS & Social"), {
-            'classes': ['tab'],
             'fields': ('rss_feed', 'feature_latest_post', 'facebook_page_id'),
         }),
         (_("Status"), {
-            'classes': ['tab'],
             'fields': (
                 'check_uptime',
                 'latest_station_uptime', 'latest_station_now_playing',
@@ -121,7 +114,7 @@ class StationsAdmin(SuperAppModelAdmin):
             ),
         }),
         (_("Timestamps"), {
-            'classes': ['tab'],
+            'classes': ['collapse'],
             'fields': ('created_at', 'updated_at'),
         }),
     )
