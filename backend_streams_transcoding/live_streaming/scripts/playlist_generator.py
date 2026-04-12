@@ -93,15 +93,10 @@ def parse_ffmpeg_m3u8(codec: str) -> list[SegmentInfo]:
     return segments
 
 
-def get_all_segments(codec: str) -> list[SegmentInfo]:
-    now = time.time()
-    cached = _cache.get(codec)
-    if cached and now - cached[1] < _CACHE_TTL:
-        return cached[0]
-
+def _build_segments(codec: str, ffmpeg_segs, disk_nums, extra_nums=None):
+    """Build segment list from FFmpeg playlist + disk + optional extra nums."""
     cfg = CODECS[codec]
     ext = cfg["extension"]
-    ffmpeg_segs = parse_ffmpeg_m3u8(codec)
     ffmpeg_files = {s[0] for s in ffmpeg_segs}
 
     avg_dur = float(SEGMENT_DURATION)
@@ -117,25 +112,7 @@ def get_all_segments(codec: str) -> list[SegmentInfo]:
         if ffmpeg_segs[0][2]:
             first_epoch = _parse_pdt(ffmpeg_segs[0][2])
 
-    disk_nums = set()
-    try:
-        for name in os.listdir(cfg["segments_dir"]):
-            if name.endswith(ext):
-                try:
-                    disk_nums.add(int(name.replace(ext, "")))
-                except ValueError:
-                    pass
-    except FileNotFoundError:
-        pass
-
-    s3_index = _load_s3_index()
-    s3_nums = set()
-    if s3_index:
-        codec_index = s3_index.get(codec, {})
-        for num in codec_index.get("segments", []):
-            s3_nums.add(num)
-
-    all_nums = sorted(disk_nums | s3_nums)
+    all_nums = sorted(disk_nums | (extra_nums or set()))
 
     result: list[SegmentInfo] = []
     for num in all_nums:
@@ -151,9 +128,62 @@ def get_all_segments(codec: str) -> list[SegmentInfo]:
                 est_epoch = first_epoch + (num - first_num) * avg_dur
                 pdt = _epoch_to_pdt(est_epoch)
             elif num > 0:
-                pdt = _epoch_to_pdt(float(num) * avg_dur)
+                # Segment numbers ARE epoch timestamps
+                pdt = _epoch_to_pdt(float(num))
             result.append((fname, avg_dur, pdt))
 
+    return result
+
+
+def _scan_disk(codec: str) -> set[int]:
+    cfg = CODECS[codec]
+    ext = cfg["extension"]
+    nums = set()
+    try:
+        for name in os.listdir(cfg["segments_dir"]):
+            if name.endswith(ext):
+                try:
+                    nums.add(int(name.replace(ext, "")))
+                except ValueError:
+                    pass
+    except FileNotFoundError:
+        pass
+    return nums
+
+
+def get_local_segments(codec: str) -> list[SegmentInfo]:
+    """Fast: disk-only segments for live playlists. No S3 index scan."""
+    now = time.time()
+    key = codec + "_local"
+    cached = _cache.get(key)
+    if cached and now - cached[1] < _CACHE_TTL:
+        return cached[0]
+
+    ffmpeg_segs = parse_ffmpeg_m3u8(codec)
+    disk_nums = _scan_disk(codec)
+    result = _build_segments(codec, ffmpeg_segs, disk_nums)
+    _cache[key] = (result, now)
+    return result
+
+
+def get_all_segments(codec: str) -> list[SegmentInfo]:
+    """Full: disk + S3 index for historical queries."""
+    now = time.time()
+    cached = _cache.get(codec)
+    if cached and now - cached[1] < _CACHE_TTL:
+        return cached[0]
+
+    ffmpeg_segs = parse_ffmpeg_m3u8(codec)
+    disk_nums = _scan_disk(codec)
+
+    s3_index = _load_s3_index()
+    s3_nums = set()
+    if s3_index:
+        codec_index = s3_index.get(codec, {})
+        for num in codec_index.get("segments", []):
+            s3_nums.add(num)
+
+    result = _build_segments(codec, ffmpeg_segs, disk_nums, s3_nums)
     _cache[codec] = (result, now)
     return result
 
@@ -171,8 +201,8 @@ def _wait_for_segment(codec: str, msn: int) -> bool:
     deadline = time.time() + BLOCK_TIMEOUT
     while time.time() < deadline:
         # Clear cache to get fresh data
-        _cache.pop(codec, None)
-        segs = get_all_segments(codec)
+        _cache.pop(codec + "_local", None)
+        segs = get_local_segments(codec)
         if segs:
             last_num = _get_seg_num(segs[-1], ext)
             if last_num is not None and last_num >= msn:
@@ -437,7 +467,7 @@ class PlaylistHandler(BaseHTTPRequestHandler):
                 # Timeout — return what we have
                 pass
 
-            segs = get_all_segments(codec)
+            segs = get_local_segments(codec)
             if not segs:
                 self.send_error(503, "No segments yet")
                 return
@@ -515,7 +545,7 @@ class PlaylistHandler(BaseHTTPRequestHandler):
             return
 
         # ── Standard live playlist ──
-        segs = get_all_segments(codec)
+        segs = get_local_segments(codec)
         if not segs:
             self.send_error(503, "No segments yet")
             return
@@ -642,11 +672,14 @@ class PlaylistHandler(BaseHTTPRequestHandler):
         self.wfile.write(body.encode())
 
     def _send_m3u8(self, body, cache="no-store, must-revalidate"):
-        self.send_response(200)
-        self.send_header("Content-Type", "application/vnd.apple.mpegurl")
-        self.send_header("Cache-Control", cache)
-        self.end_headers()
-        self.wfile.write(body.encode())
+        try:
+            self.send_response(200)
+            self.send_header("Content-Type", "application/vnd.apple.mpegurl")
+            self.send_header("Cache-Control", cache)
+            self.end_headers()
+            self.wfile.write(body.encode())
+        except BrokenPipeError:
+            pass
 
     def do_OPTIONS(self):
         self.send_response(204)
