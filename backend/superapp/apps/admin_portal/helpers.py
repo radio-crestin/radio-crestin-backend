@@ -1,7 +1,6 @@
 from django.contrib.admin import helpers
 from django.contrib.admin.utils import lookup_field
 from django.core.exceptions import ObjectDoesNotExist
-from unfold.admin import UnfoldAdminReadonlyField
 
 # Keep exporting these classes for backwards compatibility
 from .admin import SuperAppModelAdmin
@@ -10,7 +9,14 @@ from .models import SuperAppBaseModel as BaseModel
 __all__ = ['SuperAppModelAdmin', 'BaseModel',]
 
 
-class SuperAppAdminReadonlyField(UnfoldAdminReadonlyField):
+# Try unfold's AdminReadonlyField, fall back to Django's
+try:
+    from unfold.admin import UnfoldAdminReadonlyField as _BaseReadonlyField
+except ImportError:
+    _BaseReadonlyField = helpers.AdminReadonlyField
+
+
+class SuperAppAdminReadonlyField(_BaseReadonlyField):
     def is_custom_html_field(self) -> bool:
         field, obj, model_admin = (
             self.field["field"],

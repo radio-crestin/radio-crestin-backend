@@ -67,18 +67,15 @@ class StationsAdmin(SuperAppModelAdmin):
         'config_version',
     ]
 
-    # ── Fieldsets organized into tabs ──
+    # ── Fieldsets organized into tabs (all tabs, nothing outside) ──
     fieldsets = (
-        # Fields without "tab" class appear above all tabs (always visible)
-        (None, {
-            'fields': ('title', 'slug', 'station_order', 'disabled'),
-        }),
-        # ── Tab: General ──
         (_("General"), {
             'classes': ['tab'],
-            'fields': ('website', 'email', 'description', 'description_action_title', 'description_link'),
+            'fields': (
+                'title', 'slug', 'station_order', 'disabled',
+                'website', 'email',
+            ),
         }),
-        # ── Tab: Streaming ──
         (_("Streaming"), {
             'classes': ['tab'],
             'fields': (
@@ -86,7 +83,6 @@ class StationsAdmin(SuperAppModelAdmin):
                 'hls_url_display', 'player_link_display',
             ),
         }),
-        # ── Tab: Metadata Config ──
         (_("Metadata Config"), {
             'classes': ['tab'],
             'fields': (
@@ -96,17 +92,17 @@ class StationsAdmin(SuperAppModelAdmin):
                 'config_version',
             ),
         }),
-        # ── Tab: Media ──
-        (_("Media"), {
+        (_("Content & Media"), {
             'classes': ['tab'],
-            'fields': ('thumbnail', 'thumbnail_preview', 'thumbnail_url'),
+            'fields': (
+                'thumbnail', 'thumbnail_preview', 'thumbnail_url',
+                'description', 'description_action_title', 'description_link',
+            ),
         }),
-        # ── Tab: RSS & Social ──
         (_("RSS & Social"), {
             'classes': ['tab'],
             'fields': ('rss_feed', 'feature_latest_post', 'facebook_page_id'),
         }),
-        # ── Tab: Status ──
         (_("Status"), {
             'classes': ['tab'],
             'fields': (
@@ -115,7 +111,6 @@ class StationsAdmin(SuperAppModelAdmin):
                 'now_playing_display',
             ),
         }),
-        # ── Tab: Timestamps ──
         (_("Timestamps"), {
             'classes': ['tab'],
             'fields': ('created_at', 'updated_at'),
