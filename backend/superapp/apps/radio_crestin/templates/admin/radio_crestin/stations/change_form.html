@@ -89,10 +89,8 @@
 {% endblock %}
 
 {% block inline_field_sets %}
-    {# ── Inline Tab Content ── #}
+    {# Inlines have tab=True, so unfold's own templates handle x-show via activeTab #}
     {% for inline_admin_formset in inline_admin_formsets %}
-        <div x-show="activeTab == '{{ inline_admin_formset.formset.prefix|slugify }}'">
-            {% include inline_admin_formset.opts.template %}
-        </div>
+        {% include inline_admin_formset.opts.template %}
     {% endfor %}
 {% endblock %}
