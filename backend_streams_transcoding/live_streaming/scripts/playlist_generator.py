@@ -195,6 +195,27 @@ def _get_seg_num(seg: SegmentInfo, ext: str) -> int | None:
         return None
 
 
+_live_playlist_cache: dict[str, tuple[str, float]] = {}
+_LIVE_PLAYLIST_TTL = 2
+
+
+def _get_live_playlist(codec: str) -> str | None:
+    """Get pre-built live playlist string, cached for 2s."""
+    now = time.time()
+    cached = _live_playlist_cache.get(codec)
+    if cached and now - cached[1] < _LIVE_PLAYLIST_TTL:
+        return cached[0]
+
+    segs = get_local_segments(codec)
+    if not segs:
+        return None
+
+    window = segs[-LIVE_WINDOW_SIZE:] if len(segs) > LIVE_WINDOW_SIZE else segs
+    playlist = format_playlist(window, codec, server_control=True)
+    _live_playlist_cache[codec] = (playlist, now)
+    return playlist
+
+
 def _wait_for_segment(codec: str, msn: int) -> bool:
     """Block until segment msn appears. Returns True if found, False on timeout."""
     ext = CODECS[codec]["extension"]
@@ -544,17 +565,11 @@ class PlaylistHandler(BaseHTTPRequestHandler):
             self._send_m3u8(playlist, cache="no-store, must-revalidate")
             return
 
-        # ── Standard live playlist ──
-        segs = get_local_segments(codec)
-        if not segs:
+        # ── Standard live playlist (cached in memory) ──
+        playlist = _get_live_playlist(codec)
+        if not playlist:
             self.send_error(503, "No segments yet")
             return
-
-        window = segs[-LIVE_WINDOW_SIZE:] if len(segs) > LIVE_WINDOW_SIZE else segs
-        playlist = format_playlist(
-            window, codec,
-            server_control=True,
-        )
         self._send_m3u8(playlist)
 
     def _send_status(self):
