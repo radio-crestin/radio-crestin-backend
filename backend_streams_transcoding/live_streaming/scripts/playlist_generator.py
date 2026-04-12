@@ -186,6 +186,22 @@ _live_playlist_cache: dict[str, tuple[str, float]] = {}
 _LIVE_PLAYLIST_TTL = 2
 
 
+def _trim_to_contiguous(segs: list[SegmentInfo], ext: str) -> list[SegmentInfo]:
+    """Trim segments to the last contiguous run (no gaps > 2 segment durations).
+    This prevents audio glitches from old segments surviving across pod restarts."""
+    if len(segs) <= 1:
+        return segs
+    # Walk backwards from the end, find where a gap starts
+    last_contiguous_start = len(segs) - 1
+    for i in range(len(segs) - 1, 0, -1):
+        cur = _get_seg_num(segs[i], ext)
+        prev = _get_seg_num(segs[i - 1], ext)
+        if cur is not None and prev is not None and cur - prev > 2:
+            break
+        last_contiguous_start = i - 1
+    return segs[last_contiguous_start:]
+
+
 def _get_live_playlist(codec: str) -> str | None:
     now = time.time()
     cached = _live_playlist_cache.get(codec)
@@ -196,6 +212,10 @@ def _get_live_playlist(codec: str) -> str | None:
     if not segs:
         return None
 
+    ext = CODECS[codec]["extension"]
+    # First trim to last contiguous run to avoid gaps from pod restarts
+    segs = _trim_to_contiguous(segs, ext)
+    # Then apply the live window
     window = segs[-LIVE_WINDOW_SIZE:] if len(segs) > LIVE_WINDOW_SIZE else segs
     playlist = format_playlist(window, codec, server_control=True)
     _live_playlist_cache[codec] = (playlist, now)
@@ -463,6 +483,9 @@ class PlaylistHandler(BaseHTTPRequestHandler):
             if not segs:
                 self.send_error(503, "No segments yet")
                 return
+
+            # Trim to contiguous run to avoid gaps from pod restarts
+            segs = _trim_to_contiguous(segs, ext)
 
             skip_count = 0
             if skip_param and skip_param.upper() == "YES":
