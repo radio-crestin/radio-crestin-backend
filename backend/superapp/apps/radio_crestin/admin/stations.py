@@ -17,10 +17,6 @@ from ..models import Stations, StationToStationGroup, StationStreams, StationsMe
 
 
 class StationResource(resources.ModelResource):
-    """
-    Custom resource for Station import/export.
-    Excludes FK fields that cause deadlocks during import due to circular relationships.
-    """
     class Meta:
         model = Stations
         exclude = ('latest_station_uptime', 'latest_station_now_playing')
@@ -65,31 +61,65 @@ class StationsAdmin(SuperAppModelAdmin):
     search_fields = ['title', 'slug', 'website', 'email']
     prepopulated_fields = {'slug': ('title',)}
     autocomplete_fields = ['latest_station_uptime', 'latest_station_now_playing']
-    readonly_fields = ['thumbnail_url', 'created_at', 'updated_at', 'thumbnail_preview', 'now_playing_display', 'hls_url_display', 'player_link_display',]
+    readonly_fields = [
+        'thumbnail_url', 'created_at', 'updated_at', 'thumbnail_preview',
+        'now_playing_display', 'hls_url_display', 'player_link_display',
+        'config_version',
+    ]
 
+    # ── Fieldsets organized into tabs ──
     fieldsets = (
-        (_("Basic Information"), {
-            'fields': ('title', 'slug', 'station_order', 'disabled', 'website', 'email')
+        # Fields without "tab" class appear above all tabs (always visible)
+        (None, {
+            'fields': ('title', 'slug', 'station_order', 'disabled'),
         }),
-        (_("Live Transcoding"), {
-            'fields': ('stream_url', 'transcode_enabled', 'hls_url_display', 'player_link_display')
+        # ── Tab: General ──
+        (_("General"), {
+            'classes': ['tab'],
+            'fields': ('website', 'email', 'description', 'description_action_title', 'description_link'),
         }),
+        # ── Tab: Streaming ──
+        (_("Streaming"), {
+            'classes': ['tab'],
+            'fields': (
+                'stream_url', 'transcode_enabled',
+                'hls_url_display', 'player_link_display',
+            ),
+        }),
+        # ── Tab: Metadata Config ──
+        (_("Metadata Config"), {
+            'classes': ['tab'],
+            'fields': (
+                'metadata_timestamp_source',
+                'metadata_scrape_interval',
+                'id3_metadata_delay_offset',
+                'config_version',
+            ),
+        }),
+        # ── Tab: Media ──
         (_("Media"), {
-            'fields': ('thumbnail', 'thumbnail_preview', 'thumbnail_url')
+            'classes': ['tab'],
+            'fields': ('thumbnail', 'thumbnail_preview', 'thumbnail_url'),
         }),
-        (_("Content"), {
-            'fields': ('description', 'description_action_title', 'description_link')
-        }),
+        # ── Tab: RSS & Social ──
         (_("RSS & Social"), {
-            'fields': ('rss_feed', 'feature_latest_post', 'facebook_page_id')
+            'classes': ['tab'],
+            'fields': ('rss_feed', 'feature_latest_post', 'facebook_page_id'),
         }),
+        # ── Tab: Status ──
         (_("Status"), {
-            'fields': ('check_uptime', 'latest_station_uptime', 'latest_station_now_playing', 'now_playing_display')
+            'classes': ['tab'],
+            'fields': (
+                'check_uptime',
+                'latest_station_uptime', 'latest_station_now_playing',
+                'now_playing_display',
+            ),
         }),
+        # ── Tab: Timestamps ──
         (_("Timestamps"), {
+            'classes': ['tab'],
             'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
+        }),
     )
 
     inlines = [StationToStationGroupInline, StationStreamsInline, StationsMetadataFetchInline]
@@ -98,18 +128,15 @@ class StationsAdmin(SuperAppModelAdmin):
         if obj.transcode_enabled:
             base = f"https://live.radiocrestin.ro/{obj.slug}"
             aac_url = f"{base}/aac/index.m3u8"
-            opus_url = f"{base}/opus/index.m3u8"
             master_url = f"{base}/master.m3u8"
             compat_url = f"{base}/index.m3u8"
             return format_html(
                 '<div style="display:flex; flex-direction:column; gap:4px;">'
                 '<a href="{}" target="_blank">AAC+: {}</a>'
-                '<a href="{}" target="_blank">Opus: {}</a>'
                 '<a href="{}" target="_blank">Master: {}</a>'
                 '<a href="{}" target="_blank">Compat: {}</a>'
                 '</div>',
                 aac_url, aac_url,
-                opus_url, opus_url,
                 master_url, master_url,
                 compat_url, compat_url,
             )
@@ -151,7 +178,7 @@ class StationsAdmin(SuperAppModelAdmin):
     website_link.short_description = _("Website")
 
     def groups_display(self, obj):
-        groups = obj.groups.all()[:3]  # Limit to first 3 groups
+        groups = obj.groups.all()[:3]
         if groups:
             group_links = []
             for group in groups:
@@ -197,15 +224,15 @@ class StationsAdmin(SuperAppModelAdmin):
                 else:
                     return format_html(
                         '<div class="p-2.5 bg-yellow-100 dark:bg-yellow-900 rounded border border-yellow-200 dark:border-yellow-700">'
-                        '<span class="text-yellow-800 dark:text-yellow-200">⚠️ No song information available</span><br>'
+                        '<span class="text-yellow-800 dark:text-yellow-200">No song information available</span><br>'
                         '<small class="text-yellow-700 dark:text-yellow-300">Updated: {}</small>'
                         '</div>',
                         now_playing.timestamp.strftime('%Y-%m-%d %H:%M:%S')
                     )
-            except Exception as e:
+            except Exception:
                 return format_html(
                     '<div class="p-2.5 bg-red-100 dark:bg-red-900 rounded border border-red-200 dark:border-red-700">'
-                    '<span class="text-red-800 dark:text-red-200">❌ Error loading now playing info</span>'
+                    '<span class="text-red-800 dark:text-red-200">Error loading now playing info</span>'
                     '</div>'
                 )
         return _("No now playing data")
@@ -229,13 +256,11 @@ class StationsAdmin(SuperAppModelAdmin):
     ]
 
     def _execute_station_tasks(self, station_id, sync=True):
-        """Execute station tasks either synchronously (.apply) or asynchronously (.delay)"""
         from superapp.apps.radio_crestin_scraping.tasks.scrape_station_metadata import scrape_station_metadata
         from superapp.apps.radio_crestin_scraping.tasks.scrape_station_rss_feed import scrape_station_rss_feed
         from superapp.apps.radio_crestin_scraping.tasks.uptime_tasks import check_station_uptime
 
         if sync:
-            # Execute synchronously and return results
             results = {
                 'uptime': check_station_uptime.apply(args=[station_id]),
                 'metadata': scrape_station_metadata.apply(args=[station_id]),
@@ -243,7 +268,6 @@ class StationsAdmin(SuperAppModelAdmin):
             }
             return {task: result.get() for task, result in results.items()}
         else:
-            # Execute asynchronously and return task objects
             return {
                 'uptime': check_station_uptime.delay(station_id),
                 'metadata': scrape_station_metadata.delay(station_id),
@@ -251,12 +275,10 @@ class StationsAdmin(SuperAppModelAdmin):
             }
 
     def _execute_sync_station_tasks_return_results(self, request, station_id):
-        """Execute RSS scraping, metadata scraping, and uptime checking synchronously for a single station"""
         successes = []
         errors = []
 
         try:
-            # Get the station object
             try:
                 station = Stations.objects.get(id=station_id)
                 if station.disabled:
@@ -266,10 +288,8 @@ class StationsAdmin(SuperAppModelAdmin):
                 errors.append(f"Station {station_id} not found")
                 return successes, errors
 
-            # Execute all tasks synchronously using shared method
             task_results = self._execute_station_tasks(station_id, sync=True)
 
-            # Process uptime results
             uptime_data = task_results.get('uptime', {})
             if uptime_data.get('success'):
                 status = "UP" if uptime_data.get('is_up') else "DOWN"
@@ -278,7 +298,6 @@ class StationsAdmin(SuperAppModelAdmin):
             else:
                 errors.append(f"Uptime check failed for '{station.title}': {uptime_data.get('error', 'Unknown error')}")
 
-            # Process RSS results
             if station.rss_feed:
                 rss_data = task_results.get('rss', {})
                 if rss_data.get('success'):
@@ -286,17 +305,15 @@ class StationsAdmin(SuperAppModelAdmin):
                 else:
                     errors.append(f"RSS scraping failed for '{station.title}': {rss_data.get('error', 'Unknown error')}")
 
-            # Process metadata results
             metadata_data = task_results.get('metadata', {})
             if metadata_data.get('success'):
                 successes.append(f"Metadata scraped for '{station.title}': {metadata_data.get('scraped_count', 0)} sources")
 
-            # Add specific errors from metadata scraping
             if metadata_data.get('errors'):
                 for error in metadata_data['errors']:
                     errors.append(f"Metadata error for '{station.title}': {error}")
 
-        except ImportError as e:
+        except ImportError:
             errors.append("Scraping tasks are not available. Make sure radio_crestin_scraping app is installed.")
             if settings.DEBUG:
                 raise
@@ -308,7 +325,6 @@ class StationsAdmin(SuperAppModelAdmin):
         return successes, errors
 
     def scrape_metadata_rss_sync(self, request, queryset):
-        """Scrape metadata, RSS feeds, and check uptime for selected stations (synchronous)"""
         total_stations = queryset.count()
         processed_stations = 0
         all_successes = []
@@ -320,23 +336,19 @@ class StationsAdmin(SuperAppModelAdmin):
             all_successes.extend(station_successes)
             all_errors.extend(station_errors)
 
-        # Show summary results
         if all_successes:
             messages.success(request, f"Processed {processed_stations}/{total_stations} stations successfully. Completed tasks: {len(all_successes)}")
-
         if all_errors:
             messages.error(request, f"Errors occurred during processing: {len(all_errors)} errors across {processed_stations} stations")
 
         return HttpResponseRedirect(request.get_full_path())
-    scrape_metadata_rss_sync.short_description = _("📡 Scrape metadata, RSS feeds & check uptime (sync)")
+    scrape_metadata_rss_sync.short_description = _("Scrape metadata, RSS feeds & check uptime (sync)")
 
     def scrape_metadata_rss_async(self, request, queryset):
-        """Scrape metadata, RSS feeds, and check uptime for selected stations (asynchronous)"""
         total_stations = queryset.count()
         station_ids = list(queryset.values_list('id', flat=True))
 
         try:
-            # Queue tasks for all stations using shared method
             all_tasks = []
             for station_id in station_ids:
                 station_tasks = self._execute_station_tasks(station_id, sync=False)
@@ -349,23 +361,18 @@ class StationsAdmin(SuperAppModelAdmin):
                 f"{total_stations} uptime checks, {total_stations} metadata tasks, "
                 f"and {total_stations} RSS tasks. All tasks are running in the background."
             )
-
         except ImportError:
-            messages.error(
-                request,
-                _("Scraping tasks are not available. Make sure radio_crestin_scraping app is installed.")
-            )
+            messages.error(request, _("Scraping tasks are not available. Make sure radio_crestin_scraping app is installed."))
         except Exception as e:
             if settings.DEBUG:
                 raise
             messages.error(request, f"Error queuing async tasks: {str(e)}")
 
         return HttpResponseRedirect(request.get_full_path())
-    scrape_metadata_rss_async.short_description = _("⚡ Scrape metadata, RSS feeds & check uptime (async)")
+    scrape_metadata_rss_async.short_description = _("Scrape metadata, RSS feeds & check uptime (async)")
 
-    @unfold.decorators.action(description=_("📡 Scrape metadata, RSS & check uptime (sync)"))
+    @unfold.decorators.action(description=_("Scrape metadata, RSS & check uptime (sync)"))
     def scrape_single_station_sync(self, request, object_id: int):
-        """Scrape metadata, RSS feeds, and check uptime for single station (synchronous)"""
         try:
             station = Stations.objects.get(pk=object_id)
             if station.disabled:
@@ -380,14 +387,12 @@ class StationsAdmin(SuperAppModelAdmin):
 
         station_successes, station_errors = self._execute_sync_station_tasks_return_results(request, station.id)
 
-        # Show results
         if station_successes:
             messages.success(
                 request,
                 f"Successfully completed {len(station_successes)} tasks for '{station.title}': " +
                 "; ".join(station_successes)
             )
-
         if station_errors:
             messages.error(
                 request,
@@ -396,9 +401,8 @@ class StationsAdmin(SuperAppModelAdmin):
 
         return redirect(reverse_lazy("admin:radio_crestin_stations_change", args=(object_id,)))
 
-    @unfold.decorators.action(description=_("⚡ Scrape metadata, RSS & check uptime (async)"))
+    @unfold.decorators.action(description=_("Scrape metadata, RSS & check uptime (async)"))
     def scrape_single_station_async(self, request, object_id: int):
-        """Scrape metadata, RSS feeds, and check uptime for single station (asynchronous)"""
         try:
             station = Stations.objects.get(pk=object_id)
             if station.disabled:
@@ -412,7 +416,6 @@ class StationsAdmin(SuperAppModelAdmin):
             return redirect(reverse_lazy("admin:radio_crestin_stations_change", args=(object_id,)))
 
         try:
-            # Queue all types of tasks for this single station using shared method
             station_tasks = self._execute_station_tasks(station.id, sync=False)
             total_tasks = len(station_tasks)
 
@@ -422,12 +425,8 @@ class StationsAdmin(SuperAppModelAdmin):
                 f"uptime check, metadata scraping, and RSS scraping. "
                 f"Tasks are running in the background."
             )
-
         except ImportError:
-            messages.error(
-                request,
-                _("Scraping tasks are not available. Make sure radio_crestin_scraping app is installed.")
-            )
+            messages.error(request, _("Scraping tasks are not available. Make sure radio_crestin_scraping app is installed."))
         except Exception as e:
             if settings.DEBUG:
                 raise

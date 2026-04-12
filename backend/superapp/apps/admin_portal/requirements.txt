@@ -1,4 +1,4 @@
-django-unfold==0.53.*
+django-unfold==0.89.*
 django-svelte-jsoneditor==0.4.*
 django-import-export==4.3.*
 django-admin-confirm==1.0.*
