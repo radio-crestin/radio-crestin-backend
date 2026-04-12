@@ -142,9 +142,7 @@ class StationType:
 
     @strawberry.field
     def dash_stream_url(self) -> Optional[str]:
-        """DASH stream URL (Opus 32k + 96k, fMP4 — works with dash.js/Shaka)"""
-        if self.transcode_enabled:
-            return f"https://live.radiocrestin.ro/dash/{self.slug}/manifest.mpd"
+        """Deprecated: DASH/Opus has been removed. Returns None for backward compatibility."""
         return None
 
     @strawberry.field
