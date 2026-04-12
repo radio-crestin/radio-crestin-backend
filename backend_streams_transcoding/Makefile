@@ -11,22 +11,23 @@ dev: dev-build
 		-e STREAM_URL=$(STREAM_URL) \
 		-e S3_ENDPOINT="" \
 		-e S3_BUCKET="" \
-		-p 8080:8080 \
+		-e STREAMING_POD_API_KEY=dev-streaming-key \
+		-e DJANGO_GRAPHQL_URL=http://host.docker.internal:8080/v1/graphql \
+		-p 8085:8080 \
 		live-streaming-dev
 	@echo ""
 	@echo "=== Live stream dev running ==="
-	@echo "  Player:    http://localhost:8080/"
-	@echo "  AAC+ HLS:  http://localhost:8080/aac/index.m3u8"
-	@echo "  Opus HLS:  http://localhost:8080/opus/index.m3u8"
-	@echo "  Master:    http://localhost:8080/master.m3u8"
-	@echo "  Status:    http://localhost:8080/status.json"
-	@echo "  Health:    http://localhost:8080/health"
+	@echo "  Player:    http://localhost:8085/"
+	@echo "  AAC+ HLS:  http://localhost:8085/aac/index.m3u8"
+	@echo "  Master:    http://localhost:8085/master.m3u8"
+	@echo "  Status:    http://localhost:8085/status.json"
+	@echo "  Health:    http://localhost:8085/health"
 	@echo ""
 	@echo "  Logs:      make dev-logs"
 	@echo "  Stop:      make dev-stop"
 	@echo "  Test:      make dev-test"
 	@echo ""
-	@sleep 2 && open http://localhost:8080/
+	@sleep 2 && open http://localhost:8085/
 
 dev-logs:
 	docker logs -f live-stream-dev
@@ -41,7 +42,9 @@ dev-test: dev-build
 		-e STREAM_URL=$(STREAM_URL) \
 		-e S3_ENDPOINT="" \
 		-e S3_BUCKET="" \
-		-p 8080:8080 \
+		-e STREAMING_POD_API_KEY=dev-streaming-key \
+		-e DJANGO_GRAPHQL_URL=http://host.docker.internal:8080/v1/graphql \
+		-p 8085:8080 \
 		live-streaming-dev
 	@echo "Waiting for segments..."
 	@sleep 15

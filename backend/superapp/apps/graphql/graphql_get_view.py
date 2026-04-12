@@ -135,6 +135,10 @@ class GraphQLWithGetRedirectView(View):
         if not enabled:
             return False
 
+        # Never redirect API-authenticated requests (streaming pods, superuser API)
+        if request.headers.get('X-Streaming-Api-Key') or request.headers.get('Authorization'):
+            return False
+
         try:
             body = json.loads(request.body)
             query = body.get('query', '')

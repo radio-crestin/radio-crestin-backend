@@ -154,14 +154,20 @@ services:
       context: backend_streams_transcoding/live_streaming
       dockerfile: Dockerfile
     restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_healthy
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     ports:
-      - "8082:8080"  # NGINX streaming port
+      - "8085:8080"  # NGINX streaming port
     environment:
-      - STATION_SLUG=${DEV_STATION_SLUG:-radio-emanuel}
-      - STREAM_URL=${DEV_STREAM_URL:-https://stream2.radioemanuel.ro/}
+      - STATION_SLUG=${DEV_STATION_SLUG:-radio-eldad}
+      - STREAM_URL=${DEV_STREAM_URL:-https://c40.radioboss.fm/stream/170}
       - RETENTION_DAYS=7
-      - OPUS_BITRATE_LOW=32k
-      - OPUS_BITRATE_HIGH=64k
+      - STREAMING_POD_API_KEY=${STREAMING_POD_API_KEY:-dev-streaming-key}
+      - DJANGO_GRAPHQL_URL=http://web:8080/v1/graphql
     volumes:
       - live_streaming_data:/data
     logging:

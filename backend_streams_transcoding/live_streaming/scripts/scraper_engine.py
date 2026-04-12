@@ -52,8 +52,22 @@ def _graphql_request(query: str, variables: dict = None) -> dict:
             conn = HTTPSConnection(parsed.hostname, parsed.port or 443, timeout=10)
         else:
             conn = HTTPConnection(parsed.hostname, parsed.port or 80, timeout=10)
-        conn.request("POST", parsed.path, body=body, headers=headers)
+        path = parsed.path or "/"
+        conn.request("POST", path, body=body, headers=headers)
         resp = conn.getresponse()
+        # Follow redirects (Django APPEND_SLASH)
+        if resp.status in (301, 302, 307, 308):
+            location = resp.getheader("Location", "")
+            resp.read()
+            conn.close()
+            redirect_parsed = urlparse(location)
+            redirect_path = redirect_parsed.path or path
+            if parsed.scheme == "https":
+                conn = HTTPSConnection(parsed.hostname, parsed.port or 443, timeout=10)
+            else:
+                conn = HTTPConnection(parsed.hostname, parsed.port or 80, timeout=10)
+            conn.request("POST", redirect_path, body=body, headers=headers)
+            resp = conn.getresponse()
         data = json.loads(resp.read())
         conn.close()
         return data.get("data", {})
@@ -101,10 +115,15 @@ def _report_metadata(song_title, song_artist, thumbnail_url=None, listeners=None
     query = """
     mutation ($input: ReportStationMetadataInput!) {
         report_station_metadata(input: $input) {
-            success
-            message
-            song_id
-            thumbnail_url
+            ... on ReportStationMetadataResponse {
+                success
+                message
+                song_id
+                thumbnail_url
+            }
+            ... on OperationInfo {
+                messages { message kind field }
+            }
         }
     }
     """
@@ -489,6 +508,21 @@ def main():
         if should_scrape:
             scrapers = _config.get("scrapers", [])
             result = _run_scrapers(scrapers)
+
+            # Fallback: if external scrapers returned nothing, use ICY metadata
+            if not result:
+                icy_song = _get_id3_song()
+                if icy_song:
+                    artist, title = "", icy_song
+                    if " - " in icy_song:
+                        parts = icy_song.split(" - ", 1)
+                        artist, title = parts[0].strip(), parts[1].strip()
+                    result = {
+                        "title": title,
+                        "artist": artist,
+                        "raw_title": icy_song,
+                        "dirty": True,
+                    }
 
             if result:
                 resp = _report_metadata(
