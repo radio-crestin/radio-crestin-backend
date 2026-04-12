@@ -3,7 +3,6 @@ Health check HTTP server — reports unhealthy when ffmpeg stops producing segme
 
 Checks:
   1. At least one AAC .ts segment exists and is recent
-  2. At least one Opus .m4s segment exists and is recent
 
 Returns 200 "ok" when all checks pass, 503 with failure reason otherwise.
 Runs on 127.0.0.1:8082.
@@ -15,7 +14,6 @@ import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 AAC_SEGMENTS_DIR = "/data/hls/aac/segments"
-OPUS_SEGMENTS_DIR = "/data/hls/opus/segments"
 HEALTH_MAX_AGE = int(os.environ.get("HEALTH_MAX_AGE", "20"))
 LISTEN_PORT = 8082
 
@@ -57,9 +55,6 @@ def _check_dir(directory, extension, label):
 
 def check_health():
     ok, reason = _check_dir(AAC_SEGMENTS_DIR, ".ts", "aac")
-    if not ok:
-        return False, reason
-    ok, reason = _check_dir(OPUS_SEGMENTS_DIR, ".m4s", "opus")
     if not ok:
         return False, reason
     return True, ""

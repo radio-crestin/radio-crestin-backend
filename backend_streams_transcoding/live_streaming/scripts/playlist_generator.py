@@ -7,16 +7,16 @@ Supports:
   - Historical playback: timestamp=<epoch> starts from any point
   - Gap detection: EXT-X-DISCONTINUITY for missing segments
   - S3-backed 7-day history via segment index
+  - Rich metadata: EXT-X-DATERANGE with title, artist, thumbnail URL
 
 Endpoints (proxied by NGINX on port 8080):
-  /master.m3u8                              → Master playlist
-  /aac/index.m3u8                           → AAC+ live playlist
-  /opus/index.m3u8                          → Opus live playlist
-  /aac/index.m3u8?timestamp=<epoch>         → Historical playback
-  /aac/index.m3u8?_HLS_msn=N               → Blocking reload (wait for segment N)
-  /aac/index.m3u8?_HLS_msn=N&_HLS_skip=YES → Blocking + skip old segments
-  /status.json                              → Status with gaps
-  /availability.json                        → Full availability map
+  /master.m3u8                              -> Master playlist
+  /aac/index.m3u8                           -> AAC+ live playlist
+  /aac/index.m3u8?timestamp=<epoch>         -> Historical playback
+  /aac/index.m3u8?_HLS_msn=N               -> Blocking reload (wait for segment N)
+  /aac/index.m3u8?_HLS_msn=N&_HLS_skip=YES -> Blocking + skip old segments
+  /status.json                              -> Status with gaps
+  /availability.json                        -> Full availability map
 
 Runs on 127.0.0.1:8081 (threaded for blocking reload).
 """
@@ -32,8 +32,7 @@ from urllib.parse import urlparse, parse_qs
 SEGMENT_DURATION = int(os.environ.get("SEGMENT_DURATION", "6"))
 LIVE_WINDOW_SIZE = 65
 BLOCK_TIMEOUT = int(os.environ.get("HLS_BLOCK_TIMEOUT", "12"))
-# CAN-SKIP-UNTIL: skip segments older than this many seconds
-SKIP_UNTIL = SEGMENT_DURATION * 6  # 36s default
+SKIP_UNTIL = SEGMENT_DURATION * 6
 
 CODECS = {
     "aac": {
@@ -43,18 +42,10 @@ CODECS = {
         "prefix": "segments/",
         "init_segment": None,
     },
-    "opus": {
-        "ffmpeg_m3u8": "/data/hls/opus/live.m3u8",
-        "segments_dir": "/data/hls/opus/segments",
-        "extension": ".m4s",
-        "prefix": "segments/",
-        "init_segment": "init.mp4",
-    },
 }
 
 S3_INDEX_PATH = "/data/s3_index.json"
 
-# (filename, duration, program_date_time)
 SegmentInfo = tuple
 
 _cache: dict[str, tuple[list[SegmentInfo], float]] = {}
@@ -94,7 +85,6 @@ def parse_ffmpeg_m3u8(codec: str) -> list[SegmentInfo]:
 
 
 def _build_segments(codec: str, ffmpeg_segs, disk_nums, extra_nums=None):
-    """Build segment list from FFmpeg playlist + disk + optional extra nums."""
     cfg = CODECS[codec]
     ext = cfg["extension"]
     ffmpeg_files = {s[0] for s in ffmpeg_segs}
@@ -128,7 +118,6 @@ def _build_segments(codec: str, ffmpeg_segs, disk_nums, extra_nums=None):
                 est_epoch = first_epoch + (num - first_num) * avg_dur
                 pdt = _epoch_to_pdt(est_epoch)
             elif num > 0:
-                # Segment numbers ARE epoch timestamps
                 pdt = _epoch_to_pdt(float(num))
             result.append((fname, avg_dur, pdt))
 
@@ -152,7 +141,6 @@ def _scan_disk(codec: str) -> set[int]:
 
 
 def get_local_segments(codec: str) -> list[SegmentInfo]:
-    """Fast: disk-only segments for live playlists. No S3 index scan."""
     now = time.time()
     key = codec + "_local"
     cached = _cache.get(key)
@@ -167,7 +155,6 @@ def get_local_segments(codec: str) -> list[SegmentInfo]:
 
 
 def get_all_segments(codec: str) -> list[SegmentInfo]:
-    """Full: disk + S3 index for historical queries."""
     now = time.time()
     cached = _cache.get(codec)
     if cached and now - cached[1] < _CACHE_TTL:
@@ -200,7 +187,6 @@ _LIVE_PLAYLIST_TTL = 2
 
 
 def _get_live_playlist(codec: str) -> str | None:
-    """Get pre-built live playlist string, cached for 2s."""
     now = time.time()
     cached = _live_playlist_cache.get(codec)
     if cached and now - cached[1] < _LIVE_PLAYLIST_TTL:
@@ -217,11 +203,9 @@ def _get_live_playlist(codec: str) -> str | None:
 
 
 def _wait_for_segment(codec: str, msn: int) -> bool:
-    """Block until segment msn appears. Returns True if found, False on timeout."""
     ext = CODECS[codec]["extension"]
     deadline = time.time() + BLOCK_TIMEOUT
     while time.time() < deadline:
-        # Clear cache to get fresh data
         _cache.pop(codec + "_local", None)
         segs = get_local_segments(codec)
         if segs:
@@ -293,7 +277,6 @@ _SONG_CACHE_TTL = 3
 
 
 def _get_songs() -> list[dict]:
-    """Load song metadata for EXT-X-DATERANGE injection."""
     global _song_cache
     now = time.time()
     if _song_cache and now - _song_cache[1] < _SONG_CACHE_TTL:
@@ -313,22 +296,34 @@ def _get_songs() -> list[dict]:
 
 
 def _daterange_for_song(song: dict, idx: int) -> str:
-    """Generate an EXT-X-DATERANGE tag for a song."""
+    """Generate an EXT-X-DATERANGE tag for a song with rich metadata.
+
+    Embeds: title, artist, thumbnail URL, song_id, station_id so HLS clients
+    can display real-time metadata before fetching the full API response.
+    """
     start_iso = song.get("started_at_iso", "")
     if not start_iso:
         start_iso = _epoch_to_pdt(song.get("started_at", 0))
-    # Convert to proper ISO format for HLS (with Z or +00:00)
     start_iso = start_iso.replace("+0000", "Z")
     title = song.get("title", song.get("raw", "")).replace('"', "'")
     artist = song.get("artist", "").replace('"', "'")
+    thumbnail = song.get("thumbnail_url", "").replace('"', "'")
+    song_id = song.get("song_id")
+    station_id = song.get("station_id")
     duration = song.get("duration_seconds")
     dur_attr = f',DURATION={duration}' if duration else ""
+    thumb_attr = f',X-THUMBNAIL-URL="{thumbnail}"' if thumbnail else ""
+    song_id_attr = f',X-SONG-ID="{song_id}"' if song_id else ""
+    station_id_attr = f',X-STATION-ID="{station_id}"' if station_id else ""
     return (
         f'#EXT-X-DATERANGE:ID="song-{idx}",'
         f'START-DATE="{start_iso}",'
         f'CLASS="com.radiocrestin.song",'
         f'X-TITLE="{title}",'
         f'X-ARTIST="{artist}"'
+        f'{thumb_attr}'
+        f'{song_id_attr}'
+        f'{station_id_attr}'
         f'{dur_attr}'
     )
 
@@ -342,13 +337,6 @@ def format_playlist(
     server_control=False,
     detect_gaps=True,
 ) -> str:
-    """Format an HLS playlist.
-
-    Args:
-        segs: Segments to include (after any skipping).
-        skip_count: Number of segments skipped (for EXT-X-SKIP).
-        server_control: Add EXT-X-SERVER-CONTROL for delivery directives.
-    """
     cfg = CODECS[codec]
     prefix = cfg["prefix"]
     init_seg = cfg["init_segment"]
@@ -362,8 +350,6 @@ def format_playlist(
     except ValueError:
         first_seq = 0
 
-    # If segments were skipped, the media sequence is the first included
-    # but we need to report the original sequence minus skipped
     effective_seq = first_seq - skip_count
 
     max_dur = max(s[1] for s in segs)
@@ -392,9 +378,7 @@ def format_playlist(
     if skip_count > 0:
         lines.append(f"#EXT-X-SKIP:SKIPPED-SEGMENTS={skip_count}")
 
-    # Load songs for EXT-X-DATERANGE injection
     songs = _get_songs()
-    song_idx = 0  # Track which songs have been emitted
     emitted_songs = set()
 
     prev_num = None
@@ -406,14 +390,12 @@ def format_playlist(
             if diff > 2:
                 lines.append("#EXT-X-DISCONTINUITY")
 
-        # Insert EXT-X-DATERANGE for any song that starts at/before this segment
         seg_epoch = _parse_pdt(pdt) if pdt else 0
         if seg_epoch > 0:
             for si, song in enumerate(songs):
                 s_start = song.get("started_at", 0)
                 if si in emitted_songs:
                     continue
-                # Song starts within this segment's time range
                 if s_start >= seg_epoch and s_start < seg_epoch + dur + 1:
                     lines.append(_daterange_for_song(song, si))
                     emitted_songs.add(si)
@@ -436,8 +418,6 @@ MASTER_PLAYLIST = """#EXTM3U
 
 #EXT-X-STREAM-INF:BANDWIDTH=64000,CODECS="mp4a.40.5",AUDIO="audio"
 aac/index.m3u8
-#EXT-X-STREAM-INF:BANDWIDTH=48000,CODECS="opus",AUDIO="audio"
-opus/index.m3u8
 """
 
 
@@ -458,11 +438,7 @@ class PlaylistHandler(BaseHTTPRequestHandler):
             return
 
         codec = None
-        if parsed.path == "/aac/index.m3u8":
-            codec = "aac"
-        elif parsed.path == "/opus/index.m3u8":
-            codec = "opus"
-        elif parsed.path == "/index.m3u8":
+        if parsed.path in ("/aac/index.m3u8", "/index.m3u8"):
             codec = "aac"
 
         if codec is None:
@@ -474,7 +450,6 @@ class PlaylistHandler(BaseHTTPRequestHandler):
         msn_param = params.get("_HLS_msn", [None])[0]
         skip_param = params.get("_HLS_skip", [None])[0]
 
-        # ── Blocking reload: _HLS_msn=N ──
         if msn_param is not None:
             try:
                 msn = int(msn_param)
@@ -482,23 +457,15 @@ class PlaylistHandler(BaseHTTPRequestHandler):
                 self.send_error(400, "Invalid _HLS_msn")
                 return
 
-            # Block until segment msn is available
             found = _wait_for_segment(codec, msn)
-            if not found:
-                # Timeout — return what we have
-                pass
 
             segs = get_local_segments(codec)
             if not segs:
                 self.send_error(503, "No segments yet")
                 return
 
-            # Handle _HLS_skip=YES: skip segments the player already has
             skip_count = 0
             if skip_param and skip_param.upper() == "YES":
-                # Player has everything before msn.
-                # Keep only the last SKIP_UNTIL/SEGMENT_DURATION segments before msn,
-                # plus everything from msn onward.
                 keep_before = int(SKIP_UNTIL / SEGMENT_DURATION)
                 new_segs = []
                 for i, s in enumerate(segs):
@@ -512,7 +479,6 @@ class PlaylistHandler(BaseHTTPRequestHandler):
                     skip_count = max(0, len(segs) - LIVE_WINDOW_SIZE)
                 segs = new_segs
             else:
-                # No skip — return standard live window
                 if len(segs) > LIVE_WINDOW_SIZE:
                     segs = segs[-LIVE_WINDOW_SIZE:]
 
@@ -526,7 +492,6 @@ class PlaylistHandler(BaseHTTPRequestHandler):
             self._send_m3u8(playlist)
             return
 
-        # ── Historical playback: timestamp=<epoch> ──
         if ts_param:
             try:
                 target = float(ts_param)
@@ -565,7 +530,6 @@ class PlaylistHandler(BaseHTTPRequestHandler):
             self._send_m3u8(playlist, cache="no-store, must-revalidate")
             return
 
-        # ── Standard live playlist (cached in memory) ──
         playlist = _get_live_playlist(codec)
         if not playlist:
             self.send_error(503, "No segments yet")
@@ -573,7 +537,6 @@ class PlaylistHandler(BaseHTTPRequestHandler):
         self._send_m3u8(playlist)
 
     def _send_status(self):
-        # Include current song metadata
         metadata = None
         try:
             with open("/data/metadata/index.json", "r") as f:
@@ -581,7 +544,6 @@ class PlaylistHandler(BaseHTTPRequestHandler):
         except (FileNotFoundError, json.JSONDecodeError):
             pass
 
-        # Pod start time for gap tracking
         pod_started_at = None
         try:
             with open("/data/pod_started_at", "r") as f:
@@ -705,7 +667,6 @@ class PlaylistHandler(BaseHTTPRequestHandler):
 
 
 class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
-    """Handle each request in a new thread (needed for blocking reload)."""
     daemon_threads = True
 
 

@@ -3,10 +3,7 @@ S3 uploader — mirrors station output to S3.
 
 Layout on S3 (mirrors local):
   <station>/hls/aac/segments/<epoch>.ts     AAC+ HLS segments
-  <station>/hls/opus/segments/<epoch>.m4s   Opus HLS fMP4 segments
-  <station>/hls/opus/init.mp4               Opus init segment
   <station>/aac/index.m3u8                  AAC+ playlist
-  <station>/opus/index.m3u8                 Opus playlist
   <station>/master.m3u8                     Master playlist
 """
 
@@ -31,7 +28,7 @@ UPLOAD_INTERVAL = int(os.environ.get("UPLOAD_INTERVAL", "5"))
 _uploaded: set[str] = set()
 S3_INDEX_PATH = "/data/s3_index.json"
 # Track uploaded segment numbers per codec for the index
-_uploaded_segments: dict[str, set[int]] = {"aac": set(), "opus": set()}
+_uploaded_segments: dict[str, set[int]] = {"aac": set()}
 
 
 def _sign_v4(method, path, headers_to_sign, payload_hash, timestamp, region, service="s3"):
@@ -52,15 +49,13 @@ def _sign_v4(method, path, headers_to_sign, payload_hash, timestamp, region, ser
 
 
 def _content_type(key):
-    if key.endswith(".m4s"): return "video/mp4"
-    if key.endswith(".mp4"): return "video/mp4"
     if key.endswith(".ts"): return "video/mp2t"
     if key.endswith(".m3u8"): return "application/vnd.apple.mpegurl"
     return "application/octet-stream"
 
 
 def _cache_control(key):
-    if key.endswith(".m4s") or key.endswith(".ts") or key.endswith(".mp4"):
+    if key.endswith(".ts"):
         return "public, max-age=31536000, immutable"
     return "public, max-age=5"
 
@@ -132,7 +127,6 @@ def restore_index_from_s3():
 
     for codec, prefix, ext in [
         ("aac", f"{STATION_SLUG}/hls/aac/segments/", ".ts"),
-        ("opus", f"{STATION_SLUG}/hls/opus/segments/", ".m4s"),
     ]:
         marker = ""
         total = 0
@@ -301,14 +295,10 @@ def _download_s3_file(s3_key: str, local_path: str) -> bool:
 def sync_all():
     # AAC segments
     sync_segments("/data/hls/aac/segments", "hls/aac/segments", ".ts", "aac")
-    # Opus segments
-    sync_segments("/data/hls/opus/segments", "hls/opus/segments", ".m4s", "opus")
-    # Opus init segment (always re-upload)
-    upload_file("/data/hls/opus/init.mp4", f"{STATION_SLUG}/hls/opus/init.mp4")
     # Metadata
     sync_metadata()
     # Playlists from generator
-    for path in ("/master.m3u8", "/aac/index.m3u8", "/opus/index.m3u8"):
+    for path in ("/master.m3u8", "/aac/index.m3u8"):
         try:
             conn = HTTPConnection("127.0.0.1", 8081, timeout=5)
             conn.request("GET", path)
