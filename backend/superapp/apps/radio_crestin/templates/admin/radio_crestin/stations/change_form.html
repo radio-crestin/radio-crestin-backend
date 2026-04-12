@@ -1,0 +1,83 @@
+{% extends "admin/change_form.html" %}
+{% load i18n unfold %}
+
+{#
+  Unified tab bar: merges fieldset tabs + inline tabs into ONE single tab bar.
+  Uses activeTab (top-level Alpine.js state from unfold skeleton) for everything.
+  Prefixes: "fieldset-<slug>" for field groups, "inline-<prefix>" for inlines.
+#}
+
+{% block field_sets %}
+    {% with has_conditional_display=adminform.model_admin.conditional_fields %}
+        {# Render fieldsets WITHOUT "tab" class normally (always visible) #}
+        {% for fieldset in adminform %}
+            {% if "tab" not in fieldset.classes %}
+                {% include 'admin/includes/fieldset.html' %}
+            {% endif %}
+        {% endfor %}
+
+        {% with tabs=adminform|tabs %}
+            {% if tabs or inline_admin_formsets %}
+                {# Set initial activeTab to first fieldset tab #}
+                {% for fieldset in tabs %}
+                    {% if forloop.first %}
+                        <div x-init="activeTab = (window.location.hash.replace('#','') || 'fieldset-{{ fieldset.name|unicoded_slugify }}')"></div>
+                    {% endif %}
+                {% endfor %}
+
+                {# ── Unified Tab Bar ── #}
+                <div class="mb-4">
+                    <nav class="bg-base-100 cursor-pointer flex flex-col font-medium gap-1 p-1 rounded-default text-important dark:border-base-700 md:inline-flex md:flex-row md:flex-wrap md:w-auto dark:bg-white/[.06] *:flex *:flex-row *:gap-1 *:items-center *:px-2.5 *:py-[5px] *:rounded-default *:hover:bg-base-700/[.06] *:dark:hover:bg-white/[.06] [&>.active]:bg-white [&>.active]:shadow-xs [&>.active]:dark:bg-base-700 [&>.active]:hover:bg-white [&>.active]:dark:hover:bg-base-700">
+                        {# Fieldset tabs #}
+                        {% for fieldset in tabs %}
+                            <a x-on:click.prevent="activeTab = 'fieldset-{{ fieldset.name|unicoded_slugify }}'"
+                               x-bind:class="activeTab == 'fieldset-{{ fieldset.name|unicoded_slugify }}' && 'active'">
+                                {{ fieldset.name }}
+                                {% with error_count=fieldset|tabs_errors_count %}
+                                    {% if error_count > 0 %}
+                                        <span class="bg-red-500 inline-flex font-semibold items-center justify-center leading-none rounded-full w-4 h-4 text-white relative text-center text-[11px]">
+                                            {{ error_count }}
+                                        </span>
+                                    {% endif %}
+                                {% endwith %}
+                            </a>
+                        {% endfor %}
+
+                        {# Inline tabs #}
+                        {% for inline_admin_formset in inline_admin_formsets %}
+                            <a x-on:click.prevent="activeTab = 'inline-{{ inline_admin_formset.formset.prefix|slugify }}'"
+                               x-bind:class="activeTab == 'inline-{{ inline_admin_formset.formset.prefix|slugify }}' && 'active'">
+                                {% if inline_admin_formset.formset.max_num == 1 %}
+                                    {{ inline_admin_formset.opts.verbose_name|capfirst }}
+                                {% else %}
+                                    {{ inline_admin_formset.opts.verbose_name_plural|capfirst }}
+                                {% endif %}
+                                {% if inline_admin_formset.formset.initial_form_count %}
+                                    <span class="bg-base-200 dark:bg-base-700 inline-flex font-semibold items-center justify-center leading-none rounded-full min-w-4 h-4 px-1 text-center text-[11px]">
+                                        {{ inline_admin_formset.formset.initial_form_count }}
+                                    </span>
+                                {% endif %}
+                            </a>
+                        {% endfor %}
+                    </nav>
+                </div>
+
+                {# ── Fieldset Tab Content ── #}
+                {% for fieldset in tabs %}
+                    <div x-show="activeTab == 'fieldset-{{ fieldset.name|unicoded_slugify }}'">
+                        {% include 'admin/includes/fieldset.html' with stacked=1 %}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    {% endwith %}
+{% endblock %}
+
+{% block inline_field_sets %}
+    {# ── Inline Tab Content ── #}
+    {% for inline_admin_formset in inline_admin_formsets %}
+        <div x-show="activeTab == 'inline-{{ inline_admin_formset.formset.prefix|slugify }}'">
+            {% include inline_admin_formset.opts.template %}
+        </div>
+    {% endfor %}
+{% endblock %}
