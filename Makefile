@@ -74,29 +74,11 @@ restore_backup:
 	docker-compose run web python3 manage.py restore_backup --file backups/backup.zip --backup-type essential_data
 
 # Release
+create-new-release-locally:
+	bash deploy/scripts/create-new-release.sh local
+
 create-new-release:
-	@set -e; \
-	ROOT_DIR="$$(pwd)"; \
-	CONFIG_ENV_YAML="$$ROOT_DIR/deploy/environments/radio_crestin_production/secrets/config_env.yaml"; \
-	export CONFIG_YAML_PATH="$$CONFIG_ENV_YAML"; \
-	CURRENT_TAG=$$(grep 'IMAGES_TAG:' "$$CONFIG_ENV_YAML" | awk '{print $$2}'); \
-	MAJOR=$$(echo "$$CURRENT_TAG" | sed 's/v//' | cut -d. -f1); \
-	MINOR=$$(echo "$$CURRENT_TAG" | sed 's/v//' | cut -d. -f2); \
-	PATCH=$$(echo "$$CURRENT_TAG" | sed 's/v//' | cut -d. -f3); \
-	NEXT_PATCH=$$((PATCH + 1)); \
-	NEXT_TAG="v$$MAJOR.$$MINOR.$$NEXT_PATCH"; \
-	echo "=== Creating new release: $$CURRENT_TAG -> $$NEXT_TAG ==="; \
-	echo "Step 1: Bumping IMAGES_TAG to $$NEXT_TAG..."; \
-	sed -i '' "s/IMAGES_TAG: $$CURRENT_TAG/IMAGES_TAG: $$NEXT_TAG/" "$$CONFIG_ENV_YAML"; \
-	echo "Step 2: Building all Docker images..."; \
-	cd "$$ROOT_DIR/deploy/environments/radio_crestin_production" && bash ../../scripts/build-all-docker-images.sh; \
-	echo "Step 3: Generating manifests..."; \
-	cd "$$ROOT_DIR/deploy/environments/radio_crestin_production" && bash ../../scripts/generate-manifests.sh; \
-	echo "Step 4: Committing and pushing deploy..."; \
-	cd "$$ROOT_DIR/deploy" && git add -A && git commit -m "chore: release $$NEXT_TAG" && git push; \
-	echo "Step 5: Updating deploy submodule reference..."; \
-	cd "$$ROOT_DIR" && git add deploy && git commit -m "chore: update deploy submodule to $$NEXT_TAG"; \
-	echo "=== Release $$NEXT_TAG created successfully ==="
+	bash deploy/scripts/create-new-release.sh remote
 
 # Live Streaming Dev
 STREAM_STATION ?= radio-eldad

@@ -10,6 +10,7 @@ def extend_superapp_settings(main_settings):
     main_settings['TEMPLATES'][0]['DIRS'] += [
         main_settings['BASE_DIR'] / "superapp" / "apps" / "admin_portal" / "templates",
     ]
+    debug = main_settings.get('DEBUG', False)
     main_settings['INSTALLED_APPS'] = [
         'admin_confirm',
         'unfold',
@@ -23,7 +24,7 @@ def extend_superapp_settings(main_settings):
         'django_svelte_jsoneditor',
         'superapp.apps.admin_portal',
     ] + main_settings['INSTALLED_APPS'] + [
-        "debug_toolbar",
+        *(["debug_toolbar"] if debug else []),
         "import_export",
         "django_cleanup.apps.CleanupConfig",
     ]

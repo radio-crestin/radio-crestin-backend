@@ -9,3 +9,4 @@ class RadioCrestinConfig(AppConfig):
 
     def ready(self):
         import superapp.apps.radio_crestin.signals.station_config_version  # noqa: F401
+        import superapp.apps.radio_crestin.signals.auto_create_id3_fetcher  # noqa: F401

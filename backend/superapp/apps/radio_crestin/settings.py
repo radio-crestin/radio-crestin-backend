@@ -110,6 +110,12 @@ def extend_superapp_settings(main_settings):
                     "permission": lambda request: request.user.has_perm("radio_crestin.view_reviews"),
                 },
                 {
+                    "title": lambda request: _("Share Links"),
+                    "icon": "share",
+                    "link": reverse_lazy("admin:radio_crestin_sharelink_changelist"),
+                    "permission": lambda request: request.user.has_perm("radio_crestin.view_sharelink"),
+                },
+                {
                     "title": lambda request: _("App Users"),
                     "icon": "people",
                     "link": reverse_lazy("admin:radio_crestin_appusers_changelist"),

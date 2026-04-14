@@ -58,7 +58,7 @@ start_gunicorn() {
         log_message "Starting Django $mode server (attempt $((RESTART_COUNT + 1))/$MAX_RESTARTS)..."
         
         # Start Gunicorn in background
-        gunicorn --config "$config_file" superapp.wsgi:application &
+        gunicorn --config "$config_file" superapp.asgi:application &
         GUNICORN_PID=$!
         
         log_message "Gunicorn process started with PID: $GUNICORN_PID"
@@ -120,11 +120,5 @@ trap cleanup SIGTERM SIGINT SIGQUIT
 if [ "$DEBUG" = "true" ] || [ "$DEBUG" = "1" ] || [ "$DEBUG" = "t" ]; then
     start_gunicorn "/app/scripts/gunicorn-dev.py" "development"
 else
-    # Use quiet configuration if QUIET_MODE is set
-    if [ "$QUIET_MODE" = "true" ] || [ "$QUIET_MODE" = "1" ]; then
-        log_message "Using quiet Gunicorn configuration (suppressing connection errors)"
-        start_gunicorn "/app/scripts/gunicorn_quiet.py" "production (quiet)"
-    else
-        start_gunicorn "/app/scripts/gunicorn.py" "production"
-    fi
+    start_gunicorn "/app/scripts/gunicorn.py" "production"
 fi

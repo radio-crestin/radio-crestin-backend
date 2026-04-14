@@ -23,7 +23,7 @@ def test_config_file(config_path, config_name):
         spec.loader.exec_module(config_module)
         
         # Check required attributes
-        required_attrs = ['bind', 'workers', 'worker_class', 'wsgi_module']
+        required_attrs = ['bind', 'workers', 'worker_class']
         for attr in required_attrs:
             if not hasattr(config_module, attr):
                 print(f"❌ Missing required attribute: {attr}")

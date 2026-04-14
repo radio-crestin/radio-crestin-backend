@@ -211,10 +211,10 @@ all_directives = find_graphql_directives()
 
 # Collect base extensions
 base_extensions = [
+    ParserCache(maxsize=1000),
     DjangoValidationCache(
         timeout=7 * 24 * 60 * 60,  # Cache for 7 days
     ),
-    ParserCache(maxsize=1000),
     DjangoOptimizerExtension(
         enable_only_optimization = False, # This is creating a problem with django_multitenant
         enable_select_related_optimization = True,
@@ -224,7 +224,7 @@ base_extensions = [
         execution_context = None,
         prefetch_custom_queryset = True,
     ),
-    SQLPrintingExtension(),
+    *([] if os.environ.get('DEBUG', 'false') != 'true' else [SQLPrintingExtension()]),
     GraphQLDebugExtension(),
 ]
 

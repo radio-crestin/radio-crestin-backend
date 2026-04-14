@@ -8,55 +8,58 @@
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script crossorigin src="https://unpkg.com/htm@3/dist/htm.umd.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,system-ui,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f0f1a;color:#e0e0e0;overflow-x:hidden}
-:root{--accent:#00d4ff;--bg-card:#161625;--bg-dark:#0a0a14;--border:#2a2a3a;--text-dim:#666;--gap-red:#ff4444;--song-a:#1a3a6a;--song-b:#142a52}
+:root{--accent:#00d4ff;--bg-card:#161625;--bg-dark:#0a0a14;--border:#2a2a3a;--text-dim:#666;--green:#00c853;--red:#ff4444}
 .container{max-width:900px;margin:0 auto;padding:12px}
 .card{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.row.spread{justify-content:space-between}
 button{background:#1a2a4a;color:#ddd;border:1px solid var(--border);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit;transition:background .15s}
 button:hover{background:#243a5a}
 button:active{background:var(--accent);color:#000}
 button.active{background:var(--accent);color:#000;font-weight:600}
-button.live-btn{background:var(--accent);color:#000;font-weight:700}
-input,select{background:var(--bg-dark);color:#ddd;border:1px solid var(--border);padding:6px 10px;border-radius:6px;font-size:13px;font-family:inherit}
-input:focus,select:focus{outline:none;border-color:var(--accent)}
-label{font-size:12px;color:var(--text-dim)}
 audio{width:100%;border-radius:6px;margin:6px 0}
+
 .now-playing{display:flex;align-items:center;gap:14px;padding:4px 0}
-.now-icon{width:44px;height:44px;background:#1a2a4a;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
-.now-title{font-size:15px;color:var(--accent);font-weight:600}
-.now-artist{font-size:13px;color:#999}
-.timeline-wrap{margin:8px 0}
-.timeline-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-bottom:3px}
-.timeline-labels .cur{color:var(--accent)}
-.tl-avail{height:10px;background:var(--bg-dark);border-radius:4px 4px 0 0;position:relative;cursor:pointer;overflow:hidden}
-.tl-songs{height:26px;background:var(--bg-dark);border-radius:0 0 4px 4px;position:relative;cursor:pointer;overflow:hidden}
-.tl-cursor{position:absolute;top:0;width:2px;height:100%;background:var(--accent);z-index:4;pointer-events:none;transition:left .3s linear}
-.tl-tooltip{display:none;position:absolute;bottom:42px;background:var(--bg-card);border:1px solid #444;padding:5px 10px;border-radius:6px;font-size:12px;white-space:nowrap;pointer-events:none;z-index:5;box-shadow:0 4px 12px rgba(0,0,0,.6)}
-.tl-range{position:absolute;top:0;height:100%;border-radius:3px}
-.tl-gap{position:absolute;top:0;height:100%;background:var(--gap-red);opacity:.6;border-radius:2px}
-.tl-song{position:absolute;top:0;height:100%;overflow:hidden;border-right:1px solid rgba(255,255,255,.1);transition:opacity .15s}
-.tl-song:hover{opacity:.85}
-.tl-song span{position:absolute;left:5px;top:5px;font-size:10px;color:rgba(255,255,255,.75);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 10px);pointer-events:none}
-.tl-legend{display:flex;gap:12px;margin-top:4px;font-size:10px;color:var(--text-dim)}
-.tl-legend i{display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:middle;margin-right:3px}
-.playlist-item{display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;font-size:13px}
-.playlist-item:hover{background:rgba(0,212,255,.05)}
-.playlist-item.active{background:rgba(0,212,255,.1)}
-.playlist-item .time{color:var(--text-dim);margin-right:8px;flex-shrink:0;font-variant-numeric:tabular-nums}
-.playlist-item .song{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.playlist-item .dur{color:var(--text-dim);margin-left:8px;flex-shrink:0;font-variant-numeric:tabular-nums}
-.playlist-item.active .song{color:var(--accent)}
+.now-thumb{width:52px;height:52px;border-radius:10px;object-fit:cover;flex-shrink:0}
+.now-icon{width:52px;height:52px;background:#1a2a4a;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.now-info{flex:1;min-width:0}
+.now-title{font-size:15px;color:var(--accent);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.now-artist{font-size:13px;color:#999;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.now-meta{display:flex;gap:8px;margin-top:3px;font-size:11px;color:var(--text-dim);align-items:center;flex-wrap:wrap}
+.badge{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600}
+.badge-up{background:rgba(0,200,83,.15);color:var(--green)}
+.badge-down{background:rgba(255,68,68,.15);color:var(--red)}
+.badge-listeners{background:rgba(0,212,255,.1);color:var(--accent)}
+
+.history-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px}
+.history-item:last-child{border-bottom:none}
+.history-item.playing{background:rgba(0,212,255,.1);border-left:3px solid var(--accent);padding-left:7px}
+.history-item.playing .history-song{color:var(--accent)}
+.history-item.playing .history-play{opacity:1;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.history-thumb{width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0}
+.history-thumb-placeholder{width:36px;height:36px;border-radius:6px;background:#1a2a4a;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.history-info{flex:1;min-width:0}
+.history-song{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.history-artist{font-size:12px;color:#999;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.history-time{color:var(--text-dim);font-size:11px;flex-shrink:0;font-variant-numeric:tabular-nums}
+.history-listeners{font-size:11px;color:var(--accent);flex-shrink:0}
+.history-play{color:var(--accent);font-size:14px;flex-shrink:0}
+
+.tab-bar{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:8px}
+.tab-bar button{border:none;border-bottom:2px solid transparent;border-radius:0;background:none;color:var(--text-dim);padding:6px 14px;font-size:12px}
+.tab-bar button.active{border-bottom-color:var(--accent);color:var(--accent);background:none}
+.tab-bar button:hover{color:#ccc;background:none}
+
 .stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:4px;font-size:12px}
 .stat{padding:4px 8px;background:var(--bg-dark);border-radius:4px;display:flex;justify-content:space-between}
 .stat .k{color:var(--text-dim)}.stat .v{color:var(--accent)}
-.url-bar{display:flex;gap:6px;margin-top:6px}
-.url-bar input{flex:1;font-size:12px;color:var(--accent);cursor:pointer}
+
 .section-title{font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;font-weight:600}
+.error-msg{color:var(--red);font-size:12px;padding:8px;background:rgba(255,68,68,.08);border-radius:4px;margin-bottom:8px}
+
 @media(max-width:600px){
   .container{padding:8px}
   .card{padding:8px;margin-bottom:8px}
@@ -64,7 +67,6 @@ audio{width:100%;border-radius:6px;margin:6px 0}
   button{padding:5px 10px;font-size:12px}
   .stats{grid-template-columns:1fr 1fr}
   .now-title{font-size:14px}
-  .tl-songs{height:22px}
 }
 </style>
 </head>
@@ -74,7 +76,13 @@ audio{width:100%;border-radius:6px;margin:6px 0}
 const h = htm.bind(React.createElement);
 const{useState,useEffect,useRef,useCallback}=React;
 
+// API base: ?api=<url> param > same-origin (when served from Django) > localhost fallback
+const _params=new URLSearchParams(location.search);
+const API_BASE = _params.get('api') || (location.port==='8085' ? 'http://localhost:8080' : 'https://api.radiocrestin.ro');
+
 function detectBaseUrl(){
+  const hlsParam=_params.get('hls');
+  if(hlsParam)return hlsParam.replace(/\/$/,'');
   const p=location.pathname;
   const i=p.indexOf('/player.html');
   if(i>0)return location.origin+p.substring(0,i);
@@ -82,52 +90,138 @@ function detectBaseUrl(){
   return location.origin;
 }
 
-const retryPolicy={maxNumRetry:5,retryDelayMs:1000,maxRetryDelayMs:8000};
+function detectStationSlug(){
+  const params=new URLSearchParams(location.search);
+  if(params.get('station'))return params.get('station');
+  const p=location.pathname.replace(/\/player\.html$/,'').replace(/\/$/,'');
+  const parts=p.split('/').filter(Boolean);
+  return parts.length>0?parts[parts.length-1]:null;
+}
+
+const retryPolicy={maxNumRetry:3,retryDelayMs:1000,maxRetryDelayMs:4000};
 const hlsRetryConfig={
-  fragLoadPolicy:{default:{maxTimeToFirstByteMs:10000,maxLoadTimeMs:30000,timeoutRetry:retryPolicy,errorRetry:retryPolicy}},
   manifestLoadPolicy:{default:{maxTimeToFirstByteMs:10000,maxLoadTimeMs:15000,timeoutRetry:retryPolicy,errorRetry:retryPolicy}},
-  playlistLoadPolicy:{default:{maxTimeToFirstByteMs:15000,maxLoadTimeMs:20000,timeoutRetry:retryPolicy,errorRetry:retryPolicy}},
+  playlistLoadPolicy:{default:{maxTimeToFirstByteMs:10000,maxLoadTimeMs:15000,timeoutRetry:retryPolicy,errorRetry:retryPolicy}},
 };
 
-function fmt(s){if(!s)return'';const m=Math.floor(s/60),ss=Math.round(s%60);return m+':'+(ss<10?'0':'')+ss}
-function fmtBytes(b){return b>=1048576?(b/1048576).toFixed(1)+'MB':b>=1024?(b/1024).toFixed(1)+'KB':Math.round(b)+'B'}
 function qs(params){const p=new URLSearchParams(params);p.set('ref','dev-player');p.set('s','dev-user');return '?'+p.toString()}
+function ts10(){return Math.floor(Date.now()/10000)*10}
 
 function App(){
   const[baseUrl]=useState(detectBaseUrl);
+  const[stationSlug,setStationSlug]=useState(detectStationSlug);
+  const[slugInput,setSlugInput]=useState('');
   const[codec,setCodec]=useState('aac');
-  const[status,setStatus]=useState(null);
-  const[avail,setAvail]=useState(null);
   const[playing,setPlaying]=useState(false);
-  const[currentUrl,setCurrentUrl]=useState('');
-  const[curSong,setCurSong]=useState(null);
-  const[songs,setSongs]=useState([]);
   const[stats,setStats]=useState({});
-  const[seekTs,setSeekTs]=useState('');
-  const[seekEpoch,setSeekEpoch]=useState('');
+
+  // API data
+  const[metadata,setMetadata]=useState(null);
+  const[historyEntries,setHistoryEntries]=useState([]);
+  const[historyOldest,setHistoryOldest]=useState(null);
+  const[historyLoading,setHistoryLoading]=useState(false);
+  const[historyDone,setHistoryDone]=useState(false);
+  const[apiError,setApiError]=useState(null);
+  const[tab,setTab]=useState('history');
+
   const audioRef=useRef(null);
   const hlsRef=useRef(null);
-  const intervalRef=useRef(null);
+  const HISTORY_PAGE_HOURS=3;
 
-  // Fetch status
+  // Auto-detect station slug from the streaming pod's config
   useEffect(()=>{
-    const f=()=>{
-      fetch(baseUrl+'/status.json').then(r=>r.json()).then(d=>{
-        setStatus(d);
-        if(d.metadata){
-          const all=[];
-          if(d.metadata.recent)all.push(...d.metadata.recent);
-          if(d.metadata.current&&d.metadata.current.raw)all.push(d.metadata.current);
-          all.sort((a,b)=>a.started_at-b.started_at);
-          setSongs(all);
-        }
-      }).catch(()=>{});
-      fetch(baseUrl+'/availability.json').then(r=>r.json()).then(setAvail).catch(()=>{});
-    };
-    f();
-    const id=setInterval(f,8000);
-    return()=>clearInterval(id);
+    if(stationSlug)return;
+    fetch(baseUrl+'/config.json')
+      .then(r=>r.json())
+      .then(d=>{if(d?.station_slug)setStationSlug(d.station_slug)})
+      .catch(()=>{});
   },[baseUrl]);
+
+  const lastSongIdRef=useRef(null);
+
+  const refreshHistory=useCallback(()=>{
+    if(!stationSlug)return;
+    const n=Math.floor(Date.now()/1000);
+    const f=n-HISTORY_PAGE_HOURS*3600;
+    _fetchHistoryPage(stationSlug,f,n,true);
+  },[stationSlug]);
+
+  // Fetch metadata — polls every 5s, triggers history refresh on song change
+  useEffect(()=>{
+    if(!stationSlug)return;
+    const fetchMeta=()=>{
+      const t=ts10();
+      fetch(API_BASE+'/api/v1/stations-metadata?timestamp='+t+'&station_slugs='+encodeURIComponent(stationSlug))
+        .then(r=>r.json())
+        .then(d=>{
+          const stations=d?.data?.stations_metadata;
+          if(stations&&stations.length>0){
+            const m=stations[0];
+            setMetadata(m);
+            setApiError(null);
+            const songId=m?.now_playing?.song?.id||null;
+            if(songId&&songId!==lastSongIdRef.current){
+              lastSongIdRef.current=songId;
+              refreshHistory();
+            }
+          }
+        })
+        .catch(e=>setApiError('Metadata API: '+e.message));
+    };
+    fetchMeta();
+    const id=setInterval(fetchMeta,5000);
+    return()=>clearInterval(id);
+  },[stationSlug,refreshHistory]);
+
+  // Fetch initial history page + background poll every 30s
+  useEffect(()=>{
+    if(!stationSlug)return;
+    const now=Math.floor(Date.now()/1000);
+    const from=now-HISTORY_PAGE_HOURS*3600;
+    setHistoryEntries([]);
+    setHistoryOldest(from);
+    setHistoryDone(false);
+    _fetchHistoryPage(stationSlug,from,now,true);
+    const id=setInterval(refreshHistory,30000);
+    return()=>clearInterval(id);
+  },[stationSlug,refreshHistory]);
+
+  function _fetchHistoryPage(slug,from,to,isRefresh){
+    if(!isRefresh)setHistoryLoading(true);
+    fetch(API_BASE+'/api/v1/stations-metadata-history?station_slug='+encodeURIComponent(slug)+'&from_timestamp='+from+'&to_timestamp='+to)
+      .then(r=>r.json())
+      .then(d=>{
+        const hist=d?.data?.stations_metadata_history;
+        if(!hist)return;
+        const newEntries=hist.history||[];
+        if(isRefresh){
+          setHistoryEntries(prev=>{
+            const older=prev.filter(e=>Math.floor(new Date(e.timestamp).getTime()/1000)<from);
+            const seen=new Set(newEntries.map(e=>e.timestamp));
+            const kept=older.filter(e=>!seen.has(e.timestamp));
+            return [...kept,...newEntries].sort((a,b)=>new Date(a.timestamp)-new Date(b.timestamp));
+          });
+        } else {
+          setHistoryEntries(prev=>{
+            const existing=new Set(prev.map(e=>e.timestamp));
+            const unique=newEntries.filter(e=>!existing.has(e.timestamp));
+            return [...unique,...prev].sort((a,b)=>new Date(a.timestamp)-new Date(b.timestamp));
+          });
+          if(newEntries.length===0)setHistoryDone(true);
+          setHistoryOldest(from);
+        }
+        setHistoryLoading(false);
+      })
+      .catch(()=>setHistoryLoading(false));
+  }
+
+  const loadOlderHistory=useCallback(()=>{
+    if(historyLoading||historyDone||!stationSlug||!historyOldest)return;
+    const to=historyOldest;
+    const from=to-HISTORY_PAGE_HOURS*3600;
+    if(Math.floor(Date.now()/1000)-from>7*86400){setHistoryDone(true);return;}
+    _fetchHistoryPage(stationSlug,from,to,false);
+  },[historyLoading,historyDone,stationSlug,historyOldest]);
 
   const destroyHls=useCallback(()=>{
     if(hlsRef.current){hlsRef.current.destroy();hlsRef.current=null}
@@ -136,14 +230,9 @@ function App(){
 
   const loadLive=useCallback((c)=>{
     destroyHls();
-    const url=c==='master'?baseUrl+'/master.m3u8'+qs():c==='opus'?baseUrl+'/opus/index.m3u8'+qs():baseUrl+'/aac/index.m3u8'+qs();
-    setCurrentUrl(url);
-    if(c==='original'){
-      if(audioRef.current){audioRef.current.src=document.getElementById('origInput')?.value||'';audioRef.current.play().catch(()=>{})}
-      return;
-    }
+    const url=c==='master'?baseUrl+'/master.m3u8'+qs():baseUrl+'/aac/index.m3u8'+qs();
     if(!Hls.isSupported()){audioRef.current.src=url;audioRef.current.play().catch(()=>{});return}
-    const hls=new Hls(Object.assign({debug:false,enableWorker:true,liveSyncDurationCount:3,liveMaxLatencyDurationCount:10,liveDurationInfinity:true,maxBufferLength:30,maxMaxBufferLength:120,backBufferLength:300,maxBufferHole:.5},hlsRetryConfig));
+    const hls=new Hls(Object.assign({debug:false,enableWorker:true,liveSyncDurationCount:3,liveMaxLatencyDurationCount:10,maxBufferLength:30,maxMaxBufferLength:60,maxBufferHole:.5},hlsRetryConfig));
     hls.on(Hls.Events.MANIFEST_PARSED,()=>{audioRef.current?.play().catch(()=>{})});
     hls.on(Hls.Events.ERROR,(_,d)=>{if(d.fatal){if(d.type===Hls.ErrorTypes.NETWORK_ERROR)hls.startLoad();else if(d.type===Hls.ErrorTypes.MEDIA_ERROR)hls.recoverMediaError()}});
     hls.attachMedia(audioRef.current);
@@ -151,219 +240,150 @@ function App(){
     hlsRef.current=hls;
   },[baseUrl,destroyHls]);
 
-  const seekToTimestamp=useCallback((ts)=>{
-    destroyHls();
-    const c=codec==='master'||codec==='original'?'aac':codec;
-    const url=baseUrl+'/'+c+'/index.m3u8'+qs({timestamp:ts});
-    setCurrentUrl(url);
-    const hls=new Hls(Object.assign({debug:false,enableWorker:true,startPosition:0,liveSyncDuration:999999,liveMaxLatencyDuration:9999999,maxBufferLength:60,maxMaxBufferLength:600,backBufferLength:600},hlsRetryConfig));
-    hls.on(Hls.Events.MANIFEST_PARSED,()=>{if(audioRef.current){audioRef.current.currentTime=0;audioRef.current.play().catch(()=>{})}});
-    hls.on(Hls.Events.ERROR,(_,d)=>{if(d.fatal){if(d.type===Hls.ErrorTypes.NETWORK_ERROR)hls.startLoad();else if(d.type===Hls.ErrorTypes.MEDIA_ERROR)hls.recoverMediaError()}});
-    hls.attachMedia(audioRef.current);
-    hls.loadSource(url);
-    hlsRef.current=hls;
-  },[baseUrl,codec,destroyHls]);
-
-  // Switch codec
   const switchCodec=useCallback((c)=>{setCodec(c);loadLive(c)},[loadLive]);
 
-  // Auto-load on mount
   useEffect(()=>{loadLive('aac')},[]);
 
-  // Stats update loop
+  // Playback monitor: track stats
   useEffect(()=>{
     const id=setInterval(()=>{
       const a=audioRef.current;if(!a)return;
       const buf=a.buffered.length>0?a.buffered.end(a.buffered.length-1)-a.currentTime:0;
       let lat='N/A';try{if(hlsRef.current?.latency)lat=hlsRef.current.latency.toFixed(1)+'s'}catch(e){}
-      let seek='N/A';if(a.seekable.length>0){const s=a.seekable.start(0),e2=a.seekable.end(a.seekable.length-1);seek=((e2-s)/60).toFixed(1)+'min'}
-      // Find current song from playback position
-      let epoch=null;
-      try{if(hlsRef.current?.playingDate)epoch=hlsRef.current.playingDate.getTime()/1000}catch(e){}
-      if(!epoch&&status?.aac?.newest_epoch&&a.duration&&isFinite(a.duration)){epoch=status.aac.newest_epoch-(a.duration-a.currentTime)}
-      let song=null;
-      if(epoch&&songs.length){for(let i=songs.length-1;i>=0;i--){if(epoch>=songs[i].started_at){song=songs[i];break}}}
-      setCurSong(song);
       setPlaying(!a.paused);
-      setStats({buffer:buf.toFixed(1)+'s',latency:lat,seekable:seek,time:a.currentTime.toFixed(1)+'s',rate:a.playbackRate+'x',paused:String(a.paused),epoch:epoch?Math.floor(epoch):''});
+      setStats({buffer:buf.toFixed(1)+'s',latency:lat,time:a.currentTime.toFixed(1)+'s',paused:String(a.paused)});
     },500);
-    intervalRef.current=id;
     return()=>clearInterval(id);
-  },[status,songs]);
+  },[]);
 
-  // Timeline range
-  const tlRange=React.useMemo(()=>{
-    if(avail?.aac?.ranges?.length){const r=avail.aac.ranges;return{oldest:r[0].start,newest:r[r.length-1].end}}
-    if(status?.aac?.segments>1)return{oldest:status.aac.oldest_epoch,newest:status.aac.newest_epoch};
-    return null;
-  },[avail,status]);
-
-  const onTlClick=useCallback((e)=>{
-    if(!tlRange)return;
-    const rect=e.currentTarget.getBoundingClientRect();
-    const pct=Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width));
-    const ts=Math.floor(tlRange.oldest+pct*(tlRange.newest-tlRange.oldest));
-    seekToTimestamp(ts);
-  },[tlRange,seekToTimestamp]);
-
-  const handleSeekEpoch=useCallback(()=>{
-    const v=parseInt(seekEpoch);if(v>1e9)seekToTimestamp(v);
-  },[seekEpoch,seekToTimestamp]);
-
-  const handleSeekDatetime=useCallback(()=>{
-    if(!seekTs)return;
-    const ts=Math.floor(new Date(seekTs).getTime()/1000);
-    if(ts>1e9)seekToTimestamp(ts);
-  },[seekTs,seekToTimestamp]);
+  const np=metadata?.now_playing;
+  const song=np?.song;
+  const uptime=metadata?.uptime;
 
   return h`
-    <div class="container">
-      ${curSong?h`<div class="card"><div class="now-playing"><div class="now-icon">${'\u266B'}</div><div><div class="now-title">${curSong.title||curSong.raw||'-'}</div><div class="now-artist">${curSong.artist||''}</div></div></div></div>`:null}
-
-      <div class="card">
-        <audio ref=${audioRef} controls></audio>
-
-        <${Timeline} range=${tlRange} avail=${avail} songs=${songs} status=${status}
-          curSong=${curSong} stats=${stats} onClick=${onTlClick} onSeek=${seekToTimestamp} />
-
-        <div class="row" style=${{marginTop:'8px'}}>
-          <button class=${codec==='aac'?'active':''} onClick=${()=>switchCodec('aac')}>AAC+</button>
-          <button class=${codec==='opus'?'active':''} onClick=${()=>switchCodec('opus')}>Opus</button>
-          <button class=${codec==='master'?'active':''} onClick=${()=>switchCodec('master')}>Auto</button>
-          <button class=${codec==='original'?'active':''} onClick=${()=>switchCodec('original')}>Original</button>
-          <button class="live-btn" onClick=${()=>loadLive(codec)}>LIVE</button>
+    <div className="container">
+      ${apiError?h`<div className="error-msg">${apiError}</div>`:null}
+      ${!stationSlug?h`
+        <div className="card">
+          <div className="row">
+            <label>Station slug:</label>
+            <input placeholder="e.g. radio-eldad" value=${slugInput} onInput=${e=>setSlugInput(e.target.value)} style=${{flex:1}}
+              onKeyDown=${e=>{if(e.key==='Enter'&&slugInput.trim())setStationSlug(slugInput.trim())}} />
+            <button onClick=${()=>{if(slugInput.trim())setStationSlug(slugInput.trim())}}>Connect</button>
+          </div>
+          <div style=${{fontSize:'11px',color:'var(--text-dim)',marginTop:'4px'}}>
+            No station detected. Add ?station=slug to URL or enter above. Auto-detecting...
+          </div>
         </div>
+      `:null}
 
-        <div class="row" style=${{marginTop:'6px'}}>
-          <label>Seek:</label>
-          <button onClick=${()=>{const a=audioRef.current;if(a)a.currentTime-=60}}>-1m</button>
-          <button onClick=${()=>{const a=audioRef.current;if(a)a.currentTime-=10}}>-10s</button>
-          <button onClick=${()=>{const a=audioRef.current;if(a)a.currentTime+=10}}>+10s</button>
-          <button onClick=${()=>{const a=audioRef.current;if(a)a.currentTime+=60}}>+1m</button>
-          <label>Jump:</label>
-          <input type="datetime-local" step="1" value=${seekTs} onInput=${e=>setSeekTs(e.target.value)} style=${{width:'180px'}} />
-          <button onClick=${handleSeekDatetime}>Go</button>
-          <input type="number" placeholder="epoch" value=${seekEpoch} onInput=${e=>setSeekEpoch(e.target.value)} style=${{width:'110px'}} />
-          <button onClick=${handleSeekEpoch}>Go</button>
-        </div>
-
-        <div class="url-bar">
-          <label>URL:</label>
-          <input readOnly value=${currentUrl} onClick=${e=>e.target.select()} />
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="section-title">Playlist</div>
-        <div style=${{maxHeight:'260px',overflowY:'auto'}}>
-          ${songs.slice().reverse().map((s,i)=>h`
-            <div key=${s.started_at} class=${'playlist-item'+(curSong&&Math.floor(curSong.started_at)===Math.floor(s.started_at)?' active':'')}
-              onClick=${()=>seekToTimestamp(Math.floor(s.started_at))}>
-              <span class="time">${new Date(s.started_at*1000).toLocaleTimeString()}</span>
-              <span class="song">${s.artist?s.artist+' - ':''}${s.title||s.raw||''}</span>
-              <span class="dur">${s.duration_seconds?fmt(s.duration_seconds):'LIVE'}</span>
+      <div className="card">
+        <div className="now-playing">
+          ${song?.thumbnail_url
+            ?h`<img className="now-thumb" src=${song.thumbnail_url} alt="" />`
+            :song?.artist?.thumbnail_url
+              ?h`<img className="now-thumb" src=${song.artist.thumbnail_url} alt="" />`
+              :h`<div className="now-icon">${'\u266B'}</div>`}
+          <div className="now-info">
+            <div className="now-title">${song?.name||'No song data'}</div>
+            <div className="now-artist">${song?.artist?.name||''}</div>
+            <div className="now-meta">
+              ${uptime?h`<span className=${'badge '+(uptime.is_up?'badge-up':'badge-down')}>${uptime.is_up?'UP':'DOWN'}${uptime.latency_ms?' '+uptime.latency_ms+'ms':''}</span>`:null}
+              ${np?.listeners!=null?h`<span className="badge badge-listeners">${np.listeners} listeners</span>`:null}
+              ${metadata?.title?h`<span>${metadata.title}</span>`:null}
+              ${np?.timestamp?h`<span>Updated: ${new Date(np.timestamp).toLocaleTimeString()}</span>`:null}
             </div>
-          `)}
-          ${songs.length===0?h`<div style=${{padding:'10px',color:'var(--text-dim)',textAlign:'center'}}>Waiting for song data...</div>`:null}
+          </div>
         </div>
       </div>
 
-      <div class="card">
-        <div class="section-title">Stats</div>
-        <div class="stats">
-          ${Object.entries(stats).map(([k,v])=>h`<div class="stat" key=${k}><span class="k">${k}</span><span class="v">${v}</span></div>`)}
-          ${status&&status.aac?[
-            h`<div class="stat" key="seg"><span class="k">segments</span><span class="v">${status.aac.segments}</span></div>`,
-            h`<div class="stat" key="hist"><span class="k">history</span><span class="v">${status.aac.duration_human}</span></div>`,
-            h`<div class="stat" key="gaps"><span class="k">gaps</span><span class="v">${status.aac.gap_count}</span></div>`,
-          ]:null}
+      <div className="card">
+        <audio ref=${audioRef} controls></audio>
+        <div className="row" style=${{marginTop:'8px'}}>
+          <button className=${codec==='aac'?'active':''} onClick=${()=>switchCodec('aac')}>AAC+</button>
+          <button className=${codec==='master'?'active':''} onClick=${()=>switchCodec('master')}>Auto</button>
         </div>
       </div>
 
-      <div class="card" style=${{display:'none'}}>
-        <label>Original stream:</label>
-        <input id="origInput" value="https://c40.radioboss.fm/stream/170" style=${{width:'100%'}} />
+      <div className="card">
+        <div className="tab-bar">
+          <button className=${tab==='history'?'active':''} onClick=${()=>setTab('history')}>
+            History${historyEntries.length?' ('+historyEntries.length+')':''}
+          </button>
+          <button className=${tab==='stats'?'active':''} onClick=${()=>setTab('stats')}>Stats</button>
+        </div>
+
+        ${tab==='history'?h`<${HistoryPanel} entries=${historyEntries} stationSlug=${stationSlug}
+          onLoadMore=${loadOlderHistory}
+          loading=${historyLoading} done=${historyDone} />`:null}
+
+        ${tab==='stats'?h`
+          <div className="stats">
+            ${Object.entries(stats).map(([k,v])=>h`<div className="stat" key=${k}><span className="k">${k}</span><span className="v">${v}</span></div>`)}
+            ${metadata?h`
+              <div className="stat"><span className="k">station_id</span><span className="v">${metadata.id}</span></div>
+              <div className="stat"><span className="k">slug</span><span className="v">${metadata.slug}</span></div>
+              ${uptime?h`
+                <div className="stat"><span className="k">uptime</span><span className="v">${uptime.is_up?'UP':'DOWN'}</span></div>
+                <div className="stat"><span className="k">latency</span><span className="v">${uptime.latency_ms}ms</span></div>
+              `:null}
+            `:null}
+          </div>
+        `:null}
       </div>
     </div>
   `;
 }
 
-function Timeline({range,avail,songs,status,curSong,stats,onClick,onSeek}){
-  const[tooltip,setTooltip]=useState(null);
-  const availRef=useRef(null);
-  const songsRef=useRef(null);
+function HistoryPanel({entries,stationSlug,onLoadMore,loading,done}){
+  const scrollRef=useRef(null);
 
-  // All hooks MUST be above any early return (Rules of Hooks)
-  const oldest=range?range.oldest:0;
-  const newest=range?range.newest:0;
-  const dur=newest-oldest;
+  const onScroll=useCallback(()=>{
+    const el=scrollRef.current;
+    if(!el||loading||done)return;
+    if(el.scrollTop+el.clientHeight>=el.scrollHeight-40){
+      onLoadMore();
+    }
+  },[loading,done,onLoadMore]);
 
-  const onMove=useCallback(e=>{
-    if(!dur)return;
-    const rect=(e.currentTarget.closest('.tl-avail')||e.currentTarget.closest('.tl-songs')||e.currentTarget).getBoundingClientRect();
-    const p=Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width));
-    const epoch=oldest+p*dur;
-    let text=new Date(epoch*1000).toLocaleTimeString();
-    for(let i=songs.length-1;i>=0;i--){if(epoch>=songs[i].started_at){text+='  '+((songs[i].artist?songs[i].artist+' - ':'')+(songs[i].title||songs[i].raw||''));break}}
-    setTooltip({left:p*100,text,align:p>.8?'right':p<.2?'left':'center'});
-  },[oldest,dur,songs]);
+  if(!stationSlug)return h`<div style=${{padding:'10px',color:'var(--text-dim)',textAlign:'center',fontSize:'13px'}}>No station detected</div>`;
+  if(entries.length===0&&!loading)return h`<div style=${{padding:'10px',color:'var(--text-dim)',textAlign:'center',fontSize:'13px'}}>No song history yet</div>`;
 
-  const onLeave=useCallback(()=>setTooltip(null),[]);
-
-  // Early returns AFTER all hooks
-  if(!range)return h`<div class="timeline-wrap"><div class="tl-avail" style=${{height:'36px'}}><div style=${{padding:'10px',color:'var(--text-dim)',fontSize:'12px',textAlign:'center'}}>Loading timeline...</div></div></div>`;
-  if(dur<=0)return null;
-
-  const pct=v=>((v-oldest)/dur)*100;
-  const ep=stats?.epoch;
-  let cursorPct=100;
-  if(ep&&ep>=oldest)cursorPct=Math.max(0,Math.min(100,pct(ep)));
-
-  const ranges=avail?.aac?.ranges||[];
-  const gaps=[];
-  for(let i=0;i<ranges.length-1;i++){
-    const gStart=ranges[i].end,gEnd=ranges[i+1].start;
-    if(gEnd-gStart>6)gaps.push({start:gStart,end:gEnd});
-  }
-
-  const colors=['var(--song-a)','var(--song-b)'];
+  // Show newest first
+  const sorted=entries.slice().reverse();
 
   return h`
-    <div class="timeline-wrap">
-      <div class="timeline-labels">
-        <span>${new Date(oldest*1000).toLocaleTimeString()}</span>
-        <span class="cur">${ep?new Date(ep*1000).toLocaleTimeString():'--:--:--'}</span>
-        <span>${new Date(newest*1000).toLocaleTimeString()} (LIVE)</span>
-      </div>
-
-      <div class="tl-avail" onClick=${onClick} onMouseMove=${onMove} onMouseLeave=${onLeave}>
-        ${ranges.map((r,i)=>h`<div key=${'r'+i} class="tl-range" style=${{left:pct(r.start)+'%',width:Math.max(.3,pct(r.end)-pct(r.start))+'%',background:'#0f3460'}} title=${'Available: '+r.segments+' segments'}></div>`)}
-        ${gaps.map((g,i)=>h`<div key=${'g'+i} class="tl-gap" style=${{left:pct(g.start)+'%',width:Math.max(.3,pct(g.end)-pct(g.start))+'%'}} title=${'Gap: '+Math.round(g.end-g.start)+'s'}></div>`)}
-        <div class="tl-cursor" style=${{left:cursorPct+'%',height:'250%'}}></div>
-        ${tooltip?h`<div class="tl-tooltip" style=${{display:'block',left:tooltip.left+'%',transform:tooltip.align==='right'?'translateX(-100%)':tooltip.align==='center'?'translateX(-50%)':'none'}}>${tooltip.text}</div>`:null}
-      </div>
-
-      <div class="tl-songs" onClick=${onClick} onMouseMove=${onMove} onMouseLeave=${onLeave}>
-        ${songs.map((s,i)=>{
-          const sEnd=s.ended_at||(i<songs.length-1?songs[i+1].started_at:newest);
-          const l=Math.max(0,pct(Math.max(s.started_at,oldest)));
-          const w=Math.max(.3,pct(Math.min(sEnd,newest))-l);
-          if(l>=100||l+w<=0)return null;
-          const isActive=curSong&&Math.floor(curSong.started_at)===Math.floor(s.started_at);
-          const label=(s.artist?s.artist+' - ':'')+(s.title||s.raw||'');
-          return h`<div key=${s.started_at} class="tl-song" style=${{left:l+'%',width:w+'%',background:isActive?'var(--accent)':colors[i%2],opacity:isActive?.3:1}}
-            title=${new Date(s.started_at*1000).toLocaleTimeString()+' | '+label}
-            onClick=${e=>{e.stopPropagation();onSeek(Math.floor(s.started_at))}}>
-            ${w>4?h`<span>${label}</span>`:null}
-          </div>`;
-        })}
-      </div>
-
-      <div class="tl-legend">
-        <span><i style=${{background:'#0f3460'}}></i> Available</span>
-        <span><i style=${{background:'var(--gap-red)'}}></i> Gap</span>
-        <span><i style=${{background:'var(--song-a)'}}></i> Song</span>
-      </div>
+    <div ref=${scrollRef} onScroll=${onScroll} style=${{maxHeight:'450px',overflowY:'auto'}}>
+      ${sorted.map((entry,i)=>{
+        const d=new Date(entry.timestamp);
+        const prevD=i>0?new Date(sorted[i-1].timestamp):null;
+        const showDate=!prevD||d.toDateString()!==prevD.toDateString();
+        const isNewest=i===0;
+        return h`
+          <${React.Fragment} key=${entry.timestamp+'-'+i}>
+            ${showDate?h`<div style=${{padding:'4px 10px',fontSize:'10px',color:'var(--text-dim)',background:'var(--bg-dark)',textTransform:'uppercase',letterSpacing:'.5px',fontWeight:600}}>${d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}</div>`:null}
+            <div className=${'history-item'+(isNewest?' playing':'')}>
+              ${entry.song?.thumbnail_url
+                ?h`<img className="history-thumb" src=${entry.song.thumbnail_url} alt="" />`
+                :entry.song?.artist?.thumbnail_url
+                  ?h`<img className="history-thumb" src=${entry.song.artist.thumbnail_url} alt="" />`
+                  :h`<div className="history-thumb-placeholder">${'\u266B'}</div>`}
+              <div className="history-info">
+                <div className="history-song">${entry.song?.name||'Unknown'}</div>
+                <div className="history-artist">${entry.song?.artist?.name||''}</div>
+              </div>
+              ${entry.listeners!=null?h`<span className="history-listeners">${entry.listeners}</span>`:null}
+              <span className="history-time">${d.toLocaleTimeString()}</span>
+              ${isNewest?h`<span className="history-play">${'\u266B'}</span>`:null}
+            </div>
+          <//>
+        `;
+      })}
+      ${loading?h`<div style=${{padding:'12px',textAlign:'center',color:'var(--text-dim)',fontSize:'12px'}}>Loading older songs...</div>`:null}
+      ${done&&entries.length>0?h`<div style=${{padding:'8px',textAlign:'center',color:'var(--text-dim)',fontSize:'11px'}}>No more history</div>`:null}
+    </div>
+    <div style=${{padding:'4px 10px',fontSize:'11px',color:'var(--text-dim)',borderTop:'1px solid var(--border)'}}>
+      ${entries.length} songs loaded
     </div>
   `;
 }

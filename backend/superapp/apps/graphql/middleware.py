@@ -1,3 +1,4 @@
+import asyncio
 import os
 import logging
 
@@ -36,33 +37,47 @@ class GraphQlSuperuserApiAuthMiddleware:
 
 class ConnectionAbortMiddleware:
     """
-    Middleware to handle client disconnections and other connection issues
-    
-    This middleware catches SystemExit and other connection-related errors
-    that occur when clients disconnect before the request is fully processed.
+    Middleware to handle client disconnections and other connection issues.
+
+    Catches CancelledError (ASGI request timeout), SystemExit, BrokenPipe,
+    and ConnectionReset to prevent unhandled exceptions from crashing workers.
+    Supports both sync and async (ASGI) request paths.
     """
-    
+
+    sync_capable = True
+    async_capable = True
+
     def __init__(self, get_response):
         self.get_response = get_response
-    
+        if asyncio.iscoroutinefunction(self.get_response):
+            self._is_coroutine = asyncio.coroutines._is_coroutine
+
     def __call__(self, request):
+        if asyncio.iscoroutinefunction(self.get_response):
+            return self.__acall__(request)
         try:
             response = self.get_response(request)
             return response
-        except SystemExit:
-            # Client disconnected - log at debug level only
+        except (SystemExit, asyncio.CancelledError):
             logger.debug(f"Client disconnected during request: {request.method} {request.path}")
-            # Return a minimal response (client won't receive it but it prevents error propagation)
-            return JsonResponse({"error": "Connection closed"}, status=499)  # 499 = Client Closed Request
-        except BrokenPipeError:
-            # Client closed connection while we were sending response
-            logger.debug(f"Broken pipe during response: {request.method} {request.path}")
             return JsonResponse({"error": "Connection closed"}, status=499)
-        except ConnectionResetError:
-            # Connection reset by peer
-            logger.debug(f"Connection reset: {request.method} {request.path}")
-            return JsonResponse({"error": "Connection reset"}, status=499)
+        except (BrokenPipeError, ConnectionResetError):
+            logger.debug(f"Connection closed during request: {request.method} {request.path}")
+            return JsonResponse({"error": "Connection closed"}, status=499)
         except Exception as e:
-            # Log other unexpected errors
             logger.error(f"Unexpected error in ConnectionAbortMiddleware: {e}", exc_info=True)
+            raise
+
+    async def __acall__(self, request):
+        try:
+            response = await self.get_response(request)
+            return response
+        except (asyncio.CancelledError, SystemExit):
+            logger.debug(f"Request cancelled (ASGI): {request.method} {request.path}")
+            return JsonResponse({"error": "Connection closed"}, status=499)
+        except (BrokenPipeError, ConnectionResetError):
+            logger.debug(f"Connection closed (ASGI): {request.method} {request.path}")
+            return JsonResponse({"error": "Connection closed"}, status=499)
+        except Exception as e:
+            logger.error(f"Unexpected error in ConnectionAbortMiddleware (async): {e}", exc_info=True)
             raise

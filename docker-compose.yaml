@@ -168,6 +168,8 @@ services:
       - RETENTION_DAYS=7
       - STREAMING_POD_API_KEY=${STREAMING_POD_API_KEY:-dev-streaming-key}
       - DJANGO_GRAPHQL_URL=http://web:8080/v1/graphql
+      - DJANGO_API_URL=web:8080
+      - USE_DJANGO_DB=true
     volumes:
       - live_streaming_data:/data
     logging:

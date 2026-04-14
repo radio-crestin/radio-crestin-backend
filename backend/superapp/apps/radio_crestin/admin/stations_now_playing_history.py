@@ -19,7 +19,11 @@ class StationsNowPlayingHistoryAdmin(SuperAppModelAdmin):
     ]
     search_fields = ['station__title', 'song__name']
     autocomplete_fields = ['station', 'song']
-    readonly_fields = ['timestamp', 'station', 'song', 'listeners']
+    readonly_fields = [
+        'timestamp', 'station', 'song', 'listeners',
+        'start_epoch', 'end_timestamp', 'end_epoch',
+        'mel_timestamp', 'id3_timestamp', 'scraper_timestamp', 'timestamp_source',
+    ]
     list_select_related = ['station', 'song', 'song__artist']
     ordering = ['-timestamp']
 
@@ -29,6 +33,14 @@ class StationsNowPlayingHistoryAdmin(SuperAppModelAdmin):
     fieldsets = (
         (_("Basic Information"), {
             'fields': ('station', 'song', 'timestamp', 'listeners')
+        }),
+        (_("Segment & Timestamps"), {
+            'fields': ('start_epoch', 'end_timestamp', 'end_epoch'),
+            'description': _("Segment numbers are epoch-based (hls_start_number_source=epoch). "
+                             "End timestamp is the start of the next now playing entry for this station."),
+        }),
+        (_("Detection Sources"), {
+            'fields': ('mel_timestamp', 'id3_timestamp', 'scraper_timestamp', 'timestamp_source'),
         }),
     )
 
@@ -48,3 +60,29 @@ class StationsNowPlayingHistoryAdmin(SuperAppModelAdmin):
         return _("No song")
     song_link.short_description = _("Song")
     song_link.admin_order_field = 'song__name'
+
+    def start_epoch(self, obj):
+        if obj.timestamp:
+            return int(obj.timestamp.timestamp())
+        return '-'
+    start_epoch.short_description = _("Start Epoch (≈ segment number)")
+
+    def end_timestamp(self, obj):
+        next_entry = StationsNowPlayingHistory.objects.filter(
+            station=obj.station,
+            timestamp__gt=obj.timestamp,
+        ).order_by('timestamp').values_list('timestamp', flat=True).first()
+        if next_entry:
+            return next_entry
+        return _("(current / no next entry)")
+    end_timestamp.short_description = _("End Timestamp")
+
+    def end_epoch(self, obj):
+        next_entry = StationsNowPlayingHistory.objects.filter(
+            station=obj.station,
+            timestamp__gt=obj.timestamp,
+        ).order_by('timestamp').values_list('timestamp', flat=True).first()
+        if next_entry:
+            return int(next_entry.timestamp())
+        return '-'
+    end_epoch.short_description = _("End Epoch (≈ segment number)")

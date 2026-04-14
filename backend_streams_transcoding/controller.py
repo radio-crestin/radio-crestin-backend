@@ -25,11 +25,9 @@ log = logging.getLogger("stream-controller")
 # Configuration from environment
 GRAPHQL_ENDPOINT = os.environ.get("GRAPHQL_ENDPOINT", "http://web:8080/v1/graphql")
 NAMESPACE = os.environ.get("NAMESPACE", "radio-crestin")
-STREAMER_IMAGE = os.environ.get("STREAMER_IMAGE", "radio-crestin/live-streaming:latest")
-LISTING_IMAGE = os.environ.get("LISTING_IMAGE", "radio-crestin/station-listing:latest")
+STREAMER_IMAGE = os.environ.get("STREAMER_IMAGE", "ghcr.io/radio-crestin/radio-crestin-live-streaming:latest")
+LISTING_IMAGE = os.environ.get("LISTING_IMAGE", "ghcr.io/radio-crestin/radio-crestin-station-listing:latest")
 IMAGE_PULL_SECRET = os.environ.get("IMAGE_PULL_SECRET", "")
-RETENTION_DAYS = os.environ.get("RETENTION_DAYS", "7")
-
 
 SYNC_INTERVAL = int(os.environ.get("SYNC_INTERVAL", "60"))
 INGRESS_HOST = os.environ.get("INGRESS_HOST", "live.radiocrestin.ro")
@@ -37,13 +35,9 @@ LEGACY_INGRESS_HOST = os.environ.get("LEGACY_INGRESS_HOST", "hls.radiocrestin.ro
 PVC_STORAGE_SIZE = os.environ.get("PVC_STORAGE_SIZE", "5Gi")
 PVC_STORAGE_CLASS = os.environ.get("PVC_STORAGE_CLASS", "")
 USE_PVC = os.environ.get("USE_PVC", "false").lower() in ("true", "1", "yes")
-S3_ENDPOINT = os.environ.get("S3_ENDPOINT", "")
-S3_BUCKET = os.environ.get("S3_BUCKET", "")
-S3_ACCESS_KEY = os.environ.get("S3_ACCESS_KEY", "")
-S3_SECRET_KEY = os.environ.get("S3_SECRET_KEY", "")
-S3_REGION = os.environ.get("S3_REGION", "")
 STREAMING_POD_API_KEY = os.environ.get("STREAMING_POD_API_KEY", "")
 DJANGO_GRAPHQL_URL = os.environ.get("DJANGO_GRAPHQL_URL", "http://web:8080/v1/graphql")
+DJANGO_API_URL = os.environ.get("DJANGO_API_URL", "web:8080")
 
 SLUG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*[a-z0-9]$")
 LABEL_APP = "live-stream"
@@ -172,14 +166,9 @@ def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
                             env=[
                                 client.V1EnvVar(name="STATION_SLUG", value=slug),
                                 client.V1EnvVar(name="STREAM_URL", value=stream_url),
-                                client.V1EnvVar(name="RETENTION_DAYS", value=RETENTION_DAYS),
-                                client.V1EnvVar(name="S3_ENDPOINT", value=S3_ENDPOINT),
-                                client.V1EnvVar(name="S3_BUCKET", value=S3_BUCKET),
-                                client.V1EnvVar(name="S3_ACCESS_KEY", value=S3_ACCESS_KEY),
-                                client.V1EnvVar(name="S3_SECRET_KEY", value=S3_SECRET_KEY),
-                                client.V1EnvVar(name="S3_REGION", value=S3_REGION),
                                 client.V1EnvVar(name="STREAMING_POD_API_KEY", value=STREAMING_POD_API_KEY),
                                 client.V1EnvVar(name="DJANGO_GRAPHQL_URL", value=DJANGO_GRAPHQL_URL),
+                                client.V1EnvVar(name="DJANGO_API_URL", value=DJANGO_API_URL),
                             ],
                             ports=[client.V1ContainerPort(container_port=8080)],
                             volume_mounts=[
@@ -651,6 +640,11 @@ def sync_once(
     """Run one sync cycle."""
     # 1. Fetch desired state from Django
     desired_stations = fetch_stations()
+    if not desired_stations:
+        # API unreachable or returned errors — do NOT delete anything.
+        # This prevents wiping all streaming pods during a web deployment.
+        log.warning("Fetch returned 0 stations — skipping sync to protect running pods")
+        return
     desired_map = {s["slug"]: s["stream_url"] for s in desired_stations}
     desired_slugs = set(desired_map.keys())
 
@@ -670,7 +664,8 @@ def sync_once(
     to_check = desired_slugs & existing_slugs
 
     # Check for stream_url or image changes (need update)
-    to_update = set()
+    to_update_url = set()
+    to_update_image = set()
     for slug in to_check:
         dep = existing_deployments[slug]
         current_url = dep.metadata.annotations.get("stream-url", "")
@@ -678,10 +673,23 @@ def sync_once(
 
         if current_url != desired_map[slug]:
             log.info("Stream URL changed for %s: %r -> %r", slug, current_url, desired_map[slug])
-            to_update.add(slug)
+            to_update_url.add(slug)
         elif current_image != STREAMER_IMAGE:
-            log.info("Image changed for %s: %r -> %r", slug, current_image, STREAMER_IMAGE)
-            to_update.add(slug)
+            to_update_image.add(slug)
+
+    # Rate-limit image-only updates: max 5 pods per sync cycle (every 60s).
+    # This prevents updating all 60 pods simultaneously during a deploy,
+    # which would cause a thundering-herd of pod restarts.
+    IMAGE_UPDATE_BATCH = int(os.environ.get("IMAGE_UPDATE_BATCH", "5"))
+    if to_update_image:
+        batch = set(sorted(to_update_image)[:IMAGE_UPDATE_BATCH])
+        remaining = len(to_update_image) - len(batch)
+        if remaining > 0:
+            log.info("Image update: processing %d/%d pods this cycle (%d remaining)",
+                     len(batch), len(to_update_image), remaining)
+        to_update_image = batch
+
+    to_update = to_update_url | to_update_image
 
     # 4. Apply changes
     # Delete deployments that are no longer needed
@@ -689,7 +697,7 @@ def sync_once(
         delete_deployment(apps_v1, slug)
         delete_service(core_v1, slug)
 
-    # Update deployments with changed stream_url
+    # Update deployments with changed stream_url or image
     for slug in to_update:
         update_deployment(apps_v1, slug, desired_map[slug])
 

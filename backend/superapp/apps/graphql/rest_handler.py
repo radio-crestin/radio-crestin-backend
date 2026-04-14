@@ -87,7 +87,7 @@ class GraphQLRestApiView(View):
             if not request.method or not request.path:
                 logger.warning(f"Invalid request received: method={request.method}, path={request.path}")
                 return JsonResponse({"error": "Invalid request"}, status=400)
-            
+
             # Run pre-processor if configured
             if self.endpoint_config.pre_processor:
                 pre_result = self.endpoint_config.pre_processor(request, **kwargs)
@@ -100,43 +100,43 @@ class GraphQLRestApiView(View):
                         {"error": pre_result['error']},
                         status=pre_result.get('status', 400)
                     )
-            
+
             # Extract GraphQL variables
             variables = {}
             if self.endpoint_config.variable_extractor:
                 variables = self.endpoint_config.variable_extractor(request, **kwargs)
-            
+
             # Execute GraphQL query/mutation
             response_data = self._execute_graphql(
                 query=self.endpoint_config.graphql_query,
                 variables=variables,
                 request=request
             )
-            
+
             # Run post-processor if configured
             if self.endpoint_config.post_processor:
                 response_data = self.endpoint_config.post_processor(response_data, request, **kwargs)
-            
+
             # Create JSON response
             response = JsonResponse(response_data)
-            
+
             # Add headers
             self._add_headers(response)
-            
+
             return response
-            
+
         except Exception as e:
             logger.error(f"Error in REST API handler for {self.endpoint_config.path}: {e}")
-            
+
             error_response = {
                 "errors": [
                     {"message": f"Internal server error: {str(e)}"}
                 ]
             }
-            
+
             response = JsonResponse(error_response, status=500)
             self._add_cors_headers(response)
-            
+
             return response
     
     def _execute_graphql(self, query: str, variables: Dict[str, Any], request) -> Dict[str, Any]:

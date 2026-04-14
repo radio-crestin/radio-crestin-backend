@@ -7,9 +7,9 @@ from django.shortcuts import redirect
 import json
 import logging
 
-from .models import Songs, Artists
-from .services import AutocompleteService
-from .services.share_link_service import ShareLinkService
+from ..models import Songs, Artists
+from ..services import AutocompleteService
+from ..services.share_link_service import ShareLinkService
 
 logger = logging.getLogger(__name__)
 

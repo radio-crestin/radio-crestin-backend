@@ -1,0 +1,83 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e10] [cursor=pointer]: dock_to_right
+        - link "arrow_back" [ref=e12] [cursor=pointer]:
+          - /url: /portal/radio_crestin/stations/
+          - generic [ref=e13]: arrow_back
+        - heading "Radio Crestin chevron_right Stations chevron_right Radio Eldad" [level=1] [ref=e14]:
+          - link "Radio Crestin" [ref=e15] [cursor=pointer]:
+            - /url: /portal/radio_crestin/
+          - generic [ref=e16]: chevron_right
+          - link "Stations" [ref=e17] [cursor=pointer]:
+            - /url: /portal/radio_crestin/stations/
+          - generic [ref=e18]: chevron_right
+          - link "Radio Eldad" [ref=e19] [cursor=pointer]:
+            - /url: /portal/radio_crestin/stations/92/change/
+      - generic [ref=e20]:
+        - link "more_horiz" [ref=e22] [cursor=pointer]:
+          - /url: "#"
+          - generic [ref=e23]: more_horiz
+        - link "add" [ref=e25] [cursor=pointer]:
+          - /url: /portal/radio_crestin/stations/add/
+          - generic [ref=e26]: add
+    - generic [ref=e31]:
+      - navigation [ref=e33] [cursor=pointer]:
+        - link "General" [ref=e34]:
+          - /url: "#general"
+        - link "Streaming" [ref=e35]:
+          - /url: "#streaming"
+        - link "Metadata" [ref=e36]:
+          - /url: "#metadata"
+        - link "Media" [ref=e37]:
+          - /url: "#media"
+        - link "Content" [ref=e38]:
+          - /url: "#content"
+        - link "Status" [ref=e39]:
+          - /url: "#status"
+        - link "Streams 2" [ref=e40]:
+          - /url: "#station_streams"
+          - text: Streams
+          - generic [ref=e41]: "2"
+        - link "Metadata Scrapers 1" [ref=e42]:
+          - /url: "#station_metadata_fetches"
+          - text: Metadata Scrapers
+          - generic [ref=e43]: "1"
+        - link "Groups 2" [ref=e44]:
+          - /url: "#station_to_station_groups"
+          - text: Groups
+          - generic [ref=e45]: "2"
+      - group [ref=e47]:
+        - generic [ref=e48]:
+          - generic [ref=e50]:
+            - generic [ref=e52]: Title*
+            - textbox "Title*" [ref=e54]: Radio Eldad
+          - generic [ref=e56]:
+            - generic [ref=e58]: Slug*
+            - textbox "Slug*" [ref=e61]: radio-eldad
+          - generic [ref=e63]:
+            - generic [ref=e65]: Station Order*
+            - spinbutton "Station Order*" [ref=e67]: "0.0"
+          - generic [ref=e70]:
+            - generic [ref=e72]: Disabled
+            - checkbox "Disabled" [ref=e75] [cursor=pointer]
+          - generic [ref=e77]:
+            - generic [ref=e79]: Website*
+            - generic [ref=e81]:
+              - textbox "Website*" [ref=e82]: https://radio.eldad.ro
+              - paragraph [ref=e83]:
+                - text: "Currently:"
+                - link "https://radio.eldad.ro" [ref=e84] [cursor=pointer]:
+                  - /url: https://radio.eldad.ro
+          - generic [ref=e86]:
+            - generic [ref=e88]: Email
+            - textbox "Email" [ref=e90]: radioeldad@gmail.com
+      - text: check_small close_small expand_more expand_more Stream URL Type Station Stream Order Remove Stream URL Type Station Stream Order Remove Stream URL Type Station Stream Order Remove expand_more Group expand_more Station to Station Group Order Remove Group expand_more Station to Station Group Order Remove Group Station to Station Group Order Remove
+    - generic [ref=e93]:
+      - button "Save" [ref=e94] [cursor=pointer]
+      - button "Save and continue editing" [ref=e95] [cursor=pointer]
+      - button "Save and add another" [ref=e96] [cursor=pointer]
+      - link "Delete Station" [ref=e98] [cursor=pointer]:
+        - /url: /portal/radio_crestin/stations/92/delete/
+  - img

@@ -1,0 +1,164 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e10] [cursor=pointer]: dock_to_right
+        - link "arrow_back" [ref=e12] [cursor=pointer]:
+          - /url: /portal/radio_crestin/stations/
+          - generic [ref=e13]: arrow_back
+        - heading "Radio Crestin chevron_right Stations chevron_right Radio Eldad" [level=1] [ref=e14]:
+          - link "Radio Crestin" [ref=e15] [cursor=pointer]:
+            - /url: /portal/radio_crestin/
+          - generic [ref=e16]: chevron_right
+          - link "Stations" [ref=e17] [cursor=pointer]:
+            - /url: /portal/radio_crestin/stations/
+          - generic [ref=e18]: chevron_right
+          - link "Radio Eldad" [ref=e19] [cursor=pointer]:
+            - /url: /portal/radio_crestin/stations/92/change/
+      - generic [ref=e20]:
+        - link "more_horiz" [ref=e22] [cursor=pointer]:
+          - /url: "#"
+          - generic [ref=e23]: more_horiz
+        - link "add" [ref=e25] [cursor=pointer]:
+          - /url: /portal/radio_crestin/stations/add/
+          - generic [ref=e26]: add
+    - generic [ref=e31]:
+      - navigation [ref=e33] [cursor=pointer]:
+        - link "General" [ref=e34]:
+          - /url: "#general"
+        - link "Streaming" [ref=e35]:
+          - /url: "#streaming"
+        - link "Metadata" [ref=e36]:
+          - /url: "#metadata"
+        - link "Media" [ref=e37]:
+          - /url: "#media"
+        - link "Content" [ref=e38]:
+          - /url: "#content"
+        - link "Status" [ref=e39]:
+          - /url: "#status"
+        - link "Streams 2" [ref=e40]:
+          - /url: "#station_streams"
+          - text: Streams
+          - generic [ref=e41]: "2"
+        - link "Metadata Scrapers 1" [ref=e42]:
+          - /url: "#station_metadata_fetches"
+          - text: Metadata Scrapers
+          - generic [ref=e43]: "1"
+        - link "Groups 2" [ref=e44]:
+          - /url: "#station_to_station_groups"
+          - text: Groups
+          - generic [ref=e45]: "2"
+      - group [ref=e47]:
+        - generic [ref=e48]:
+          - generic [ref=e50]:
+            - generic [ref=e52]: Title*
+            - textbox "Title*" [ref=e54]: Radio Eldad
+          - generic [ref=e56]:
+            - generic [ref=e58]: Slug*
+            - textbox "Slug*" [ref=e61]: radio-eldad
+          - generic [ref=e63]:
+            - generic [ref=e65]: Station Order*
+            - spinbutton "Station Order*" [ref=e67]: "0.0"
+          - generic [ref=e70]:
+            - generic [ref=e72]: Disabled
+            - checkbox "Disabled" [ref=e75] [cursor=pointer]
+          - generic [ref=e77]:
+            - generic [ref=e79]: Website*
+            - generic [ref=e81]:
+              - textbox "Website*" [ref=e82]: https://radio.eldad.ro
+              - paragraph [ref=e83]:
+                - text: "Currently:"
+                - link "https://radio.eldad.ro" [ref=e84] [cursor=pointer]:
+                  - /url: https://radio.eldad.ro
+          - generic [ref=e86]:
+            - generic [ref=e88]: Email
+            - textbox "Email" [ref=e90]: radioeldad@gmail.com
+      - text: check_small close_small expand_more expand_more Stream URL Type Station Stream Order Remove Stream URL Type Station Stream Order Remove Stream URL Type Station Stream Order Remove expand_more Group expand_more Station to Station Group Order Remove Group expand_more Station to Station Group Order Remove Group Station to Station Group Order Remove
+    - generic [ref=e93]:
+      - button "Save" [ref=e94] [cursor=pointer]
+      - button "Save and continue editing" [ref=e95] [cursor=pointer]
+      - button "Save and add another" [ref=e96] [cursor=pointer]
+      - link "Delete Station" [ref=e98] [cursor=pointer]:
+        - /url: /portal/radio_crestin/stations/92/delete/
+  - list [ref=e100]:
+    - listitem [ref=e101]:
+      - link "Hide »" [ref=e102] [cursor=pointer]:
+        - /url: "#"
+    - listitem [ref=e103]:
+      - link "Toggle Theme" [ref=e104] [cursor=pointer]:
+        - /url: "#"
+        - text: Toggle Theme
+        - img [ref=e105]
+    - listitem [ref=e107]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e108]
+      - link "History /portal/radio_crestin/stations/92/change/" [ref=e109] [cursor=pointer]:
+        - /url: "#"
+        - text: History
+        - text: /portal/radio_crestin/stations/92/change/
+    - listitem [ref=e110]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e111]
+      - link "Versions Django 5.1.15" [ref=e112] [cursor=pointer]:
+        - /url: "#"
+        - text: Versions
+        - text: Django 5.1.15
+    - listitem [ref=e113]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e114]
+      - 'link "Time CPU: 235.85ms (240.33ms)" [ref=e115] [cursor=pointer]':
+        - /url: "#"
+        - text: Time
+        - text: "CPU: 235.85ms (240.33ms)"
+    - listitem [ref=e116]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e117]
+      - link "Settings" [ref=e118] [cursor=pointer]:
+        - /url: "#"
+    - listitem [ref=e119]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e120]
+      - link "Headers" [ref=e121] [cursor=pointer]:
+        - /url: "#"
+    - listitem [ref=e122]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e123]
+      - link "Request change_view" [ref=e124] [cursor=pointer]:
+        - /url: "#"
+        - text: Request
+        - text: change_view
+    - listitem [ref=e125]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e126]
+      - link "SQL 17 queries in 6.37ms" [ref=e127] [cursor=pointer]:
+        - /url: "#"
+        - text: SQL
+        - text: 17 queries in 6.37ms
+    - listitem [ref=e128]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e129]
+      - link "Static files 36 files used" [ref=e130] [cursor=pointer]:
+        - /url: "#"
+        - text: Static files
+        - text: 36 files used
+    - listitem [ref=e131]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e132]
+      - link "Templates admin/radio_crestin/stations/change_form.html" [ref=e133] [cursor=pointer]:
+        - /url: "#"
+        - text: Templates
+        - text: admin/radio_crestin/stations/change_form.html
+    - listitem [ref=e134]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e135]
+      - link "Alerts" [ref=e136] [cursor=pointer]:
+        - /url: "#"
+    - listitem [ref=e137]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e138]
+      - link "Cache 0 calls in 0.00ms" [ref=e139] [cursor=pointer]:
+        - /url: "#"
+        - text: Cache
+        - text: 0 calls in 0.00ms
+    - listitem [ref=e140]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e141]
+      - link "Signals 79 receivers of 15 signals" [ref=e142] [cursor=pointer]:
+        - /url: "#"
+        - text: Signals
+        - text: 79 receivers of 15 signals
+    - listitem [ref=e143]:
+      - checkbox "Enable for next and successive requests" [ref=e144]
+      - generic [ref=e145]: Intercept redirects
+    - listitem [ref=e146]:
+      - checkbox "Enable for next and successive requests" [ref=e147]
+      - generic [ref=e148]: Profiling
+  - img

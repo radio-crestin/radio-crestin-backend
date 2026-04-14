@@ -1,0 +1,52 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - generic [ref=e8]: 1:41:10 PM
+        - generic [ref=e9]: "--:--:--"
+        - generic [ref=e10]: 1:41:12 PM (LIVE)
+      - 'generic "Available: 3 segments" [ref=e12] [cursor=pointer]'
+      - generic "1:41:10 PM | Grupul Elah - Adă Doamne înapoi" [ref=e14] [cursor=pointer]:
+        - generic: Grupul Elah - Adă Doamne înapoi
+      - generic [ref=e15]:
+        - generic [ref=e16]: Available
+        - generic [ref=e18]: Gap
+        - generic [ref=e20]: Song
+    - generic [ref=e22]:
+      - button "AAC+" [ref=e23] [cursor=pointer]
+      - button "Opus" [ref=e24] [cursor=pointer]
+      - button "Auto" [ref=e25] [cursor=pointer]
+      - button "Original" [ref=e26] [cursor=pointer]
+      - button "LIVE" [ref=e27] [cursor=pointer]
+    - generic [ref=e28]:
+      - generic [ref=e29]: "Seek:"
+      - button "-1m" [ref=e30] [cursor=pointer]
+      - button "-10s" [ref=e31] [cursor=pointer]
+      - button "+10s" [ref=e32] [cursor=pointer]
+      - button "+1m" [ref=e33] [cursor=pointer]
+      - generic [ref=e34]: "Jump:"
+      - textbox [ref=e35]
+      - button "Go" [ref=e36] [cursor=pointer]
+      - spinbutton [ref=e37]
+      - button "Go" [ref=e38] [cursor=pointer]
+    - generic [ref=e39]:
+      - generic [ref=e40]: "URL:"
+      - textbox [ref=e41] [cursor=pointer]: http://localhost:8080/aac/index.m3u8?ref=dev-player&s=dev-user
+  - generic [ref=e42]:
+    - generic [ref=e43]: Playlist
+    - generic [ref=e45] [cursor=pointer]:
+      - generic [ref=e46]: 1:41:10 PM
+      - generic [ref=e47]: Grupul Elah - Adă Doamne înapoi
+      - generic [ref=e48]: LIVE
+  - generic [ref=e49]:
+    - generic [ref=e50]: Stats
+    - generic [ref=e51]:
+      - generic [ref=e52]:
+        - generic [ref=e53]: segments
+        - generic [ref=e54]: "3"
+      - generic [ref=e55]:
+        - generic [ref=e56]: history
+        - generic [ref=e57]: 12s
+      - generic [ref=e58]:
+        - generic [ref=e59]: gaps
+        - generic [ref=e60]: "0"

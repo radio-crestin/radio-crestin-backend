@@ -1,0 +1,411 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e8]:
+      - generic [ref=e10] [cursor=pointer]: dock_to_right
+      - heading "Site administration" [level=1] [ref=e12]:
+        - generic [ref=e13]: Site administration
+    - list [ref=e16]:
+      - listitem [ref=e17]:
+        - generic [ref=e18]: Successfully signed in as dev@bringes.io.
+    - generic [ref=e21]:
+      - generic [ref=e22]:
+        - table "Accounts" [ref=e25]:
+          - caption [ref=e26]:
+            - link "Accounts" [ref=e27] [cursor=pointer]:
+              - /url: /portal/account/
+          - rowgroup [ref=e28]:
+            - row "Email addresses add" [ref=e29]:
+              - rowheader "Email addresses" [ref=e30]:
+                - link "Email addresses" [ref=e31] [cursor=pointer]:
+                  - /url: /portal/account/emailaddress/
+              - cell "add" [ref=e32]:
+                - link "add" [ref=e34] [cursor=pointer]:
+                  - /url: /portal/account/emailaddress/add/
+                  - generic [ref=e35]: add
+        - table "Authentication" [ref=e38]:
+          - caption [ref=e39]:
+            - link "Authentication" [ref=e40] [cursor=pointer]:
+              - /url: /portal/authentication/
+          - rowgroup [ref=e41]:
+            - row "Users add" [ref=e42]:
+              - rowheader "Users" [ref=e43]:
+                - link "Users" [ref=e44] [cursor=pointer]:
+                  - /url: /portal/authentication/user/
+              - cell "add" [ref=e45]:
+                - link "add" [ref=e47] [cursor=pointer]:
+                  - /url: /portal/authentication/user/add/
+                  - generic [ref=e48]: add
+        - table "Authentication and Authorization" [ref=e51]:
+          - caption [ref=e52]:
+            - link "Authentication and Authorization" [ref=e53] [cursor=pointer]:
+              - /url: /portal/auth/
+          - rowgroup [ref=e54]:
+            - row "Groups add" [ref=e55]:
+              - rowheader "Groups" [ref=e56]:
+                - link "Groups" [ref=e57] [cursor=pointer]:
+                  - /url: /portal/auth/group/
+              - cell "add" [ref=e58]:
+                - link "add" [ref=e60] [cursor=pointer]:
+                  - /url: /portal/auth/group/add/
+                  - generic [ref=e61]: add
+        - table "Backups and Restores" [ref=e64]:
+          - caption [ref=e65]:
+            - link "Backups and Restores" [ref=e66] [cursor=pointer]:
+              - /url: /portal/backups/
+          - rowgroup [ref=e67]:
+            - row "Backups add" [ref=e68]:
+              - rowheader "Backups" [ref=e69]:
+                - link "Backups" [ref=e70] [cursor=pointer]:
+                  - /url: /portal/backups/backup/
+              - cell "add" [ref=e71]:
+                - link "add" [ref=e73] [cursor=pointer]:
+                  - /url: /portal/backups/backup/add/
+                  - generic [ref=e74]: add
+            - row "Restores add" [ref=e75]:
+              - rowheader "Restores" [ref=e76]:
+                - link "Restores" [ref=e77] [cursor=pointer]:
+                  - /url: /portal/backups/restore/
+              - cell "add" [ref=e78]:
+                - link "add" [ref=e80] [cursor=pointer]:
+                  - /url: /portal/backups/restore/add/
+                  - generic [ref=e81]: add
+        - table "Celery Results" [ref=e84]:
+          - caption [ref=e85]:
+            - link "Celery Results" [ref=e86] [cursor=pointer]:
+              - /url: /portal/django_celery_results/
+          - rowgroup [ref=e87]:
+            - row "Group results add" [ref=e88]:
+              - rowheader "Group results" [ref=e89]:
+                - link "Group results" [ref=e90] [cursor=pointer]:
+                  - /url: /portal/django_celery_results/groupresult/
+              - cell "add" [ref=e91]:
+                - link "add" [ref=e93] [cursor=pointer]:
+                  - /url: /portal/django_celery_results/groupresult/add/
+                  - generic [ref=e94]: add
+            - row "Task results add" [ref=e95]:
+              - rowheader "Task results" [ref=e96]:
+                - link "Task results" [ref=e97] [cursor=pointer]:
+                  - /url: /portal/django_celery_results/taskresult/
+              - cell "add" [ref=e98]:
+                - link "add" [ref=e100] [cursor=pointer]:
+                  - /url: /portal/django_celery_results/taskresult/add/
+                  - generic [ref=e101]: add
+        - table "Periodic Tasks" [ref=e104]:
+          - caption [ref=e105]:
+            - link "Periodic Tasks" [ref=e106] [cursor=pointer]:
+              - /url: /portal/django_celery_beat/
+          - rowgroup [ref=e107]:
+            - row "Clocked add" [ref=e108]:
+              - rowheader "Clocked" [ref=e109]:
+                - link "Clocked" [ref=e110] [cursor=pointer]:
+                  - /url: /portal/django_celery_beat/clockedschedule/
+              - cell "add" [ref=e111]:
+                - link "add" [ref=e113] [cursor=pointer]:
+                  - /url: /portal/django_celery_beat/clockedschedule/add/
+                  - generic [ref=e114]: add
+            - row "Crontabs add" [ref=e115]:
+              - rowheader "Crontabs" [ref=e116]:
+                - link "Crontabs" [ref=e117] [cursor=pointer]:
+                  - /url: /portal/django_celery_beat/crontabschedule/
+              - cell "add" [ref=e118]:
+                - link "add" [ref=e120] [cursor=pointer]:
+                  - /url: /portal/django_celery_beat/crontabschedule/add/
+                  - generic [ref=e121]: add
+            - row "Intervals add" [ref=e122]:
+              - rowheader "Intervals" [ref=e123]:
+                - link "Intervals" [ref=e124] [cursor=pointer]:
+                  - /url: /portal/django_celery_beat/intervalschedule/
+              - cell "add" [ref=e125]:
+                - link "add" [ref=e127] [cursor=pointer]:
+                  - /url: /portal/django_celery_beat/intervalschedule/add/
+                  - generic [ref=e128]: add
+            - row "Periodic tasks add" [ref=e129]:
+              - rowheader "Periodic tasks" [ref=e130]:
+                - link "Periodic tasks" [ref=e131] [cursor=pointer]:
+                  - /url: /portal/django_celery_beat/periodictask/
+              - cell "add" [ref=e132]:
+                - link "add" [ref=e134] [cursor=pointer]:
+                  - /url: /portal/django_celery_beat/periodictask/add/
+                  - generic [ref=e135]: add
+            - row "Solar events add" [ref=e136]:
+              - rowheader "Solar events" [ref=e137]:
+                - link "Solar events" [ref=e138] [cursor=pointer]:
+                  - /url: /portal/django_celery_beat/solarschedule/
+              - cell "add" [ref=e139]:
+                - link "add" [ref=e141] [cursor=pointer]:
+                  - /url: /portal/django_celery_beat/solarschedule/add/
+                  - generic [ref=e142]: add
+        - table "Radio Crestin" [ref=e145]:
+          - caption [ref=e146]:
+            - link "Radio Crestin" [ref=e147] [cursor=pointer]:
+              - /url: /portal/radio_crestin/
+          - rowgroup [ref=e148]:
+            - row "App Users add" [ref=e149]:
+              - rowheader "App Users" [ref=e150]:
+                - link "App Users" [ref=e151] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/appusers/
+              - cell "add" [ref=e152]:
+                - link "add" [ref=e154] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/appusers/add/
+                  - generic [ref=e155]: add
+            - row "Artists add" [ref=e156]:
+              - rowheader "Artists" [ref=e157]:
+                - link "Artists" [ref=e158] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/artists/
+              - cell "add" [ref=e159]:
+                - link "add" [ref=e161] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/artists/add/
+                  - generic [ref=e162]: add
+            - row "Listening Sessions add" [ref=e163]:
+              - rowheader "Listening Sessions" [ref=e164]:
+                - link "Listening Sessions" [ref=e165] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/listeningsessions/
+              - cell "add" [ref=e166]:
+                - link "add" [ref=e168] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/listeningsessions/add/
+                  - generic [ref=e169]: add
+            - row "Posts add" [ref=e170]:
+              - rowheader "Posts" [ref=e171]:
+                - link "Posts" [ref=e172] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/posts/
+              - cell "add" [ref=e173]:
+                - link "add" [ref=e175] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/posts/add/
+                  - generic [ref=e176]: add
+            - row "Reviews add" [ref=e177]:
+              - rowheader "Reviews" [ref=e178]:
+                - link "Reviews" [ref=e179] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/reviews/
+              - cell "add" [ref=e180]:
+                - link "add" [ref=e182] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/reviews/add/
+                  - generic [ref=e183]: add
+            - row "Share link visits" [ref=e184]:
+              - rowheader "Share link visits" [ref=e185]:
+                - link "Share link visits" [ref=e186] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/sharelinkvisit/
+              - cell [ref=e187]
+            - row "Share links" [ref=e188]:
+              - rowheader "Share links" [ref=e189]:
+                - link "Share links" [ref=e190] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/sharelink/
+              - cell [ref=e191]
+            - row "Songs add" [ref=e192]:
+              - rowheader "Songs" [ref=e193]:
+                - link "Songs" [ref=e194] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/songs/
+              - cell "add" [ref=e195]:
+                - link "add" [ref=e197] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/songs/add/
+                  - generic [ref=e198]: add
+            - row "Station Groups add" [ref=e199]:
+              - rowheader "Station Groups" [ref=e200]:
+                - link "Station Groups" [ref=e201] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/stationgroups/
+              - cell "add" [ref=e202]:
+                - link "add" [ref=e204] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/stationgroups/add/
+                  - generic [ref=e205]: add
+            - row "Station Metadata Categories add" [ref=e206]:
+              - rowheader "Station Metadata Categories" [ref=e207]:
+                - link "Station Metadata Categories" [ref=e208] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/stationmetadatafetchcategories/
+              - cell "add" [ref=e209]:
+                - link "add" [ref=e211] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/stationmetadatafetchcategories/add/
+                  - generic [ref=e212]: add
+            - row "Station Metadata Fetches add" [ref=e213]:
+              - rowheader "Station Metadata Fetches" [ref=e214]:
+                - link "Station Metadata Fetches" [ref=e215] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/stationsmetadatafetch/
+              - cell "add" [ref=e216]:
+                - link "add" [ref=e218] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/stationsmetadatafetch/add/
+                  - generic [ref=e219]: add
+            - row "Station Now Playing add" [ref=e220]:
+              - rowheader "Station Now Playing" [ref=e221]:
+                - link "Station Now Playing" [ref=e222] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/stationsnowplaying/
+              - cell "add" [ref=e223]:
+                - link "add" [ref=e225] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/stationsnowplaying/add/
+                  - generic [ref=e226]: add
+            - row "Station Now Playing History add" [ref=e227]:
+              - rowheader "Station Now Playing History" [ref=e228]:
+                - link "Station Now Playing History" [ref=e229] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/stationsnowplayinghistory/
+              - cell "add" [ref=e230]:
+                - link "add" [ref=e232] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/stationsnowplayinghistory/add/
+                  - generic [ref=e233]: add
+            - row "Station Streams add" [ref=e234]:
+              - rowheader "Station Streams" [ref=e235]:
+                - link "Station Streams" [ref=e236] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/stationstreams/
+              - cell "add" [ref=e237]:
+                - link "add" [ref=e239] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/stationstreams/add/
+                  - generic [ref=e240]: add
+            - row "Station Uptime add" [ref=e241]:
+              - rowheader "Station Uptime" [ref=e242]:
+                - link "Station Uptime" [ref=e243] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/stationsuptime/
+              - cell "add" [ref=e244]:
+                - link "add" [ref=e246] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/stationsuptime/add/
+                  - generic [ref=e247]: add
+            - row "Station to Group Relationships add" [ref=e248]:
+              - rowheader "Station to Group Relationships" [ref=e249]:
+                - link "Station to Group Relationships" [ref=e250] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/stationtostationgroup/
+              - cell "add" [ref=e251]:
+                - link "add" [ref=e253] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/stationtostationgroup/add/
+                  - generic [ref=e254]: add
+            - row "Stations add" [ref=e255]:
+              - rowheader "Stations" [ref=e256]:
+                - link "Stations" [ref=e257] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/stations/
+              - cell "add" [ref=e258]:
+                - link "add" [ref=e260] [cursor=pointer]:
+                  - /url: /portal/radio_crestin/stations/add/
+                  - generic [ref=e261]: add
+        - table "Social Accounts" [ref=e264]:
+          - caption [ref=e265]:
+            - link "Social Accounts" [ref=e266] [cursor=pointer]:
+              - /url: /portal/socialaccount/
+          - rowgroup [ref=e267]:
+            - row "Social accounts add" [ref=e268]:
+              - rowheader "Social accounts" [ref=e269]:
+                - link "Social accounts" [ref=e270] [cursor=pointer]:
+                  - /url: /portal/socialaccount/socialaccount/
+              - cell "add" [ref=e271]:
+                - link "add" [ref=e273] [cursor=pointer]:
+                  - /url: /portal/socialaccount/socialaccount/add/
+                  - generic [ref=e274]: add
+            - row "Social application tokens add" [ref=e275]:
+              - rowheader "Social application tokens" [ref=e276]:
+                - link "Social application tokens" [ref=e277] [cursor=pointer]:
+                  - /url: /portal/socialaccount/socialtoken/
+              - cell "add" [ref=e278]:
+                - link "add" [ref=e280] [cursor=pointer]:
+                  - /url: /portal/socialaccount/socialtoken/add/
+                  - generic [ref=e281]: add
+            - row "Social applications add" [ref=e282]:
+              - rowheader "Social applications" [ref=e283]:
+                - link "Social applications" [ref=e284] [cursor=pointer]:
+                  - /url: /portal/socialaccount/socialapp/
+              - cell "add" [ref=e285]:
+                - link "add" [ref=e287] [cursor=pointer]:
+                  - /url: /portal/socialaccount/socialapp/add/
+                  - generic [ref=e288]: add
+        - table "User Sessions" [ref=e291]:
+          - caption [ref=e292]:
+            - link "User Sessions" [ref=e293] [cursor=pointer]:
+              - /url: /portal/usersessions/
+          - rowgroup [ref=e294]:
+            - row "User sessions add" [ref=e295]:
+              - rowheader "User sessions" [ref=e296]:
+                - link "User sessions" [ref=e297] [cursor=pointer]:
+                  - /url: /portal/usersessions/usersession/
+              - cell "add" [ref=e298]:
+                - link "add" [ref=e300] [cursor=pointer]:
+                  - /url: /portal/usersessions/usersession/add/
+                  - generic [ref=e301]: add
+      - generic [ref=e303]:
+        - heading "Recent actions" [level=2] [ref=e304]
+        - list [ref=e305]:
+          - listitem [ref=e306]:
+            - link "Restore 2026-04-12 11:49:04 - 2026-04-12 11:49:04" [ref=e308] [cursor=pointer]:
+              - /url: /portal/backups/restore/6/change/
+            - generic [ref=e309]:
+              - generic [ref=e310]: Restore
+              - generic [ref=e311]: April 12, 2026, 1:49 p.m.
+          - listitem [ref=e312]:
+            - link "Restore 2026-04-12 11:48:40 - 2026-04-12 11:48:41" [ref=e314] [cursor=pointer]:
+              - /url: /portal/backups/restore/5/change/
+            - generic [ref=e315]:
+              - generic [ref=e316]: Restore
+              - generic [ref=e317]: April 12, 2026, 1:48 p.m.
+  - list [ref=e319]:
+    - listitem [ref=e320]:
+      - link "Hide »" [ref=e321] [cursor=pointer]:
+        - /url: "#"
+    - listitem [ref=e322]:
+      - link "Toggle Theme" [ref=e323] [cursor=pointer]:
+        - /url: "#"
+        - text: Toggle Theme
+        - img [ref=e324]
+    - listitem [ref=e326]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e327]
+      - link "History /portal/" [ref=e328] [cursor=pointer]:
+        - /url: "#"
+        - text: History
+        - text: /portal/
+    - listitem [ref=e329]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e330]
+      - link "Versions Django 5.1.15" [ref=e331] [cursor=pointer]:
+        - /url: "#"
+        - text: Versions
+        - text: Django 5.1.15
+    - listitem [ref=e332]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e333]
+      - 'link "Time CPU: 43.90ms (48.04ms)" [ref=e334] [cursor=pointer]':
+        - /url: "#"
+        - text: Time
+        - text: "CPU: 43.90ms (48.04ms)"
+    - listitem [ref=e335]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e336]
+      - link "Settings" [ref=e337] [cursor=pointer]:
+        - /url: "#"
+    - listitem [ref=e338]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e339]
+      - link "Headers" [ref=e340] [cursor=pointer]:
+        - /url: "#"
+    - listitem [ref=e341]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e342]
+      - link "Request index" [ref=e343] [cursor=pointer]:
+        - /url: "#"
+        - text: Request
+        - text: index
+    - listitem [ref=e344]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e345]
+      - link "SQL 1 query in 0.68ms" [ref=e346] [cursor=pointer]:
+        - /url: "#"
+        - text: SQL
+        - text: 1 query in 0.68ms
+    - listitem [ref=e347]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e348]
+      - link "Static files 19 files used" [ref=e349] [cursor=pointer]:
+        - /url: "#"
+        - text: Static files
+        - text: 19 files used
+    - listitem [ref=e350]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e351]
+      - link "Templates admin/index.html" [ref=e352] [cursor=pointer]:
+        - /url: "#"
+        - text: Templates
+        - text: admin/index.html
+    - listitem [ref=e353]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e354]
+      - link "Alerts" [ref=e355] [cursor=pointer]:
+        - /url: "#"
+    - listitem [ref=e356]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e357]
+      - link "Cache 0 calls in 0.00ms" [ref=e358] [cursor=pointer]:
+        - /url: "#"
+        - text: Cache
+        - text: 0 calls in 0.00ms
+    - listitem [ref=e359]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e360]
+      - link "Signals 79 receivers of 15 signals" [ref=e361] [cursor=pointer]:
+        - /url: "#"
+        - text: Signals
+        - text: 79 receivers of 15 signals
+    - listitem [ref=e362]:
+      - checkbox "Enable for next and successive requests" [ref=e363]
+      - generic [ref=e364]: Intercept redirects
+    - listitem [ref=e365]:
+      - checkbox "Enable for next and successive requests" [ref=e366]
+      - generic [ref=e367]: Profiling
+  - img

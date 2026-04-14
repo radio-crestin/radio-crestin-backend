@@ -1,0 +1,40 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e6]:
+      - button "AAC+" [ref=e7] [cursor=pointer]
+      - button "Opus" [ref=e8] [cursor=pointer]
+      - button "Auto" [ref=e9] [cursor=pointer]
+      - button "Original" [ref=e10] [cursor=pointer]
+      - button "LIVE" [ref=e11] [cursor=pointer]
+    - generic [ref=e12]:
+      - generic [ref=e13]: "Seek:"
+      - button "-1m" [ref=e14] [cursor=pointer]
+      - button "-10s" [ref=e15] [cursor=pointer]
+      - button "+10s" [ref=e16] [cursor=pointer]
+      - button "+1m" [ref=e17] [cursor=pointer]
+      - generic [ref=e18]: "Jump:"
+      - textbox [ref=e19]
+      - button "Go" [ref=e20] [cursor=pointer]
+      - spinbutton [ref=e21]
+      - button "Go" [ref=e22] [cursor=pointer]
+    - generic [ref=e23]:
+      - generic [ref=e24]: "URL:"
+      - textbox [ref=e25] [cursor=pointer]: http://localhost:8080/aac/index.m3u8?ref=dev-player&s=dev-user
+  - generic [ref=e26]:
+    - generic [ref=e27]: Playlist
+    - generic [ref=e29] [cursor=pointer]:
+      - generic [ref=e30]: 1:30:17 PM
+      - generic [ref=e31]: Sami și Clara Lupu cu Sorin și Daniela Piu - Trecut-au anii
+      - generic [ref=e32]: LIVE
+  - generic [ref=e33]:
+    - generic [ref=e34]: Stats
+    - generic [ref=e35]:
+      - generic [ref=e36]:
+        - generic [ref=e37]: segments
+        - generic [ref=e38]: "1"
+      - generic [ref=e39]:
+        - generic [ref=e40]: history
+        - generic [ref=e41]: 0s
+      - generic [ref=e42]:
+        - generic [ref=e43]: gaps
+        - generic [ref=e44]: "0"

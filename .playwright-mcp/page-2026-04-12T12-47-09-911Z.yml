@@ -1,0 +1,116 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e10] [cursor=pointer]: dock_to_right
+        - link "arrow_back" [ref=e12] [cursor=pointer]:
+          - /url: /portal/radio_crestin/stations/
+          - generic [ref=e13]: arrow_back
+        - heading "Radio Crestin chevron_right Stations chevron_right Radio Eldad" [level=1] [ref=e14]:
+          - link "Radio Crestin" [ref=e15] [cursor=pointer]:
+            - /url: /portal/radio_crestin/
+          - generic [ref=e16]: chevron_right
+          - link "Stations" [ref=e17] [cursor=pointer]:
+            - /url: /portal/radio_crestin/stations/
+          - generic [ref=e18]: chevron_right
+          - link "Radio Eldad" [ref=e19] [cursor=pointer]:
+            - /url: /portal/radio_crestin/stations/92/change/
+      - generic [ref=e20]:
+        - link "more_horiz" [ref=e22] [cursor=pointer]:
+          - /url: "#"
+          - generic [ref=e23]: more_horiz
+        - link "add" [ref=e25] [cursor=pointer]:
+          - /url: /portal/radio_crestin/stations/add/
+          - generic [ref=e26]: add
+    - generic [ref=e31]:
+      - navigation [ref=e33] [cursor=pointer]:
+        - link "General" [ref=e34]:
+          - /url: "#general"
+        - link "Streaming" [ref=e35]:
+          - /url: "#streaming"
+        - link "Metadata" [ref=e36]:
+          - /url: "#metadata"
+        - link "Media" [ref=e37]:
+          - /url: "#media"
+        - link "Content" [ref=e38]:
+          - /url: "#content"
+        - link "Status" [ref=e39]:
+          - /url: "#status"
+        - link "Streams 2" [ref=e40]:
+          - /url: "#station_streams"
+          - text: Streams
+          - generic [ref=e41]: "2"
+        - link "Metadata Scrapers 1" [ref=e42]:
+          - /url: "#station_metadata_fetches"
+          - text: Metadata Scrapers
+          - generic [ref=e43]: "1"
+        - link "Groups 2" [ref=e44]:
+          - /url: "#station_to_station_groups"
+          - text: Groups
+          - generic [ref=e45]: "2"
+      - text: check_small close_small expand_more expand_more
+      - group "Streams" [ref=e151]:
+        - region "scrollable content" [ref=e157]:
+          - table [ref=e159]:
+            - rowgroup [ref=e160]:
+              - row "Radio Eldad->https://hls.radiocrestin.ro/hls/radio-eldad/index.m3u8" [ref=e161]:
+                - cell "Radio Eldad->https://hls.radiocrestin.ro/hls/radio-eldad/index.m3u8" [ref=e162]:
+                  - paragraph [ref=e163]:
+                    - generic [ref=e164]: Radio Eldad->https://hls.radiocrestin.ro/hls/radio-eldad/index.m3u8
+              - row "Stream URL https://hls.radiocrestin.ro/hls/radio-eldad/index.m3u8 Type HLS expand_more Station Stream Order 0.0 Remove delete" [ref=e165]:
+                - cell "Stream URL https://hls.radiocrestin.ro/hls/radio-eldad/index.m3u8" [ref=e166]:
+                  - text: Stream URL
+                  - textbox [ref=e169]: https://hls.radiocrestin.ro/hls/radio-eldad/index.m3u8
+                - cell "Type HLS expand_more" [ref=e170]:
+                  - text: Type
+                  - generic [ref=e173]:
+                    - combobox [ref=e174]:
+                      - option "HLS" [selected]
+                      - option "Proxied Stream"
+                      - option "Direct Stream"
+                    - generic: expand_more
+                - cell "Station Stream Order 0.0" [ref=e175]:
+                  - text: Station Stream Order
+                  - spinbutton [ref=e178]: "0.0"
+                - cell "Remove delete" [ref=e179]:
+                  - text: Remove
+                  - generic [ref=e181] [cursor=pointer]: delete
+            - rowgroup [ref=e182]:
+              - row "Radio Eldad->https://c40.radioboss.fm/stream/170" [ref=e183]:
+                - cell "Radio Eldad->https://c40.radioboss.fm/stream/170" [ref=e184]:
+                  - paragraph [ref=e185]:
+                    - generic [ref=e186]: Radio Eldad->https://c40.radioboss.fm/stream/170
+              - row "Stream URL https://c40.radioboss.fm/stream/170 Type Direct Stream expand_more Station Stream Order 1.0 Remove delete" [ref=e187]:
+                - cell "Stream URL https://c40.radioboss.fm/stream/170" [ref=e188]:
+                  - text: Stream URL
+                  - textbox [ref=e191]: https://c40.radioboss.fm/stream/170
+                - cell "Type Direct Stream expand_more" [ref=e192]:
+                  - text: Type
+                  - generic [ref=e195]:
+                    - combobox [ref=e196]:
+                      - option "HLS"
+                      - option "Proxied Stream"
+                      - option "Direct Stream" [selected]
+                    - generic: expand_more
+                - cell "Station Stream Order 1.0" [ref=e197]:
+                  - text: Station Stream Order
+                  - spinbutton [ref=e200]: "1.0"
+                - cell "Remove delete" [ref=e201]:
+                  - text: Remove
+                  - generic [ref=e203] [cursor=pointer]: delete
+            - text: Stream URL Type Station Stream Order Remove
+            - rowgroup [ref=e204]:
+              - row "add Add another Stream" [ref=e205]:
+                - cell "add Add another Stream" [ref=e206]:
+                  - link "add Add another Stream" [ref=e208] [cursor=pointer]:
+                    - /url: "#"
+                    - generic [ref=e210]: add
+                    - generic [ref=e211]: Add another Stream
+      - text: expand_more Group expand_more Station to Station Group Order Remove Group expand_more Station to Station Group Order Remove Group Station to Station Group Order Remove
+    - generic [ref=e93]:
+      - button "Save" [ref=e94] [cursor=pointer]
+      - button "Save and continue editing" [ref=e95] [cursor=pointer]
+      - button "Save and add another" [ref=e96] [cursor=pointer]
+      - link "Delete Station" [ref=e98] [cursor=pointer]:
+        - /url: /portal/radio_crestin/stations/92/delete/
+  - img

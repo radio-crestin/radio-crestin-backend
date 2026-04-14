@@ -1,3 +1,5 @@
+import os
+
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
@@ -10,6 +12,11 @@ from django.urls import reverse_lazy
 from django.conf import settings
 import unfold.decorators
 from import_export import resources
+
+# Streaming pod base URL — browser-accessible URL for the HLS streaming pods
+# Dev: http://localhost:8085 (docker-compose maps 8085→8080)
+# Prod: https://live.radiocrestin.ro
+STREAMING_BASE_URL = os.environ.get('STREAMING_BASE_URL', 'http://localhost:8085')
 
 from superapp.apps.admin_portal.admin import SuperAppModelAdmin, SuperAppTabularInline, SuperAppStackedInline
 from superapp.apps.admin_portal.sites import superapp_admin_site
@@ -49,6 +56,7 @@ class StationsMetadataFetchInline(SuperAppStackedInline):
     fk_name = 'station'
     extra = 0
     tab = True
+    ordering = ['-priority']
     autocomplete_fields = ['station_metadata_fetch_category']
     readonly_fields = ['url_link']
     fields = ['station_metadata_fetch_category', 'url', 'url_link', 'priority', 'dirty_metadata', 'split_character', 'station_name_regex', 'artist_regex', 'title_regex']
@@ -73,6 +81,7 @@ class StationsAdmin(SuperAppModelAdmin):
     readonly_fields = [
         'thumbnail_url', 'created_at', 'updated_at', 'thumbnail_preview',
         'now_playing_display', 'hls_url_display', 'player_link_display',
+        'hls_data_links',
         'config_version',
     ]
 
@@ -89,15 +98,7 @@ class StationsAdmin(SuperAppModelAdmin):
             'fields': (
                 'stream_url', 'transcode_enabled',
                 'hls_url_display', 'player_link_display',
-            ),
-        }),
-        (_("Metadata"), {
-            'classes': ['tab'],
-            'fields': (
-                'metadata_timestamp_source',
-                'metadata_scrape_interval',
-                'id3_metadata_delay_offset',
-                'config_version',
+                'hls_data_links',
             ),
         }),
         (_("Media"), {
@@ -122,13 +123,22 @@ class StationsAdmin(SuperAppModelAdmin):
                 'created_at', 'updated_at',
             ),
         }),
+        (_("Metadata"), {
+            'classes': ['tab'],
+            'fields': (
+                'metadata_timestamp_source',
+                'metadata_scrape_interval',
+                'id3_metadata_delay_offset',
+                'config_version',
+            ),
+        }),
     )
 
-    inlines = [StationStreamsInline, StationsMetadataFetchInline, StationToStationGroupInline]
+    inlines = [StationsMetadataFetchInline, StationStreamsInline, StationToStationGroupInline]
 
     def hls_url_display(self, obj):
         if obj.transcode_enabled:
-            base = f"https://live.radiocrestin.ro/{obj.slug}"
+            base = f"{STREAMING_BASE_URL}/{obj.slug}"
             aac_url = f"{base}/aac/index.m3u8"
             master_url = f"{base}/master.m3u8"
             compat_url = f"{base}/index.m3u8"
@@ -144,6 +154,19 @@ class StationsAdmin(SuperAppModelAdmin):
             )
         return _("Transcoding disabled")
     hls_url_display.short_description = _("HLS URLs")
+
+    def hls_data_links(self, obj):
+        if not obj.pk:
+            return '-'
+        history_url = reverse('admin:radio_crestin_stationsnowplayinghistory_changelist') + f'?station__id__exact={obj.pk}'
+        return format_html(
+            '<div style="display:flex; gap:8px; flex-wrap:wrap;">'
+            '<a href="{}" target="_blank" style="padding:4px 12px; background:#1a2a4a; color:#ddd; '
+            'border-radius:4px; text-decoration:none; font-size:12px;">Now Playing History</a>'
+            '</div>',
+            history_url,
+        )
+    hls_data_links.short_description = _("HLS Data")
 
     def player_link_display(self, obj):
         if obj.transcode_enabled:

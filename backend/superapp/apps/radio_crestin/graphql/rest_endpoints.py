@@ -29,28 +29,36 @@ def validate_timestamp_not_future(request) -> Optional[Dict[str, Any]]:
     """
     Validate that the timestamp parameter is not in the future (beyond current time + 2 seconds).
 
-    This prevents CDN caches from caching responses for timestamps that don't exist yet.
+    If the timestamp is invalid or in the future (e.g. client clock skew), redirect to
+    the correct rounded timestamp instead of returning an error.
 
     Returns:
-        None if valid, error dict if timestamp is too far in the future
+        None if valid, redirect dict if timestamp needs correction
     """
     timestamp_param = request.GET.get('timestamp') or request.GET.get('_t')
     if timestamp_param:
+        current_timestamp = timezone.now().timestamp()
+        rounded_timestamp = int(current_timestamp // 10) * 10
+        needs_redirect = False
+
         try:
             timestamp_value = int(timestamp_param)
-            current_timestamp = timezone.now().timestamp()
             max_allowed_timestamp = current_timestamp + 2  # Allow 2 seconds of clock drift
-
             if timestamp_value > max_allowed_timestamp:
-                return {
-                    'error': 'Timestamp is in the future. Please use a valid timestamp.',
-                    'status': 400
-                }
+                needs_redirect = True
         except (ValueError, TypeError):
-            return {
-                'error': 'Invalid timestamp format. Please provide a valid integer timestamp.',
-                'status': 400
-            }
+            needs_redirect = True
+
+        if needs_redirect:
+            # Build redirect URL replacing the bad timestamp with the correct one
+            query_params = dict(request.GET)
+            query_params.pop('timestamp', None)
+            query_params.pop('_t', None)
+            query_params['timestamp'] = [str(rounded_timestamp)]
+            query_string = '&'.join(
+                f"{k}={v[0] if isinstance(v, list) else v}" for k, v in query_params.items()
+            )
+            return {'redirect': f"{request.path}?{query_string}"}
     return None
 
 
@@ -65,7 +73,7 @@ class StationsApiEndpoint(RestApiEndpoint):
     graphql_query = STATIONS_GRAPHQL_QUERY
     method = HttpMethod.GET
     name = "api_v1_stations"
-    cache_control = "public, max-age=0, s-maxage=14400, immutable"
+    cache_control = "public, max-age=2592000, immutable"
     cors_enabled = True
 
     @staticmethod
@@ -318,7 +326,7 @@ class ReviewsListApiEndpoint(RestApiEndpoint):
     graphql_query = REVIEWS_GRAPHQL_QUERY
     method = HttpMethod.GET
     name = "api_v1_reviews_list"
-    cache_control = "public, max-age=0, s-maxage=14400, immutable"
+    cache_control = "public, max-age=2592000, immutable"
     cors_enabled = True
 
     @staticmethod
@@ -394,7 +402,7 @@ class StationsMetadataApiEndpoint(RestApiEndpoint):
     graphql_query = STATIONS_METADATA_GRAPHQL_QUERY
     method = HttpMethod.GET
     name = "api_v1_stations_metadata"
-    cache_control = "public, max-age=0, s-maxage=14400, immutable, no-store"
+    cache_control = "public, max-age=2592000, immutable"
     cors_enabled = True
 
     @staticmethod
@@ -452,7 +460,7 @@ class StationsMetadataHistoryApiEndpoint(RestApiEndpoint):
     graphql_query = STATIONS_METADATA_HISTORY_GRAPHQL_QUERY
     method = HttpMethod.GET
     name = "api_v1_stations_metadata_history"
-    cache_control = "public, max-age=0, s-maxage=60"
+    cache_control = "public, max-age=60"
     cors_enabled = True
 
     @staticmethod

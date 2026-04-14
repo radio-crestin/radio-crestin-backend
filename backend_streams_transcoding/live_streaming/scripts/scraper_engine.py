@@ -434,6 +434,16 @@ def _get_id3_song() -> str:
         return ""
 
 
+def _get_id3_started_at() -> float:
+    """Read the stream-accurate started_at epoch from metadata_monitor."""
+    try:
+        with open(METADATA_INDEX, "r") as f:
+            data = json.load(f)
+        return data.get("current", {}).get("started_at", 0)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return 0
+
+
 def main():
     global _config, _config_version, _last_song_raw
 
@@ -492,9 +502,14 @@ def main():
             if current_raw and current_raw != _last_song_raw:
                 _last_song_raw = current_raw
                 should_scrape = True
-                # Apply delay offset
-                offset = _config.get("id3_metadata_delay_offset", 0)
-                id3_epoch = now - offset
+                # Use stream-accurate timestamp from metadata_monitor
+                stream_epoch = _get_id3_started_at()
+                if stream_epoch > 0:
+                    offset = _config.get("id3_metadata_delay_offset", 0)
+                    id3_epoch = stream_epoch - offset
+                else:
+                    offset = _config.get("id3_metadata_delay_offset", 0)
+                    id3_epoch = now - offset
                 from datetime import datetime, timezone as dt_tz
                 id3_ts = datetime.fromtimestamp(id3_epoch, tz=dt_tz.utc).isoformat()
                 print(f"scraper: id3 trigger: {current_raw}", flush=True)
@@ -503,7 +518,13 @@ def main():
             if now - last_scrape_time >= interval:
                 should_scrape = True
                 from datetime import datetime, timezone as dt_tz
-                scraper_ts = datetime.fromtimestamp(now, tz=dt_tz.utc).isoformat()
+                # Use the stream-accurate timestamp from metadata_monitor
+                # if available (when FFmpeg ICY metadata detected the song)
+                stream_epoch = _get_id3_started_at()
+                if stream_epoch > 0:
+                    scraper_ts = datetime.fromtimestamp(stream_epoch, tz=dt_tz.utc).isoformat()
+                else:
+                    scraper_ts = datetime.fromtimestamp(now, tz=dt_tz.utc).isoformat()
 
         if should_scrape:
             scrapers = _config.get("scrapers", [])

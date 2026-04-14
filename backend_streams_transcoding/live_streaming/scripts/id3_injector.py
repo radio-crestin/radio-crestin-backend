@@ -93,7 +93,12 @@ def _get_current_song() -> dict:
 
 
 def inject_id3():
-    """Scan for new .ts segments and prepend ID3 tags."""
+    """Scan for new .ts segments and prepend ID3 tags.
+
+    Only processes segments that are COMPLETE (not the newest one on disk).
+    FFmpeg writes segments incrementally; reading during a write produces
+    truncated data.  The newest segment is likely still being written to.
+    """
     try:
         files = os.listdir(SEGMENTS_DIR)
     except FileNotFoundError:
@@ -113,9 +118,15 @@ def inject_id3():
     if not id3_tag:
         return
 
-    for name in files:
-        if not name.endswith(".ts"):
-            continue
+    # Find the newest segment so we can skip it (might still be written to)
+    ts_files = sorted([f for f in files if f.endswith(".ts")])
+    if len(ts_files) < 2:
+        return  # Need at least 2 segments; the newest is still being written
+    newest = ts_files[-1]
+
+    for name in ts_files:
+        if name == newest:
+            continue  # Skip — FFmpeg might still be writing this one
         if name in _processed:
             continue
 
@@ -129,8 +140,16 @@ def inject_id3():
                 f.seek(0)
                 original = f.read()
 
-            with open(path, "wb") as f:
+            # Sanity: segment should be at least 1KB (a 6s AAC segment is ~60KB)
+            if len(original) < 1024:
+                continue  # Likely still being written or corrupted
+
+            # Atomic write: write to temp file, then rename.
+            # This prevents the S3 uploader from reading a truncated file.
+            tmp_path = path + ".tmp"
+            with open(tmp_path, "wb") as f:
                 f.write(id3_tag + original)
+            os.replace(tmp_path, path)
 
             _processed.add(name)
         except (FileNotFoundError, PermissionError, OSError):

@@ -1,3 +1,10 @@
+- create a system to push stream_id3 metadata in real-time back to django
+- - muta extragerea metadatelor in pod-urile fiecarei statii, colaboreaza cu extragerea de id3 daca sunt disponibile, optimizeaza ca sa extragi numai din cea mai importanta sursa direct
+- also, track exact timestamp changes + sync fetched metadata as close as possible with real life audio
+- rezolva bug-urile de la extragerea metadatelor
+
+
+
 ### Backend TODO
 ~~- [ ] converteste proiectul la superapp~~
 ~~- [ ] renunta la hasura si pune toata logica in superapp~~

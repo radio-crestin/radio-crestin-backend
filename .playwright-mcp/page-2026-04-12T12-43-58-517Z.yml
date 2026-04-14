@@ -1,0 +1,97 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - heading "Sign In" [level=1] [ref=e5]
+    - generic [ref=e6]: If you have not created an account yet, then please sign up first.
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]: Email *
+        - textbox "Email *" [ref=e10]:
+          - /placeholder: Email address
+      - generic [ref=e11]:
+        - generic [ref=e12]: Password *
+        - textbox "Password *" [ref=e13]:
+          - /placeholder: Password
+      - button "Sign In arrow_forward" [ref=e15]:
+        - text: Sign In
+        - generic [ref=e16]: arrow_forward
+  - list [ref=e18]:
+    - listitem [ref=e19]:
+      - link "Hide »" [ref=e20] [cursor=pointer]:
+        - /url: "#"
+    - listitem [ref=e21]:
+      - link "Toggle Theme" [ref=e22] [cursor=pointer]:
+        - /url: "#"
+        - text: Toggle Theme
+        - img [ref=e23]
+    - listitem [ref=e25]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e26]
+      - link "History /accounts/?next=%2Fportal%2Flogin%2F" [ref=e27] [cursor=pointer]:
+        - /url: "#"
+        - text: History
+        - text: /accounts/?next=%2Fportal%2Flogin%2F
+    - listitem [ref=e28]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e29]
+      - link "Versions Django 5.1.15" [ref=e30] [cursor=pointer]:
+        - /url: "#"
+        - text: Versions
+        - text: Django 5.1.15
+    - listitem [ref=e31]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e32]
+      - 'link "Time CPU: 18.32ms (28.57ms)" [ref=e33] [cursor=pointer]':
+        - /url: "#"
+        - text: Time
+        - text: "CPU: 18.32ms (28.57ms)"
+    - listitem [ref=e34]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e35]
+      - link "Settings" [ref=e36] [cursor=pointer]:
+        - /url: "#"
+    - listitem [ref=e37]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e38]
+      - link "Headers" [ref=e39] [cursor=pointer]:
+        - /url: "#"
+    - listitem [ref=e40]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e41]
+      - link "Request HomepageLoginView" [ref=e42] [cursor=pointer]:
+        - /url: "#"
+        - text: Request
+        - text: HomepageLoginView
+    - listitem [ref=e43]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e44]
+      - link "SQL 1 query in 0.93ms" [ref=e45] [cursor=pointer]:
+        - /url: "#"
+        - text: SQL
+        - text: 1 query in 0.93ms
+    - listitem [ref=e46]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e47]
+      - link "Static files 14 files used" [ref=e48] [cursor=pointer]:
+        - /url: "#"
+        - text: Static files
+        - text: 14 files used
+    - listitem [ref=e49]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e50]
+      - link "Templates account/homepage_login.html" [ref=e51] [cursor=pointer]:
+        - /url: "#"
+        - text: Templates
+        - text: account/homepage_login.html
+    - listitem [ref=e52]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e53]
+      - link "Alerts" [ref=e54] [cursor=pointer]:
+        - /url: "#"
+    - listitem [ref=e55]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e56]
+      - link "Cache 0 calls in 0.00ms" [ref=e57] [cursor=pointer]:
+        - /url: "#"
+        - text: Cache
+        - text: 0 calls in 0.00ms
+    - listitem [ref=e58]:
+      - checkbox "Disable for next and successive requests" [checked] [ref=e59]
+      - link "Signals 79 receivers of 15 signals" [ref=e60] [cursor=pointer]:
+        - /url: "#"
+        - text: Signals
+        - text: 79 receivers of 15 signals
+    - listitem [ref=e61]:
+      - checkbox "Enable for next and successive requests" [ref=e62]
+      - generic [ref=e63]: Intercept redirects
+    - listitem [ref=e64]:
+      - checkbox "Enable for next and successive requests" [ref=e65]
+      - generic [ref=e66]: Profiling

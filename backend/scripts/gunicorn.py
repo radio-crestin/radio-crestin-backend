@@ -12,8 +12,10 @@ import os
 bind = "0.0.0.0:8080"
 backlog = 2048
 
-# Workers — capped to avoid DB connection exhaustion in containerized environments
-workers = min(int(os.environ.get("GUNICORN_WORKERS", multiprocessing.cpu_count() * 2 + 1)), 4)
+# Workers — capped at 2 to keep memory under control in containerized environments
+# Each worker loads ~200MB (Django + boto3 + strawberry + graphql-core).
+# Uvicorn workers handle concurrency via async, so 2 workers is sufficient.
+workers = min(int(os.environ.get("GUNICORN_WORKERS", 2)), 4)
 worker_class = "uvicorn.workers.UvicornWorker"
 max_requests = 1000
 max_requests_jitter = 100

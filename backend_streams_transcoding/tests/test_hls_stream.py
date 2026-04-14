@@ -2,7 +2,7 @@
 HLS stream validation tests.
 
 Tests the live HLS stream against a running container at localhost:8080.
-Validates playlists, segments, historical playback, and gap handling.
+Validates playlists, segments, and metadata.
 
 Usage:
     make dev-stream-test
@@ -26,11 +26,6 @@ def status():
     return resp.json()
 
 
-@pytest.fixture(scope="module")
-def oldest_ts(status):
-    return int(status["aac"]["oldest_epoch"])
-
-
 # ── Master playlist ──
 
 
@@ -43,28 +38,22 @@ class TestMasterPlaylist:
         r = requests.get(f"{BASE_URL}/master.m3u8", timeout=5)
         assert "aac/index.m3u8" in r.text
 
-    def test_contains_opus_variant(self):
-        r = requests.get(f"{BASE_URL}/master.m3u8", timeout=5)
-        assert "opus/index.m3u8" in r.text
-
     def test_codecs_declared(self):
         r = requests.get(f"{BASE_URL}/master.m3u8", timeout=5)
         assert 'CODECS="mp4a.40.5"' in r.text
-        assert 'CODECS="opus"' in r.text
 
 
 # ── Live playlists ──
 
 
 class TestLivePlaylists:
-    @pytest.mark.parametrize("path", ["/index.m3u8", "/aac/index.m3u8", "/opus/index.m3u8"])
+    @pytest.mark.parametrize("path", ["/index.m3u8", "/aac/index.m3u8"])
     def test_returns_200(self, path):
         r = requests.get(f"{BASE_URL}{path}", timeout=5)
         assert r.status_code == 200
 
-    @pytest.mark.parametrize("path", ["/aac/index.m3u8", "/opus/index.m3u8"])
-    def test_is_valid_hls(self, path):
-        r = requests.get(f"{BASE_URL}{path}", timeout=5)
+    def test_is_valid_hls(self):
+        r = requests.get(f"{BASE_URL}/aac/index.m3u8", timeout=5)
         assert r.text.startswith("#EXTM3U")
         assert "#EXT-X-VERSION:" in r.text
         assert "#EXT-X-TARGETDURATION:" in r.text
@@ -73,11 +62,6 @@ class TestLivePlaylists:
     def test_aac_has_ts_segments(self):
         r = requests.get(f"{BASE_URL}/aac/index.m3u8", timeout=5)
         assert ".ts" in r.text
-
-    def test_opus_has_m4s_segments(self):
-        r = requests.get(f"{BASE_URL}/opus/index.m3u8", timeout=5)
-        assert ".m4s" in r.text
-        assert 'EXT-X-MAP:URI="init.mp4"' in r.text
 
     def test_no_endlist_for_live(self):
         r = requests.get(f"{BASE_URL}/aac/index.m3u8", timeout=5)
@@ -106,167 +90,12 @@ class TestSegmentAccess:
         assert r2.status_code == 200
         assert len(r2.content) > 1000
 
-    def test_opus_init(self):
-        r = requests.get(f"{BASE_URL}/opus/init.mp4", timeout=5)
-        assert r.status_code == 200
-        assert len(r.content) > 100
-
-    def test_opus_segment(self):
-        r = requests.get(f"{BASE_URL}/opus/index.m3u8", timeout=5)
-        seg = [l for l in r.text.splitlines() if l.endswith(".m4s")][0]
-        r2 = requests.get(f"{BASE_URL}/opus/{seg}", timeout=5)
-        assert r2.status_code == 200
-        assert len(r2.content) > 500
-
     def test_compat_segment(self):
         """Segments at /segments/*.ts (for /index.m3u8 backward compat)."""
         r = requests.get(f"{BASE_URL}/index.m3u8", timeout=5)
         seg = [l for l in r.text.splitlines() if l.endswith(".ts")][0]
         r2 = requests.get(f"{BASE_URL}/{seg}", timeout=5)
         assert r2.status_code == 200
-
-
-# ── Historical playback ──
-
-
-class TestHistoricalPlayback:
-    def test_timestamp_returns_event_playlist(self, oldest_ts):
-        r = requests.get(f"{BASE_URL}/aac/index.m3u8?timestamp={oldest_ts}", timeout=5)
-        assert r.status_code == 200
-        assert "#EXT-X-PLAYLIST-TYPE:EVENT" in r.text
-
-    def test_timestamp_starts_from_requested_time(self, oldest_ts):
-        r = requests.get(f"{BASE_URL}/aac/index.m3u8?timestamp={oldest_ts}", timeout=5)
-        lines = r.text.splitlines()
-        # First segment filename should contain the oldest timestamp
-        seg_lines = [l for l in lines if l.endswith(".ts")]
-        assert len(seg_lines) > 0
-        first_seg = seg_lines[0]
-        # Segment number should be close to the requested timestamp
-        seg_num = int(first_seg.split("/")[-1].replace(".ts", ""))
-        assert abs(seg_num - oldest_ts) < 5, (
-            f"First segment {seg_num} too far from requested {oldest_ts}"
-        )
-
-    def test_no_endlist_allows_polling(self, oldest_ts):
-        """EVENT playlist without ENDLIST lets hls.js keep polling for more."""
-        r = requests.get(f"{BASE_URL}/aac/index.m3u8?timestamp={oldest_ts}", timeout=5)
-        # Should NOT have ENDLIST (unless we've caught up to a very short stream)
-        # With enough segments, ENDLIST should be absent
-        # This is the key for continuous playback
-        assert "#EXT-X-PLAYLIST-TYPE:EVENT" in r.text
-
-    def test_playlist_grows_over_time(self, oldest_ts):
-        """Polling the same timestamp URL returns more segments as time passes."""
-        url = f"{BASE_URL}/aac/index.m3u8?timestamp={oldest_ts}"
-        r1 = requests.get(url, timeout=5)
-        count1 = r1.text.count("#EXTINF:")
-
-        time.sleep(7)  # Wait for at least one new segment
-
-        r2 = requests.get(url, timeout=5)
-        count2 = r2.text.count("#EXTINF:")
-        assert count2 > count1, (
-            f"Playlist didn't grow: {count1} -> {count2} segments. "
-            "hls.js needs growing playlists for seamless playback."
-        )
-
-    def test_media_sequence_stable(self, oldest_ts):
-        """MEDIA-SEQUENCE must stay the same across polls for EVENT playlists."""
-        url = f"{BASE_URL}/aac/index.m3u8?timestamp={oldest_ts}"
-        r1 = requests.get(url, timeout=5)
-        seq1 = [l for l in r1.text.splitlines() if "MEDIA-SEQUENCE" in l][0]
-
-        time.sleep(3)
-
-        r2 = requests.get(url, timeout=5)
-        seq2 = [l for l in r2.text.splitlines() if "MEDIA-SEQUENCE" in l][0]
-        assert seq1 == seq2, (
-            f"MEDIA-SEQUENCE changed: {seq1} -> {seq2}. "
-            "Must be stable for EVENT playlists or hls.js resets playback."
-        )
-
-    def test_all_segments_in_playlist_are_fetchable(self, oldest_ts):
-        """Every segment referenced in a timestamp playlist must be downloadable."""
-        r = requests.get(f"{BASE_URL}/aac/index.m3u8?timestamp={oldest_ts}", timeout=5)
-        seg_lines = [l for l in r.text.splitlines() if l.endswith(".ts")]
-        assert len(seg_lines) > 0
-
-        for seg in seg_lines[:5]:  # Test first 5
-            r2 = requests.get(f"{BASE_URL}/aac/{seg}", timeout=5)
-            assert r2.status_code == 200, f"Segment {seg} returned {r2.status_code}"
-            assert len(r2.content) > 500, f"Segment {seg} too small: {len(r2.content)}B"
-
-    def test_opus_timestamp_has_init_map(self, oldest_ts):
-        r = requests.get(f"{BASE_URL}/opus/index.m3u8?timestamp={oldest_ts}", timeout=5)
-        assert r.status_code == 200
-        assert 'EXT-X-MAP:URI="init.mp4"' in r.text
-
-    def test_future_timestamp_returns_live(self):
-        future = int(time.time()) + 3600
-        r = requests.get(f"{BASE_URL}/aac/index.m3u8?timestamp={future}", timeout=5)
-        assert r.status_code == 200
-        # Should be a live playlist (no EVENT type)
-        assert "#EXT-X-PLAYLIST-TYPE:EVENT" not in r.text
-
-
-# ── Delivery Directives (RFC 8216bis) ──
-
-
-class TestDeliveryDirectives:
-    def test_server_control_header(self):
-        r = requests.get(f"{BASE_URL}/aac/index.m3u8", timeout=5)
-        assert "#EXT-X-SERVER-CONTROL:" in r.text
-        assert "CAN-BLOCK-RELOAD=YES" in r.text
-        assert "CAN-SKIP-UNTIL=" in r.text
-
-    def test_blocking_reload_existing_segment(self, status):
-        """_HLS_msn for an existing segment returns immediately."""
-        oldest = int(status["aac"]["oldest_epoch"])
-        start = time.time()
-        r = requests.get(
-            f"{BASE_URL}/aac/index.m3u8?_HLS_msn={oldest}", timeout=15
-        )
-        elapsed = time.time() - start
-        assert r.status_code == 200
-        assert elapsed < 2, f"Should return immediately, took {elapsed:.1f}s"
-
-    def test_blocking_reload_waits_for_new_segment(self):
-        """_HLS_msn for a future segment blocks until it appears."""
-        # Get current newest
-        r = requests.get(f"{BASE_URL}/status.json", timeout=5)
-        data = r.json()
-        newest_epoch = data["aac"]["newest_epoch"]
-        # Segment numbers are epoch-based, guess the next one
-        # Use a number slightly ahead
-        next_seg = int(newest_epoch) + 2
-
-        start = time.time()
-        r = requests.get(
-            f"{BASE_URL}/aac/index.m3u8?_HLS_msn={next_seg}", timeout=15
-        )
-        elapsed = time.time() - start
-        assert r.status_code == 200
-        # Should have blocked for at least 1 second
-        assert elapsed >= 1, f"Should block, but returned in {elapsed:.1f}s"
-        # Should contain the requested segment or newer
-        assert "#EXTINF:" in r.text
-
-    def test_skip_returns_valid_playlist(self, status):
-        """_HLS_skip=YES returns a valid playlist."""
-        newest = int(status["aac"]["newest_epoch"])
-        r = requests.get(
-            f"{BASE_URL}/aac/index.m3u8?_HLS_msn={newest}&_HLS_skip=YES",
-            timeout=15,
-        )
-        assert r.status_code == 200
-        assert "#EXTM3U" in r.text
-        assert "#EXT-X-SERVER-CONTROL:" in r.text
-
-    def test_version_9_for_skip_support(self):
-        """Version must be >= 9 for EXT-X-SKIP support."""
-        r = requests.get(f"{BASE_URL}/aac/index.m3u8", timeout=5)
-        assert "#EXT-X-VERSION:9" in r.text
 
 
 # ── Status & availability ──
@@ -278,25 +107,7 @@ class TestStatus:
         assert r.status_code == 200
         data = r.json()
         assert "aac" in data
-        assert "opus" in data
-        assert data["aac"]["segments"] > 0
-        assert "gaps" in data["aac"]
-
-    def test_availability_json(self):
-        r = requests.get(f"{BASE_URL}/availability.json", timeout=5)
-        assert r.status_code == 200
-        data = r.json()
-        assert "aac" in data
-        assert "ranges" in data["aac"]
-        assert len(data["aac"]["ranges"]) > 0
-
-    def test_availability_ranges_have_valid_times(self):
-        r = requests.get(f"{BASE_URL}/availability.json", timeout=5)
-        data = r.json()
-        for rng in data["aac"]["ranges"]:
-            assert rng["start"] > 1700000000, f"Start too small: {rng['start']}"
-            assert rng["end"] >= rng["start"]
-            assert rng["segments"] > 0
+        assert data["aac"]["segments_on_disk"] >= 0
 
 
 # ── Metadata ──

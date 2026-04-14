@@ -1,7 +1,8 @@
 import strawberry
 import strawberry_django
 from typing import List, Optional
-from django.db.models import Max, Prefetch, Subquery, OuterRef
+from django.db import connection
+from django.db.models import Prefetch
 
 from datetime import datetime, timedelta, timezone as dt_tz
 
@@ -23,6 +24,45 @@ from ..utils.cdn_proxy import proxy_image_url
 class StationOrderBy:
     order: Optional[OrderDirectionEnum] = None
     title: Optional[OrderDirectionEnum] = None
+
+
+def _latest_history_per_station(station_ids, as_of_dt):
+    """Fetch the latest StationsNowPlayingHistory row per station using LATERAL JOIN.
+
+    This is O(n_stations) via index seeks on idx_snph_station_ts,
+    instead of O(n_history_rows) with DISTINCT ON or correlated subqueries.
+    Returns a dict {station_id: StationsNowPlayingHistory}.
+    """
+    if not station_ids:
+        return {}
+
+    placeholders = ','.join(['%s'] * len(station_ids))
+    sql = f"""
+        SELECT h.id
+        FROM unnest(ARRAY[{placeholders}]::bigint[]) AS sid(station_id)
+        CROSS JOIN LATERAL (
+            SELECT snph.id
+            FROM stations_now_playing_history snph
+            WHERE snph.station_id = sid.station_id
+              AND snph.timestamp <= %s
+            ORDER BY snph.timestamp DESC
+            LIMIT 1
+        ) h
+    """
+    params = list(station_ids) + [as_of_dt]
+
+    with connection.cursor() as cursor:
+        cursor.execute(sql, params)
+        history_ids = [row[0] for row in cursor.fetchall()]
+
+    if not history_ids:
+        return {}
+
+    records = StationsNowPlayingHistory.objects.filter(
+        id__in=history_ids,
+    ).select_related('song', 'song__artist')
+
+    return {h.station_id: h for h in records}
 
 
 @strawberry.type
@@ -527,20 +567,8 @@ class Query:
 
             station_ids = [s.id for s in stations]
 
-            # Query 3: latest history per station using subquery (avoids full table scan)
-            latest_ts = StationsNowPlayingHistory.objects.filter(
-                station_id=OuterRef('station_id'),
-                timestamp__lte=as_of_dt,
-            ).order_by('-timestamp').values('timestamp')[:1]
-            history_records = list(
-                StationsNowPlayingHistory.objects.filter(
-                    station_id__in=station_ids,
-                    timestamp=Subquery(latest_ts),
-                ).select_related(
-                    'song', 'song__artist',
-                )
-            )
-            history_by_station = {h.station_id: h for h in history_records}
+            # Query 3: latest history per station via LATERAL JOIN (O(n_stations))
+            history_by_station = _latest_history_per_station(station_ids, as_of_dt)
 
             return [
                 _build_metadata(s, np_override=history_by_station.get(s.id))
@@ -558,20 +586,8 @@ class Query:
 
             station_ids = [s.id for s in stations]
 
-            # Latest history per station at as_of_dt using subquery (avoids full table scan)
-            latest_ts = StationsNowPlayingHistory.objects.filter(
-                station_id=OuterRef('station_id'),
-                timestamp__lte=as_of_dt,
-            ).order_by('-timestamp').values('timestamp')[:1]
-            history_records = list(
-                StationsNowPlayingHistory.objects.filter(
-                    station_id__in=station_ids,
-                    timestamp=Subquery(latest_ts),
-                ).select_related(
-                    'song', 'song__artist',
-                )
-            )
-            history_by_station = {h.station_id: h for h in history_records}
+            # Latest history per station via LATERAL JOIN (O(n_stations))
+            history_by_station = _latest_history_per_station(station_ids, as_of_dt)
 
             return [
                 _build_metadata(s, np_override=history_by_station.get(s.id))

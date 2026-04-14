@@ -1,132 +1,55 @@
-# Gunicorn Configuration Guide
+# Gunicorn + Uvicorn Configuration
 
-This directory contains Gunicorn configurations for the EasyWindows Django application.
+ASGI server setup using Gunicorn as process manager with Uvicorn workers.
 
 ## Files
 
-- `gunicorn.py` - Production configuration (sync workers)
-- `gunicorn-dev.py` - Development configuration (single worker)
-- `gunicorn-async.py` - Async configuration (gevent workers for I/O-bound workloads)
-- `run-server.sh` - Server startup script with auto-restart functionality
-- `test-gunicorn.py` - Configuration validation script
+- `gunicorn.py` - Production configuration
+- `gunicorn-dev.py` - Development configuration (single worker, auto-reload)
+- `run-server.sh` - Server startup script with health monitoring and auto-restart
 
-## Configuration Overview
+## How It Works
+
+- **Gunicorn** manages worker processes (spawning, restarting, graceful shutdown)
+- **Uvicorn** handles requests via ASGI with `uvloop` (2-4x faster than standard asyncio)
+- Each worker handles many concurrent connections asynchronously
+
+## Configuration
 
 ### Production (`gunicorn.py`)
-- **Workers**: Auto-calculated based on CPU cores (2 * cores + 1)
-- **Worker Class**: `sync` (suitable for CPU-bound Django apps)
-- **Threads**: 2 per worker
-- **Timeout**: 120 seconds
+- **Workers**: `CPU cores * 2 + 1`
+- **Worker Class**: `uvicorn.workers.UvicornWorker`
+- **Timeout**: 120s
 - **Max Requests**: 1000 (with jitter to prevent thundering herd)
-- **Logging**: Info level with structured format
-- **Process Management**: Preload app, graceful restarts
+- **Worker Lifetime**: 3600s (recycled to prevent memory leaks)
 
 ### Development (`gunicorn-dev.py`)
-- **Workers**: 1 (easier debugging)
-- **Worker Class**: `sync`
-- **Timeout**: 60 seconds
-- **Max Requests**: 500
-- **Logging**: Debug level for verbose output
-- **Auto-reload**: Enabled for code changes
-- **Process Management**: No preloading for faster restarts
-
-### Async (`gunicorn-async.py`)
-- **Workers**: CPU cores + 1 (fewer workers for async)
-- **Worker Class**: `gevent` (for I/O-bound tasks)
-- **Connections**: 1000 per worker
-- **Timeout**: 120 seconds
-- **Max Requests**: 1000
-- **Use Case**: High concurrency I/O-bound workloads
+- **Workers**: 1
+- **Worker Class**: `uvicorn.workers.UvicornWorker`
+- **Auto-reload**: Enabled
+- **Logging**: Debug level
 
 ## Usage
 
-### Running Directly
 ```bash
-# Production
-gunicorn --config scripts/gunicorn.py superapp.wsgi:application
-
-# Development  
-gunicorn --config scripts/gunicorn-dev.py superapp.wsgi:application
-
-# Async (for I/O-bound workloads)
-gunicorn --config scripts/gunicorn-async.py superapp.wsgi:application
-```
-
-### Using the Run Script
-```bash
-# Production (DEBUG=false)
+# Production (default)
 ./scripts/run-server.sh
 
-# Development (DEBUG=true)
+# Development
 DEBUG=true ./scripts/run-server.sh
+
+# Direct
+gunicorn --config scripts/gunicorn.py superapp.asgi:application
 ```
 
 ## Auto-Restart Features
 
 The `run-server.sh` script provides:
-
-- **Health Monitoring**: Periodic checks via `/health/` endpoint
-- **Automatic Restart**: Restarts failed processes up to 10 times
-- **Graceful Shutdown**: Proper signal handling (SIGTERM/SIGINT)
-- **Process Monitoring**: Tracks Gunicorn PID and status
-- **Logging**: Timestamped logs for debugging
-
-## Performance Tuning
-
-### Production Optimizations
-- Workers auto-scaled based on CPU cores
-- Connection pooling with keepalive
-- Request limits to prevent memory leaks
-- Graceful worker recycling
-- Structured logging for monitoring
-
-### Development Optimizations
-- Single worker for easier debugging
-- Auto-reload on code changes
-- Verbose logging for development
-- Shorter timeouts for faster feedback
-
-## Monitoring
-
-### Health Check
-```bash
-curl -f http://localhost:8080/health/
-```
-
-### Process Status
-```bash
-ps aux | grep gunicorn
-```
-
-### Logs
-Logs are output to stdout/stderr and can be captured by Docker or systemd.
-
-## Troubleshooting
-
-### Common Issues
-1. **Port already in use**: Change the `bind` address in config
-2. **Workers not starting**: Check Django settings and imports
-3. **Memory issues**: Reduce worker count or enable worker recycling
-4. **Timeout errors**: Increase `timeout` value in config
-
-### Debug Mode
-Set `DEBUG=true` to use development configuration with:
-- More verbose logging
-- Single worker for easier debugging
-- Auto-reload enabled
-- Shorter timeouts
+- Health monitoring via `/health/` endpoint
+- Automatic restart on failure (up to 10 attempts)
+- Graceful shutdown on SIGTERM/SIGINT
 
 ## Dependencies
 
-Required packages:
 - `gunicorn>=23.0.0`
-- `gevent>=24.12.0` (for async worker class if needed)
-
-## Migration from uWSGI
-
-Key differences from uWSGI:
-- Simpler configuration format (Python vs INI)
-- Better signal handling
-- More predictable worker management
-- Easier debugging and monitoring
-- Built-in health check support
+- `uvicorn[standard]>=0.34.0` (includes `uvloop` + `httptools`)

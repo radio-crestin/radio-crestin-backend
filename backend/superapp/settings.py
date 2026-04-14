@@ -10,8 +10,15 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 import os
+import warnings
 from os import environ
 from pathlib import Path
+
+from django.core.cache.backends.base import CacheKeyWarning
+
+# Suppress CacheKeyWarning: strawberry-django's DjangoValidationCache generates
+# long cache keys with special chars. This is harmless with Redis (not memcached).
+warnings.filterwarnings("ignore", category=CacheKeyWarning)
 
 import dj_database_url
 from django.core.management.utils import get_random_secret_key
@@ -60,6 +67,7 @@ INSTALLED_APPS = [
 # Middleware
 ######################################################################
 MIDDLEWARE = [
+    "django.middleware.cache.UpdateCacheMiddleware",         # Must be first — stores responses in cache
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     *(["debug_toolbar.middleware.DebugToolbarMiddleware"] if DEBUG else []),
@@ -70,7 +78,13 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "django.middleware.cache.FetchFromCacheMiddleware",      # Must be last — serves from cache
 ]
+
+# Server-side cache: use s-maxage from Cache-Control headers.
+# Fallback TTL for responses without explicit cache headers.
+CACHE_MIDDLEWARE_SECONDS = 0
+CACHE_MIDDLEWARE_KEY_PREFIX = "page"
 
 ######################################################################
 # Sessions
@@ -131,11 +145,13 @@ CACHES = {
     'default': {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
         "LOCATION": os.environ.get('REDIS_BROKER_URL'),
+        "TIMEOUT": 3600,  # 1 hour max TTL for all cache entries
     }
 } if os.environ.get('REDIS_BROKER_URL', '') != '' else {
     'default': {
         'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
         'LOCATION': 'cache_table',
+        'TIMEOUT': 3600,
     }
 }
 
@@ -178,7 +194,28 @@ LOGGING = {
         # This is the "catch all" logger
         '': {
             'handlers': ['console', 'mail_admins', ],
-            'level': 'DEBUG',
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+        # Suppress noisy boto3/botocore debug logs (S3 event handlers, endpoint resolution)
+        'boto3': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'botocore': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        's3transfer': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'urllib3': {
+            'handlers': ['console'],
+            'level': 'WARNING',
             'propagate': False,
         },
     }

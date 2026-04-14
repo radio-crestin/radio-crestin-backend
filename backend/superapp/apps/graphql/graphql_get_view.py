@@ -126,6 +126,22 @@ class GraphQLWithGetRedirectView(View):
         if request.method == 'GET' and 'query' in request.GET:
             return self._execute_get_query(request)
 
+        # Reject POST requests with empty/missing query to avoid
+        # "Must provide document" errors in strawberry validation cache
+        if request.method == 'POST':
+            try:
+                body = json.loads(request.body)
+                if not body.get('query'):
+                    return JsonResponse(
+                        {"errors": [{"message": "Must provide a query string."}]},
+                        status=400,
+                    )
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                return JsonResponse(
+                    {"errors": [{"message": "Invalid JSON body."}]},
+                    status=400,
+                )
+
         # Everything else (GraphiQL IDE, OPTIONS, POST mutations) -> Strawberry
         return self._get_strawberry_view()(request, *args, **kwargs)
 

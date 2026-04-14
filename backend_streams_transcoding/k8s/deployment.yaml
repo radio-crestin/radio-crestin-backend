@@ -17,7 +17,7 @@ spec:
       automountServiceAccountToken: true
       containers:
         - name: controller
-          image: radio-crestin/stream-controller:latest
+          image: ghcr.io/radio-crestin/radio-crestin-stream-controller:latest
           env:
             - name: GRAPHQL_ENDPOINT
               value: "http://web:8080/v1/graphql"
@@ -26,11 +26,9 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
             - name: STREAMER_IMAGE
-              value: "radio-crestin/live-streaming:latest"
+              value: "ghcr.io/radio-crestin/radio-crestin-live-streaming:latest"
             - name: LISTING_IMAGE
-              value: "radio-crestin/station-listing:latest"
-            - name: RETENTION_DAYS
-              value: "7"
+              value: "ghcr.io/radio-crestin/radio-crestin-station-listing:latest"
             - name: SYNC_INTERVAL
               value: "60"
             - name: INGRESS_HOST

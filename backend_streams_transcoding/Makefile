@@ -1,5 +1,5 @@
-STREAM_STATION ?= radio-eldad
-STREAM_URL ?= https://c40.radioboss.fm/stream/170
+STREAM_STATION ?= radio-gosen
+STREAM_URL ?= https://sp.totalstreaming.net/8125/stream
 
 dev-build:
 	docker build --load -t live-streaming-dev live_streaming/
@@ -9,9 +9,8 @@ dev: dev-build
 	docker run --rm -d --name live-stream-dev \
 		-e STATION_SLUG=$(STREAM_STATION) \
 		-e STREAM_URL=$(STREAM_URL) \
-		-e S3_ENDPOINT="" \
-		-e S3_BUCKET="" \
 		-e STREAMING_POD_API_KEY=dev-streaming-key \
+		-e DJANGO_API_URL=host.docker.internal:8080 \
 		-e DJANGO_GRAPHQL_URL=http://host.docker.internal:8080/v1/graphql \
 		-p 8085:8080 \
 		live-streaming-dev
@@ -40,8 +39,6 @@ dev-test: dev-build
 	docker run --rm -d --name live-stream-dev \
 		-e STATION_SLUG=$(STREAM_STATION) \
 		-e STREAM_URL=$(STREAM_URL) \
-		-e S3_ENDPOINT="" \
-		-e S3_BUCKET="" \
 		-e STREAMING_POD_API_KEY=dev-streaming-key \
 		-e DJANGO_GRAPHQL_URL=http://host.docker.internal:8080/v1/graphql \
 		-p 8085:8080 \

@@ -11,6 +11,24 @@
   - Clicking any tab updates the URL hash
 #}
 
+{% block extrahead %}
+    {{ block.super }}
+    <style>
+        /* Hide unfold's default tab bar — replaced by the unified one below */
+        #tabs-wrapper { display: none !important; }
+        /* Unified tab bar: single scrollable line, never wrap */
+        #unified-tabs {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+        }
+        #unified-tabs nav {
+            flex-wrap: nowrap !important;
+            white-space: nowrap;
+        }
+    </style>
+{% endblock %}
+
 {% block field_sets %}
     {% with has_conditional_display=adminform.model_admin.conditional_fields %}
         {# Render fieldsets WITHOUT "tab" class normally (always visible) #}
@@ -22,11 +40,18 @@
 
         {% with tabs=adminform|tabs %}
             {% if tabs or inline_admin_formsets %}
-                {# Init activeTab: check hash first, then default to first fieldset tab #}
+                {# Init activeTab from URL hash or default to first fieldset tab #}
                 {% for fieldset in tabs %}
                     {% if forloop.first %}
                         <div x-init="
-                            if (!activeTab || activeTab === 'general') {
+                            const hash = window.location.hash.replace('#', '');
+                            const validTabs = [
+                                {% for fs in tabs %}'{{ fs.name|unicoded_slugify }}',{% endfor %}
+                                {% for inl in inline_admin_formsets %}'{{ inl.formset.prefix|slugify }}',{% endfor %}
+                            ];
+                            if (hash && validTabs.includes(hash)) {
+                                activeTab = hash;
+                            } else {
                                 activeTab = '{{ fieldset.name|unicoded_slugify }}';
                             }
                         "></div>
@@ -39,8 +64,8 @@
                 {% endfor %}
 
                 {# ── Unified Tab Bar ── #}
-                <div class="mb-4">
-                    <nav class="bg-base-100 cursor-pointer flex flex-col font-medium gap-1 p-1 rounded-default text-important dark:border-base-700 md:inline-flex md:flex-row md:flex-wrap md:w-auto dark:bg-white/[.06] *:flex *:flex-row *:gap-1 *:items-center *:px-2.5 *:py-[5px] *:rounded-default *:hover:bg-base-700/[.06] *:dark:hover:bg-white/[.06] [&>.active]:bg-white [&>.active]:shadow-xs [&>.active]:dark:bg-base-700 [&>.active]:hover:bg-white [&>.active]:dark:hover:bg-base-700">
+                <div id="unified-tabs" class="mb-4">
+                    <nav class="bg-base-100 cursor-pointer flex flex-row font-medium gap-1 p-1 rounded-default text-important dark:border-base-700 dark:bg-white/[.06] *:flex *:flex-row *:gap-1 *:items-center *:px-2.5 *:py-[5px] *:rounded-default *:hover:bg-base-700/[.06] *:dark:hover:bg-white/[.06] [&>.active]:bg-white [&>.active]:shadow-xs [&>.active]:dark:bg-base-700 [&>.active]:hover:bg-white [&>.active]:dark:hover:bg-base-700">
                         {# Fieldset tabs #}
                         {% for fieldset in tabs %}
                             <a href="#{{ fieldset.name|unicoded_slugify }}"

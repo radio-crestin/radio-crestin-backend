@@ -1,2 +1,15 @@
 venv
 .env*
+.env.local
+.next
+.idea
+media
+db.sqlite3
+__pycache__
+*.pyc
+*.pyo
+.git
+.DS_Store
+backups
+fixtures
+node_modules

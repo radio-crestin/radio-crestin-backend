@@ -144,28 +144,60 @@ def _on_silence(epoch: float, duration: float):
     )
 
 
+def _get_hls_newest_segment_epoch():
+    """Get the epoch of the newest segment on disk.
+
+    With clock-aligned segments (segment_atclocktime=1, strftime=%s),
+    the segment filename IS the epoch.  Find the newest .ts file.
+    """
+    seg_dir = "/data/hls/aac/segments"
+    try:
+        newest = 0
+        for name in os.listdir(seg_dir):
+            if name.endswith(".ts"):
+                try:
+                    num = int(name.replace(".ts", ""))
+                    if num > newest:
+                        newest = num
+                except ValueError:
+                    pass
+        if newest > 0:
+            return float(newest)
+    except FileNotFoundError:
+        pass
+    # Fallback to wall clock if no segments yet
+    return time.time()
+
+
 def _monitor_ffmpeg_output(proc):
     """Parse FFmpeg stderr for metadata changes and silence events."""
     last_title = ""
     silence_re = re.compile(
         r"silencedetect.*silence_start:\s*([\d.]+)"
     )
+    # Match both formats:
+    #   Startup:  "    StreamTitle     : Artist - Song"
+    #   Verbose:  "[https @ 0x...] Metadata update for StreamTitle: Artist - Song"
     title_re = re.compile(r"StreamTitle\s*:\s*(.+)")
-    # Also detect metadata updates in FFmpeg output
-    metadata_re = re.compile(r"title\s*:\s*(.+)")
+    metadata_update_re = re.compile(r"Metadata update for StreamTitle:\s*(.+)")
 
     for line in proc.stderr:
         line = line.strip()
         if not line:
             continue
 
-        # ICY metadata change
-        m = title_re.search(line)
+        # ICY metadata change — verbose format (mid-stream updates)
+        m = metadata_update_re.search(line)
+        if not m:
+            # Fallback: startup format
+            m = title_re.search(line)
         if m:
             raw = m.group(1).strip()
-            if raw != last_title:
+            if raw and raw != last_title:
                 last_title = raw
-                _on_song_change(raw, time.time())
+                # Use the HLS segment PDT as the authoritative timestamp
+                epoch = _get_hls_newest_segment_epoch()
+                _on_song_change(raw, epoch)
             continue
 
         # Silence detection
@@ -179,6 +211,11 @@ def _run_metadata_extractor():
     """Run a lightweight FFmpeg process to monitor stream metadata."""
     cmd = [
         "ffmpeg",
+        # Verbose logging required — at default "info" level, FFmpeg only
+        # prints ICY StreamTitle at connect time.  Mid-stream ICY metadata
+        # updates are only printed at "verbose" level as:
+        #   [https @ 0x...] Metadata update for StreamTitle: Artist - Song
+        "-loglevel", "verbose",
         "-reconnect", "1",
         "-reconnect_streamed", "1",
         "-reconnect_delay_max", "30",

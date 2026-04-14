@@ -56,8 +56,12 @@ def readiness_check(request):
 urlpatterns = [
     path("health/", health_check, name="health"),
     path("ready/", readiness_check, name="ready"),
-    path("__debug__/", include("debug_toolbar.urls")),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+]
+
+if settings.DEBUG:
+    urlpatterns += [path("__debug__/", include("debug_toolbar.urls"))]
+
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 
 from . import apps as superapp_apps
