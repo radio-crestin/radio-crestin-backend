@@ -21,7 +21,7 @@ import json
 import os
 import time
 
-SEGMENTS_DIR = "/data/hls/aac/segments"
+SEGMENTS_DIR = "/data/hls/aac"
 METADATA_PATH = "/data/metadata/index.json"
 POLL_INTERVAL = 1
 

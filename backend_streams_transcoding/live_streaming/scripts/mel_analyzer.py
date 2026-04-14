@@ -26,7 +26,7 @@ from pathlib import Path
 
 import numpy as np
 
-SEGMENTS_DIR = Path("/data/hls/aac/segments")
+SEGMENTS_DIR = Path("/data/hls/aac")
 MEL_TRIGGER = Path("/data/mel_trigger")
 SAMPLE_RATE = 22050
 N_FFT = 2048

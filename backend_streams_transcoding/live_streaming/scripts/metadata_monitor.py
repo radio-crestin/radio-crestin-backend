@@ -145,27 +145,19 @@ def _on_silence(epoch: float, duration: float):
 
 
 def _get_hls_newest_segment_epoch():
-    """Get the epoch of the newest segment on disk.
-
-    With clock-aligned segments (segment_atclocktime=1, strftime=%s),
-    the segment filename IS the epoch.  Find the newest .ts file.
-    """
-    seg_dir = "/data/hls/aac/segments"
+    """Get the epoch of the newest segment on disk (by mtime)."""
+    seg_dir = "/data/hls/aac"
     try:
-        newest = 0
+        newest_mtime = 0
         for name in os.listdir(seg_dir):
             if name.endswith(".ts"):
-                try:
-                    num = int(name.replace(".ts", ""))
-                    if num > newest:
-                        newest = num
-                except ValueError:
-                    pass
-        if newest > 0:
-            return float(newest)
+                mtime = os.path.getmtime(os.path.join(seg_dir, name))
+                if mtime > newest_mtime:
+                    newest_mtime = mtime
+        if newest_mtime > 0:
+            return newest_mtime
     except FileNotFoundError:
         pass
-    # Fallback to wall clock if no segments yet
     return time.time()
 
 
@@ -252,35 +244,12 @@ def _periodic_index_update():
         time.sleep(10)
 
 
-def _restore_history():
-    """Restore song history from index.json written by previous pod (via S3)."""
-    global _current_song
-    try:
-        with open(INDEX_PATH, "r") as f:
-            data = json.load(f)
-        recent = data.get("recent", [])
-        current = data.get("current", {})
-        with _lock:
-            _song_history.extend(recent)
-            if current.get("raw"):
-                _current_song.update(current)
-        if recent:
-            print(f"metadata: restored {len(recent)} songs from previous pod", flush=True)
-        if current.get("raw"):
-            print(f"metadata: last known song: {current['raw']}", flush=True)
-    except (FileNotFoundError, json.JSONDecodeError):
-        pass
-
-
 def main():
     if not STREAM_URL:
         print("metadata: STREAM_URL not set, exiting", flush=True)
         return
 
     METADATA_DIR.mkdir(parents=True, exist_ok=True)
-
-    # Restore history from previous pod (S3 uploader downloads this on startup)
-    _restore_history()
 
     # Start periodic index updates
     t = threading.Thread(target=_periodic_index_update, daemon=True)

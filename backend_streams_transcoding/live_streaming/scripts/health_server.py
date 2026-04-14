@@ -18,7 +18,7 @@ import time
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-AAC_SEGMENTS_DIR = "/data/hls/aac/segments"
+AAC_SEGMENTS_DIR = "/data/hls/aac"
 HEALTH_MAX_AGE = int(os.environ.get("HEALTH_MAX_AGE", "20"))
 # Minimum local segments before the pod reports ready.
 # Ensures players have enough buffer before traffic is switched over.
