@@ -1,7 +1,7 @@
 #!/bin/sh
-LOCAL_RETENTION_MINUTES="${LOCAL_RETENTION_MINUTES:-10}"
+# FFmpeg's -hls_flags delete_segments handles normal cleanup.
+# This script is a safety net for orphaned segments after FFmpeg restarts.
 while true; do
-    # HLS AAC segments
-    find /data/hls/aac/segments -name '*.ts' -mmin +"$LOCAL_RETENTION_MINUTES" -delete 2>/dev/null
+    find /data/hls/aac -name '*.ts' -mmin +15 -delete 2>/dev/null
     sleep 60
 done

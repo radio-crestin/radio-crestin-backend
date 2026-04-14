@@ -212,15 +212,15 @@ class PlaylistHandler(BaseHTTPRequestHandler):
             self.send_error(404)
             return
 
-        # Generate live playlist — window ends near "now", starts ~5min in the past.
-        # Clamp start to pod start time so we don't reference segments that
-        # were never created (pod wasn't alive yet).
+        # Generate live playlist — sliding window ending near "now".
+        # Window is always LIVE_WINDOW_SIZE or fewer segments.
+        # When the pod is young, serve fewer segments (from pod start to now).
         now = snap(time.time())
         start = now - (LIVE_WINDOW_SIZE - 1) * SEGMENT_DURATION
         pod_start = _get_pod_start()
         if pod_start and start < pod_start:
             start = snap(pod_start)
-        count = max(1, (now - start) // SEGMENT_DURATION + 1)
+        count = min(LIVE_WINDOW_SIZE, max(1, (now - start) // SEGMENT_DURATION + 1))
         playlist = generate_playlist(codec, start, count)
         self._send_m3u8(playlist, cache="no-store")
 
