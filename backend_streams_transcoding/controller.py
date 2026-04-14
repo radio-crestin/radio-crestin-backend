@@ -677,17 +677,6 @@ def sync_once(
         elif current_image != STREAMER_IMAGE:
             to_update_image.add(slug)
 
-    # Rate-limit image-only updates per sync cycle.
-    # With batch=15 and interval=30s, full rollout of 60 pods takes ~2 minutes.
-    IMAGE_UPDATE_BATCH = int(os.environ.get("IMAGE_UPDATE_BATCH", "15"))
-    if to_update_image:
-        batch = set(sorted(to_update_image)[:IMAGE_UPDATE_BATCH])
-        remaining = len(to_update_image) - len(batch)
-        if remaining > 0:
-            log.info("Image update: processing %d/%d pods this cycle (%d remaining)",
-                     len(batch), len(to_update_image), remaining)
-        to_update_image = batch
-
     to_update = to_update_url | to_update_image
 
     # 4. Apply changes
@@ -696,9 +685,14 @@ def sync_once(
         delete_deployment(apps_v1, slug)
         delete_service(core_v1, slug)
 
-    # Update deployments with changed stream_url or image
-    for slug in to_update:
+    # Update deployments with changed stream_url or image.
+    # Process all at once with a 5s delay between each to avoid thundering herd.
+    if to_update:
+        log.info("Updating %d deployments", len(to_update))
+    for i, slug in enumerate(sorted(to_update)):
         update_deployment(apps_v1, slug, desired_map[slug])
+        if i < len(to_update) - 1:
+            time.sleep(5)
 
     # Create new deployments
     for slug in to_create:
