@@ -685,13 +685,16 @@ def sync_once(
         delete_deployment(apps_v1, slug)
         delete_service(core_v1, slug)
 
-    # Update deployments with changed stream_url or image.
-    # Process all at once with a 5s delay between each to avoid thundering herd.
-    if to_update:
-        log.info("Updating %d deployments", len(to_update))
-    for i, slug in enumerate(sorted(to_update)):
-        update_deployment(apps_v1, slug, desired_map[slug])
-        if i < len(to_update) - 1:
+    # Update deployments in batches of 15 with 5s delay between batches.
+    IMAGE_UPDATE_BATCH = int(os.environ.get("IMAGE_UPDATE_BATCH", "15"))
+    update_list = sorted(to_update)
+    if update_list:
+        log.info("Updating %d deployments in batches of %d", len(update_list), IMAGE_UPDATE_BATCH)
+    for i in range(0, len(update_list), IMAGE_UPDATE_BATCH):
+        batch = update_list[i:i + IMAGE_UPDATE_BATCH]
+        for slug in batch:
+            update_deployment(apps_v1, slug, desired_map[slug])
+        if i + IMAGE_UPDATE_BATCH < len(update_list):
             time.sleep(5)
 
     # Create new deployments
