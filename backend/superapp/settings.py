@@ -103,7 +103,7 @@ WSGI_APPLICATION = 'superapp.wsgi.application'
 DATABASES = {
     "default": {
         **dj_database_url.config(default=os.environ.get('DATABASE_URL')),
-        "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", 600)),
+        "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", 0)),
         "CONN_HEALTH_CHECKS": True,
     }
 } if os.environ.get('DATABASE_URL', '') != '' else {
