@@ -13,7 +13,7 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.core.management import call_command
-from django.db import transaction, DEFAULT_DB_ALIAS
+from django.db import models, transaction, DEFAULT_DB_ALIAS
 from django.db.models import ForeignKey
 from django.utils import timezone
 
@@ -60,9 +60,56 @@ def extract_backup_archive(archive_path, extract_dir):
     return str(json_file_path)
 
 
+def _build_storage_map_from_backup_data(backup_data):
+    """
+    Build a mapping from relative file path to the correct storage backend
+    by inspecting model FileField/ImageField definitions in the backup data.
+
+    Args:
+        backup_data: Parsed JSON backup data
+
+    Returns:
+        Dict mapping storage_path -> storage instance
+    """
+    from superapp.apps.backups.tasks.backup import _get_field_storage
+
+    storage_map = {}
+
+    for obj in backup_data:
+        if not isinstance(obj, dict) or 'model' not in obj or 'fields' not in obj:
+            continue
+
+        model_name = obj['model']
+        fields = obj['fields']
+
+        try:
+            app_label, model_class_name = model_name.split('.')
+            model_class = apps.get_model(app_label, model_class_name)
+
+            for field_name, field_value in fields.items():
+                if not field_value or not isinstance(field_value, str):
+                    continue
+
+                try:
+                    field = model_class._meta.get_field(field_name)
+                    if isinstance(field, (models.FileField, models.ImageField)):
+                        file_path = field_value.lstrip('/')
+                        if file_path and file_path not in storage_map:
+                            storage_map[file_path] = _get_field_storage(field)
+                except Exception:
+                    continue
+        except Exception:
+            continue
+
+    return storage_map
+
+
 def restore_media_files_after_loaddata(extract_dir, backup_data):
     """
     Restore media files from extracted archive and update file fields in the database.
+    Uses each file's model field storage backend (public, private, etc.) to write the file
+    to the correct location. Falls back to default_storage for unmatched files.
+
     This should be called AFTER loaddata commands to ensure proper field updates.
 
     Args:
@@ -80,7 +127,10 @@ def restore_media_files_after_loaddata(extract_dir, backup_data):
         logger.info("No media directory found in backup archive")
         return {'restored': [], 'failed': [],}
 
-    # First, restore all media files to storage
+    # Build a map of file path -> correct storage backend from backup data
+    storage_map = _build_storage_map_from_backup_data(backup_data)
+
+    # Restore all media files to storage
     logger.info("Restoring media files to storage...")
     for file_path in media_dir.rglob('*'):
         if file_path.is_file():
@@ -88,17 +138,20 @@ def restore_media_files_after_loaddata(extract_dir, backup_data):
             relative_path = file_path.relative_to(media_dir)
             storage_path = str(relative_path).replace('\\', '/')  # Ensure forward slashes
 
+            # Use the field's storage backend, fall back to default_storage
+            storage = storage_map.get(storage_path, default_storage)
+
             try:
                 # Read the file content
                 with open(file_path, 'rb') as f:
                     file_content = f.read()
 
-                # Save to Django storage (handles local, S3, etc.)
-                if default_storage.exists(storage_path):
+                # Save to the correct storage backend
+                if storage.exists(storage_path):
                     # Delete existing file first
-                    default_storage.delete(storage_path)
+                    storage.delete(storage_path)
 
-                default_storage.save(storage_path, ContentFile(file_content))
+                storage.save(storage_path, ContentFile(file_content))
                 restored_files.append(storage_path)
                 logger.debug(f"Restored media file: {storage_path}")
 

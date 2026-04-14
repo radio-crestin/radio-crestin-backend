@@ -8,8 +8,7 @@ import shutil
 from pathlib import Path
 from urllib.parse import urlparse
 from django.conf import settings
-from django.core.files.base import ContentFile, File
-from django.core.files.storage import default_storage
+from django.core.files.base import File
 from django.core.management import call_command
 from django.utils import timezone
 from django.apps import apps
@@ -34,17 +33,37 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def _get_field_storage(field):
+    """
+    Get the storage instance for a FileField/ImageField.
+    Handles callable storage (e.g. get_public_storage) and direct instances.
+
+    Args:
+        field: A Django FileField or ImageField
+
+    Returns:
+        The resolved storage instance for the field
+    """
+    storage = field.storage
+    if callable(storage) and not isinstance(storage, type):
+        storage = storage()
+    return storage
+
+
 def extract_media_files_from_fixture(fixture_data):
     """
     Extract media file paths from fixture data by examining FileField and ImageField values.
+    Returns each file's path along with its storage backend so the correct storage is used
+    for reading/writing.
 
     Args:
         fixture_data: Parsed JSON fixture data
 
     Returns:
-        Set of media file paths referenced in the fixture
+        List of dicts with 'path' and 'storage' keys for each media file referenced in the fixture
     """
-    media_files = set()
+    media_files = []
+    seen_paths = set()
 
     if not isinstance(fixture_data, list):
         return media_files
@@ -87,8 +106,13 @@ def extract_media_files_from_fixture(fixture_data):
                                 if file_path.startswith(media_url + '/'):
                                     file_path = file_path[len(media_url) + 1:]
 
-                            if file_path:
-                                media_files.add(file_path)
+                            if file_path and file_path not in seen_paths:
+                                seen_paths.add(file_path)
+                                storage = _get_field_storage(field)
+                                media_files.append({
+                                    'path': file_path,
+                                    'storage': storage,
+                                })
 
                 except Exception as e:
                     # Field might not exist or be accessible, skip it
@@ -105,10 +129,10 @@ def extract_media_files_from_fixture(fixture_data):
 def copy_media_files_to_backup(media_files, backup_dir):
     """
     Copy media files to the backup directory, preserving the directory structure.
-    Handles both local filesystem and remote storage (S3, etc.) via Django's storage system.
+    Uses each file's own storage backend (public, private, etc.) to read the file.
 
     Args:
-        media_files: Set of media file paths to copy
+        media_files: List of dicts with 'path' and 'storage' keys
         backup_dir: Directory where media files should be copied
 
     Returns:
@@ -120,17 +144,19 @@ def copy_media_files_to_backup(media_files, backup_dir):
     backup_media_dir = Path(backup_dir) / 'media'
     backup_media_dir.mkdir(parents=True, exist_ok=True)
 
-    for file_path in media_files:
+    for media_file in media_files:
+        file_path = media_file['path']
+        storage = media_file['storage']
         dest_path = backup_media_dir / file_path
 
         try:
-            # Check if file exists in the storage backend (local, S3, etc.)
-            if default_storage.exists(file_path):
+            # Check if file exists in the field's storage backend
+            if storage.exists(file_path):
                 # Create destination directory if it doesn't exist
                 dest_path.parent.mkdir(parents=True, exist_ok=True)
 
-                # Open the file from storage (works with S3, local, etc.)
-                with default_storage.open(file_path, 'rb') as source_file:
+                # Open the file from the field's storage (works with S3, local, etc.)
+                with storage.open(file_path, 'rb') as source_file:
                     # Write to local backup directory
                     with open(dest_path, 'wb') as dest_file:
                         # Copy in chunks to handle large files efficiently
@@ -333,7 +359,7 @@ def process_backup(self, backup_pk):
             # Use the specific models defined in the backup type
             args = models_to_backup
 
-        print(args)
+        logger.debug(f"Models to backup: {args}")
 
         # Create a temporary directory for the backup process
         with tempfile.TemporaryDirectory() as temp_dir:
