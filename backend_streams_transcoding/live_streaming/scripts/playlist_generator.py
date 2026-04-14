@@ -203,8 +203,9 @@ class PlaylistHandler(BaseHTTPRequestHandler):
             self.send_error(404)
             return
 
-        # Generate live playlist directly — no redirect, no timestamp/DVR.
-        start = snap(time.time())
+        # Generate live playlist — window ends near "now", starts ~6.5min in the past.
+        now = snap(time.time())
+        start = now - (LIVE_WINDOW_SIZE - 1) * SEGMENT_DURATION
         playlist = generate_playlist(codec, start, LIVE_WINDOW_SIZE)
         self._send_m3u8(playlist, cache="no-store")
 
