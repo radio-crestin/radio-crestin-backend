@@ -17,7 +17,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 SEGMENT_DURATION = int(os.environ.get("SEGMENT_DURATION", "6"))
-LIVE_WINDOW_SIZE = 65  # ~6.5 minutes
+LIVE_WINDOW_SIZE = 50  # 5 minutes (50 × 6s segments)
 
 CODECS = {
     "aac": {
