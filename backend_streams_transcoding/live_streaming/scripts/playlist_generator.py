@@ -18,7 +18,6 @@ from urllib.parse import urlparse, parse_qs
 
 SEGMENT_DURATION = int(os.environ.get("SEGMENT_DURATION", "6"))
 LIVE_WINDOW_SIZE = 65  # ~6.5 minutes
-LIVE_REDIRECT_ROUND = 30  # Round live redirect to nearest N seconds
 
 CODECS = {
     "aac": {
@@ -151,21 +150,6 @@ def generate_playlist(
 # ── Public playlist functions ─────────────────────────────────────────
 
 
-def live_redirect_timestamp() -> int:
-    """Compute the redirect timestamp for live playback.
-
-    Rounds current time down to LIVE_REDIRECT_ROUND boundary, then
-    subtracts the VOD window so the playlist ends near "now".
-    This makes the redirect URL deterministic for LIVE_REDIRECT_ROUND
-    seconds, allowing CDN to cache the 302.
-    """
-    now = int(time.time())
-    rounded = now - (now % LIVE_REDIRECT_ROUND)
-    # Start the window so it ends near the rounded time
-    start = rounded - (LIVE_WINDOW_SIZE - 1) * SEGMENT_DURATION
-    return snap(start)
-
-
 # ── Disk helpers (status endpoint only) ──────────────────────────────
 
 
@@ -219,29 +203,10 @@ class PlaylistHandler(BaseHTTPRequestHandler):
             self.send_error(404)
             return
 
-        ts_param = params.get("timestamp", [None])[0]
-
-        if ts_param:
-            # Timestamped playlist — used by the live redirect mechanism.
-            # Deterministic: same timestamp always produces the same output.
-            try:
-                target = float(ts_param)
-            except ValueError:
-                self.send_error(400, "Invalid timestamp")
-                return
-            start = snap(target)
-            playlist = generate_playlist(codec, start, LIVE_WINDOW_SIZE)
-            self._send_m3u8(playlist, cache="public, max-age=86400, immutable")
-            return
-
-        # ── Live: redirect to a timestamped URL ──
-        # Round to LIVE_REDIRECT_ROUND so CDN caches the redirect.
-        ts = live_redirect_timestamp()
-        other_params = {k: v[0] for k, v in params.items() if k != "timestamp"}
-        other_params["timestamp"] = str(ts)
-        qs = "&".join(f"{k}={v}" for k, v in other_params.items())
-        redirect_url = f"{parsed.path}?{qs}"
-        self._send_redirect(redirect_url)
+        # Generate live playlist directly — no redirect, no timestamp/DVR.
+        start = snap(time.time())
+        playlist = generate_playlist(codec, start, LIVE_WINDOW_SIZE)
+        self._send_m3u8(playlist, cache="no-store")
 
     def _send_status(self):
         metadata = None
@@ -284,16 +249,7 @@ class PlaylistHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body.encode())
 
-    def _send_redirect(self, url):
-        try:
-            self.send_response(302)
-            self.send_header("Location", url)
-            self.send_header("Cache-Control", f"public, max-age={LIVE_REDIRECT_ROUND}")
-            self.end_headers()
-        except BrokenPipeError:
-            pass
-
-    def _send_m3u8(self, body, cache="public, max-age=6"):
+    def _send_m3u8(self, body, cache="public, max-age=1"):
         try:
             self.send_response(200)
             self.send_header("Content-Type", "application/vnd.apple.mpegurl")
