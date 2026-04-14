@@ -150,6 +150,15 @@ def generate_playlist(
 # ── Public playlist functions ─────────────────────────────────────────
 
 
+def _get_pod_start() -> int | None:
+    """Read the pod start epoch from /data/pod_started_at."""
+    try:
+        with open("/data/pod_started_at", "r") as f:
+            return int(float(f.read().strip()))
+    except (FileNotFoundError, ValueError):
+        return None
+
+
 # ── Disk helpers (status endpoint only) ──────────────────────────────
 
 
@@ -203,10 +212,16 @@ class PlaylistHandler(BaseHTTPRequestHandler):
             self.send_error(404)
             return
 
-        # Generate live playlist — window ends near "now", starts ~6.5min in the past.
+        # Generate live playlist — window ends near "now", starts ~5min in the past.
+        # Clamp start to pod start time so we don't reference segments that
+        # were never created (pod wasn't alive yet).
         now = snap(time.time())
         start = now - (LIVE_WINDOW_SIZE - 1) * SEGMENT_DURATION
-        playlist = generate_playlist(codec, start, LIVE_WINDOW_SIZE)
+        pod_start = _get_pod_start()
+        if pod_start and start < pod_start:
+            start = snap(pod_start)
+        count = max(1, (now - start) // SEGMENT_DURATION + 1)
+        playlist = generate_playlist(codec, start, count)
         self._send_m3u8(playlist, cache="no-store")
 
     def _send_status(self):
