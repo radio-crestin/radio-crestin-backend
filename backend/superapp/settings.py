@@ -105,7 +105,18 @@ DATABASES = {
         **dj_database_url.config(default=os.environ.get('DATABASE_URL')),
         "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", 0)),
         "CONN_HEALTH_CHECKS": True,
-    }
+    },
+    # Direct connection bypassing PgBouncer - required for operations that use
+    # server-side cursors (e.g. dumpdata), which are incompatible with
+    # PgBouncer's transaction pooling mode.
+    "direct": {
+        **dj_database_url.config(default=os.environ.get(
+            'DATABASE_DIRECT_URL',
+            (os.environ.get('DATABASE_URL') or '').replace('-pooler-rw', '-rw')
+        )),
+        "CONN_MAX_AGE": 0,
+        "CONN_HEALTH_CHECKS": True,
+    },
 } if os.environ.get('DATABASE_URL', '') != '' else {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",

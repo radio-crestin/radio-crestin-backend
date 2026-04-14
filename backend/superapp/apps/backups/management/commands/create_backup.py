@@ -166,12 +166,16 @@ class Command(BaseCommand):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_file_path = os.path.join(temp_dir, 'backup.json')
 
+            # Use direct DB connection (bypasses PgBouncer) when available
+            from django.db import connections
+            db_alias = 'direct' if 'direct' in connections.databases else 'default'
+
             # Set up options for the dumpdata command
             options = {
                 'output': temp_file_path,
                 'format': 'json',
                 'indent': 2,
-                'database': 'default',
+                'database': db_alias,
             }
 
             # If multi-tenant is enabled and we have a tenant, use tenant-specific commands

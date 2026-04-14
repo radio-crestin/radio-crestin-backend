@@ -495,12 +495,18 @@ def process_backup(self, backup_pk):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_file_path = os.path.join(temp_dir, 'backup.json')
 
+            # Use direct DB connection (bypasses PgBouncer) when available,
+            # because dumpdata uses server-side cursors which are incompatible
+            # with PgBouncer's transaction pooling mode.
+            from django.db import connections
+            db_alias = 'direct' if 'direct' in connections.databases else 'default'
+
             # Set up options for the dumpdata command
             options = {
                 'output': temp_file_path,
                 'format': 'json',
                 'indent': 2,
-                'database': 'default',
+                'database': db_alias,
             }
 
             # If multi-tenant is enabled and we have a tenant, use tenant-specific commands
@@ -519,7 +525,7 @@ def process_backup(self, backup_pk):
             if excluded_fields:
                 logger.info(f"Applying field exclusions: {excluded_fields}")
                 fixture_data = filter_excluded_fields_from_fixture(fixture_data, excluded_fields)
-                
+
                 # Write the filtered data back to the file
                 with open(temp_file_path, 'w') as f:
                     json.dump(fixture_data, f, indent=2)
@@ -740,12 +746,16 @@ def create_backup_synchronously(backup_type, target_file_path=None, tenant=None)
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_file_path = os.path.join(temp_dir, 'backup.json')
 
+            # Use direct DB connection (bypasses PgBouncer) when available
+            from django.db import connections
+            db_alias = 'direct' if 'direct' in connections.databases else 'default'
+
             # Set up options for the dumpdata command
             options = {
                 'output': temp_file_path,
                 'format': 'json',
                 'indent': 2,
-                'database': 'default',
+                'database': db_alias,
             }
 
             # If multi-tenant is enabled and we have a tenant, use tenant-specific commands
