@@ -251,7 +251,7 @@ def extract_external_url_fields_from_fixture(fixture_data):
     return external_urls
 
 
-def download_external_urls_to_backup(external_urls, backup_dir, timeout=15):
+def download_external_urls_to_backup(external_urls, backup_dir, timeout=5):
     """
     Download external URL resources and save them in the backup directory.
     Files are stored under media/external_urls/ with a deterministic filename
@@ -271,8 +271,9 @@ def download_external_urls_to_backup(external_urls, backup_dir, timeout=15):
 
     ext_dir = Path(backup_dir) / 'media' / 'external_urls'
     ext_dir.mkdir(parents=True, exist_ok=True)
+    total = len(external_urls)
 
-    for entry in external_urls:
+    for i, entry in enumerate(external_urls):
         url = entry['url']
         try:
             parsed = urlparse(url)
@@ -293,7 +294,9 @@ def download_external_urls_to_backup(external_urls, backup_dir, timeout=15):
 
             downloaded.append(url)
             manifest[url] = filename
-            logger.debug(f"Downloaded external URL: {url} -> {filename}")
+
+            if (i + 1) % 10 == 0:
+                logger.info(f"External URL download progress: {i + 1}/{total}")
 
         except Exception as e:
             failed.append(url)
