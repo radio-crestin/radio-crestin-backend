@@ -33,6 +33,8 @@ def extend_superapp_settings(main_settings):
                                 'radio_crestin.stations',
                                 'radio_crestin.stationgroups',
                                 'radio_crestin.stationmetadatafetchcategories',
+                                'radio_crestin.artists',
+                                'radio_crestin.songs',
                             ],
                             'exclude_models_from_import': [],
                             'exclude_fields': {
