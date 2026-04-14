@@ -170,6 +170,83 @@ def restore_media_files_after_loaddata(extract_dir, backup_data):
     }
 
 
+def restore_external_url_files(extract_dir, backup_data):
+    """
+    Restore external URL files from backup. Uploads them to public storage
+    and updates the URLField values in the database to point to the new storage URLs.
+
+    Args:
+        extract_dir: Directory where archive was extracted
+        backup_data: Parsed JSON backup data
+
+    Returns:
+        Dict with 'restored' and 'failed' counts
+    """
+    from superapp.apps.storage.config import get_public_storage
+
+    manifest_path = Path(extract_dir) / 'media' / 'external_urls_manifest.json'
+    if not manifest_path.exists():
+        logger.info("No external URLs manifest found in backup")
+        return {'restored': 0, 'failed': 0}
+
+    with open(manifest_path, 'r') as f:
+        manifest = json.load(f)
+
+    if not manifest:
+        return {'restored': 0, 'failed': 0}
+
+    ext_dir = Path(extract_dir) / 'media' / 'external_urls'
+    storage = get_public_storage()
+    restored = 0
+    failed = 0
+
+    # Build reverse map: url -> list of (model, pk, field)
+    url_refs = defaultdict(list)
+    for obj in backup_data:
+        if not isinstance(obj, dict) or 'model' not in obj or 'fields' not in obj:
+            continue
+        model_name = obj['model']
+        pk = obj.get('pk')
+        for field_name, field_value in obj['fields'].items():
+            if isinstance(field_value, str) and field_value in manifest:
+                url_refs[field_value].append((model_name, pk, field_name))
+
+    for url, filename in manifest.items():
+        file_path = ext_dir / filename
+        if not file_path.exists():
+            logger.warning(f"External URL file missing from archive: {filename}")
+            failed += 1
+            continue
+
+        try:
+            # Upload to public storage under external_urls/ prefix
+            storage_path = f"external_urls/{filename}"
+            with open(file_path, 'rb') as f:
+                if storage.exists(storage_path):
+                    storage.delete(storage_path)
+                storage.save(storage_path, ContentFile(f.read()))
+
+            # Get the new URL from storage
+            new_url = storage.url(storage_path)
+
+            # Update all database records that reference this URL
+            for model_name, pk, field_name in url_refs.get(url, []):
+                try:
+                    app_label, model_class_name = model_name.split('.')
+                    model_class = apps.get_model(app_label, model_class_name)
+                    model_class.objects.filter(pk=pk).update(**{field_name: new_url})
+                    logger.debug(f"Updated {model_name}[{pk}].{field_name} -> {new_url}")
+                except Exception as e:
+                    logger.warning(f"Failed to update {model_name}[{pk}].{field_name}: {e}")
+
+            restored += 1
+        except Exception as e:
+            logger.error(f"Failed to restore external URL file {filename}: {e}")
+            failed += 1
+
+    return {'restored': restored, 'failed': failed}
+
+
 def _extract_file_field_references(backup_data):
     """
     Extract file field references from backup data.
@@ -486,6 +563,13 @@ def process_restore(self, restore_pk):
                            f"{len(media_restore_result['failed'])} failed")
             else:
                 logger.info("No media files to restore")
+
+            # Restore external URL files (thumbnail_url, etc.)
+            if backup_data:
+                ext_restore_result = restore_external_url_files(temp_dir, backup_data)
+                if ext_restore_result['restored'] or ext_restore_result['failed']:
+                    logger.info(f"External URL restoration: {ext_restore_result['restored']} restored, "
+                               f"{ext_restore_result['failed']} failed")
 
             # Clean up tenant context
             unset_current_tenant()

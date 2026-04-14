@@ -1,3 +1,4 @@
+import hashlib
 import logging
 from celery import shared_task
 import tempfile
@@ -7,6 +8,8 @@ import zipfile
 import shutil
 from pathlib import Path
 from urllib.parse import urlparse
+from urllib.request import urlopen, Request
+from urllib.error import URLError
 from django.conf import settings
 from django.core.files.base import File
 from django.core.management import call_command
@@ -178,6 +181,130 @@ def copy_media_files_to_backup(media_files, backup_dir):
         'copied': copied_files,
         'missing': missing_files
     }
+
+
+def extract_external_url_fields_from_fixture(fixture_data):
+    """
+    Extract external URL values from URLField fields that look like media resources
+    (images, fonts, etc.). These are URLs stored in fields like thumbnail_url that
+    point to external servers and wouldn't be captured by FileField extraction.
+
+    Returns:
+        List of dicts with 'url', 'model', 'field', 'pk' keys
+    """
+    MEDIA_EXTENSIONS = {
+        '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.ico', '.bmp', '.tiff',
+        '.mp3', '.wav', '.ogg', '.flac', '.aac',
+        '.mp4', '.webm', '.mov', '.avi',
+        '.woff', '.woff2', '.ttf', '.otf', '.eot',
+        '.pdf',
+    }
+    external_urls = []
+    seen_urls = set()
+
+    if not isinstance(fixture_data, list):
+        return external_urls
+
+    for obj in fixture_data:
+        if not isinstance(obj, dict) or 'model' not in obj or 'fields' not in obj:
+            continue
+
+        model_name = obj['model']
+        fields = obj['fields']
+        pk = obj.get('pk')
+
+        try:
+            app_label, model_class_name = model_name.split('.')
+            model_class = apps.get_model(app_label, model_class_name)
+
+            for field_name, field_value in fields.items():
+                if not field_value or not isinstance(field_value, str):
+                    continue
+
+                try:
+                    field = model_class._meta.get_field(field_name)
+                    if not isinstance(field, models.URLField):
+                        continue
+
+                    url = field_value.strip()
+                    if not url.startswith('http'):
+                        continue
+
+                    parsed = urlparse(url)
+                    ext = os.path.splitext(parsed.path)[1].lower()
+                    if ext not in MEDIA_EXTENSIONS:
+                        continue
+
+                    if url not in seen_urls:
+                        seen_urls.add(url)
+                        external_urls.append({
+                            'url': url,
+                            'model': model_name,
+                            'field': field_name,
+                            'pk': pk,
+                        })
+                except Exception:
+                    continue
+        except Exception:
+            continue
+
+    return external_urls
+
+
+def download_external_urls_to_backup(external_urls, backup_dir, timeout=15):
+    """
+    Download external URL resources and save them in the backup directory.
+    Files are stored under media/external_urls/ with a deterministic filename
+    derived from the URL hash, preserving the original extension.
+
+    Also creates an external_urls_manifest.json mapping URLs to local filenames.
+
+    Returns:
+        Dict with 'downloaded', 'failed', and 'manifest' keys
+    """
+    downloaded = []
+    failed = []
+    manifest = {}
+
+    if not external_urls:
+        return {'downloaded': downloaded, 'failed': failed, 'manifest': manifest}
+
+    ext_dir = Path(backup_dir) / 'media' / 'external_urls'
+    ext_dir.mkdir(parents=True, exist_ok=True)
+
+    for entry in external_urls:
+        url = entry['url']
+        try:
+            parsed = urlparse(url)
+            ext = os.path.splitext(parsed.path)[1].lower() or '.bin'
+            url_hash = hashlib.sha256(url.encode()).hexdigest()[:16]
+            filename = f"{url_hash}{ext}"
+            dest_path = ext_dir / filename
+
+            if dest_path.exists():
+                downloaded.append(url)
+                manifest[url] = filename
+                continue
+
+            req = Request(url, headers={'User-Agent': 'RadioCrestin-Backup/1.0'})
+            with urlopen(req, timeout=timeout) as response:
+                with open(dest_path, 'wb') as f:
+                    shutil.copyfileobj(response, f)
+
+            downloaded.append(url)
+            manifest[url] = filename
+            logger.debug(f"Downloaded external URL: {url} -> {filename}")
+
+        except Exception as e:
+            failed.append(url)
+            logger.warning(f"Failed to download external URL {url}: {e}")
+
+    # Write manifest so restore knows which URL maps to which file
+    manifest_path = Path(backup_dir) / 'media' / 'external_urls_manifest.json'
+    with open(manifest_path, 'w') as f:
+        json.dump(manifest, f, indent=2)
+
+    return {'downloaded': downloaded, 'failed': failed, 'manifest': manifest}
 
 
 def create_backup_archive(json_file_path, backup_dir, archive_name):
@@ -402,6 +529,14 @@ def process_backup(self, backup_pk):
             media_copy_result = copy_media_files_to_backup(media_files, temp_dir)
             logger.info(f"Copied {len(media_copy_result['copied'])} media files, "
                        f"{len(media_copy_result['missing'])} files were missing")
+
+            # Download external URL resources (thumbnail_url, etc.)
+            external_urls = extract_external_url_fields_from_fixture(fixture_data)
+            logger.info(f"Found {len(external_urls)} external URL resources to download")
+            if external_urls:
+                ext_result = download_external_urls_to_backup(external_urls, temp_dir)
+                logger.info(f"Downloaded {len(ext_result['downloaded'])} external URLs, "
+                           f"{len(ext_result['failed'])} failed")
 
             # Create backup filename
             backup.finished_at = timezone.now()
@@ -639,6 +774,14 @@ def create_backup_synchronously(backup_type, target_file_path=None, tenant=None)
             media_copy_result = copy_media_files_to_backup(media_files, temp_dir)
             logger.info(f"Copied {len(media_copy_result['copied'])} media files, "
                        f"{len(media_copy_result['missing'])} files were missing")
+
+            # Download external URL resources (thumbnail_url, etc.)
+            external_urls = extract_external_url_fields_from_fixture(fixture_data)
+            logger.info(f"Found {len(external_urls)} external URL resources to download")
+            if external_urls:
+                ext_result = download_external_urls_to_backup(external_urls, temp_dir)
+                logger.info(f"Downloaded {len(ext_result['downloaded'])} external URLs, "
+                           f"{len(ext_result['failed'])} failed")
 
             # Create backup filename
             backup.finished_at = timezone.now()
