@@ -1,7 +1,7 @@
 import strawberry
 import strawberry_django
 from typing import List, Optional
-from django.db.models import Prefetch
+from django.db.models import Max, Prefetch, Subquery, OuterRef
 
 from datetime import datetime, timedelta, timezone as dt_tz
 
@@ -527,14 +527,18 @@ class Query:
 
             station_ids = [s.id for s in stations]
 
-            # Query 3: DISTINCT ON for latest history per station
+            # Query 3: latest history per station using subquery (avoids full table scan)
+            latest_ts = StationsNowPlayingHistory.objects.filter(
+                station_id=OuterRef('station_id'),
+                timestamp__lte=as_of_dt,
+            ).order_by('-timestamp').values('timestamp')[:1]
             history_records = list(
                 StationsNowPlayingHistory.objects.filter(
                     station_id__in=station_ids,
-                    timestamp__lte=as_of_dt,
+                    timestamp=Subquery(latest_ts),
                 ).select_related(
                     'song', 'song__artist',
-                ).order_by('station_id', '-timestamp').distinct('station_id')
+                )
             )
             history_by_station = {h.station_id: h for h in history_records}
 
@@ -554,14 +558,18 @@ class Query:
 
             station_ids = [s.id for s in stations]
 
-            # DISTINCT ON for latest history per station at as_of_dt
+            # Latest history per station at as_of_dt using subquery (avoids full table scan)
+            latest_ts = StationsNowPlayingHistory.objects.filter(
+                station_id=OuterRef('station_id'),
+                timestamp__lte=as_of_dt,
+            ).order_by('-timestamp').values('timestamp')[:1]
             history_records = list(
                 StationsNowPlayingHistory.objects.filter(
                     station_id__in=station_ids,
-                    timestamp__lte=as_of_dt,
+                    timestamp=Subquery(latest_ts),
                 ).select_related(
                     'song', 'song__artist',
-                ).order_by('station_id', '-timestamp').distinct('station_id')
+                )
             )
             history_by_station = {h.station_id: h for h in history_records}
 
