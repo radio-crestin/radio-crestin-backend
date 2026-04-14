@@ -29,7 +29,7 @@ STREAMER_IMAGE = os.environ.get("STREAMER_IMAGE", "ghcr.io/radio-crestin/radio-c
 LISTING_IMAGE = os.environ.get("LISTING_IMAGE", "ghcr.io/radio-crestin/radio-crestin-station-listing:latest")
 IMAGE_PULL_SECRET = os.environ.get("IMAGE_PULL_SECRET", "")
 
-SYNC_INTERVAL = int(os.environ.get("SYNC_INTERVAL", "60"))
+SYNC_INTERVAL = int(os.environ.get("SYNC_INTERVAL", "30"))
 INGRESS_HOST = os.environ.get("INGRESS_HOST", "live.radiocrestin.ro")
 LEGACY_INGRESS_HOST = os.environ.get("LEGACY_INGRESS_HOST", "hls.radiocrestin.ro")
 PVC_STORAGE_SIZE = os.environ.get("PVC_STORAGE_SIZE", "5Gi")
@@ -677,10 +677,9 @@ def sync_once(
         elif current_image != STREAMER_IMAGE:
             to_update_image.add(slug)
 
-    # Rate-limit image-only updates: max 5 pods per sync cycle (every 60s).
-    # This prevents updating all 60 pods simultaneously during a deploy,
-    # which would cause a thundering-herd of pod restarts.
-    IMAGE_UPDATE_BATCH = int(os.environ.get("IMAGE_UPDATE_BATCH", "5"))
+    # Rate-limit image-only updates per sync cycle.
+    # With batch=15 and interval=30s, full rollout of 60 pods takes ~2 minutes.
+    IMAGE_UPDATE_BATCH = int(os.environ.get("IMAGE_UPDATE_BATCH", "15"))
     if to_update_image:
         batch = set(sorted(to_update_image)[:IMAGE_UPDATE_BATCH])
         remaining = len(to_update_image) - len(batch)
