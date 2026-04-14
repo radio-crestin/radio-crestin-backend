@@ -101,7 +101,11 @@ WSGI_APPLICATION = 'superapp.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 DATABASES = {
-    "default": dj_database_url.config(default=os.environ.get('DATABASE_URL'))
+    "default": {
+        **dj_database_url.config(default=os.environ.get('DATABASE_URL')),
+        "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", 600)),
+        "CONN_HEALTH_CHECKS": True,
+    }
 } if os.environ.get('DATABASE_URL', '') != '' else {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
