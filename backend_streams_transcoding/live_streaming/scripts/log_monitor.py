@@ -93,8 +93,10 @@ def _parse_log_line(line):
     # Only process HLS requests (.m3u8 playlists and .ts segments)
     request_parts = d["request"].split(" ")
     uri = request_parts[1] if len(request_parts) > 1 else "/"
-    is_playlist = uri.endswith(".m3u8")
-    is_segment = uri.endswith(".ts")
+    # Strip query string before checking extension (/index.m3u8?s=abc -> /index.m3u8)
+    path = uri.split("?")[0]
+    is_playlist = path.endswith(".m3u8")
+    is_segment = path.endswith(".ts")
     if not (is_playlist or is_segment):
         return None
 
