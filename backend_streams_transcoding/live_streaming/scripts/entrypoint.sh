@@ -86,10 +86,10 @@ start_ffmpeg() {
         -f hls \
             -hls_time "$SEGMENT_DURATION" \
             -hls_list_size "$HLS_LIST_SIZE" \
-            -hls_flags delete_segments+second_level_segment_index \
+            -hls_flags delete_segments \
             -hls_segment_type mpegts \
             -strftime 1 \
-            -hls_segment_filename '/data/hls/aac/seg-%%t-%%d.ts' \
+            -hls_segment_filename '/data/hls/aac/seg-%s.ts' \
             '/data/hls/aac/live.m3u8' &
     FFMPEG_PID=$!
     echo "FFmpeg started (PID $FFMPEG_PID)"
