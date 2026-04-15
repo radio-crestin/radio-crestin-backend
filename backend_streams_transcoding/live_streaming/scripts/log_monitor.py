@@ -12,7 +12,6 @@ Auth: uses X-Streaming-Api-Key (same as scraper_engine / health_server).
 import json
 import os
 import re
-import subprocess
 import sys
 import threading
 import time
@@ -210,7 +209,11 @@ def _batch_loop():
 
 
 def _tail_log():
-    """Tail the NGINX session access log and enqueue parsed events."""
+    """Poll the NGINX session access log for new lines and enqueue events.
+
+    Uses file-position polling instead of `tail -f` for reliability with
+    NGINX's buffered writes inside containers.
+    """
     print(f"log_monitor: waiting for {LOG_FILE}...", flush=True)
     while _running and not os.path.exists(LOG_FILE):
         time.sleep(2)
@@ -218,43 +221,52 @@ def _tail_log():
     if not _running:
         return
 
-    print(f"log_monitor: tailing {LOG_FILE} (station={STATION_SLUG}, batch={BATCH_INTERVAL}s)", flush=True)
+    print(f"log_monitor: polling {LOG_FILE} (station={STATION_SLUG}, batch={BATCH_INTERVAL}s)", flush=True)
 
-    proc = subprocess.Popen(
-        ["tail", "-f", LOG_FILE],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        universal_newlines=True,
-        bufsize=1,
-    )
+    # Start at the end of the file (only process new lines)
+    pos = os.path.getsize(LOG_FILE)
 
-    try:
-        while _running:
-            line = proc.stdout.readline()
-            if not line:
-                break
-            parsed = _parse_log_line(line)
-            if not parsed:
+    while _running:
+        try:
+            size = os.path.getsize(LOG_FILE)
+            if size < pos:
+                # File was truncated (log rotation), reset
+                pos = 0
+            if size == pos:
+                time.sleep(1)
                 continue
 
-            event = {
-                "anonymous_session_id": parsed["session_id"],
-                "station_slug": STATION_SLUG,
-                "ip_address": parsed["ip"],
-                "user_agent": parsed["user_agent"],
-                "timestamp": parsed["timestamp"],
-                "event_type": "playlist_request" if parsed["is_playlist"] else "segment_request",
-                "bytes_transferred": parsed["bytes_sent"],
-                "request_duration": 0.0,
-                "status_code": parsed["status"],
-                "referer": parsed["referer"],
-            }
+            with open(LOG_FILE, "r") as f:
+                f.seek(pos)
+                new_data = f.read()
+                pos = f.tell()
 
-            with _batch_lock:
-                _batch_queue.append(event)
-    finally:
-        proc.terminate()
-        proc.wait()
+            for line in new_data.splitlines():
+                if not line:
+                    continue
+                parsed = _parse_log_line(line)
+                if not parsed:
+                    continue
+
+                event = {
+                    "anonymous_session_id": parsed["session_id"],
+                    "station_slug": STATION_SLUG,
+                    "ip_address": parsed["ip"],
+                    "user_agent": parsed["user_agent"],
+                    "timestamp": parsed["timestamp"],
+                    "event_type": "playlist_request" if parsed["is_playlist"] else "segment_request",
+                    "bytes_transferred": parsed["bytes_sent"],
+                    "request_duration": 0.0,
+                    "status_code": parsed["status"],
+                    "referer": parsed["referer"],
+                }
+
+                with _batch_lock:
+                    _batch_queue.append(event)
+
+        except Exception as e:
+            print(f"log_monitor: read error: {e}", flush=True)
+            time.sleep(2)
 
 
 def main():
