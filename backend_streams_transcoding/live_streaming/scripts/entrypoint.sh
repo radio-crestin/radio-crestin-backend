@@ -54,11 +54,15 @@ echo "Starting log monitor..."
 python3 /app/scripts/log_monitor.py &
 LOG_MONITOR_PID=$!
 
+echo "Starting segment cleanup (30min max)..."
+sh /app/scripts/cleanup.sh &
+CLEANUP_PID=$!
+
 cleanup() {
     echo "Shutting down gracefully..."
     kill -TERM "$FFMPEG_LOOP_PID" 2>/dev/null || true
     kill -TERM "$FFMPEG_PID" 2>/dev/null || true
-    kill -TERM "$METADATA_PID" "$ID3_PID" "$SCRAPER_PID" "$MEL_PID" "$LOG_MONITOR_PID" 2>/dev/null || true
+    kill -TERM "$METADATA_PID" "$ID3_PID" "$SCRAPER_PID" "$MEL_PID" "$LOG_MONITOR_PID" "$CLEANUP_PID" 2>/dev/null || true
     kill -TERM "$HEALTH_PID" 2>/dev/null || true
     sleep 5
     kill -TERM "$NGINX_PID" 2>/dev/null || true
