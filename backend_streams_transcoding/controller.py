@@ -606,25 +606,17 @@ def delete_service(core_v1: client.CoreV1Api, slug: str):
             raise
 
 
-def ensure_station_ingress(networking_v1: client.NetworkingV1Api, slug: str):
-    """Create or update the per-station ingress."""
-    ingress = build_station_ingress(slug)
-    name = ingress_name(slug)
-    try:
-        networking_v1.read_namespaced_ingress(name=name, namespace=NAMESPACE)
-        networking_v1.patch_namespaced_ingress(
-            name=name, namespace=NAMESPACE, body=ingress,
-        )
-    except client.ApiException as e:
-        if e.status == 404:
-            log.info("Creating ingress for station: %s", slug)
-            networking_v1.create_namespaced_ingress(namespace=NAMESPACE, body=ingress)
-        else:
-            raise
+def create_station_ingress(networking_v1: client.NetworkingV1Api, slug: str):
+    """Create the per-station ingress. Only called for stations missing an ingress."""
+    log.info("Creating ingress for station: %s", slug)
+    networking_v1.create_namespaced_ingress(
+        namespace=NAMESPACE,
+        body=build_station_ingress(slug),
+    )
 
 
 def delete_station_ingress(networking_v1: client.NetworkingV1Api, slug: str):
-    """Delete a station's ingress."""
+    """Delete a station's ingress. Only called when a station is disabled/deleted."""
     log.info("Deleting ingress for station: %s", slug)
     try:
         networking_v1.delete_namespaced_ingress(
@@ -636,19 +628,17 @@ def delete_station_ingress(networking_v1: client.NetworkingV1Api, slug: str):
 
 
 def ensure_listing_ingress(networking_v1: client.NetworkingV1Api):
-    """Create or update the listing ingress (root path)."""
-    ingress = build_listing_ingress()
+    """Create the listing ingress if it doesn't exist."""
     try:
         networking_v1.read_namespaced_ingress(
             name=LISTING_INGRESS_NAME, namespace=NAMESPACE,
         )
-        networking_v1.patch_namespaced_ingress(
-            name=LISTING_INGRESS_NAME, namespace=NAMESPACE, body=ingress,
-        )
     except client.ApiException as e:
         if e.status == 404:
             log.info("Creating listing ingress")
-            networking_v1.create_namespaced_ingress(namespace=NAMESPACE, body=ingress)
+            networking_v1.create_namespaced_ingress(
+                namespace=NAMESPACE, body=build_listing_ingress(),
+            )
         else:
             raise
 
@@ -757,21 +747,20 @@ def sync_once(
         if i + IMAGE_UPDATE_BATCH < len(update_list):
             time.sleep(5)
 
-    # Create new deployments, services, and per-station ingresses
+    # Create new deployments and services
     for slug in to_create:
         ensure_pvc(core_v1, slug, existing_pvcs)
         create_deployment(apps_v1, slug, desired_map[slug])
         ensure_service(core_v1, slug, existing_services)
-        ensure_station_ingress(networking_v1, slug)
 
-    # 5. Reconcile ingresses — only create missing ones, don't touch existing
+    # 5. Reconcile ingresses — only create missing ones, never patch existing
     ingresses_to_create = desired_slugs - existing_ingresses
     if ingresses_to_create:
-        log.info("Creating missing ingresses for %d stations", len(ingresses_to_create))
+        log.info("Creating ingresses for %d stations", len(ingresses_to_create))
         for slug in ingresses_to_create:
-            ensure_station_ingress(networking_v1, slug)
+            create_station_ingress(networking_v1, slug)
 
-    # Clean up orphaned ingresses (station removed but ingress remained)
+    # Clean up orphaned ingresses (station disabled/deleted but ingress remained)
     orphaned_ingresses = (existing_ingresses - desired_slugs) - {""}
     for slug in orphaned_ingresses:
         delete_station_ingress(networking_v1, slug)
