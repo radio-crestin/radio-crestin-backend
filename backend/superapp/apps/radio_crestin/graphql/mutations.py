@@ -74,7 +74,7 @@ class Mutation:
         """Health check mutation for radio_crestin GraphQL"""
         return "Radio Crestin GraphQL mutations are healthy"
 
-    @strawberry_django.mutation(handle_django_errors=True, permission_classes=[IsSuperuser])
+    @strawberry_django.mutation(handle_django_errors=True, permission_classes=[IsStreamingPod])
     def submit_listening_events(self, events: List[ListeningEventInput]) -> SubmitListeningEventsResponse:
         """Submit batch of listening events from HLS streaming logs"""
         logger = logging.getLogger(__name__)
