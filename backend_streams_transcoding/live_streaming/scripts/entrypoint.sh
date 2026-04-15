@@ -20,7 +20,7 @@ echo "HLS:     AAC+ 64k, ${SEGMENT_DURATION}s segments, ${HLS_LIST_SIZE} in play
 
 # Directory layout:
 #   /data/hls/aac/live.m3u8              FFmpeg-managed live playlist
-#   /data/hls/aac/seg-1713200400-42.ts   FFmpeg-managed segments (epoch-index)
+#   /data/hls/aac/1713200400.ts           FFmpeg-managed segments (epoch timestamp)
 mkdir -p /data/hls/aac /data/metadata
 
 # Render NGINX config with env vars
@@ -89,7 +89,7 @@ start_ffmpeg() {
             -hls_flags delete_segments \
             -hls_segment_type mpegts \
             -strftime 1 \
-            -hls_segment_filename '/data/hls/aac/seg-%s.ts' \
+            -hls_segment_filename '/data/hls/aac/%s.ts' \
             '/data/hls/aac/live.m3u8' &
     FFMPEG_PID=$!
     echo "FFmpeg started (PID $FFMPEG_PID)"
