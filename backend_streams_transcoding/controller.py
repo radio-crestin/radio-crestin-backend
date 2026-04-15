@@ -96,6 +96,10 @@ def service_name(slug: str) -> str:
     return f"live-stream-{slug}"
 
 
+def ingress_name(slug: str) -> str:
+    return f"live-stream-{slug}"
+
+
 def pvc_name(slug: str) -> str:
     return f"stream-{slug}"
 
@@ -271,24 +275,9 @@ def _make_path(path_pattern: str, slug: str) -> client.V1HTTPIngressPath:
     )
 
 
-def _build_paths_for_slugs(active_slugs: list[str]) -> list[client.V1HTTPIngressPath]:
-    """Build ingress paths: /<slug>/ for live host."""
-    paths = []
-    for slug in sorted(active_slugs):
-        paths.append(_make_path(f"/{slug}/(.*)", slug))
-    return paths
-
-
-def _build_legacy_paths_for_slugs(active_slugs: list[str]) -> list[client.V1HTTPIngressPath]:
-    """Build backward-compatible ingress paths on legacy host (hls.radiocrestin.ro)."""
-    paths = []
-    for slug in sorted(active_slugs):
-        paths.append(_make_path(f"/hls/{slug}/(.*)", slug))
-    return paths
-
-
 LISTING_SERVICE_NAME = "station-listing"
 LISTING_DEPLOYMENT_NAME = "station-listing"
+LISTING_INGRESS_NAME = "live-streaming-listing"
 
 
 def _make_listing_path() -> client.V1HTTPIngressPath:
@@ -399,33 +388,37 @@ def ensure_listing_deployment(
             raise
 
 
-def build_ingress(active_slugs: list[str]) -> client.V1Ingress:
-    """Build ingress with per-station path routing for both new and legacy hosts."""
-    new_paths = _build_paths_for_slugs(active_slugs)
-    legacy_paths = _build_legacy_paths_for_slugs(active_slugs)
+def build_station_ingress(slug: str) -> client.V1Ingress:
+    """Build a dedicated ingress for a single station.
+
+    Each station gets its own ingress resource so that adding/removing one
+    station doesn't trigger an NGINX reload that affects all other stations.
+    This prevents segment mismatches caused by mid-reload routing errors.
+    """
+    labels = {"app": LABEL_APP, "station": slug}
 
     rules = []
     hosts = []
 
     # New host: live.radiocrestin.ro/<slug>/...
-    # Station paths first, listing root last (NGINX matches longest prefix first)
-    if new_paths:
-        # Add root listing path AFTER station paths — NGINX ingress uses longest match
-        all_paths = new_paths + [_make_listing_path()]
-        rules.append(
-            client.V1IngressRule(
-                host=INGRESS_HOST,
-                http=client.V1HTTPIngressRuleValue(paths=all_paths),
-            )
+    rules.append(
+        client.V1IngressRule(
+            host=INGRESS_HOST,
+            http=client.V1HTTPIngressRuleValue(paths=[
+                _make_path(f"/{slug}/(.*)", slug),
+            ]),
         )
-        hosts.append(INGRESS_HOST)
+    )
+    hosts.append(INGRESS_HOST)
 
     # Legacy host: hls.radiocrestin.ro/hls/<slug>/...
-    if legacy_paths and LEGACY_INGRESS_HOST:
+    if LEGACY_INGRESS_HOST:
         rules.append(
             client.V1IngressRule(
                 host=LEGACY_INGRESS_HOST,
-                http=client.V1HTTPIngressRuleValue(paths=legacy_paths),
+                http=client.V1HTTPIngressRuleValue(paths=[
+                    _make_path(f"/hls/{slug}/(.*)", slug),
+                ]),
             )
         )
         if LEGACY_INGRESS_HOST not in hosts:
@@ -444,8 +437,39 @@ def build_ingress(active_slugs: list[str]) -> client.V1Ingress:
         api_version="networking.k8s.io/v1",
         kind="Ingress",
         metadata=client.V1ObjectMeta(
-            name="live-streaming",
+            name=ingress_name(slug),
             namespace=NAMESPACE,
+            labels=labels,
+            annotations={
+                "nginx.ingress.kubernetes.io/use-regex": "true",
+                "nginx.ingress.kubernetes.io/rewrite-target": "/$1",
+                "nginx.ingress.kubernetes.io/enable-cors": "true",
+                "nginx.ingress.kubernetes.io/cors-allow-origin": "*",
+                "nginx.ingress.kubernetes.io/cors-allow-methods": "GET, HEAD, OPTIONS",
+                "nginx.ingress.kubernetes.io/cors-allow-headers": "Range, Content-Type, Accept, Origin",
+                "nginx.ingress.kubernetes.io/proxy-buffering": "off",
+            },
+        ),
+        spec=client.V1IngressSpec(
+            ingress_class_name="nginx",
+            tls=tls if tls else None,
+            rules=rules,
+        ),
+    )
+
+
+def build_listing_ingress() -> client.V1Ingress:
+    """Build ingress for the station listing service (root path)."""
+    hosts = [INGRESS_HOST]
+    tls = [client.V1IngressTLS(hosts=hosts, secret_name="live-radiocrestin-tls")]
+
+    return client.V1Ingress(
+        api_version="networking.k8s.io/v1",
+        kind="Ingress",
+        metadata=client.V1ObjectMeta(
+            name=LISTING_INGRESS_NAME,
+            namespace=NAMESPACE,
+            labels={"app": "station-listing"},
             annotations={
                 "nginx.ingress.kubernetes.io/use-regex": "true",
                 "nginx.ingress.kubernetes.io/rewrite-target": "/$1",
@@ -457,8 +481,13 @@ def build_ingress(active_slugs: list[str]) -> client.V1Ingress:
         ),
         spec=client.V1IngressSpec(
             ingress_class_name="nginx",
-            tls=tls if tls else None,
-            rules=rules if rules else None,
+            tls=tls,
+            rules=[
+                client.V1IngressRule(
+                    host=INGRESS_HOST,
+                    http=client.V1HTTPIngressRuleValue(paths=[_make_listing_path()]),
+                ),
+            ],
         ),
     )
 
@@ -495,6 +524,15 @@ def get_existing_pvcs(core_v1: client.CoreV1Api) -> set[str]:
         label_selector=f"app={LABEL_APP}",
     )
     return {pvc.metadata.labels.get("station", "") for pvc in pvcs.items}
+
+
+def get_existing_ingresses(networking_v1: client.NetworkingV1Api) -> set[str]:
+    """Get existing per-station ingress slugs."""
+    ingresses = networking_v1.list_namespaced_ingress(
+        namespace=NAMESPACE,
+        label_selector=f"app={LABEL_APP}",
+    )
+    return {ing.metadata.labels.get("station", "") for ing in ingresses.items}
 
 
 # ── CRUD operations ────────────────────────────────────────────────
@@ -568,42 +606,62 @@ def delete_service(core_v1: client.CoreV1Api, slug: str):
             raise
 
 
-def update_ingress(networking_v1: client.NetworkingV1Api, active_slugs: list[str]):
-    """Create or update the live-streaming ingress."""
-    if not active_slugs:
-        # No stations → delete ingress if it exists, otherwise do nothing
-        try:
-            networking_v1.delete_namespaced_ingress(
-                name="live-streaming",
-                namespace=NAMESPACE,
-            )
-            log.info("Deleted ingress (no active stations)")
-        except client.ApiException as e:
-            if e.status != 404:
-                raise
-        return
-
-    ingress = build_ingress(active_slugs)
+def ensure_station_ingress(networking_v1: client.NetworkingV1Api, slug: str):
+    """Create or update the per-station ingress."""
+    ingress = build_station_ingress(slug)
+    name = ingress_name(slug)
     try:
-        networking_v1.read_namespaced_ingress(
-            name="live-streaming",
-            namespace=NAMESPACE,
-        )
-        # Ingress exists, patch it
-        log.info("Updating ingress with %d station routes", len(active_slugs))
+        networking_v1.read_namespaced_ingress(name=name, namespace=NAMESPACE)
         networking_v1.patch_namespaced_ingress(
-            name="live-streaming",
-            namespace=NAMESPACE,
-            body=ingress,
+            name=name, namespace=NAMESPACE, body=ingress,
         )
     except client.ApiException as e:
         if e.status == 404:
-            log.info("Creating ingress with %d station routes", len(active_slugs))
-            networking_v1.create_namespaced_ingress(
-                namespace=NAMESPACE,
-                body=ingress,
-            )
+            log.info("Creating ingress for station: %s", slug)
+            networking_v1.create_namespaced_ingress(namespace=NAMESPACE, body=ingress)
         else:
+            raise
+
+
+def delete_station_ingress(networking_v1: client.NetworkingV1Api, slug: str):
+    """Delete a station's ingress."""
+    log.info("Deleting ingress for station: %s", slug)
+    try:
+        networking_v1.delete_namespaced_ingress(
+            name=ingress_name(slug), namespace=NAMESPACE,
+        )
+    except client.ApiException as e:
+        if e.status != 404:
+            raise
+
+
+def ensure_listing_ingress(networking_v1: client.NetworkingV1Api):
+    """Create or update the listing ingress (root path)."""
+    ingress = build_listing_ingress()
+    try:
+        networking_v1.read_namespaced_ingress(
+            name=LISTING_INGRESS_NAME, namespace=NAMESPACE,
+        )
+        networking_v1.patch_namespaced_ingress(
+            name=LISTING_INGRESS_NAME, namespace=NAMESPACE, body=ingress,
+        )
+    except client.ApiException as e:
+        if e.status == 404:
+            log.info("Creating listing ingress")
+            networking_v1.create_namespaced_ingress(namespace=NAMESPACE, body=ingress)
+        else:
+            raise
+
+
+def cleanup_shared_ingress(networking_v1: client.NetworkingV1Api):
+    """Delete the old shared 'live-streaming' ingress (replaced by per-station ingresses)."""
+    try:
+        networking_v1.delete_namespaced_ingress(
+            name="live-streaming", namespace=NAMESPACE,
+        )
+        log.info("Deleted old shared 'live-streaming' ingress")
+    except client.ApiException as e:
+        if e.status != 404:
             raise
 
 
@@ -654,9 +712,10 @@ def sync_once(
     existing_deployments = get_existing_deployments(apps_v1)
     existing_services = get_existing_services(core_v1)
     existing_pvcs = get_existing_pvcs(core_v1)
+    existing_ingresses = get_existing_ingresses(networking_v1)
     existing_slugs = set(existing_deployments.keys())
 
-    log.info("Existing deployments: %d", len(existing_slugs))
+    log.info("Existing deployments: %d, ingresses: %d", len(existing_slugs), len(existing_ingresses))
 
     # 3. Compute diff
     to_create = desired_slugs - existing_slugs
@@ -680,10 +739,11 @@ def sync_once(
     to_update = to_update_url | to_update_image
 
     # 4. Apply changes
-    # Delete deployments that are no longer needed
+    # Delete deployments, services, and ingresses for removed stations
     for slug in to_delete:
         delete_deployment(apps_v1, slug)
         delete_service(core_v1, slug)
+        delete_station_ingress(networking_v1, slug)
 
     # Update deployments in batches of 15 with 5s delay between batches.
     IMAGE_UPDATE_BATCH = int(os.environ.get("IMAGE_UPDATE_BATCH", "15"))
@@ -697,18 +757,28 @@ def sync_once(
         if i + IMAGE_UPDATE_BATCH < len(update_list):
             time.sleep(5)
 
-    # Create new deployments
+    # Create new deployments, services, and per-station ingresses
     for slug in to_create:
         ensure_pvc(core_v1, slug, existing_pvcs)
         create_deployment(apps_v1, slug, desired_map[slug])
         ensure_service(core_v1, slug, existing_services)
+        ensure_station_ingress(networking_v1, slug)
 
-    # 5. Ensure listing deployment exists
+    # 5. Reconcile ingresses — only create missing ones, don't touch existing
+    ingresses_to_create = desired_slugs - existing_ingresses
+    if ingresses_to_create:
+        log.info("Creating missing ingresses for %d stations", len(ingresses_to_create))
+        for slug in ingresses_to_create:
+            ensure_station_ingress(networking_v1, slug)
+
+    # Clean up orphaned ingresses (station removed but ingress remained)
+    orphaned_ingresses = (existing_ingresses - desired_slugs) - {""}
+    for slug in orphaned_ingresses:
+        delete_station_ingress(networking_v1, slug)
+
+    # 6. Ensure listing deployment and ingress exist
     ensure_listing_deployment(apps_v1, core_v1)
-
-    # 6. Update ingress to match active stations
-    active_slugs = list(desired_slugs)
-    update_ingress(networking_v1, active_slugs)
+    ensure_listing_ingress(networking_v1)
 
     created = len(to_create)
     deleted = len(to_delete)
@@ -747,6 +817,12 @@ def main():
         cleanup_legacy_pods(core_v1)
     except Exception:
         log.exception("Error cleaning up legacy pods")
+
+    # One-time cleanup: delete old shared ingress (replaced by per-station ingresses)
+    try:
+        cleanup_shared_ingress(networking_v1)
+    except Exception:
+        log.exception("Error cleaning up shared ingress")
 
     while True:
         try:
