@@ -251,7 +251,7 @@ def extract_external_url_fields_from_fixture(fixture_data):
     return external_urls
 
 
-def download_external_urls_to_backup(external_urls, backup_dir, timeout=5):
+def download_external_urls_to_backup(external_urls, backup_dir, timeout=10, max_file_size=10 * 1024 * 1024, total_timeout=300):
     """
     Download external URL resources and save them in the backup directory.
     Files are stored under media/external_urls/ with a deterministic filename
@@ -259,9 +259,18 @@ def download_external_urls_to_backup(external_urls, backup_dir, timeout=5):
 
     Also creates an external_urls_manifest.json mapping URLs to local filenames.
 
+    Args:
+        external_urls: List of dicts with 'url', 'model', 'field', 'pk' keys
+        backup_dir: Directory where files should be saved
+        timeout: Per-URL socket timeout in seconds
+        max_file_size: Maximum file size per download (default 10MB)
+        total_timeout: Maximum total time for all downloads (default 5 minutes)
+
     Returns:
         Dict with 'downloaded', 'failed', and 'manifest' keys
     """
+    import time
+
     downloaded = []
     failed = []
     manifest = {}
@@ -272,9 +281,21 @@ def download_external_urls_to_backup(external_urls, backup_dir, timeout=5):
     ext_dir = Path(backup_dir) / 'media' / 'external_urls'
     ext_dir.mkdir(parents=True, exist_ok=True)
     total = len(external_urls)
+    start_time = time.monotonic()
 
     for i, entry in enumerate(external_urls):
         url = entry['url']
+
+        # Check total timeout
+        elapsed = time.monotonic() - start_time
+        if elapsed > total_timeout:
+            remaining = total - i
+            logger.warning(f"External URL download total timeout reached ({total_timeout}s). "
+                          f"Skipping remaining {remaining} URLs.")
+            for remaining_entry in external_urls[i:]:
+                failed.append(remaining_entry['url'])
+            break
+
         try:
             parsed = urlparse(url)
             ext = os.path.splitext(parsed.path)[1].lower() or '.bin'
@@ -290,7 +311,21 @@ def download_external_urls_to_backup(external_urls, backup_dir, timeout=5):
             req = Request(url, headers={'User-Agent': 'RadioCrestin-Backup/1.0'})
             with urlopen(req, timeout=timeout) as response:
                 with open(dest_path, 'wb') as f:
-                    shutil.copyfileobj(response, f)
+                    bytes_read = 0
+                    while True:
+                        chunk = response.read(8192)
+                        if not chunk:
+                            break
+                        bytes_read += len(chunk)
+                        if bytes_read > max_file_size:
+                            logger.warning(f"Skipping {url}: exceeded max file size ({max_file_size} bytes)")
+                            break
+                        f.write(chunk)
+
+                if bytes_read > max_file_size:
+                    dest_path.unlink(missing_ok=True)
+                    failed.append(url)
+                    continue
 
             downloaded.append(url)
             manifest[url] = filename
@@ -301,11 +336,18 @@ def download_external_urls_to_backup(external_urls, backup_dir, timeout=5):
         except Exception as e:
             failed.append(url)
             logger.warning(f"Failed to download external URL {url}: {e}")
+            # Clean up partial file
+            if dest_path.exists():
+                dest_path.unlink(missing_ok=True)
 
     # Write manifest so restore knows which URL maps to which file
     manifest_path = Path(backup_dir) / 'media' / 'external_urls_manifest.json'
     with open(manifest_path, 'w') as f:
         json.dump(manifest, f, indent=2)
+
+    elapsed = time.monotonic() - start_time
+    logger.info(f"External URL downloads finished in {elapsed:.1f}s: "
+               f"{len(downloaded)} downloaded, {len(failed)} failed out of {total}")
 
     return {'downloaded': downloaded, 'failed': failed, 'manifest': manifest}
 
@@ -448,6 +490,8 @@ def filter_excluded_fields_from_fixture(fixture_data, excluded_fields):
     max_retries=3,
     default_retry_delay=60,
     queue='priority',
+    soft_time_limit=600,
+    time_limit=660,
 )
 def process_backup(self, backup_pk):
     """
