@@ -44,6 +44,10 @@ def proxy_image_url(
     if not url:
         return url
 
+    # Only proxy valid URLs — bare filenames (e.g. "Song Name.jpg") cause CDN 400 errors
+    if not url.startswith("http://") and not url.startswith("https://"):
+        return None
+
     secret = get_cdn_signing_secret()
     if not secret:
         return url
