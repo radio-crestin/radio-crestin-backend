@@ -160,7 +160,10 @@ def _submit_batch(events):
 
     result = _graphql_request(mutation, {"events": events})
     if result:
-        data = result.get("data", {}).get("submit_listening_events", {})
+        data = (result.get("data") or {}).get("submit_listening_events")
+        if not data:
+            print(f"log_monitor: unexpected response: {result}", flush=True)
+            return
         typename = data.get("__typename")
         if typename == "SubmitListeningEventsResponse":
             count = data.get("processed_count", 0)

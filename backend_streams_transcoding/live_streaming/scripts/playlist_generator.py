@@ -1,10 +1,12 @@
 """
-HLS playlist generator — stateless, CDN-cacheable, pure math.
+HLS playlist enhancer — reads FFmpeg's live.m3u8 and adds EXT-X-PROGRAM-DATE-TIME
+and EXT-X-DATERANGE (song metadata) tags.
 
-Every playlist is deterministic: given a timestamp, the output is always
-the same.  This means CDNs can cache both playlists and segments aggressively.
+FFmpeg writes segments with epoch-based filenames (e.g. 1776250253.ts) via -strftime 1.
+This server reads the actual playlist, derives each segment's program date time from
+its filename, and injects song metadata from /data/metadata/index.json.
 
-  Live:       /aac/index.m3u8              -> last ~6.5 min, cacheable 6s
+  Live:       /aac/index.m3u8              -> enhanced FFmpeg playlist
   Master:     /master.m3u8                 -> static, cacheable forever
 
 Runs on 127.0.0.1:8081.
@@ -12,43 +14,36 @@ Runs on 127.0.0.1:8081.
 
 import json
 import os
+import re
 import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse
 
 SEGMENT_DURATION = int(os.environ.get("SEGMENT_DURATION", "6"))
-LIVE_WINDOW_SIZE = 50  # 5 minutes (50 × 6s segments)
 
-CODECS = {
-    "aac": {
-        "segments_dir": "/data/hls/aac/segments",
-        "extension": ".ts",
-        "prefix": "segments/",
-    },
-}
+# Path to FFmpeg's raw playlist
+FFMPEG_PLAYLIST = "/data/hls/aac/live.m3u8"
 
 
-# ── Core math ──────────────────────────────────────────────────────────
-
-
-def snap(epoch: float) -> int:
-    """Snap an epoch to the nearest segment boundary (floor)."""
-    e = int(epoch)
-    return e - (e % SEGMENT_DURATION)
+# ── Helpers ───────────────────────────────────────────────────────────
 
 
 def _epoch_to_pdt(epoch: float) -> str:
+    """Convert Unix epoch to ISO 8601 UTC timestamp for EXT-X-PROGRAM-DATE-TIME."""
     t = time.gmtime(epoch)
     ms = int((epoch % 1) * 1000)
     return time.strftime(f"%Y-%m-%dT%H:%M:%S.{ms:03d}Z", t)
 
 
-def _latest_complete_seg() -> int:
-    """Latest segment that is fully written (conservative)."""
-    return snap(time.time()) - SEGMENT_DURATION
+def _extract_epoch(segment_line: str) -> int | None:
+    """Extract the epoch timestamp from a segment filename like '1776250253.ts'."""
+    m = re.search(r"(\d{10,})\.ts", segment_line)
+    if m:
+        return int(m.group(1))
+    return None
 
 
-# ── Song metadata ──────────────────────────────────────────────────────
+# ── Song metadata ─────────────────────────────────────────────────────
 
 
 _song_cache: tuple[list[dict], float] | None = None
@@ -102,81 +97,97 @@ def _daterange_for_song(song: dict, idx: int) -> str:
     )
 
 
-# ── Playlist builder ─────────────────────────────────────────────────
+# ── Playlist enhancer ─────────────────────────────────────────────────
 
 
-def _inject_songs(lines: list[str], seg_epoch: int, songs: list[dict], emitted: set[int]):
-    """Inject EXT-X-DATERANGE for songs that start in this segment."""
-    for si, song in enumerate(songs):
-        if si in emitted:
-            continue
-        s_start = song.get("started_at", 0)
-        if s_start >= seg_epoch and s_start < seg_epoch + SEGMENT_DURATION + 1:
-            lines.append(_daterange_for_song(song, si))
-            emitted.add(si)
-
-
-def generate_playlist(
-    codec: str,
-    start_epoch: int,
-    count: int,
-) -> str:
-    """Generate a live HLS playlist from pure arithmetic."""
-    ext = CODECS[codec]["extension"]
-    prefix = CODECS[codec]["prefix"]
-    first_seq = start_epoch // SEGMENT_DURATION
-
-    lines = [
-        "#EXTM3U",
-        "#EXT-X-VERSION:9",
-        f"#EXT-X-TARGETDURATION:{SEGMENT_DURATION + 1}",
-        f"#EXT-X-MEDIA-SEQUENCE:{first_seq}",
-        "#EXT-X-INDEPENDENT-SEGMENTS",
-    ]
-
-    songs = _get_songs()
-    emitted: set[int] = set()
-
-    for i in range(count):
-        seg_epoch = start_epoch + i * SEGMENT_DURATION
-        _inject_songs(lines, seg_epoch, songs, emitted)
-        lines.append(f"#EXT-X-PROGRAM-DATE-TIME:{_epoch_to_pdt(seg_epoch)}")
-        lines.append(f"#EXTINF:{SEGMENT_DURATION}.000000,")
-        lines.append(f"{prefix}{seg_epoch}{ext}")
-
-    return "\n".join(lines) + "\n"
-
-
-# ── Public playlist functions ─────────────────────────────────────────
-
-
-def _get_pod_start() -> int | None:
-    """Read the pod start epoch from /data/pod_started_at."""
+def _parse_extinf(line: str) -> float | None:
+    """Parse '#EXTINF:6.037189,' and return the float. Returns None if malformed."""
     try:
-        with open("/data/pod_started_at", "r") as f:
-            return int(float(f.read().strip()))
-    except (FileNotFoundError, ValueError):
+        val = line[len("#EXTINF:"):].rstrip(",").strip()
+        return float(val)
+    except (ValueError, IndexError):
         return None
 
 
-# ── Disk helpers (status endpoint only) ──────────────────────────────
+def enhance_playlist(raw_m3u8: str) -> str:
+    """Read FFmpeg's raw playlist and add EXT-X-PROGRAM-DATE-TIME + song DATERANGE tags.
+
+    PDT is derived *cumulatively* from EXTINF durations, anchored at the first
+    segment's filename epoch. This guarantees that PDT deltas equal declared
+    segment durations — which is what players rely on for smooth playback.
+    Using the raw filename epoch directly caused stalls when ffmpeg restarted
+    and produced segments whose wallclock filenames didn't match their media
+    durations (overlapping PDTs).
+
+    Song DATERANGE matching still uses filename epoch (real wallclock) so that
+    song timestamps line up with the actual broadcast.
+    """
+    songs = _get_songs()
+    emitted_songs: set[int] = set()
+    lines = raw_m3u8.rstrip("\n").split("\n")
+    output: list[str] = []
+
+    # Anchor PDT on the first segment's filename epoch.
+    anchor_epoch: int | None = None
+    for line in lines:
+        if line.endswith(".ts"):
+            anchor_epoch = _extract_epoch(line)
+            if anchor_epoch is not None:
+                break
+
+    # Upgrade to version 9 for DATERANGE support
+    version_replaced = False
+    cumulative_offset = 0.0
+    pending_extinf: float | None = None
+
+    for line in lines:
+        if line.startswith("#EXT-X-VERSION:") and not version_replaced:
+            output.append("#EXT-X-VERSION:9")
+            version_replaced = True
+            continue
+
+        if line.startswith("#EXTINF:"):
+            pending_extinf = _parse_extinf(line)
+            output.append(line)
+            continue
+
+        if line.endswith(".ts") and anchor_epoch is not None:
+            seg_epoch = _extract_epoch(line)
+            pdt_seconds = anchor_epoch + cumulative_offset
+
+            # Song DATERANGE matching uses real wallclock (filename epoch).
+            if seg_epoch is not None:
+                for si, song in enumerate(songs):
+                    if si in emitted_songs:
+                        continue
+                    s_start = song.get("started_at", 0)
+                    if s_start >= seg_epoch and s_start < seg_epoch + SEGMENT_DURATION + 1:
+                        output.append(_daterange_for_song(song, si))
+                        emitted_songs.add(si)
+
+            output.append(f"#EXT-X-PROGRAM-DATE-TIME:{_epoch_to_pdt(pdt_seconds)}")
+            output.append(line)
+
+            # Advance by this segment's duration for the next PDT.
+            cumulative_offset += pending_extinf if pending_extinf is not None else float(SEGMENT_DURATION)
+            pending_extinf = None
+            continue
+
+        output.append(line)
+
+    return "\n".join(output) + "\n"
 
 
-def _scan_disk(codec: str) -> list[int]:
-    cfg = CODECS[codec]
-    ext = cfg["extension"]
-    nums = []
+def _read_and_enhance() -> str | None:
+    """Read FFmpeg's live.m3u8 and return the enhanced version."""
     try:
-        for name in os.listdir(cfg["segments_dir"]):
-            if name.endswith(ext):
-                try:
-                    nums.append(int(name.replace(ext, "")))
-                except ValueError:
-                    pass
+        with open(FFMPEG_PLAYLIST, "r") as f:
+            raw = f.read()
+        if not raw or "#EXTM3U" not in raw:
+            return None
+        return enhance_playlist(raw)
     except FileNotFoundError:
-        pass
-    nums.sort()
-    return nums
+        return None
 
 
 # ── HTTP handler ──────────────────────────────────────────────────────
@@ -195,7 +206,6 @@ class PlaylistHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urlparse(self.path)
-        params = parse_qs(parsed.query)
 
         if parsed.path == "/master.m3u8":
             self._send_m3u8(MASTER_PLAYLIST, cache="public, max-age=86400")
@@ -204,25 +214,15 @@ class PlaylistHandler(BaseHTTPRequestHandler):
             self._send_status()
             return
 
-        codec = None
         if parsed.path in ("/aac/index.m3u8", "/index.m3u8"):
-            codec = "aac"
-
-        if codec is None:
-            self.send_error(404)
+            playlist = _read_and_enhance()
+            if playlist:
+                self._send_m3u8(playlist, cache="no-store")
+            else:
+                self.send_error(503, "FFmpeg playlist not ready")
             return
 
-        # Generate live playlist — sliding window ending near "now".
-        # Window is always LIVE_WINDOW_SIZE or fewer segments.
-        # When the pod is young, serve fewer segments (from pod start to now).
-        now = snap(time.time())
-        start = now - (LIVE_WINDOW_SIZE - 1) * SEGMENT_DURATION
-        pod_start = _get_pod_start()
-        if pod_start and start < pod_start:
-            start = snap(pod_start)
-        count = min(LIVE_WINDOW_SIZE, max(1, (now - start) // SEGMENT_DURATION + 1))
-        playlist = generate_playlist(codec, start, count)
-        self._send_m3u8(playlist, cache="no-store")
+        self.send_error(404)
 
     def _send_status(self):
         metadata = None
@@ -243,20 +243,8 @@ class PlaylistHandler(BaseHTTPRequestHandler):
             "metadata": metadata,
             "pod_started_at": pod_started_at,
             "now": time.time(),
-            "latest_complete_segment": _latest_complete_seg(),
             "segment_duration": SEGMENT_DURATION,
         }
-
-        for codec in CODECS:
-            disk_nums = _scan_disk(codec)
-            if disk_nums:
-                result[codec] = {
-                    "segments_on_disk": len(disk_nums),
-                    "oldest_on_disk": disk_nums[0],
-                    "newest_on_disk": disk_nums[-1],
-                }
-            else:
-                result[codec] = {"segments_on_disk": 0}
 
         body = json.dumps(result, indent=2)
         self.send_response(200)
@@ -286,7 +274,7 @@ class PlaylistHandler(BaseHTTPRequestHandler):
 def main():
     port = int(os.environ.get("PLAYLIST_PORT", "8081"))
     server = HTTPServer(("127.0.0.1", port), PlaylistHandler)
-    print(f"Playlist generator on 127.0.0.1:{port} (live, {SEGMENT_DURATION}s)", flush=True)
+    print(f"Playlist enhancer on 127.0.0.1:{port} (reads {FFMPEG_PLAYLIST})", flush=True)
     server.serve_forever()
 
 

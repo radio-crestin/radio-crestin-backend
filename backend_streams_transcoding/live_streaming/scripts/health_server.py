@@ -2,7 +2,9 @@
 Health check HTTP server — reports unhealthy when ffmpeg stops producing segments.
 
 Checks:
-  1. At least one AAC .ts segment exists and is recent
+  1. At least one AAC .ts segment exists and is recent (within HEALTH_MAX_AGE)
+  2. Enough segments exist for smooth player handoff (MIN_READY_SEGMENTS)
+  3. Every segment referenced in live.m3u8 exists on disk and is non-empty
 
 Returns 200 "ok" when all checks pass, 503 with failure reason otherwise.
 Runs on 127.0.0.1:8082.
@@ -19,7 +21,8 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 AAC_SEGMENTS_DIR = "/data/hls/aac"
-HEALTH_MAX_AGE = int(os.environ.get("HEALTH_MAX_AGE", "20"))
+FFMPEG_PLAYLIST = os.path.join(AAC_SEGMENTS_DIR, "live.m3u8")
+HEALTH_MAX_AGE = int(os.environ.get("HEALTH_MAX_AGE", "30"))
 # Minimum local segments before the pod reports ready.
 # Ensures players have enough buffer before traffic is switched over.
 MIN_READY_SEGMENTS = int(os.environ.get("MIN_READY_SEGMENTS", "3"))
@@ -50,26 +53,56 @@ class HealthHandler(BaseHTTPRequestHandler):
         pass
 
 
-def _check_dir(directory, extension, label):
+def _check_segments_fresh():
+    """Check that recent .ts segments exist on disk."""
     now = time.time()
-    segments = glob.glob(os.path.join(directory, f"*{extension}"))
+    segments = glob.glob(os.path.join(AAC_SEGMENTS_DIR, "*.ts"))
     if not segments:
-        return False, f"no {label} segments"
+        return False, "no aac segments on disk"
     newest_mtime = max(os.path.getmtime(s) for s in segments)
     age = now - newest_mtime
     if age > HEALTH_MAX_AGE:
-        return False, f"{label} segments stale ({int(age)}s old)"
+        return False, f"aac segments stale ({int(age)}s old, max {HEALTH_MAX_AGE}s)"
+    if len(segments) < MIN_READY_SEGMENTS:
+        return False, f"warming up ({len(segments)}/{MIN_READY_SEGMENTS} segments)"
+    return True, ""
+
+
+def _check_playlist_segments():
+    """Validate that every segment referenced in live.m3u8 exists on disk and is non-empty."""
+    try:
+        with open(FFMPEG_PLAYLIST, "r") as f:
+            lines = f.read().strip().split("\n")
+    except FileNotFoundError:
+        return False, "live.m3u8 not found"
+
+    missing = []
+    empty = []
+    for line in lines:
+        if not line.endswith(".ts"):
+            continue
+        seg_path = os.path.join(AAC_SEGMENTS_DIR, line.strip())
+        if not os.path.exists(seg_path):
+            missing.append(line.strip())
+        elif os.path.getsize(seg_path) == 0:
+            empty.append(line.strip())
+
+    if missing:
+        return False, f"{len(missing)} segments missing from disk ({missing[0]})"
+    if empty:
+        return False, f"{len(empty)} segments are empty ({empty[0]})"
     return True, ""
 
 
 def check_health():
-    ok, reason = _check_dir(AAC_SEGMENTS_DIR, ".ts", "aac")
+    # 1. Fresh segments on disk
+    ok, reason = _check_segments_fresh()
     if not ok:
         return False, reason
-    # Ensure enough segments exist for a smooth player handoff
-    segments = glob.glob(os.path.join(AAC_SEGMENTS_DIR, "*.ts"))
-    if len(segments) < MIN_READY_SEGMENTS:
-        return False, f"warming up ({len(segments)}/{MIN_READY_SEGMENTS} segments)"
+    # 2. All playlist segments exist and are non-empty
+    ok, reason = _check_playlist_segments()
+    if not ok:
+        return False, reason
     return True, ""
 
 

@@ -1,6 +1,6 @@
 FROM mirror.gcr.io/library/alpine:3.21
 
-RUN apk add --no-cache bash nginx python3 py3-pip gettext
+RUN apk add --no-cache bash nginx nginx-mod-http-brotli nginx-mod-http-zstd python3 py3-pip gettext
 
 # Install ffmpeg with libfdk_aac (HE-AAC/AAC+) support
 # homebridge/ffmpeg-for-homebridge includes libfdk_aac built with HE-AAC
