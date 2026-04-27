@@ -128,7 +128,10 @@ def _warnings(seg, pl, http, seq_advance):
         out.append(f"playlist stale ({pl['age_s']}s)")
     if not pl["present"]:
         out.append("live.m3u8 missing")
-    if seq_advance == 0 and pl["media_seq"] is not None:
+    # Only warn once steady-state — while the playlist is warming up
+    # (segments being appended, none removed yet), MEDIA-SEQUENCE legitimately
+    # stays at 0 per HLS spec. False-positive otherwise during pod startup.
+    if seq_advance == 0 and pl["media_seq"] is not None and pl["media_seq"] > 0:
         out.append(f"MEDIA-SEQUENCE stuck at {pl['media_seq']}")
     if http["seg_404"] > 0:
         out.append(f"{http['seg_404']} segment 404s in interval")
