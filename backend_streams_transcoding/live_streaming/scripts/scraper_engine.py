@@ -392,10 +392,17 @@ def _run_scrapers(scrapers_config: list) -> dict:
         if not raw_result or not raw_result.get("raw_title"):
             continue
 
-        # Parse title/artist using this scraper's regex config
-        artist, title = _parse_title_artist(raw_result["raw_title"], cfg)
+        # Some upstream APIs (e.g. Shoutcast servers populating `songtitle`
+        # with a numeric song-id, Icecast variants with int `title` fields)
+        # return non-string values. Coerce once at the boundary so every
+        # downstream string operation is safe.
+        raw_title = str(raw_result["raw_title"]).strip()
+        if not raw_title:
+            continue
+
+        artist, title = _parse_title_artist(raw_title, cfg)
         results.append({
-            "raw_title": raw_result.get("raw_title", ""),
+            "raw_title": raw_title,
             "title": title,
             "artist": artist,
             "thumbnail_url": raw_result.get("thumbnail_url"),

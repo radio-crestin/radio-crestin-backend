@@ -36,10 +36,23 @@ def _segment_stats():
     files = glob.glob(os.path.join(AAC_DIR, "*.ts"))
     if not files:
         return {"count": 0, "oldest_s": None, "newest_s": None, "total_mb": 0.0}
-    mtimes = [os.path.getmtime(f) for f in files]
-    sizes = [os.path.getsize(f) for f in files]
+    # ffmpeg's delete_segments and cleanup.sh can remove segments between the
+    # glob() above and the stat() below. Skip files that vanish mid-iteration
+    # rather than crashing the monitor. One stat() per file (vs separate
+    # getmtime + getsize) also halves the syscall count.
+    mtimes: list[float] = []
+    sizes: list[int] = []
+    for f in files:
+        try:
+            st = os.stat(f)
+        except FileNotFoundError:
+            continue
+        mtimes.append(st.st_mtime)
+        sizes.append(st.st_size)
+    if not mtimes:
+        return {"count": 0, "oldest_s": None, "newest_s": None, "total_mb": 0.0}
     return {
-        "count": len(files),
+        "count": len(mtimes),
         "oldest_s": int(now - min(mtimes)),
         "newest_s": int(now - max(mtimes)),
         "total_mb": round(sum(sizes) / 1_000_000, 1),
