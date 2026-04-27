@@ -16,11 +16,28 @@ then every REPORT_INTERVAL seconds with current status.
 
 import glob
 import os
+import sys
 import time
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 import posthog_reporter
+
+
+class QuietHTTPServer(HTTPServer):
+    """HTTPServer that silently ignores BrokenPipe / ConnectionReset.
+
+    kube-probe routinely drops the TCP connection mid-response (probe timeout
+    short-circuits, agent moves on). Without this override, every such event
+    prints a multi-line traceback to stderr and (worse) trips sys.excepthook,
+    flooding both pod logs and PostHog with non-actionable noise.
+    """
+
+    def handle_error(self, request, client_address):
+        exc_val = sys.exc_info()[1]
+        if isinstance(exc_val, (BrokenPipeError, ConnectionResetError, ConnectionAbortedError)):
+            return
+        super().handle_error(request, client_address)
 
 AAC_SEGMENTS_DIR = "/data/hls/aac"
 FFMPEG_PLAYLIST = os.path.join(AAC_SEGMENTS_DIR, "live.m3u8")
@@ -40,16 +57,19 @@ class HealthHandler(BaseHTTPRequestHandler):
             return
 
         ok, reason = check_health()
-        if ok:
-            self.send_response(200)
-            self.send_header("Content-Type", "text/plain")
-            self.end_headers()
-            self.wfile.write(b"ok")
-        else:
-            self.send_response(503)
-            self.send_header("Content-Type", "text/plain")
-            self.end_headers()
-            self.wfile.write(reason.encode())
+        try:
+            if ok:
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(b"ok")
+            else:
+                self.send_response(503)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(reason.encode())
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            pass
 
     def log_message(self, format, *args):
         pass
@@ -168,6 +188,6 @@ if __name__ == "__main__":
     reporter = threading.Thread(target=_report_health_loop, daemon=True)
     reporter.start()
 
-    server = HTTPServer(("127.0.0.1", LISTEN_PORT), HealthHandler)
+    server = QuietHTTPServer(("127.0.0.1", LISTEN_PORT), HealthHandler)
     print(f"Health server listening on 127.0.0.1:{LISTEN_PORT} (reporting every {REPORT_INTERVAL}s)")
     server.serve_forever()

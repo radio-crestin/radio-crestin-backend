@@ -15,11 +15,27 @@ Runs on 127.0.0.1:8081.
 import json
 import os
 import re
+import sys
 import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
 
 import posthog_reporter
+
+
+class QuietHTTPServer(HTTPServer):
+    """HTTPServer that silently ignores client-disconnect errors.
+
+    nginx may close the upstream connection mid-response (proxy_read_timeout,
+    client cancel). Default `socketserver.handle_error` prints a full
+    traceback for each such event, which adds no signal in production logs.
+    """
+
+    def handle_error(self, request, client_address):
+        exc_val = sys.exc_info()[1]
+        if isinstance(exc_val, (BrokenPipeError, ConnectionResetError, ConnectionAbortedError)):
+            return
+        super().handle_error(request, client_address)
 
 SEGMENT_DURATION = int(os.environ.get("SEGMENT_DURATION", "6"))
 
@@ -275,7 +291,7 @@ class PlaylistHandler(BaseHTTPRequestHandler):
 
 def main():
     port = int(os.environ.get("PLAYLIST_PORT", "8081"))
-    server = HTTPServer(("127.0.0.1", port), PlaylistHandler)
+    server = QuietHTTPServer(("127.0.0.1", port), PlaylistHandler)
     print(f"Playlist enhancer on 127.0.0.1:{port} (reads {FFMPEG_PLAYLIST})", flush=True)
     server.serve_forever()
 
