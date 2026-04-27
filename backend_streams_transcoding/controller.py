@@ -38,6 +38,8 @@ USE_PVC = os.environ.get("USE_PVC", "false").lower() in ("true", "1", "yes")
 STREAMING_POD_API_KEY = os.environ.get("STREAMING_POD_API_KEY", "")
 DJANGO_GRAPHQL_URL = os.environ.get("DJANGO_GRAPHQL_URL", "http://web:8080/v1/graphql")
 DJANGO_API_URL = os.environ.get("DJANGO_API_URL", "web:8080")
+POSTHOG_API_KEY = os.environ.get("POSTHOG_API_KEY", "")
+POSTHOG_HOST = os.environ.get("POSTHOG_HOST", "https://eu.i.posthog.com")
 
 SLUG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*[a-z0-9]$")
 LABEL_APP = "live-stream"
@@ -173,6 +175,9 @@ def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
                                 client.V1EnvVar(name="STREAMING_POD_API_KEY", value=STREAMING_POD_API_KEY),
                                 client.V1EnvVar(name="DJANGO_GRAPHQL_URL", value=DJANGO_GRAPHQL_URL),
                                 client.V1EnvVar(name="DJANGO_API_URL", value=DJANGO_API_URL),
+                                client.V1EnvVar(name="POSTHOG_API_KEY", value=POSTHOG_API_KEY),
+                                client.V1EnvVar(name="POSTHOG_HOST", value=POSTHOG_HOST),
+                                client.V1EnvVar(name="IMAGE_TAG", value=STREAMER_IMAGE.rsplit(":", 1)[-1]),
                             ],
                             ports=[client.V1ContainerPort(container_port=8080)],
                             volume_mounts=[

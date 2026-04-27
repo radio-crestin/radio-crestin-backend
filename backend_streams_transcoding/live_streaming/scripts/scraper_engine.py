@@ -24,6 +24,8 @@ from http.client import HTTPConnection, HTTPSConnection
 from pathlib import Path
 from urllib.parse import urlparse
 
+import posthog_reporter
+
 STATION_SLUG = os.environ.get("STATION_SLUG", "")
 DJANGO_GRAPHQL_URL = os.environ.get("DJANGO_GRAPHQL_URL", "http://web:8080/v1/graphql")
 STREAMING_API_KEY = os.environ.get("STREAMING_POD_API_KEY", "")
@@ -573,4 +575,5 @@ def main():
 
 
 if __name__ == "__main__":
+    posthog_reporter.install_global_handler("scraper_engine")
     main()

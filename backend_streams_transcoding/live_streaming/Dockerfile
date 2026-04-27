@@ -11,7 +11,8 @@ RUN echo "Installing ffmpeg for $(uname -m)..." && \
 # Using --break-system-packages since this is a container
 RUN pip3 install --no-cache-dir --break-system-packages \
     numpy==2.2.4 \
-    scipy==1.15.2
+    scipy==1.15.2 \
+    posthog==7.10.3
 
 RUN mkdir -p /data/hls/aac /data/cache/playlist /data/cache/s3 /tmp/nginx
 

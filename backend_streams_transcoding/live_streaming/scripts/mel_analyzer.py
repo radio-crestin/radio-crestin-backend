@@ -26,6 +26,8 @@ from pathlib import Path
 
 import numpy as np
 
+import posthog_reporter
+
 SEGMENTS_DIR = Path("/data/hls/aac")
 MEL_TRIGGER = Path("/data/mel_trigger")
 SAMPLE_RATE = 22050
@@ -222,4 +224,5 @@ def main():
 
 
 if __name__ == "__main__":
+    posthog_reporter.install_global_handler("mel_analyzer")
     main()

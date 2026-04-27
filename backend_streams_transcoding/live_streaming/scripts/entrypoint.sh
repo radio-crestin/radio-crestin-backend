@@ -24,6 +24,12 @@ echo "Station: $STATION_SLUG"
 echo "Stream:  $STREAM_URL"
 echo "HLS:     AAC+ 64k, ${SEGMENT_DURATION}s segments, ${HLS_LIST_SIZE} in playlist, ${HLS_DELETE_THRESHOLD} retained past window"
 
+# Fire a pod-startup event so PostHog timelines line up with restarts.
+python3 /app/scripts/report_event.py pod_started \
+    --prop segment_duration="$SEGMENT_DURATION" \
+    --prop hls_list_size="$HLS_LIST_SIZE" \
+    --prop hls_delete_threshold="$HLS_DELETE_THRESHOLD" >/dev/null 2>&1 &
+
 # Directory layout:
 #   /data/hls/aac/live.m3u8              FFmpeg-managed live playlist
 #   /data/hls/aac/1713200400.ts           FFmpeg-managed segments (epoch timestamp)
@@ -146,6 +152,12 @@ ffmpeg_loop() {
         ran_for=$(( $(date +%s) - started_at ))
         restarts=$((restarts + 1))
         echo "ffmpeg_loop: ffmpeg exited (code=${exit_code}, ran=${ran_for}s, restart_count=${restarts}); retrying in ${delay}s"
+        # Fire-and-forget event to PostHog. Errors here must never break the supervisor.
+        python3 /app/scripts/report_event.py ffmpeg_exit \
+            --prop exit_code="$exit_code" \
+            --prop ran_for="$ran_for" \
+            --prop restart_count="$restarts" \
+            --prop retry_delay="$delay" >/dev/null 2>&1 &
         sleep "$delay"
         delay=$((delay * 2))
         if [ "$delay" -gt "$FFMPEG_MAX_RETRY_DELAY" ]; then

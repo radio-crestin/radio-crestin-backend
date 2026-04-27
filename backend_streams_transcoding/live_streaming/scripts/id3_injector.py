@@ -21,6 +21,8 @@ import json
 import os
 import time
 
+import posthog_reporter
+
 SEGMENTS_DIR = "/data/hls/aac"
 METADATA_PATH = "/data/metadata/index.json"
 POLL_INTERVAL = 1
@@ -169,4 +171,5 @@ def main():
 
 
 if __name__ == "__main__":
+    posthog_reporter.install_global_handler("id3_injector")
     main()

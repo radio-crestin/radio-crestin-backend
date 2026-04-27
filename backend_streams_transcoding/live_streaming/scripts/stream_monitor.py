@@ -17,6 +17,8 @@ import re
 import sys
 import time
 
+import posthog_reporter
+
 AAC_DIR = "/data/hls/aac"
 PLAYLIST = os.path.join(AAC_DIR, "live.m3u8")
 SESSION_LOG = os.environ.get("NGINX_SESSION_LOG", "/tmp/nginx_session_access.log")
@@ -137,6 +139,33 @@ def _warnings(seg, pl, http, seq_advance):
     return out
 
 
+def _report_warnings_to_posthog(warns: list, seg: dict, pl: dict, http: dict, seq_advance):
+    """Send each warning as a discrete PostHog event so dashboards can chart
+    by warning type per station. Single digest tick → up to N events."""
+    if not warns:
+        return
+    base_props = {
+        "segments_on_disk": seg["count"],
+        "oldest_segment_age_s": seg["oldest_s"],
+        "newest_segment_age_s": seg["newest_s"],
+        "playlist_present": pl["present"],
+        "playlist_age_s": pl["age_s"],
+        "media_seq": pl["media_seq"],
+        "media_seq_advance": seq_advance,
+        "segments_in_playlist": pl["segments"],
+        "segment_404_count": http["seg_404"],
+        "segment_5xx_count": http["seg_5xx"],
+        "playlist_5xx_count": http["playlist_5xx"],
+    }
+    for warn in warns:
+        # First word of each WARN line is the category (mostly).
+        kind = warn.split(" ", 1)[0]
+        posthog_reporter.capture_event(
+            "stream_warning",
+            {**base_props, "warning": warn, "warning_kind": kind},
+        )
+
+
 def main():
     state = {"log_pos": 0, "last_media_seq": None}
     try:
@@ -149,6 +178,11 @@ def main():
         f"stall_threshold={STALL_THRESHOLD}s, segment_duration={SEGMENT_DURATION}s)",
         flush=True,
     )
+    posthog_reporter.capture_event("stream_monitor_started", {
+        "interval_s": MONITOR_INTERVAL,
+        "stall_threshold_s": STALL_THRESHOLD,
+        "segment_duration_s": SEGMENT_DURATION,
+    })
 
     while True:
         time.sleep(MONITOR_INTERVAL)
@@ -166,9 +200,14 @@ def main():
         warns = _warnings(seg, pl, http, seq_advance)
         if warns:
             print(f"stream_monitor: WARN: {'; '.join(warns)}", flush=True)
+            try:
+                _report_warnings_to_posthog(warns, seg, pl, http, seq_advance)
+            except Exception as e:
+                print(f"stream_monitor: posthog report failed: {e}", flush=True)
 
 
 if __name__ == "__main__":
+    posthog_reporter.install_global_handler("stream_monitor")
     try:
         main()
     except KeyboardInterrupt:

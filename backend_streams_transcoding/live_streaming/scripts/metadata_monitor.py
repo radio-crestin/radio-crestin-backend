@@ -22,6 +22,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+import posthog_reporter
+
 STREAM_URL = os.environ.get("STREAM_URL", "")
 METADATA_DIR = Path("/data/metadata")
 INDEX_PATH = METADATA_DIR / "index.json"
@@ -260,4 +262,5 @@ def main():
 
 
 if __name__ == "__main__":
+    posthog_reporter.install_global_handler("metadata_monitor")
     main()

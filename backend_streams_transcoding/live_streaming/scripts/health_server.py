@@ -20,6 +20,8 @@ import time
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
+import posthog_reporter
+
 AAC_SEGMENTS_DIR = "/data/hls/aac"
 FFMPEG_PLAYLIST = os.path.join(AAC_SEGMENTS_DIR, "live.m3u8")
 HEALTH_MAX_AGE = int(os.environ.get("HEALTH_MAX_AGE", "30"))
@@ -161,6 +163,7 @@ def _report_health_loop():
 
 
 if __name__ == "__main__":
+    posthog_reporter.install_global_handler("health_server")
     # Start health reporting to Django in background thread
     reporter = threading.Thread(target=_report_health_loop, daemon=True)
     reporter.start()

@@ -19,6 +19,8 @@ import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
 
+import posthog_reporter
+
 SEGMENT_DURATION = int(os.environ.get("SEGMENT_DURATION", "6"))
 
 # Path to FFmpeg's raw playlist
@@ -279,4 +281,5 @@ def main():
 
 
 if __name__ == "__main__":
+    posthog_reporter.install_global_handler("playlist_generator")
     main()
