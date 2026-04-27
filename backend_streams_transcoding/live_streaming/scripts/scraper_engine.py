@@ -72,9 +72,13 @@ def _graphql_request(query: str, variables: dict = None) -> dict:
             resp = conn.getresponse()
         data = json.loads(resp.read())
         conn.close()
-        return data.get("data", {})
+        # GraphQL returns {"data": null, "errors": [...]} on failure — the
+        # `, {}` default only fires for missing keys, not explicit None values.
+        # Use `or {}` so callers can always do data.get(...) without a guard.
+        return data.get("data") or {}
     except Exception as e:
         print(f"scraper: graphql error: {e}", flush=True)
+        posthog_reporter.capture_exception(e, context={"component": "scraper_engine.graphql"})
         return {}
 
 
