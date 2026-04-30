@@ -22,7 +22,7 @@ export SEGMENT_DURATION
 
 echo "Station: $STATION_SLUG"
 echo "Stream:  $STREAM_URL"
-echo "HLS:     AAC+ 64k, ${SEGMENT_DURATION}s segments, ${HLS_LIST_SIZE} in playlist, ${HLS_DELETE_THRESHOLD} retained past window"
+echo "HLS:     AAC-LC 96k, ${SEGMENT_DURATION}s segments, ${HLS_LIST_SIZE} in playlist, ${HLS_DELETE_THRESHOLD} retained past window"
 
 # Fire a pod-startup event so PostHog timelines line up with restarts.
 python3 /app/scripts/report_event.py pod_started \
@@ -121,7 +121,7 @@ start_ffmpeg() {
         -reconnect_delay_max 4 \
         -fflags +genpts+discardcorrupt -max_delay 5000000 \
         -i "$STREAM_URL" -y \
-        -map 0:a:0 -c:a libfdk_aac -profile:a aac_he -b:a 64k \
+        -map 0:a:0 -c:a libfdk_aac -profile:a aac_low -b:a 96k \
         -flags +global_header -async 1 -ac 2 -ar 44100 \
         -bufsize 30000000 -sc_threshold 0 \
         -f hls \

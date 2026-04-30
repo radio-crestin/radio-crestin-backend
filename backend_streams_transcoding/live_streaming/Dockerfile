@@ -2,8 +2,9 @@ FROM mirror.gcr.io/library/alpine:3.21
 
 RUN apk add --no-cache bash nginx nginx-mod-http-brotli nginx-mod-http-zstd python3 py3-pip gettext
 
-# Install ffmpeg with libfdk_aac (HE-AAC/AAC+) support
-# homebridge/ffmpeg-for-homebridge includes libfdk_aac built with HE-AAC
+# Install ffmpeg with libfdk_aac for high-quality AAC-LC encoding.
+# AAC-LC (mp4a.40.2) is the only profile guaranteed across every iOS / Android
+# version per Apple HLS Authoring Spec, and avoids SBR boundary artifacts.
 RUN echo "Installing ffmpeg for $(uname -m)..." && \
     wget -qO- https://github.com/homebridge/ffmpeg-for-homebridge/releases/download/v2.1.7/ffmpeg-alpine-$(uname -m).tar.gz | tar xzf - -C / --no-same-owner
 
