@@ -114,6 +114,9 @@ start_ffmpeg() {
     #                                  epoch segment filename; duplicating PDT breaks players.
     #   - hls_start_number_source epoch: incompatible with -strftime 1 (epoch-named segments).
     #   - master_pl_publish_rate: no ffmpeg-emitted master; static master served by Python.
+    # +temp_file makes ffmpeg write live.m3u8 atomically (write to live.m3u8.tmp,
+    # then rename) so concurrent reads from playlist_generator.py never catch a
+    # half-written playlist that fails the "#EXTM3U" guard and returns 503.
     # Input resilience: reconnect with exponential backoff (1s,2s,4s); ffmpeg gives up once
     # the next backoff would exceed reconnect_delay_max=4 (~3 retries), then bash loop restarts.
     ffmpeg -loglevel warning \
@@ -129,7 +132,7 @@ start_ffmpeg() {
             -hls_time "$SEGMENT_DURATION" \
             -hls_list_size "$HLS_LIST_SIZE" \
             -hls_delete_threshold "$HLS_DELETE_THRESHOLD" \
-            -hls_flags delete_segments+independent_segments+split_by_time+omit_endlist \
+            -hls_flags delete_segments+independent_segments+split_by_time+omit_endlist+temp_file \
             -hls_segment_type mpegts \
             -hls_segment_options 'mpegts_flags=+initial_discontinuity' \
             -strftime 1 \

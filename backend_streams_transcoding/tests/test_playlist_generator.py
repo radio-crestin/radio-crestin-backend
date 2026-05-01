@@ -221,6 +221,100 @@ class TestSongDateRangeEmbedding(unittest.TestCase):
         self.assertNotIn("DURATION=", result)
 
 
+def _extract_pdts(enhanced: str) -> dict[str, str]:
+    """Parse enhanced playlist into {segment_filename: pdt_string} for stability checks."""
+    out: dict[str, str] = {}
+    pending_pdt: str | None = None
+    for line in enhanced.strip().split("\n"):
+        if line.startswith("#EXT-X-PROGRAM-DATE-TIME:"):
+            pending_pdt = line[len("#EXT-X-PROGRAM-DATE-TIME:"):]
+        elif line.endswith(".ts") and pending_pdt is not None:
+            out[line.strip()] = pending_pdt
+            pending_pdt = None
+    return out
+
+
+class TestPdtStabilityAcrossSlides(unittest.TestCase):
+    """Regression: same segment file MUST produce the same PDT on every playlist
+    refresh, including after the sliding window advances. The pre-fix version
+    re-anchored on the new first segment each call, drifting overlapping
+    segments' PDTs by ~10–14ms per slide. iOS AVPlayer interprets that drift
+    as a moving live-edge target and seeks forward to "catch up" — audible
+    as the stream "jumping to different sections".
+    """
+
+    def setUp(self):
+        # Sidecars persist between calls — give each test a fresh dir.
+        self._tmpdir = tempfile.mkdtemp(prefix="pdt_test_")
+        self._original_segment_dir = playlist_generator.SEGMENT_DIR
+        playlist_generator.SEGMENT_DIR = self._tmpdir
+
+    def tearDown(self):
+        playlist_generator.SEGMENT_DIR = self._original_segment_dir
+        shutil.rmtree(self._tmpdir, ignore_errors=True)
+
+    def test_repeated_call_returns_identical_pdts(self):
+        """Calling enhance_playlist twice with identical input must return identical PDTs."""
+        first = playlist_generator.enhance_playlist(SAMPLE_FFMPEG_PLAYLIST)
+        second = playlist_generator.enhance_playlist(SAMPLE_FFMPEG_PLAYLIST)
+        self.assertEqual(_extract_pdts(first), _extract_pdts(second))
+
+    def test_overlapping_segments_keep_pdts_after_slide(self):
+        """When the playlist window slides one position (drop oldest, add newest),
+        the overlapping segments must report the EXACT same PDT in both windows.
+        """
+        # First window: 4 segments
+        v1_playlist = SAMPLE_FFMPEG_PLAYLIST
+        # Second window: drop the first segment, add a new one at the end.
+        # New segment continues the natural cadence: prior segment was epoch
+        # 1776250271 with EXTINF 6.037189, so next segment epoch ≈ 1776250277.
+        v2_playlist = (
+            "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:6\n#EXT-X-MEDIA-SEQUENCE:394\n"
+            "#EXTINF:5.990744,\n1776250259.ts\n"
+            "#EXTINF:5.990756,\n1776250265.ts\n"
+            "#EXTINF:6.037189,\n1776250271.ts\n"
+            "#EXTINF:5.990744,\n1776250277.ts\n"
+        )
+        v1 = _extract_pdts(playlist_generator.enhance_playlist(v1_playlist))
+        v2 = _extract_pdts(playlist_generator.enhance_playlist(v2_playlist))
+        # 1776250259, 1776250265, 1776250271 appear in both windows.
+        for fn in ("1776250259.ts", "1776250265.ts", "1776250271.ts"):
+            self.assertIn(fn, v1)
+            self.assertIn(fn, v2)
+            self.assertEqual(
+                v1[fn], v2[fn],
+                f"PDT for {fn} drifted: {v1[fn]!r} → {v2[fn]!r} after window slide",
+            )
+
+    def test_pdt_delta_invariant_preserved_across_slides(self):
+        """After a slide, the cached + newly-computed PDTs together must still
+        satisfy PDT[i+1] - PDT[i] == EXTINF[i] (existing test_pdt_deltas_equal_extinf
+        invariant). Verifies the fix didn't trade one bug for another.
+        """
+        import datetime as _dt
+        playlist_generator.enhance_playlist(SAMPLE_FFMPEG_PLAYLIST)  # populate sidecars
+        slid = (
+            "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:6\n#EXT-X-MEDIA-SEQUENCE:394\n"
+            "#EXTINF:5.990744,\n1776250259.ts\n"
+            "#EXTINF:5.990756,\n1776250265.ts\n"
+            "#EXTINF:6.037189,\n1776250271.ts\n"
+            "#EXTINF:5.990744,\n1776250277.ts\n"
+        )
+        enhanced = playlist_generator.enhance_playlist(slid)
+        pdts: list[float] = []
+        extinfs: list[float] = []
+        for line in enhanced.strip().split("\n"):
+            if line.startswith("#EXTINF:"):
+                extinfs.append(playlist_generator._parse_extinf(line))
+            elif line.startswith("#EXT-X-PROGRAM-DATE-TIME:"):
+                ts = line[len("#EXT-X-PROGRAM-DATE-TIME:"):]
+                pdts.append(_dt.datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S.%fZ")
+                            .replace(tzinfo=_dt.timezone.utc).timestamp())
+        self.assertEqual(len(pdts), 4)
+        for i in range(1, len(pdts)):
+            self.assertAlmostEqual(pdts[i] - pdts[i - 1], extinfs[i - 1], places=3)
+
+
 class TestNonAlignedSegments(unittest.TestCase):
     """FFmpeg segments may not align to SEGMENT_DURATION boundaries.
     The enhancer must handle arbitrary epoch filenames correctly."""
