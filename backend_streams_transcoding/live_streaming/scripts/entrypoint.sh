@@ -10,19 +10,19 @@ if ! echo "$STATION_SLUG" | grep -qE '^[a-z0-9][a-z0-9-]*[a-z0-9]$'; then
 fi
 
 SEGMENT_DURATION="${SEGMENT_DURATION:-6}"
-# 60 segments × 6s = 6 minutes sliding window
-HLS_LIST_SIZE="${HLS_LIST_SIZE:-60}"
-# Keep segments on disk past the playlist window so that lagging clients,
-# CDN cache misses, and stale player playlists don't 404.
-# On-disk lifetime = (HLS_LIST_SIZE + HLS_DELETE_THRESHOLD) × SEGMENT_DURATION.
-# Default 100 → (60 + 100) × 6 = 960s ≈ 16 min, giving ≥15 min retention.
+# 65 segments × 6s = 6.5 minutes sliding window (matches old backend_hls_streaming)
+HLS_LIST_SIZE="${HLS_LIST_SIZE:-65}"
+# Keep segments on disk past the playlist window so lagging clients and CDN
+# cache misses don't 404. Epoch-named segments are globally unique, so a long
+# retention window is safe (no risk of name collision across ffmpeg restarts).
+# (HLS_LIST_SIZE + HLS_DELETE_THRESHOLD) × SEGMENT_DURATION = (65+100)×6 ≈ 16.5 min.
 HLS_DELETE_THRESHOLD="${HLS_DELETE_THRESHOLD:-100}"
 
 export SEGMENT_DURATION
 
 echo "Station: $STATION_SLUG"
 echo "Stream:  $STREAM_URL"
-echo "HLS:     AAC-LC 96k, ${SEGMENT_DURATION}s segments, ${HLS_LIST_SIZE} in playlist, ${HLS_DELETE_THRESHOLD} retained past window"
+echo "HLS:     HE-AAC v1 64k, ${SEGMENT_DURATION}s segments, ${HLS_LIST_SIZE} in playlist, ${HLS_DELETE_THRESHOLD} retained past window"
 
 # Fire a pod-startup event so PostHog timelines line up with restarts.
 python3 /app/scripts/report_event.py pod_started \
@@ -108,31 +108,37 @@ FFMPEG_PID=""
 
 start_ffmpeg() {
     echo "Starting FFmpeg (HLS, ${SEGMENT_DURATION}s, ${HLS_LIST_SIZE} segments)..."
-    # This mirrors the flag set from the old backend_hls_streaming pipeline (commit 79d019d),
-    # minus three items that conflict with the current architecture:
-    #   - hls_flag program_date_time:  Python playlist_generator.py injects PDT from the
-    #                                  epoch segment filename; duplicating PDT breaks players.
-    #   - hls_start_number_source epoch: incompatible with -strftime 1 (epoch-named segments).
-    #   - master_pl_publish_rate: no ffmpeg-emitted master; static master served by Python.
-    # +temp_file makes ffmpeg write live.m3u8 atomically (write to live.m3u8.tmp,
-    # then rename) so concurrent reads from playlist_generator.py never catch a
-    # half-written playlist that fails the "#EXTM3U" guard and returns 503.
-    # Input resilience: reconnect with exponential backoff (1s,2s,4s); ffmpeg gives up once
-    # the next backoff would exceed reconnect_delay_max=4 (~3 retries), then bash loop restarts.
+    # Mirrors the old backend_hls_streaming flag set:
+    #   - HE-AAC v1 64k (libfdk_aac aac_he)        same encoder/bitrate as legacy clients tuned for
+    #   - hls_flags program_date_time              ffmpeg writes PDT natively; playlist_generator
+    #                                              passes PDT lines through unchanged
+    #   - hls_start_number_source epoch            EXT-X-MEDIA-SEQUENCE = wallclock seconds, so it
+    #                                              keeps advancing across ffmpeg restarts (default
+    #                                              resets to 0 → players see sequence go backward
+    #                                              and play stale CDN-cached segments)
+    #   - abort_on empty_output_stream             die fast on persistent input loss; bash
+    #                                              ffmpeg_loop restarts with backoff
+    # Kept from the new pipeline (improvements over legacy):
+    #   - +temp_file                               atomic playlist writes (live.m3u8.tmp → rename)
+    #   - -strftime 1 + %s.ts                      epoch-based segment names; globally unique so
+    #                                              CDN cache hits never collide across restarts
+    #   - input -reconnect flags                   transient input flap recovery without exiting
     ffmpeg -loglevel warning \
         -reconnect 1 -reconnect_streamed 1 -reconnect_on_network_error 1 \
         -reconnect_delay_max 4 \
         -fflags +genpts+discardcorrupt -max_delay 5000000 \
         -i "$STREAM_URL" -y \
-        -map 0:a:0 -c:a libfdk_aac -profile:a aac_low -b:a 96k \
+        -map 0:a:0 -c:a libfdk_aac -profile:a aac_he -b:a 64k \
         -flags +global_header -async 1 -ac 2 -ar 44100 \
         -bufsize 30000000 -sc_threshold 0 \
+        -abort_on empty_output_stream \
         -f hls \
             -hls_init_time "$SEGMENT_DURATION" \
             -hls_time "$SEGMENT_DURATION" \
             -hls_list_size "$HLS_LIST_SIZE" \
             -hls_delete_threshold "$HLS_DELETE_THRESHOLD" \
-            -hls_flags delete_segments+independent_segments+split_by_time+omit_endlist+temp_file \
+            -hls_flags delete_segments+independent_segments+split_by_time+program_date_time+omit_endlist+temp_file \
+            -hls_start_number_source epoch \
             -hls_segment_type mpegts \
             -hls_segment_options 'mpegts_flags=+initial_discontinuity' \
             -strftime 1 \
