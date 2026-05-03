@@ -6,9 +6,9 @@ Runs configured scrapers (shoutcast, icecast, radio_co, etc.) inside the pod.
 Reports results back to Django via GraphQL mutation.
 
 Triggered by the station's configured timestamp source:
-  - 'mel_analysis': waits for mel_analyzer to write /data/mel_trigger
   - 'id3_metadata': waits for metadata_monitor to detect StreamTitle change
-  - 'scraper': runs on a fixed interval (metadata_scrape_interval seconds)
+  - 'scraper' (and any unknown source): runs on a fixed interval
+    (metadata_scrape_interval seconds)
 
 Polls config_version from Django to detect admin changes and reload config.
 
@@ -31,7 +31,6 @@ DJANGO_GRAPHQL_URL = os.environ.get("DJANGO_GRAPHQL_URL", "http://web:8080/v1/gr
 STREAMING_API_KEY = os.environ.get("STREAMING_POD_API_KEY", "")
 
 METADATA_INDEX = Path("/data/metadata/index.json")
-MEL_TRIGGER = Path("/data/mel_trigger")
 ID3_TRIGGER = Path("/data/id3_trigger")
 CONFIG_POLL_INTERVAL = 60
 
@@ -116,7 +115,7 @@ def _fetch_config() -> dict:
 
 def _report_metadata(song_title, song_artist, thumbnail_url=None, listeners=None,
                      raw_title="", timestamp_source="scraper",
-                     mel_ts=None, id3_ts=None, scraper_ts=None, dirty=True):
+                     id3_ts=None, scraper_ts=None, dirty=True):
     """Report scraped metadata back to Django."""
     query = """
     mutation ($input: ReportStationMetadataInput!) {
@@ -142,7 +141,6 @@ def _report_metadata(song_title, song_artist, thumbnail_url=None, listeners=None
             "listeners": listeners,
             "raw_title": raw_title,
             "timestamp_source": timestamp_source,
-            "mel_timestamp": mel_ts,
             "id3_timestamp": id3_ts,
             "scraper_timestamp": scraper_ts,
             "dirty_metadata": dirty,
@@ -378,7 +376,7 @@ def _run_scrapers(scrapers_config: list) -> dict:
     results = []
     for cfg in sorted(scrapers_config, key=lambda c: -c.get("priority", 0)):
         slug = cfg.get("category_slug", "")
-        # Skip mel_analysis and stream_id3/uptime scrapers — handled separately
+        # Skip stream_id3/uptime/legacy scrapers — handled separately or not used
         if slug in ("mel_analysis", "stream_id3", "uptime_ffmpeg", "uptime_http",
                      "old_icecast_html", "old_shoutcast_html"):
             continue
@@ -499,18 +497,10 @@ def main():
             last_config_check = now
 
         should_scrape = False
-        mel_ts = None
         id3_ts = None
         scraper_ts = None
 
-        if ts_source == "mel_analysis":
-            trigger = _check_trigger(MEL_TRIGGER)
-            if trigger:
-                should_scrape = True
-                mel_ts = trigger  # ISO timestamp from mel analyzer
-                print(f"scraper: mel trigger received", flush=True)
-
-        elif ts_source == "id3_metadata":
+        if ts_source == "id3_metadata":
             current_raw = _get_id3_song()
             if current_raw and current_raw != _last_song_raw:
                 _last_song_raw = current_raw
@@ -527,7 +517,7 @@ def main():
                 id3_ts = datetime.fromtimestamp(id3_epoch, tz=dt_tz.utc).isoformat()
                 print(f"scraper: id3 trigger: {current_raw}", flush=True)
 
-        else:  # scraper (periodic)
+        else:  # scraper (periodic) — also catches any unknown/legacy ts_source
             if now - last_scrape_time >= interval:
                 should_scrape = True
                 from datetime import datetime, timezone as dt_tz
@@ -566,7 +556,6 @@ def main():
                     listeners=result.get("listeners"),
                     raw_title=result.get("raw_title", ""),
                     timestamp_source=ts_source,
-                    mel_ts=mel_ts,
                     id3_ts=id3_ts,
                     scraper_ts=scraper_ts,
                     dirty=result.get("dirty", True),
@@ -577,9 +566,7 @@ def main():
             last_scrape_time = now
 
         # Sleep interval depends on timestamp source
-        if ts_source == "mel_analysis":
-            time.sleep(1)  # Poll mel trigger frequently
-        elif ts_source == "id3_metadata":
+        if ts_source == "id3_metadata":
             time.sleep(2)  # Poll id3 changes
         else:
             time.sleep(min(interval, 5))  # Don't sleep longer than 5s for responsiveness

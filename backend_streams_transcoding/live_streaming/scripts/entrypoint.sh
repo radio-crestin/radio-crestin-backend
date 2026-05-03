@@ -58,10 +58,6 @@ echo "Starting scraper engine..."
 python3 /app/scripts/scraper_engine.py &
 SCRAPER_PID=$!
 
-echo "Starting mel analyzer..."
-python3 /app/scripts/mel_analyzer.py &
-MEL_PID=$!
-
 echo "Starting playlist generator..."
 python3 /app/scripts/playlist_generator.py &
 PLAYLIST_PID=$!
@@ -82,7 +78,7 @@ cleanup() {
     echo "Shutting down gracefully..."
     kill -TERM "$FFMPEG_LOOP_PID" 2>/dev/null || true
     kill -TERM "$FFMPEG_PID" 2>/dev/null || true
-    kill -TERM "$METADATA_PID" "$ID3_PID" "$SCRAPER_PID" "$MEL_PID" "$PLAYLIST_PID" "$LOG_MONITOR_PID" "$STREAM_MONITOR_PID" "$CLEANUP_PID" 2>/dev/null || true
+    kill -TERM "$METADATA_PID" "$ID3_PID" "$SCRAPER_PID" "$PLAYLIST_PID" "$LOG_MONITOR_PID" "$STREAM_MONITOR_PID" "$CLEANUP_PID" 2>/dev/null || true
     kill -TERM "$HEALTH_PID" 2>/dev/null || true
     sleep 5
     kill -TERM "$NGINX_PID" 2>/dev/null || true

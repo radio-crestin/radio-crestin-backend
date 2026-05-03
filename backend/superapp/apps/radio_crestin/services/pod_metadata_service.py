@@ -49,12 +49,11 @@ class PodMetadataService:
             )
 
         now = timezone.now()
-        mel_ts = _parse_iso_timestamp(input.mel_timestamp)
         id3_ts = _parse_iso_timestamp(input.id3_timestamp)
         scraper_ts = _parse_iso_timestamp(input.scraper_timestamp)
 
         # Determine the primary timestamp based on the source
-        primary_ts = scraper_ts or id3_ts or mel_ts or now
+        primary_ts = scraper_ts or id3_ts or now
 
         # Read previous state
         previous = StationsNowPlaying.objects.filter(
@@ -92,7 +91,6 @@ class PodMetadataService:
                 timestamp=primary_ts,
                 song=song,
                 listeners=input.listeners,
-                mel_timestamp=mel_ts,
                 id3_timestamp=id3_ts,
                 scraper_timestamp=scraper_ts,
                 timestamp_source=input.timestamp_source,
@@ -107,18 +105,3 @@ class PodMetadataService:
             'song_id': song.id if song else None,
             'thumbnail_url': thumbnail_url,
         }
-
-    @staticmethod
-    @transaction.atomic
-    def report_mel_timestamp(input) -> None:
-        station = Stations.objects.get(slug=input.station_slug, disabled=False)
-        mel_ts = _parse_iso_timestamp(input.timestamp)
-
-        # Store mel timestamp in history as a marker entry (no song change yet)
-        # The pod will subsequently call report_station_metadata with full song data
-        StationsNowPlayingHistory.objects.create(
-            station_id=station.id,
-            timestamp=mel_ts,
-            mel_timestamp=mel_ts,
-            timestamp_source='mel_analysis',
-        )

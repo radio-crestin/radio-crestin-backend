@@ -28,8 +28,6 @@ from .types import (
     AnalyticsEventResponse,
     ReportStationMetadataInput,
     ReportStationMetadataResponse,
-    ReportMelTimestampInput,
-    ReportMelTimestampResponse,
 )
 from ..models import Stations, ListeningSessions, AppUsers
 from ..services.share_link_service import ShareLinkService
@@ -410,30 +408,6 @@ class Mutation:
         except Exception as e:
             logger.error(f"Error reporting station metadata: {e}")
             return ReportStationMetadataResponse(
-                success=False,
-                message=f"Error: {str(e)}",
-            )
-
-    @strawberry_django.mutation(handle_django_errors=True, permission_classes=[IsStreamingPod])
-    def report_mel_timestamp(self, input: ReportMelTimestampInput) -> ReportMelTimestampResponse:
-        """Report a mel analysis song-change timestamp from a streaming pod.
-        Only records the timestamp — metadata is fetched separately by the pod."""
-        logger = logging.getLogger(__name__)
-        try:
-            from ..services.pod_metadata_service import PodMetadataService
-            PodMetadataService.report_mel_timestamp(input)
-            return ReportMelTimestampResponse(
-                success=True,
-                message=f"Mel timestamp recorded for station {input.station_slug}",
-            )
-        except Stations.DoesNotExist:
-            return ReportMelTimestampResponse(
-                success=False,
-                message=f"Station '{input.station_slug}' not found",
-            )
-        except Exception as e:
-            logger.error(f"Error reporting mel timestamp: {e}")
-            return ReportMelTimestampResponse(
                 success=False,
                 message=f"Error: {str(e)}",
             )

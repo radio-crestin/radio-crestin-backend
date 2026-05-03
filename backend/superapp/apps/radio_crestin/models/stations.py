@@ -5,7 +5,6 @@ from ...storage.config import get_public_storage
 
 
 class MetadataTimestampSource(models.TextChoices):
-    MEL_ANALYSIS = 'mel_analysis', _('Mel Spectrogram Analysis')
     ID3_METADATA = 'id3_metadata', _('ID3 Stream Metadata')
     SCRAPER = 'scraper', _('External Scraper (periodic)')
 
@@ -29,7 +28,7 @@ class Stations(models.Model):
         max_length=20,
         choices=MetadataTimestampSource.choices,
         default=MetadataTimestampSource.SCRAPER,
-        help_text=_("Which detection method triggers metadata scraping: mel analysis (audio change), ID3 tags, or periodic scraper interval"),
+        help_text=_("Which detection method triggers metadata scraping: ID3 tags or periodic scraper interval"),
     )
     metadata_scrape_interval = models.IntegerField(
         _("Metadata Scrape Interval (seconds)"),

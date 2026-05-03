@@ -22,11 +22,21 @@ class StationService:
 
     @staticmethod
     def get_stations_with_metadata_fetchers():
-        """Get non-transcoded stations with their metadata fetch configurations.
-        Transcoded stations are scraped by their streaming pods instead."""
+        """Get stations Celery should periodically scrape.
+
+        Excludes:
+          - transcoded stations (their streaming pods scrape themselves)
+          - stations whose timestamp source is anything other than 'scraper'
+            (e.g. 'id3_metadata' is event-driven, not interval-driven)
+        """
+        from superapp.apps.radio_crestin.models.stations import MetadataTimestampSource
         return Stations.objects.select_related().prefetch_related(
             'station_metadata_fetches__station_metadata_fetch_category'
-        ).filter(disabled=False, transcode_enabled=False)
+        ).filter(
+            disabled=False,
+            transcode_enabled=False,
+            metadata_timestamp_source=MetadataTimestampSource.SCRAPER,
+        )
 
     @staticmethod
     def get_stations_with_rss_feeds():

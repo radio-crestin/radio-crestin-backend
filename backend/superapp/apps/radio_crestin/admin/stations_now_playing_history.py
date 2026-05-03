@@ -22,7 +22,7 @@ class StationsNowPlayingHistoryAdmin(SuperAppModelAdmin):
     readonly_fields = [
         'timestamp', 'station', 'song', 'listeners',
         'start_epoch', 'end_timestamp', 'end_epoch',
-        'mel_timestamp', 'id3_timestamp', 'scraper_timestamp', 'timestamp_source',
+        'id3_timestamp', 'scraper_timestamp', 'timestamp_source',
     ]
     list_select_related = ['station', 'song', 'song__artist']
     ordering = ['-timestamp']
@@ -40,7 +40,7 @@ class StationsNowPlayingHistoryAdmin(SuperAppModelAdmin):
                              "End timestamp is the start of the next now playing entry for this station."),
         }),
         (_("Detection Sources"), {
-            'fields': ('mel_timestamp', 'id3_timestamp', 'scraper_timestamp', 'timestamp_source'),
+            'fields': ('id3_timestamp', 'scraper_timestamp', 'timestamp_source'),
         }),
     )
 

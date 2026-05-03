@@ -523,8 +523,7 @@ class ReportStationMetadataInput:
     thumbnail_url: Optional[str] = None
     listeners: Optional[int] = None
     raw_title: Optional[str] = None
-    timestamp_source: str = 'scraper'  # mel_analysis, id3_metadata, scraper
-    mel_timestamp: Optional[str] = None  # ISO format
+    timestamp_source: str = 'scraper'  # id3_metadata, scraper
     id3_timestamp: Optional[str] = None  # ISO format
     scraper_timestamp: Optional[str] = None  # ISO format
     dirty_metadata: bool = True
@@ -536,19 +535,6 @@ class ReportStationMetadataResponse:
     message: str
     song_id: Optional[int] = None
     thumbnail_url: Optional[str] = None
-
-
-@strawberry.input
-class ReportMelTimestampInput:
-    station_slug: str
-    timestamp: str  # ISO format — when the mel analysis detected a song change
-    confidence: Optional[float] = None
-
-
-@strawberry.type
-class ReportMelTimestampResponse:
-    success: bool
-    message: str
 
 
 # --- Streaming Pod Config Query Types ---
