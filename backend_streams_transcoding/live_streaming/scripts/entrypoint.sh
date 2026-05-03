@@ -31,8 +31,9 @@ python3 /app/scripts/report_event.py pod_started \
     --prop hls_delete_threshold="$HLS_DELETE_THRESHOLD" >/dev/null 2>&1 &
 
 # Directory layout:
-#   /data/hls/aac/live.m3u8              FFmpeg-managed live playlist
-#   /data/hls/aac/1713200400.ts           FFmpeg-managed segments (epoch timestamp)
+#   /data/hls/aac/live.m3u8        FFmpeg-managed live playlist
+#   /data/hls/aac/seg-NNNNNN.ts    FFmpeg-managed segments (monotonic counter
+#                                  seeded from epoch via hls_start_number_source)
 mkdir -p /data/hls/aac /data/metadata
 
 # Render NGINX config with env vars
@@ -116,8 +117,12 @@ start_ffmpeg() {
     #                                              ffmpeg_loop restarts with backoff
     # Kept from the new pipeline (improvements over legacy):
     #   - +temp_file                               atomic playlist writes (live.m3u8.tmp → rename)
-    #   - -strftime 1 + %s.ts                      epoch-based segment names; globally unique so
-    #                                              CDN cache hits never collide across restarts
+    #   - seg-%d.ts                                segment counter seeded from epoch via
+    #                                              hls_start_number_source — globally unique
+    #                                              within a run AND across restarts (different
+    #                                              starting epoch). Replaces the previous
+    #                                              `-strftime 1 %s.ts` scheme, which collided
+    #                                              when two segments wrote in the same second.
     #   - input -reconnect flags                   transient input flap recovery without exiting
     ffmpeg -loglevel warning \
         -reconnect 1 -reconnect_streamed 1 -reconnect_on_network_error 1 \
@@ -137,8 +142,7 @@ start_ffmpeg() {
             -hls_start_number_source epoch \
             -hls_segment_type mpegts \
             -hls_segment_options 'mpegts_flags=+initial_discontinuity' \
-            -strftime 1 \
-            -hls_segment_filename '/data/hls/aac/%s.ts' \
+            -hls_segment_filename '/data/hls/aac/seg-%d.ts' \
             '/data/hls/aac/live.m3u8' &
     FFMPEG_PID=$!
     echo "FFmpeg started (PID $FFMPEG_PID)"

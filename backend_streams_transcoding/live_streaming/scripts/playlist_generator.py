@@ -1,10 +1,25 @@
 """
-HLS playlist enhancer — reads FFmpeg's live.m3u8 and injects EXT-X-DATERANGE song
-metadata tags. EXT-X-PROGRAM-DATE-TIME is emitted natively by FFmpeg
+HLS playlist enhancer — reads FFmpeg's live.m3u8 and injects EXT-X-DATERANGE
+song metadata tags. EXT-X-PROGRAM-DATE-TIME is emitted by FFmpeg
 (`-hls_flags +program_date_time`) and passed through unchanged.
 
-  Live:       /aac/index.m3u8 (= /index.m3u8)   -> ffmpeg playlist + DATERANGE tags
-  Master:     /master.m3u8                      -> static, cacheable forever
+  Live:    /aac/index.m3u8 (= /index.m3u8)   -> ffmpeg playlist + DATERANGE tags
+  Master:  /master.m3u8                      -> static, cacheable forever
+
+DATERANGE tags are written into the playlist header (immediately after
+EXT-X-MEDIA-SEQUENCE), not adjacent to a specific segment. Per RFC 8216
+§4.4.5.1 they apply to the whole playlist; this avoids AVPlayer treating
+them as segment boundaries (which causes seeks/fast-stops on iOS).
+
+AVPlayer-friendly DATERANGE attributes (see prior advisory on AVPlayer
+behavior with DATERANGE on live HLS):
+  * No CLASS attribute (some classes trigger interstitial / ad behavior).
+  * No DURATION attribute (DURATION is treated as a hard end and can
+    cause playback to snap to wall-clock).
+  * Stable per-song unique IDs (X-SONG-ID from backend, else epoch start)
+    — never reused slot-style IDs like song-0, since AVPlayer reprocesses
+    DATERANGEs whose ID reappears with different attributes.
+  * START-DATE always emitted with millisecond precision.
 
 Runs on 127.0.0.1:8081.
 """
@@ -35,6 +50,7 @@ class QuietHTTPServer(HTTPServer):
         super().handle_error(request, client_address)
 
 SEGMENT_DURATION = int(os.environ.get("SEGMENT_DURATION", "6"))
+HLS_LIST_SIZE = int(os.environ.get("HLS_LIST_SIZE", "65"))
 
 FFMPEG_PLAYLIST = "/data/hls/aac/live.m3u8"
 
@@ -43,18 +59,10 @@ FFMPEG_PLAYLIST = "/data/hls/aac/live.m3u8"
 
 
 def _epoch_to_pdt(epoch: float) -> str:
-    """Convert Unix epoch to ISO 8601 UTC timestamp."""
+    """Convert Unix epoch to ISO 8601 UTC timestamp with millisecond precision."""
     t = time.gmtime(epoch)
     ms = int((epoch % 1) * 1000)
     return time.strftime(f"%Y-%m-%dT%H:%M:%S.{ms:03d}Z", t)
-
-
-def _extract_epoch(segment_line: str) -> int | None:
-    """Extract the epoch timestamp from a segment filename like '1776250253.ts'."""
-    m = re.search(r"(\d{10,})\.ts", segment_line)
-    if m:
-        return int(m.group(1))
-    return None
 
 
 # ── Song metadata ─────────────────────────────────────────────────────
@@ -83,60 +91,118 @@ def _get_songs() -> list[dict]:
         return []
 
 
-def _daterange_for_song(song: dict, idx: int) -> str:
-    start_iso = song.get("started_at_iso", "")
-    if not start_iso:
-        start_iso = _epoch_to_pdt(song.get("started_at", 0))
-    start_iso = start_iso.replace("+0000", "Z")
+def _daterange_for_song(song: dict) -> str | None:
+    """Build an AVPlayer-friendly EXT-X-DATERANGE for a song.
+
+    Returns None if the song lacks the minimum data (started_at + title/artist).
+    """
+    started_at = song.get("started_at", 0)
+    if not started_at:
+        return None
+
+    # Always derive START-DATE from the epoch — `started_at_iso` from
+    # metadata_monitor is second-precision and lacks the milliseconds
+    # AVPlayer's metadata collector expects.
+    start_iso = _epoch_to_pdt(started_at)
+
     title = song.get("title", song.get("raw", "")).replace('"', "'")
     artist = song.get("artist", "").replace('"', "'")
+    if not title and not artist:
+        return None
+
     thumbnail = song.get("thumbnail_url", "").replace('"', "'")
     song_id = song.get("song_id")
     station_id = song.get("station_id")
-    duration = song.get("duration_seconds")
-    dur_attr = f',DURATION={duration}' if duration else ""
+
+    # Stable, unique ID per song instance. Prefer the backend song_id
+    # (immutable, globally unique); else use the epoch start (unique per
+    # song occurrence on this station).
+    if song_id:
+        uid = f"song-{song_id}-{int(started_at)}"
+    else:
+        uid = f"song-{int(started_at)}"
+
     thumb_attr = f',X-THUMBNAIL-URL="{thumbnail}"' if thumbnail else ""
     song_id_attr = f',X-SONG-ID="{song_id}"' if song_id else ""
     station_id_attr = f',X-STATION-ID="{station_id}"' if station_id else ""
+
     return (
-        f'#EXT-X-DATERANGE:ID="song-{idx}",'
+        f'#EXT-X-DATERANGE:ID="{uid}",'
         f'START-DATE="{start_iso}",'
-        f'CLASS="com.radiocrestin.song",'
         f'X-TITLE="{title}",'
         f'X-ARTIST="{artist}"'
         f'{thumb_attr}'
         f'{song_id_attr}'
         f'{station_id_attr}'
-        f'{dur_attr}'
     )
 
 
 # ── Playlist enhancer ─────────────────────────────────────────────────
 
 
-def enhance_playlist(raw_m3u8: str) -> str:
-    """Pass through FFmpeg's playlist, inserting EXT-X-DATERANGE before any segment
-    whose epoch-based filename matches a song's started_at timestamp.
+def _window_start_epoch() -> float:
+    """Songs older than this won't have their DATERANGE emitted.
 
-    EXT-X-PROGRAM-DATE-TIME is emitted by FFmpeg (`hls_flags +program_date_time`);
-    we leave those lines untouched.
+    Bound to the live playlist window plus a small slack so songs that
+    started just before the window still get one tag.
+    """
+    return time.time() - (HLS_LIST_SIZE * SEGMENT_DURATION + 60)
+
+
+def enhance_playlist(raw_m3u8: str) -> str:
+    """Pass through FFmpeg's playlist, injecting EXT-X-DATERANGE song
+    metadata into the header block (after MEDIA-SEQUENCE / before the
+    first segment).
+
+    Per RFC 8216 §4.4.5.1, EXT-X-DATERANGE applies to the entire playlist;
+    its position has no impact on which segment it 'belongs to'. Putting
+    them in the header avoids AVPlayer treating each tag as a per-segment
+    boundary marker.
     """
     songs = _get_songs()
-    emitted_songs: set[int] = set()
+    cutoff = _window_start_epoch()
+    daterange_lines: list[str] = []
+    seen_ids: set[str] = set()
+    for song in songs:
+        if song.get("started_at", 0) < cutoff:
+            continue
+        line = _daterange_for_song(song)
+        if not line:
+            continue
+        # Dedupe in case `recent` contains the same song twice.
+        m = re.match(r'#EXT-X-DATERANGE:ID="([^"]+)"', line)
+        if m and m.group(1) in seen_ids:
+            continue
+        if m:
+            seen_ids.add(m.group(1))
+        daterange_lines.append(line)
+
+    if not daterange_lines:
+        return raw_m3u8
 
     out: list[str] = []
+    inserted = False
+    # Header tags (anything starting with `#` that is not a per-segment
+    # marker — EXTINF / PROGRAM-DATE-TIME / DATERANGE — and not the `#EXTM3U`
+    # opener). We insert DATERANGEs immediately before the first
+    # segment-related line.
+    SEGMENT_PREFIXES = ("#EXTINF", "#EXT-X-PROGRAM-DATE-TIME", "#EXT-X-BYTERANGE",
+                        "#EXT-X-DISCONTINUITY", "#EXT-X-KEY", "#EXT-X-MAP")
     for line in raw_m3u8.rstrip("\n").split("\n"):
-        if line.endswith(".ts"):
-            seg_epoch = _extract_epoch(line)
-            if seg_epoch is not None:
-                for si, song in enumerate(songs):
-                    if si in emitted_songs:
-                        continue
-                    s_start = song.get("started_at", 0)
-                    if s_start >= seg_epoch and s_start < seg_epoch + SEGMENT_DURATION + 1:
-                        out.append(_daterange_for_song(song, si))
-                        emitted_songs.add(si)
+        if not inserted:
+            stripped = line.lstrip()
+            is_segment_line = (
+                stripped.endswith(".ts") or stripped.startswith(SEGMENT_PREFIXES)
+            )
+            if is_segment_line:
+                out.extend(daterange_lines)
+                inserted = True
         out.append(line)
+
+    # If the playlist had no segments yet (warmup), still emit the tags at
+    # the end so clients that poll early see them.
+    if not inserted:
+        out.extend(daterange_lines)
 
     return "\n".join(out) + "\n"
 

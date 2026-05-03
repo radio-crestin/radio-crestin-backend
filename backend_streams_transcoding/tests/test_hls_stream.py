@@ -159,7 +159,8 @@ class TestMetadata:
 
     def test_playlist_has_daterange_tags(self):
         """Playlist should contain EXT-X-DATERANGE with song metadata
-        once a song has been detected."""
+        once a song has been detected. Verifies the AVPlayer-friendly
+        format (no CLASS, no DURATION)."""
         # Wait for metadata monitor to detect a song
         for _ in range(15):
             r = requests.get(f"{BASE_URL}/metadata/index.json", timeout=5)
@@ -169,8 +170,15 @@ class TestMetadata:
 
         r = requests.get(f"{BASE_URL}/aac/index.m3u8", timeout=5)
         if "#EXT-X-DATERANGE:" in r.text:
-            assert 'CLASS="com.radiocrestin.song"' in r.text
             assert "X-TITLE=" in r.text
+            # CLASS triggers AVPlayer interstitial / ad behavior; must be absent.
+            assert "CLASS=" not in r.text, (
+                "DATERANGE must not include CLASS — it disrupts AVPlayer playback"
+            )
+            # DURATION makes AVPlayer treat the range as a hard end.
+            assert "DURATION=" not in r.text, (
+                "DATERANGE must not include DURATION — it triggers seeks on AVPlayer"
+            )
         else:
             # Song might not overlap with current live window yet
             pytest.skip("No DATERANGE yet — song start may be outside live window")

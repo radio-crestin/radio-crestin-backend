@@ -232,7 +232,11 @@ function App(){
     destroyHls();
     const url=c==='master'?baseUrl+'/master.m3u8'+qs():baseUrl+'/aac/index.m3u8'+qs();
     if(!Hls.isSupported()){audioRef.current.src=url;audioRef.current.play().catch(()=>{});return}
-    const hls=new Hls(Object.assign({debug:false,enableWorker:true,liveSyncDurationCount:3,liveMaxLatencyDurationCount:10,maxBufferLength:30,maxMaxBufferLength:60,maxBufferHole:.5},hlsRetryConfig));
+    // Pre-load ~2 minutes ahead so brief network hiccups don't stall playback.
+    // liveSyncDuration=120 sits the playhead ~2 min behind the live edge;
+    // maxBufferLength=120 lets hls.js fill that headroom with segments.
+    // maxBufferSize bumped to ~24MB to fit ~2 min of 64kbps AAC + headroom.
+    const hls=new Hls(Object.assign({debug:false,enableWorker:true,liveSyncDuration:120,liveMaxLatencyDuration:150,maxBufferLength:120,maxMaxBufferLength:240,maxBufferSize:24*1000*1000,maxBufferHole:.5},hlsRetryConfig));
     hls.on(Hls.Events.MANIFEST_PARSED,()=>{audioRef.current?.play().catch(()=>{})});
     hls.on(Hls.Events.ERROR,(_,d)=>{if(d.fatal){if(d.type===Hls.ErrorTypes.NETWORK_ERROR)hls.startLoad();else if(d.type===Hls.ErrorTypes.MEDIA_ERROR)hls.recoverMediaError()}});
     hls.attachMedia(audioRef.current);
