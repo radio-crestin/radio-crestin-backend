@@ -16,6 +16,7 @@ class StationStreams(models.Model):
     order = models.IntegerField(_("Order"), default=0) # Deprecated, use station_stream_order
     station_stream_order = models.FloatField(_("Station Stream Order"), blank=True, null=True, default=0)
     type = models.TextField(_("Type"), choices=STREAM_TYPES)
+    enabled = models.BooleanField(_("Enabled"), default=True)
 
     class Meta:
         managed = True

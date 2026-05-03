@@ -10,8 +10,8 @@ from ..models import StationStreams
 
 @admin.register(StationStreams, site=superapp_admin_site)
 class StationStreamsAdmin(SuperAppModelAdmin):
-    list_display = ['station_link', 'stream_url_short', 'type', 'station_stream_order', 'created_at']
-    list_filter = ['type', 'created_at', 'station']
+    list_display = ['station_link', 'stream_url_short', 'type', 'station_stream_order', 'enabled', 'created_at']
+    list_filter = ['type', 'enabled', 'created_at', 'station']
     search_fields = ['stream_url', 'station__title']
     autocomplete_fields = ['station']
     readonly_fields = ['created_at', 'updated_at']

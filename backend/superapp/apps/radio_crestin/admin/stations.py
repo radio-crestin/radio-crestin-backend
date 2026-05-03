@@ -46,7 +46,7 @@ class StationStreamsInline(SuperAppTabularInline):
     fk_name = 'station'
     extra = 0
     tab = True
-    fields = ['stream_url', 'type', 'station_stream_order']
+    fields = ['stream_url', 'type', 'station_stream_order', 'enabled']
     verbose_name = _("Stream")
     verbose_name_plural = _("Streams")
 
