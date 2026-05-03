@@ -31,9 +31,13 @@ python3 /app/scripts/report_event.py pod_started \
     --prop hls_delete_threshold="$HLS_DELETE_THRESHOLD" >/dev/null 2>&1 &
 
 # Directory layout:
-#   /data/hls/aac/live.m3u8        FFmpeg-managed live playlist
-#   /data/hls/aac/seg-NNNNNN.ts    FFmpeg-managed segments (monotonic counter
-#                                  seeded from epoch via hls_start_number_source)
+#   /data/hls/aac/live.m3u8                FFmpeg-managed live playlist
+#   /data/hls/aac/${slug}-${boot}-N.ts     FFmpeg-managed segments. The
+#                                          ${slug}-${boot} prefix makes
+#                                          filenames globally unique across
+#                                          stations (slug) and ffmpeg
+#                                          restarts (boot epoch); N is the
+#                                          per-run counter from ffmpeg.
 mkdir -p /data/hls/aac /data/metadata
 
 # Render NGINX config with env vars
@@ -104,7 +108,20 @@ FFMPEG_MAX_RETRY_DELAY=120
 FFMPEG_PID=""
 
 start_ffmpeg() {
-    echo "Starting FFmpeg (HLS, ${SEGMENT_DURATION}s, ${HLS_LIST_SIZE} segments)..."
+    # Per-invocation segment-name prefix. Three uniqueness layers stack so
+    # that no two segments — anywhere on the CDN, ever — share a filename:
+    #   ${STATION_SLUG}   — distinguishes one station's pod from another's
+    #                       (CDN cache-key collisions between stations).
+    #   $(date +%s)       — distinguishes ffmpeg restarts within the same pod
+    #                       (counter resets at restart; this prefix doesn't).
+    #   %d                — ffmpeg's segment counter (unique within a run;
+    #                       seeded from the current epoch via
+    #                       hls_start_number_source=epoch, so it's also a
+    #                       wallclock-ish number).
+    # STATION_SLUG is regex-validated near the top of this script, so it
+    # contains only [a-z0-9-] — safe to embed in a path.
+    local SEGMENT_PREFIX="${STATION_SLUG}-$(date +%s)"
+    echo "Starting FFmpeg (HLS, ${SEGMENT_DURATION}s, ${HLS_LIST_SIZE} segments, prefix=${SEGMENT_PREFIX})..."
     # Mirrors the old backend_hls_streaming flag set:
     #   - HE-AAC v1 64k (libfdk_aac aac_he)        same encoder/bitrate as legacy clients tuned for
     #   - hls_flags program_date_time              ffmpeg writes PDT natively; playlist_generator
@@ -117,12 +134,12 @@ start_ffmpeg() {
     #                                              ffmpeg_loop restarts with backoff
     # Kept from the new pipeline (improvements over legacy):
     #   - +temp_file                               atomic playlist writes (live.m3u8.tmp → rename)
-    #   - seg-%d.ts                                segment counter seeded from epoch via
-    #                                              hls_start_number_source — globally unique
-    #                                              within a run AND across restarts (different
-    #                                              starting epoch). Replaces the previous
-    #                                              `-strftime 1 %s.ts` scheme, which collided
-    #                                              when two segments wrote in the same second.
+    #   - ${slug}-${boot}-%d.ts                    counter naming, prefixed
+    #                                              per-station + per-restart so segments stay
+    #                                              globally unique on a shared CDN. Replaces
+    #                                              the previous `-strftime 1 %s.ts` scheme,
+    #                                              which collided whenever two segments wrote
+    #                                              in the same epoch second.
     #   - input -reconnect flags                   transient input flap recovery without exiting
     ffmpeg -loglevel warning \
         -reconnect 1 -reconnect_streamed 1 -reconnect_on_network_error 1 \
@@ -142,7 +159,7 @@ start_ffmpeg() {
             -hls_start_number_source epoch \
             -hls_segment_type mpegts \
             -hls_segment_options 'mpegts_flags=+initial_discontinuity' \
-            -hls_segment_filename '/data/hls/aac/seg-%d.ts' \
+            -hls_segment_filename "/data/hls/aac/${SEGMENT_PREFIX}-%d.ts" \
             '/data/hls/aac/live.m3u8' &
     FFMPEG_PID=$!
     echo "FFmpeg started (PID $FFMPEG_PID)"

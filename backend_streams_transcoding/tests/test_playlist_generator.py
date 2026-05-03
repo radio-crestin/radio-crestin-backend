@@ -35,16 +35,16 @@ SAMPLE_FFMPEG_PLAYLIST = """\
 #EXT-X-MEDIA-SEQUENCE:1776250253
 #EXT-X-PROGRAM-DATE-TIME:2026-04-15T12:00:53.000Z
 #EXTINF:5.990744,
-seg-1776250253.ts
+radio-gosen-1776250000-1776250253.ts
 #EXT-X-PROGRAM-DATE-TIME:2026-04-15T12:00:59.000Z
 #EXTINF:5.990744,
-seg-1776250254.ts
+radio-gosen-1776250000-1776250254.ts
 #EXT-X-PROGRAM-DATE-TIME:2026-04-15T12:01:05.000Z
 #EXTINF:5.990756,
-seg-1776250255.ts
+radio-gosen-1776250000-1776250255.ts
 #EXT-X-PROGRAM-DATE-TIME:2026-04-15T12:01:11.000Z
 #EXTINF:6.037189,
-seg-1776250256.ts
+radio-gosen-1776250000-1776250256.ts
 """
 
 
@@ -76,8 +76,10 @@ class TestEnhancePlaylistPassthrough(unittest.TestCase):
 
     def test_preserves_segments(self):
         enhanced = playlist_generator.enhance_playlist(SAMPLE_FFMPEG_PLAYLIST)
-        for fn in ("seg-1776250253.ts", "seg-1776250254.ts",
-                   "seg-1776250255.ts", "seg-1776250256.ts"):
+        for fn in ("radio-gosen-1776250000-1776250253.ts",
+                   "radio-gosen-1776250000-1776250254.ts",
+                   "radio-gosen-1776250000-1776250255.ts",
+                   "radio-gosen-1776250000-1776250256.ts"):
             self.assertIn(fn, enhanced)
 
     def test_preserves_extinf(self):
