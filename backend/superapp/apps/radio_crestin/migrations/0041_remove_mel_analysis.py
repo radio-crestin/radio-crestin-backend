@@ -2,16 +2,16 @@ from django.db import migrations, models
 
 
 def remove_mel_category(apps, schema_editor):
-    """Drop the mel_analysis category. The FK on StationMetadataFetches is
+    """Drop the mel_analysis category. The FK on StationsMetadataFetch is
     on_delete=CASCADE, so any fetch rows wired to mel_analysis will be
     removed alongside the category — they are useless without the
     (now-deleted) mel_analyzer process anyway.
     """
     StationMetadataFetchCategories = apps.get_model('radio_crestin', 'StationMetadataFetchCategories')
-    StationMetadataFetches = apps.get_model('radio_crestin', 'StationMetadataFetches')
+    StationsMetadataFetch = apps.get_model('radio_crestin', 'StationsMetadataFetch')
     # Delete dependent rows explicitly (audit-friendly: visible in migration
     # output instead of hidden inside a cascade).
-    StationMetadataFetches.objects.filter(
+    StationsMetadataFetch.objects.filter(
         station_metadata_fetch_category__slug='mel_analysis'
     ).delete()
     StationMetadataFetchCategories.objects.filter(slug='mel_analysis').delete()
