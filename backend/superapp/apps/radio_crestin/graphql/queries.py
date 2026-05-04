@@ -469,6 +469,7 @@ class Query:
         via changes_from_timestamp.
         """
         from django.utils import timezone as tz
+        from ..services.listener_analytics_service import ListenerAnalyticsService
 
         now = tz.now()
         as_of_dt = (
@@ -493,7 +494,7 @@ class Query:
                 artist=artist,
             )
 
-        def _build_metadata(station, np_override=None):
+        def _build_metadata(station, np_override=None, internal_listeners=None):
             # Uptime
             uptime = None
             up = getattr(station, 'latest_station_uptime', None)
@@ -504,13 +505,26 @@ class Query:
                     timestamp=up.timestamp.isoformat() if up.timestamp else '',
                 )
 
-            # Now playing
+            # Now playing. The `listeners` field combines the upstream-reported
+            # count (when the station's stats endpoint exposes one) with
+            # radio-crestin's own active-session count, so stations whose
+            # upstream has no public stats endpoint (e.g. RadioBoss-hosted)
+            # still surface a listener count instead of NULL.
+            # Historical lookups (`timestamp` mode) skip the radio-crestin
+            # addition because internal counts are point-in-time-now only.
+            def _combined_listeners(upstream):
+                if internal_listeners is None:
+                    return upstream
+                if upstream is None and internal_listeners == 0:
+                    return None
+                return (upstream or 0) + internal_listeners
+
             now_playing = None
             if np_override is not None:
                 # Use historical record
                 now_playing = StationMetadataNowPlayingType(
                     timestamp=np_override.timestamp.isoformat(),
-                    listeners=np_override.listeners,
+                    listeners=_combined_listeners(np_override.listeners),
                     song=_build_song_type(np_override.song),
                 )
             else:
@@ -518,7 +532,7 @@ class Query:
                 if np:
                     now_playing = StationMetadataNowPlayingType(
                         timestamp=np.timestamp.isoformat(),
-                        listeners=np.listeners,
+                        listeners=_combined_listeners(np.listeners),
                         song=_build_song_type(np.song),
                     )
 
@@ -570,12 +584,25 @@ class Query:
             # Query 3: latest history per station via LATERAL JOIN (O(n_stations))
             history_by_station = _latest_history_per_station(station_ids, as_of_dt)
 
+            # Internal listener counts (point-in-time-now only — relevant
+            # because `changes_from_timestamp` polling returns *current*
+            # state for stations that changed, not historical playback).
+            internal_counts = ListenerAnalyticsService.get_batch_listener_counts(
+                station_ids, minutes=1,
+            )
+
             return [
-                _build_metadata(s, np_override=history_by_station.get(s.id))
+                _build_metadata(
+                    s,
+                    np_override=history_by_station.get(s.id),
+                    internal_listeners=internal_counts.get(s.id, 0),
+                )
                 for s in stations
             ]
 
-        # Mode 2: timestamp only — all stations with historical now_playing
+        # Mode 2: timestamp only — all stations with historical now_playing.
+        # Historical playback intentionally does NOT add radio-crestin's
+        # current-session count.
         if timestamp is not None:
             qs = Stations.objects.filter(**station_filter).select_related(
                 'latest_station_uptime',
@@ -604,7 +631,15 @@ class Query:
         if station_exclude:
             qs = qs.exclude(**station_exclude)
         stations = list(qs)
-        return [_build_metadata(s) for s in stations]
+        station_ids = [s.id for s in stations]
+
+        internal_counts = ListenerAnalyticsService.get_batch_listener_counts(
+            station_ids, minutes=1,
+        )
+        return [
+            _build_metadata(s, internal_listeners=internal_counts.get(s.id, 0))
+            for s in stations
+        ]
 
     @strawberry.field
     def stations_metadata_history(
