@@ -601,8 +601,11 @@ class Query:
             ]
 
         # Mode 2: timestamp only — all stations with historical now_playing.
-        # Historical playback intentionally does NOT add radio-crestin's
-        # current-session count.
+        # In practice this path also serves the public REST endpoint, whose
+        # pre_processor always injects a current-rounded `timestamp` for
+        # cache-busting. Distinguish "near-now" (add internal listeners) from
+        # genuine historical playback (don't, because internal counts are
+        # point-in-time-now only).
         if timestamp is not None:
             qs = Stations.objects.filter(**station_filter).select_related(
                 'latest_station_uptime',
@@ -616,8 +619,20 @@ class Query:
             # Latest history per station via LATERAL JOIN (O(n_stations))
             history_by_station = _latest_history_per_station(station_ids, as_of_dt)
 
+            is_near_now = (now - as_of_dt).total_seconds() <= 120
+            internal_counts = (
+                ListenerAnalyticsService.get_batch_listener_counts(
+                    station_ids, minutes=1,
+                )
+                if is_near_now else {}
+            )
+
             return [
-                _build_metadata(s, np_override=history_by_station.get(s.id))
+                _build_metadata(
+                    s,
+                    np_override=history_by_station.get(s.id),
+                    internal_listeners=internal_counts.get(s.id) if is_near_now else None,
+                )
                 for s in stations
             ]
 
