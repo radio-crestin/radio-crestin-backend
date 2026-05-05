@@ -1,16 +1,27 @@
 """Regression tests for the HLS playlist rewriter.
 
 The rewriter copies ffmpeg's live.m3u8 to index.m3u8, injecting
-EXT-X-DATERANGE song-metadata tags from /data/metadata/index.json. The
-non-trivial bit is the cutoff: a DATERANGE must NOT be removed from the
-playlist while its time range still overlaps any segment in the
-playlist, or Apple's mediastreamvalidator flags
-  "Removed an EXT-X-DATERANGE while mapped to range in playlist"
-which AVPlayer actually surfaces as playback-blocking on iOS.
+EXT-X-DATERANGE song-metadata tags from /data/metadata/index.json.
 
-These tests exercise the multi-fetch scenario the original implementation
-got wrong: a wall-clock cutoff dropped a song whose time range still
-overlapped the live playlist on a subsequent rewriter pass.
+Apple's mediastreamvalidator (and AVPlayer's metadata collector) imposes
+two strict rules that drove the design:
+
+  R1. Once a DATERANGE is published, the Server MUST NOT change any of
+      its attributes (RFC 8216 §4.4.5.1.1). So a DATERANGE's END-DATE
+      cannot be added later — must be set on first emission.
+
+  R2. A DATERANGE MUST NOT be removed from the playlist while still
+      "mapped to range in playlist" — i.e. while its time range
+      overlaps any segment in the playlist. A DATERANGE without
+      DURATION / END-DATE / END-ON-NEXT has unknown duration per
+      §4.4.5.1, which AVPlayer treats as unbounded forward — making
+      removal a violation forever.
+
+Combined consequence in a *livestream* context (no known song end at
+emission time): only emit DATERANGE for songs that have already ENDED
+(have a successor in the buffer). The current "now playing" song gets
+no DATERANGE — its metadata still reaches clients via the existing
+PROGRAM-DATE-TIME + REST-poll path.
 """
 
 import os
@@ -37,7 +48,6 @@ def _make_playlist(first_pdt_epoch: float, count: int = 5) -> str:
     ]
     for i in range(count):
         seg_pdt = first_pdt_epoch + i * 6
-        # ISO 8601 with millisecond precision (matches ffmpeg's output)
         iso = time.strftime(
             "%Y-%m-%dT%H:%M:%S.000+0000", time.gmtime(seg_pdt)
         )
@@ -70,38 +80,39 @@ class TestEarliestPDT(unittest.TestCase):
         self.assertIsNotNone(ep)
 
 
-class TestEnhanceCutoff(unittest.TestCase):
-    """Reproduces the production validator failure mode: a song's
-    DATERANGE must not vanish on a later rewriter pass while the playlist
-    still has segments inside that song's time range."""
-
-    def test_song_within_window_kept(self):
-        # Playlist covers [t, t+24]. Song started at t+5 → in range.
+class TestEnhance(unittest.TestCase):
+    def test_current_song_alone_is_not_emitted(self):
+        # Only one song known → no successor → no DATERANGE. The current
+        # song's metadata reaches clients via PROGRAM-DATE-TIME + REST.
         t = 1700000000
         raw = _make_playlist(t, count=5)
-        songs = [_song(t + 5, "in-window")]
-        out = playlist_rewriter.enhance(raw, songs)
-        self.assertIn('X-TITLE="in-window"', out)
+        out = playlist_rewriter.enhance(raw, [_song(t + 5, "current-only")])
+        self.assertNotIn('X-TITLE="current-only"', out)
+        # Playlist passes through unchanged when no DATERANGE is emitted.
+        self.assertEqual(raw, out)
 
-    def test_song_before_earliest_pdt_dropped_unless_most_recent(self):
-        # Playlist covers [t, t+24]. Song A started at t-100 (behind window),
-        # song B at t+5 (in window). Latest = B. A's active range is
-        # [t-100, t+5] which still OVERLAPS the playlist (t+5 > earliest_pdt
-        # = t), so A must NOT be dropped — it's still mapped.
+    def test_two_songs_only_past_emitted(self):
+        # A is past (has successor B). B is current. Emit only A, with
+        # END-DATE = B.start (committed once).
         t = 1700000000
         raw = _make_playlist(t, count=5)
-        songs = [_song(t - 100, "old"), _song(t + 5, "current")]
+        songs = [_song(t + 5, "past-A"), _song(t + 100, "current-B")]
         out = playlist_rewriter.enhance(raw, songs)
-        # Both kept: old's range overlaps the playlist via its successor's start.
-        self.assertIn('X-TITLE="old"', out)
-        self.assertIn('X-TITLE="current"', out)
+        self.assertIn('X-TITLE="past-A"', out)
+        self.assertNotIn('X-TITLE="current-B"', out)
 
-    def test_song_truly_evicted_when_successor_also_behind_window(self):
-        # 3-song scenario: A@t-200 → B@t-100 → C@t+5.
-        # Playlist starts at t (cutoff ≈ t-2). A's range [t-200, t-100]
-        # ends at t-100 ≤ cutoff → A is fully behind the playlist → DROP.
-        # B's range [t-100, t+5] ends at t+5 > cutoff → still mapped → KEEP.
-        # C is the latest → KEEP.
+        a_line = next(l for l in out.split("\n") if 'X-TITLE="past-A"' in l)
+        self.assertIn("END-DATE=", a_line)
+        # END-DATE must equal B.start (millisecond-precision ISO 8601).
+        expected_end_iso = playlist_rewriter._epoch_to_pdt(t + 100)
+        self.assertIn(f'END-DATE="{expected_end_iso}"', a_line)
+
+    def test_song_dropped_when_range_entirely_behind_playlist(self):
+        # A's range is [t-200, t-100]. Earliest playlist PDT = t →
+        # cutoff = t - 2. Successor B starts at t-100, which is ≤ cutoff
+        # → A's range fully behind playlist → DROP.
+        # B currently exists with successor C at t+5 → emit B with
+        # END-DATE = t+5 (overlaps playlist). C is current → not emitted.
         t = 1700000000
         raw = _make_playlist(t, count=5)
         songs = [
@@ -112,25 +123,17 @@ class TestEnhanceCutoff(unittest.TestCase):
         out = playlist_rewriter.enhance(raw, songs)
         self.assertNotIn('X-TITLE="A-truly-old"', out)
         self.assertIn('X-TITLE="B-still-mapped"', out)
-        self.assertIn('X-TITLE="C-current"', out)
+        self.assertNotIn('X-TITLE="C-current"', out)
 
-    def test_most_recent_song_always_kept_even_if_before_window(self):
-        # Long-running song scenario: a song started before the playlist
-        # window AND is still the latest (no newer song yet). AVPlayer
-        # needs the DATERANGE to render "now playing" — must not drop.
-        t = 1700000000
-        raw = _make_playlist(t, count=5)
-        songs = [_song(t - 600, "long-running-current")]
-        out = playlist_rewriter.enhance(raw, songs)
-        self.assertIn('X-TITLE="long-running-current"', out)
-
-    def test_no_pdt_in_playlist_keeps_all(self):
+    def test_no_pdt_in_playlist_keeps_all_past_songs(self):
         # Warmup: ffmpeg has just started writing the playlist, no PDT
-        # lines yet. Without a cutoff anchor, keep everything.
+        # lines yet. Without a cutoff anchor, keep every past song;
+        # current still skipped (no successor → no end committed).
         raw = "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:6\n"
-        songs = [_song(1700000000, "first")]
+        songs = [_song(1700000000, "first"), _song(1700000200, "second")]
         out = playlist_rewriter.enhance(raw, songs)
         self.assertIn('X-TITLE="first"', out)
+        self.assertNotIn('X-TITLE="second"', out)
 
     def test_version_bumped_to_6_when_daterange_emitted(self):
         # DATERANGE was added in HLS v6 (RFC 8216 §4.4.5.1); a v3 playlist
@@ -138,7 +141,9 @@ class TestEnhanceCutoff(unittest.TestCase):
         t = 1700000000
         raw = _make_playlist(t, count=3)
         self.assertIn("#EXT-X-VERSION:3", raw)
-        out = playlist_rewriter.enhance(raw, [_song(t + 1, "song")])
+        out = playlist_rewriter.enhance(
+            raw, [_song(t + 1, "past"), _song(t + 50, "current")]
+        )
         self.assertIn("#EXT-X-VERSION:6", out)
         self.assertNotIn("#EXT-X-VERSION:3", out)
 
@@ -149,94 +154,59 @@ class TestEnhanceCutoff(unittest.TestCase):
         self.assertEqual(raw, out)
 
 
-class TestMultipleFetchScenario(unittest.TestCase):
-    """The exact failure mode that broke production:
-    - At time T1, the live playlist's earliest PDT is P1 and song S
-      started at T1-30s (inside the playlist's time range).
-    - The rewriter emits DATERANGE for S.
-    - At time T2 > T1, the playlist has rolled. Earliest PDT is now P2 > S.start.
-    - On the second rewriter pass, S must STILL be emitted as long as
-      its range still overlaps the playlist, otherwise mediastreamvalidator
-      flags "Removed an EXT-X-DATERANGE while mapped".
-    - S only stops being emitted once P2 > S.start AND a newer song exists
-      AND S's range is entirely behind the playlist.
-    """
+class TestImmutableAttributes(unittest.TestCase):
+    """RFC 8216 §4.4.5.1.1: a Server MUST NOT change any attribute of a
+    published DATERANGE. Re-emitting the same ID across rewriter passes
+    must produce byte-identical attribute sets."""
 
-    def test_song_persists_until_truly_evicted(self):
-        # T=0: playlist [t, t+24], song S started at t+5
+    def test_same_inputs_produce_byte_identical_daterange(self):
+        # Same playlist + same song list → same DATERANGE on every call.
         t = 1700000000
-        s_started = t + 5
-        songs = [_song(s_started, "S")]
+        raw = _make_playlist(t, count=5)
+        songs = [_song(t + 5, "past"), _song(t + 100, "current")]
+        out_a = playlist_rewriter.enhance(raw, songs)
+        out_b = playlist_rewriter.enhance(raw, songs)
+        self.assertEqual(out_a, out_b)
 
-        # First pass: S is in range → emitted.
+    def test_past_song_attributes_stable_across_window_slides(self):
+        # As the playlist window slides forward, the SAME song's DATERANGE
+        # must keep the same ID + START-DATE + END-DATE. Only when its
+        # range is entirely behind the new earliest PDT does it drop —
+        # but its attributes never change while present.
+        t = 1700000000
+        songs = [_song(t + 5, "A"), _song(t + 100, "B"), _song(t + 200, "C-current")]
+
         raw1 = _make_playlist(t, count=5)
+        raw2 = _make_playlist(t + 30, count=5)  # window slid 30s
+
         out1 = playlist_rewriter.enhance(raw1, songs)
-        self.assertIn('X-TITLE="S"', out1)
-
-        # T=12: playlist now [t+12, t+36]. S started at t+5, before earliest.
-        # But S is still the only/most-recent song → must still be emitted.
-        raw2 = _make_playlist(t + 12, count=5)
         out2 = playlist_rewriter.enhance(raw2, songs)
-        self.assertIn('X-TITLE="S"', out2)
 
-        # T=60, with a newer song S2 starting at t+30: playlist now
-        # [t+60, t+84]. S's range = [t+5, t+30]. Successor (S2) start = t+30
-        # ≤ earliest_pdt (t+60) − 2 → S's active range is fully behind the
-        # playlist → DROP. S2 is the latest → KEEP.
-        songs_after = [_song(s_started, "S"), _song(t + 30, "S2")]
-        raw3 = _make_playlist(t + 60, count=5)
-        out3 = playlist_rewriter.enhance(raw3, songs_after)
-        self.assertNotIn('X-TITLE="S"', out3)
-        self.assertIn('X-TITLE="S2"', out3)
+        a_in_1 = next((l for l in out1.split("\n") if 'X-TITLE="A"' in l), None)
+        a_in_2 = next((l for l in out2.split("\n") if 'X-TITLE="A"' in l), None)
+        self.assertIsNotNone(a_in_1)
+        self.assertIsNotNone(a_in_2)
+        self.assertEqual(a_in_1, a_in_2)
 
-    def test_non_latest_songs_have_end_date(self):
-        # AVPlayer's validator treats a DATERANGE without END-DATE /
-        # DURATION / END-ON-NEXT as having UNKNOWN duration (effectively
-        # unbounded forward). Removing such a tag from a later playlist
-        # response triggers "Removed an EXT-X-DATERANGE while mapped to
-        # range in playlist" even when no playlist segment overlaps the
-        # song's actual airtime. Bound non-latest songs with END-DATE.
+        b_in_1 = next((l for l in out1.split("\n") if 'X-TITLE="B"' in l), None)
+        b_in_2 = next((l for l in out2.split("\n") if 'X-TITLE="B"' in l), None)
+        self.assertIsNotNone(b_in_1)
+        self.assertIsNotNone(b_in_2)
+        self.assertEqual(b_in_1, b_in_2)
+
+    def test_current_song_never_emitted_with_or_without_successor(self):
+        # The "current" song is always the largest-START-DATE entry.
+        # Whether the buffer holds 1 or 5 songs, the current is excluded.
         t = 1700000000
         raw = _make_playlist(t, count=5)
-        songs = [_song(t + 5, "older"), _song(t + 100, "current")]
-        out = playlist_rewriter.enhance(raw, songs)
-        # "older" has a successor → must carry END-DATE.
-        older_line = next(
-            ln for ln in out.split("\n") if 'X-TITLE="older"' in ln
-        )
-        self.assertIn("END-DATE=", older_line)
-        # "current" is the latest → unbounded, no END-DATE.
-        current_line = next(
-            ln for ln in out.split("\n") if 'X-TITLE="current"' in ln
-        )
-        self.assertNotIn("END-DATE=", current_line)
-
-    def test_three_songs_middle_one_kept_while_active_range_overlaps(self):
-        # Reproduces the *exact* failure mode that surfaced on the
-        # production validator after the first cutoff rewrite:
-        #
-        #   recent = [A@t-200, B@t-100, C@t+5]
-        #   playlist's earliest PDT = t
-        #
-        # With the buggy "drop if own_start < cutoff && not most_recent"
-        # rule, B was dropped — but B's *active range* [t-100, t+5] still
-        # overlaps the playlist (because successor C starts at t+5 > t),
-        # so removing B's DATERANGE while still mapped triggers
-        # "Removed an EXT-X-DATERANGE while mapped to range in playlist".
-        #
-        # The successor-aware rule keeps B until *its successor* C also
-        # starts before the playlist window.
-        t = 1700000000
-        raw = _make_playlist(t, count=5)
-        songs = [
-            _song(t - 200, "A"),
-            _song(t - 100, "B"),
-            _song(t + 5, "C"),
-        ]
-        out = playlist_rewriter.enhance(raw, songs)
-        self.assertNotIn('X-TITLE="A"', out, "A's range ends at t-100, fully before playlist → safe to drop")
-        self.assertIn('X-TITLE="B"', out, "B's range ends at t+5 (still mapped) → MUST be kept")
-        self.assertIn('X-TITLE="C"', out, "C is the latest → always kept")
+        for n in (1, 2, 3, 5):
+            songs = [_song(t + 10 * (i + 1), f"song-{i}") for i in range(n)]
+            current_title = f"song-{n - 1}"
+            out = playlist_rewriter.enhance(raw, songs)
+            self.assertNotIn(
+                f'X-TITLE="{current_title}"', out,
+                f"current song must never be emitted (n={n})"
+            )
 
 
 if __name__ == "__main__":
