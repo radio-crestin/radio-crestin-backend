@@ -140,31 +140,41 @@ def enhance(raw: str, songs: list[dict]) -> str:
     playlist"). Tying the cutoff to the playlist content guarantees a
     DATERANGE only drops once the playlist has rolled past it.
 
-    The most recent song (by START-DATE) is always kept, even if it
-    started before the earliest segment — for a long-running song whose
-    start scrolled out of the playlist window, AVPlayer still needs the
-    DATERANGE to show "now playing".
+    Each song's ACTIVE RANGE is [own_start, next_song_start), where the
+    last song's range is unbounded. A song can be dropped only when its
+    *active range* is entirely behind the playlist — i.e. the song that
+    succeeded it also started before the earliest playlist PDT. Dropping
+    based on the song's own start alone is incorrect: a song that
+    started before the window but whose successor started inside the
+    window still has an overlapping range and must be kept. (This is the
+    failure mode that surfaced in production after the first cutoff
+    rewrite — the second song in a 3-song recent buffer was getting
+    dropped while still mapped.)
     """
     earliest_pdt = _earliest_segment_pdt_epoch(raw)
-    if earliest_pdt is None:
-        # No PDT lines yet (warmup); fall back to keeping all recent songs.
-        cutoff = 0.0
-    else:
-        cutoff = earliest_pdt - 2
+    cutoff = (earliest_pdt - 2) if earliest_pdt is not None else None
 
-    most_recent_started_at = max(
-        (s.get("started_at", 0) for s in songs), default=0
+    # Sort by start so we can compute each song's "successor start".
+    songs_sorted = sorted(
+        (s for s in songs if s.get("started_at", 0) > 0),
+        key=lambda s: s["started_at"],
     )
 
     daterange_lines: list[str] = []
     seen: set[str] = set()
-    for song in songs:
-        started_at = song.get("started_at", 0)
-        # Drop entries whose range is entirely behind the playlist window,
-        # except always keep the single most-recent song so AVPlayer can
-        # render "now playing" for long-running songs.
-        if started_at < cutoff and started_at != most_recent_started_at:
+    for i, song in enumerate(songs_sorted):
+        # Active range ends when the next song starts; the last song has
+        # no successor (unbounded → always kept until a newer song lands).
+        if i + 1 < len(songs_sorted):
+            successor_start = songs_sorted[i + 1]["started_at"]
+        else:
+            successor_start = float("inf")
+
+        # Drop only when the entire active range is behind the playlist
+        # window. Always keep the latest (successor=inf > any cutoff).
+        if cutoff is not None and successor_start <= cutoff:
             continue
+
         line = _daterange_for_song(song)
         if not line:
             continue

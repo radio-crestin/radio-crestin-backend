@@ -85,15 +85,34 @@ class TestEnhanceCutoff(unittest.TestCase):
 
     def test_song_before_earliest_pdt_dropped_unless_most_recent(self):
         # Playlist covers [t, t+24]. Song A started at t-100 (behind window),
-        # song B at t+5 (in window). Latest = B. A should be dropped because
-        # its range is entirely behind the playlist AND it's not the most
-        # recent.
+        # song B at t+5 (in window). Latest = B. A's active range is
+        # [t-100, t+5] which still OVERLAPS the playlist (t+5 > earliest_pdt
+        # = t), so A must NOT be dropped — it's still mapped.
         t = 1700000000
         raw = _make_playlist(t, count=5)
         songs = [_song(t - 100, "old"), _song(t + 5, "current")]
         out = playlist_rewriter.enhance(raw, songs)
-        self.assertNotIn('X-TITLE="old"', out)
+        # Both kept: old's range overlaps the playlist via its successor's start.
+        self.assertIn('X-TITLE="old"', out)
         self.assertIn('X-TITLE="current"', out)
+
+    def test_song_truly_evicted_when_successor_also_behind_window(self):
+        # 3-song scenario: A@t-200 → B@t-100 → C@t+5.
+        # Playlist starts at t (cutoff ≈ t-2). A's range [t-200, t-100]
+        # ends at t-100 ≤ cutoff → A is fully behind the playlist → DROP.
+        # B's range [t-100, t+5] ends at t+5 > cutoff → still mapped → KEEP.
+        # C is the latest → KEEP.
+        t = 1700000000
+        raw = _make_playlist(t, count=5)
+        songs = [
+            _song(t - 200, "A-truly-old"),
+            _song(t - 100, "B-still-mapped"),
+            _song(t + 5, "C-current"),
+        ]
+        out = playlist_rewriter.enhance(raw, songs)
+        self.assertNotIn('X-TITLE="A-truly-old"', out)
+        self.assertIn('X-TITLE="B-still-mapped"', out)
+        self.assertIn('X-TITLE="C-current"', out)
 
     def test_most_recent_song_always_kept_even_if_before_window(self):
         # Long-running song scenario: a song started before the playlist
@@ -161,13 +180,41 @@ class TestMultipleFetchScenario(unittest.TestCase):
         self.assertIn('X-TITLE="S"', out2)
 
         # T=60, with a newer song S2 starting at t+30: playlist now
-        # [t+60, t+84]. S started at t+5, S2 at t+30. Both behind earliest
-        # PDT. Most recent is S2 → S2 stays, S drops.
+        # [t+60, t+84]. S's range = [t+5, t+30]. Successor (S2) start = t+30
+        # ≤ earliest_pdt (t+60) − 2 → S's active range is fully behind the
+        # playlist → DROP. S2 is the latest → KEEP.
         songs_after = [_song(s_started, "S"), _song(t + 30, "S2")]
         raw3 = _make_playlist(t + 60, count=5)
         out3 = playlist_rewriter.enhance(raw3, songs_after)
         self.assertNotIn('X-TITLE="S"', out3)
         self.assertIn('X-TITLE="S2"', out3)
+
+    def test_three_songs_middle_one_kept_while_active_range_overlaps(self):
+        # Reproduces the *exact* failure mode that surfaced on the
+        # production validator after the first cutoff rewrite:
+        #
+        #   recent = [A@t-200, B@t-100, C@t+5]
+        #   playlist's earliest PDT = t
+        #
+        # With the buggy "drop if own_start < cutoff && not most_recent"
+        # rule, B was dropped — but B's *active range* [t-100, t+5] still
+        # overlaps the playlist (because successor C starts at t+5 > t),
+        # so removing B's DATERANGE while still mapped triggers
+        # "Removed an EXT-X-DATERANGE while mapped to range in playlist".
+        #
+        # The successor-aware rule keeps B until *its successor* C also
+        # starts before the playlist window.
+        t = 1700000000
+        raw = _make_playlist(t, count=5)
+        songs = [
+            _song(t - 200, "A"),
+            _song(t - 100, "B"),
+            _song(t + 5, "C"),
+        ]
+        out = playlist_rewriter.enhance(raw, songs)
+        self.assertNotIn('X-TITLE="A"', out, "A's range ends at t-100, fully before playlist → safe to drop")
+        self.assertIn('X-TITLE="B"', out, "B's range ends at t+5 (still mapped) → MUST be kept")
+        self.assertIn('X-TITLE="C"', out, "C is the latest → always kept")
 
 
 if __name__ == "__main__":
