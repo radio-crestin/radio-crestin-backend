@@ -19,7 +19,6 @@ dev: dev-build
 	@echo "  Player:    http://localhost:8085/"
 	@echo "  AAC+ HLS:  http://localhost:8085/aac/index.m3u8"
 	@echo "  Master:    http://localhost:8085/master.m3u8"
-	@echo "  Status:    http://localhost:8085/status.json"
 	@echo "  Health:    http://localhost:8085/health"
 	@echo ""
 	@echo "  Logs:      make dev-logs"
@@ -50,3 +49,23 @@ dev-test: dev-build
 
 dev-bash:
 	docker exec -it live-stream-dev sh
+
+# Long-duration spec validation — runs Apple's mediastreamvalidator for
+# DEV_TEST_LONG_SECS (default 900s = 15 min). Required catch for multi-fetch
+# DATERANGE bugs (e.g. "Removed an EXT-X-DATERANGE while mapped to range in
+# playlist") that short runs miss. Pick a music-heavy station so a song
+# change actually happens during the run.
+DEV_TEST_LONG_SECS ?= 900
+dev-test-long:
+	@which mediastreamvalidator >/dev/null || { echo "mediastreamvalidator not found — install Apple HLS Tools"; exit 1; }
+	@echo "Running mediastreamvalidator on http://localhost:8085/master.m3u8 for $(DEV_TEST_LONG_SECS)s..."
+	@echo "Pass criterion: zero CRITICAL and zero MUST-fix issues."
+	@timeout $(DEV_TEST_LONG_SECS) mediastreamvalidator http://localhost:8085/master.m3u8 2>&1 | tee /tmp/dev-test-long.log
+	@echo
+	@if grep -qE "CRITICAL|MUST fix" /tmp/dev-test-long.log; then \
+		echo "❌ FAIL — validator surfaced spec violations (see /tmp/dev-test-long.log)"; \
+		grep -A3 "CRITICAL\|MUST fix" /tmp/dev-test-long.log; \
+		exit 1; \
+	else \
+		echo "✓ PASS — no critical or MUST-fix issues across $(DEV_TEST_LONG_SECS)s"; \
+	fi
