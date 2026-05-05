@@ -189,6 +189,28 @@ class TestMultipleFetchScenario(unittest.TestCase):
         self.assertNotIn('X-TITLE="S"', out3)
         self.assertIn('X-TITLE="S2"', out3)
 
+    def test_non_latest_songs_have_end_date(self):
+        # AVPlayer's validator treats a DATERANGE without END-DATE /
+        # DURATION / END-ON-NEXT as having UNKNOWN duration (effectively
+        # unbounded forward). Removing such a tag from a later playlist
+        # response triggers "Removed an EXT-X-DATERANGE while mapped to
+        # range in playlist" even when no playlist segment overlaps the
+        # song's actual airtime. Bound non-latest songs with END-DATE.
+        t = 1700000000
+        raw = _make_playlist(t, count=5)
+        songs = [_song(t + 5, "older"), _song(t + 100, "current")]
+        out = playlist_rewriter.enhance(raw, songs)
+        # "older" has a successor → must carry END-DATE.
+        older_line = next(
+            ln for ln in out.split("\n") if 'X-TITLE="older"' in ln
+        )
+        self.assertIn("END-DATE=", older_line)
+        # "current" is the latest → unbounded, no END-DATE.
+        current_line = next(
+            ln for ln in out.split("\n") if 'X-TITLE="current"' in ln
+        )
+        self.assertNotIn("END-DATE=", current_line)
+
     def test_three_songs_middle_one_kept_while_active_range_overlaps(self):
         # Reproduces the *exact* failure mode that surfaced on the
         # production validator after the first cutoff rewrite:

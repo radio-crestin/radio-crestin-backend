@@ -70,7 +70,21 @@ def _load_songs() -> list[dict]:
     return songs
 
 
-def _daterange_for_song(song: dict) -> str | None:
+def _daterange_for_song(song: dict, end_at: float | None = None) -> str | None:
+    """Build an EXT-X-DATERANGE line for a song.
+
+    `end_at`: epoch when this song's range should end. Set to the START-DATE
+    of the next song so AVPlayer's validator (and metadata collector)
+    treats the range as bounded once the playlist has rolled past it.
+    Without END-DATE, RFC 8216 §4.4.5.1 says the range has unknown duration
+    (effectively unbounded forward), and removing it from a later playlist
+    response triggers "Removed an EXT-X-DATERANGE while mapped to range in
+    playlist" — even when no segment in the playlist overlaps the song's
+    actual airtime.
+
+    `end_at=None` is intentionally used for the LATEST song so the "now
+    playing" range stays unbounded (it's still active).
+    """
     started_at = song.get("started_at", 0)
     if not started_at:
         return None
@@ -91,9 +105,13 @@ def _daterange_for_song(song: dict) -> str | None:
     parts = [
         f'ID="{uid}"',
         f'START-DATE="{_epoch_to_pdt(started_at)}"',
+    ]
+    if end_at is not None and end_at > started_at:
+        parts.append(f'END-DATE="{_epoch_to_pdt(end_at)}"')
+    parts.extend([
         f'X-TITLE="{title}"',
         f'X-ARTIST="{artist}"',
-    ]
+    ])
     if thumbnail:
         parts.append(f'X-THUMBNAIL-URL="{thumbnail}"')
     if song_id:
@@ -163,19 +181,27 @@ def enhance(raw: str, songs: list[dict]) -> str:
     daterange_lines: list[str] = []
     seen: set[str] = set()
     for i, song in enumerate(songs_sorted):
-        # Active range ends when the next song starts; the last song has
-        # no successor (unbounded → always kept until a newer song lands).
-        if i + 1 < len(songs_sorted):
-            successor_start = songs_sorted[i + 1]["started_at"]
-        else:
-            successor_start = float("inf")
+        # Each song's active range ends when the next song starts. The
+        # LATEST song has no successor (unbounded; "now playing").
+        is_latest = (i + 1 == len(songs_sorted))
+        successor_start = (
+            float("inf") if is_latest else songs_sorted[i + 1]["started_at"]
+        )
 
-        # Drop only when the entire active range is behind the playlist
-        # window. Always keep the latest (successor=inf > any cutoff).
+        # Drop a song only when its successor also started before the
+        # playlist window — i.e. the song's entire active range is behind
+        # the earliest segment. Always keep the latest (successor=inf).
         if cutoff is not None and successor_start <= cutoff:
             continue
 
-        line = _daterange_for_song(song)
+        # Bound non-latest songs with END-DATE so AVPlayer's validator
+        # knows when to consider the range "out of mapping". Without
+        # END-DATE / DURATION / END-ON-NEXT a DATERANGE has unknown
+        # duration per RFC 8216 §4.4.5.1, and removing it from a later
+        # playlist response surfaces as "Removed an EXT-X-DATERANGE while
+        # mapped to range in playlist". Latest song stays unbounded.
+        end_at = None if is_latest else successor_start
+        line = _daterange_for_song(song, end_at=end_at)
         if not line:
             continue
         m = re.match(r'#EXT-X-DATERANGE:ID="([^"]+)"', line)
