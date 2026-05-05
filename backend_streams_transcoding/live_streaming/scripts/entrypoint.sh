@@ -55,17 +55,9 @@ echo "Starting metadata monitor..."
 python3 /app/scripts/metadata_monitor.py &
 METADATA_PID=$!
 
-echo "Starting ID3 injector..."
-python3 /app/scripts/id3_injector.py &
-ID3_PID=$!
-
 echo "Starting scraper engine..."
 python3 /app/scripts/scraper_engine.py &
 SCRAPER_PID=$!
-
-echo "Starting playlist generator..."
-python3 /app/scripts/playlist_generator.py &
-PLAYLIST_PID=$!
 
 echo "Starting log monitor..."
 python3 /app/scripts/log_monitor.py &
@@ -83,7 +75,7 @@ cleanup() {
     echo "Shutting down gracefully..."
     kill -TERM "$FFMPEG_LOOP_PID" 2>/dev/null || true
     kill -TERM "$FFMPEG_PID" 2>/dev/null || true
-    kill -TERM "$METADATA_PID" "$ID3_PID" "$SCRAPER_PID" "$PLAYLIST_PID" "$LOG_MONITOR_PID" "$STREAM_MONITOR_PID" "$CLEANUP_PID" 2>/dev/null || true
+    kill -TERM "$METADATA_PID" "$SCRAPER_PID" "$LOG_MONITOR_PID" "$STREAM_MONITOR_PID" "$CLEANUP_PID" 2>/dev/null || true
     kill -TERM "$HEALTH_PID" 2>/dev/null || true
     sleep 5
     kill -TERM "$NGINX_PID" 2>/dev/null || true

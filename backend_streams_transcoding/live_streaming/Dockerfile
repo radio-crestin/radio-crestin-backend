@@ -18,6 +18,7 @@ RUN mkdir -p /data/hls/aac /data/cache/playlist /data/cache/s3 /tmp/nginx
 COPY scripts/ /app/scripts/
 COPY nginx/ /app/nginx/
 COPY player.html /app/player.html
+COPY master.m3u8 /app/master.m3u8
 RUN chmod +x /app/scripts/*.sh
 
 HEALTHCHECK --start-period=30s --interval=15s --timeout=5s --retries=3 \
