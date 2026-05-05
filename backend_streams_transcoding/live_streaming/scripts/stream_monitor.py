@@ -25,6 +25,7 @@ SESSION_LOG = os.environ.get("NGINX_SESSION_LOG", "/tmp/nginx_session_access.log
 
 SEGMENT_DURATION = int(os.environ.get("SEGMENT_DURATION", "6"))
 MONITOR_INTERVAL = int(os.environ.get("MONITOR_INTERVAL", "30"))
+HLS_LIST_SIZE = int(os.environ.get("HLS_LIST_SIZE", "65"))
 # A segment should appear every SEGMENT_DURATION s; flag stalls past 3× that.
 STALL_THRESHOLD = SEGMENT_DURATION * 3
 
@@ -141,10 +142,17 @@ def _warnings(seg, pl, http, seq_advance):
         out.append(f"playlist stale ({pl['age_s']}s)")
     if not pl["present"]:
         out.append("live.m3u8 missing")
-    # Only warn once steady-state — while the playlist is warming up
-    # (segments being appended, none removed yet), MEDIA-SEQUENCE legitimately
-    # stays at 0 per HLS spec. False-positive otherwise during pod startup.
-    if seq_advance == 0 and pl["media_seq"] is not None and pl["media_seq"] > 0:
+    # Only warn once we're in steady-state — while the playlist is still
+    # warming up (segments appending, none removed yet), MEDIA-SEQUENCE
+    # legitimately stays put. ffmpeg seeds it from the current epoch
+    # (`-hls_start_number_source epoch`), so the previous "media_seq > 0"
+    # warmup guard never fires — we use the playlist length instead.
+    if (
+        seq_advance == 0
+        and pl["media_seq"] is not None
+        and pl["segments"] is not None
+        and pl["segments"] >= HLS_LIST_SIZE
+    ):
         out.append(f"MEDIA-SEQUENCE stuck at {pl['media_seq']}")
     if http["seg_404"] > 0:
         out.append(f"{http['seg_404']} segment 404s in interval")
