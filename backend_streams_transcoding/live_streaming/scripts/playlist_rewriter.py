@@ -148,10 +148,30 @@ def _earliest_segment_pdt_epoch(raw: str) -> float | None:
     return earliest
 
 
+def _current_song_started_at(songs: list[dict]) -> int | None:
+    """Return the started_at epoch (Unix seconds, UTC) of the *current*
+    song — the largest-started_at entry in the buffer — or None when
+    there is no known current song.
+
+    Powers the EXT-X-RC-METADATA-CHANGED real-time signal. The current
+    song is the one for which DATERANGE is intentionally suppressed
+    (RFC 8216 §4.4.5.1.1 immutability concern), so without this signal
+    the only way mobile learns about a current-song change is the next
+    polling tick. The marker plugs that gap without re-introducing the
+    DATERANGE attribute-mutation hazard.
+    """
+    valid = [s for s in songs if s.get("started_at", 0) > 0]
+    if not valid:
+        return None
+    return int(max(s["started_at"] for s in valid))
+
+
 def enhance(raw: str, songs: list[dict]) -> str:
     """Return the playlist with DATERANGE tags injected into the header
-    block (between EXT-X-MEDIA-SEQUENCE and the first segment), and the
-    version bumped to 6 if any DATERANGE was added.
+    block (between EXT-X-MEDIA-SEQUENCE and the first segment), an
+    EXT-X-RC-METADATA-CHANGED marker carrying the current song's
+    started_at epoch, and the version bumped to 6 if any DATERANGE was
+    added.
 
     Per RFC 8216 §4.4.5.1, EXT-X-DATERANGE applies to the entire playlist;
     its physical position has no impact on which segment it 'belongs to'.
@@ -174,11 +194,24 @@ def enhance(raw: str, songs: list[dict]) -> str:
       mediastreamvalidator flags any earlier removal as
       "Removed an EXT-X-DATERANGE while mapped to range in playlist".
 
-    The current song's metadata still reaches clients via the existing
-    PROGRAM-DATE-TIME + REST-poll path (every 10s) — the DATERANGE
-    channel is purely an early-trigger signal that fires when the
-    previous song's tag appears (i.e. when a song change has just
-    happened in the source).
+    EXT-X-RC-METADATA-CHANGED rules (custom tag, mobile-only signal):
+
+    * Carries the current song's `started_at` as a Unix-epoch UTC
+      timestamp. When this value flips between playlist fetches, mobile
+      clients know a song change has happened in the source. Because
+      the signal is the source-timeline timestamp (not wall-clock now),
+      mobile can ALIGN the metadata refresh to the playback timeline
+      — important when the user is seeking behind live edge by 2-4 min.
+
+    * Per RFC 8216 §4.1, unrecognised tags are ignored. Older app
+      versions, AVPlayer, ExoPlayer, hls.js — all silently skip this
+      tag. Safe to deploy without coordinated client release.
+
+    * The "RC-" prefix avoids collision with future standard tags. The
+      tag is emitted UNCONDITIONALLY when there is a current song —
+      it does not depend on the DATERANGE emission path, so it works
+      even when only one song is known (the case where DATERANGE
+      cannot emit anything).
     """
     earliest_pdt = _earliest_segment_pdt_epoch(raw)
     cutoff = (earliest_pdt - 2) if earliest_pdt is not None else None
@@ -211,24 +244,43 @@ def enhance(raw: str, songs: list[dict]) -> str:
             seen.add(m.group(1))
         daterange_lines.append(line)
 
-    if not daterange_lines:
+    current_started_at = _current_song_started_at(songs)
+    metadata_changed_line: str | None = None
+    if current_started_at is not None:
+        # STARTED-AT is the source-timeline timestamp. EPOCH duplicates the
+        # same value in seconds so naive parsers don't have to ISO-decode
+        # to compare. Both attributes describe the same instant.
+        iso = _epoch_to_pdt(current_started_at)
+        metadata_changed_line = (
+            f'#EXT-X-RC-METADATA-CHANGED:STARTED-AT="{iso}",'
+            f'EPOCH={current_started_at}'
+        )
+
+    header_inserts = list(daterange_lines)
+    if metadata_changed_line is not None:
+        header_inserts.append(metadata_changed_line)
+
+    if not header_inserts:
         return raw
 
     out: list[str] = []
     inserted = False
     for line in raw.rstrip("\n").split("\n"):
         if line.startswith("#EXT-X-VERSION:"):
-            out.append("#EXT-X-VERSION:6")
+            # DATERANGE requires v6; the custom RC tag has no version
+            # requirement (unknown tags are ignored at any version).
+            # Only bump when DATERANGE is actually being emitted.
+            out.append("#EXT-X-VERSION:6" if daterange_lines else line)
             continue
         if not inserted:
             stripped = line.lstrip()
             if stripped.endswith(".ts") or stripped.startswith(SEGMENT_PREFIXES):
-                out.extend(daterange_lines)
+                out.extend(header_inserts)
                 inserted = True
         out.append(line)
 
     if not inserted:
-        out.extend(daterange_lines)
+        out.extend(header_inserts)
     return "\n".join(out) + "\n"
 
 
