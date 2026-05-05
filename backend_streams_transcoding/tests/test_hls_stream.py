@@ -14,10 +14,12 @@ Usage:
     make dev-stream-test
 """
 
+import os
+
 import pytest
 import requests
 
-BASE_URL = "http://localhost:8080"
+BASE_URL = os.environ.get("TEST_BASE_URL", "http://localhost:8080")
 
 
 # ── Master playlist ──
