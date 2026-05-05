@@ -762,12 +762,54 @@ def sync_once(
         create_deployment(apps_v1, slug, desired_map[slug])
         ensure_service(core_v1, slug, existing_services)
 
-    # 5. Reconcile ingresses — only create missing ones, never patch existing
+    # 5. Reconcile ingresses
+    # - Create missing ones.
+    # - Re-create ones whose path-set drifts from build_station_ingress(slug).
+    #   Earlier comment "never patch existing" was load-bearing for stability,
+    #   but it also meant a controller-side change to the path list (e.g.
+    #   adding /hls/<slug>/* on the new host) silently never reached
+    #   already-deployed stations. We now reconcile the path set explicitly.
     ingresses_to_create = desired_slugs - existing_ingresses
     if ingresses_to_create:
         log.info("Creating ingresses for %d stations", len(ingresses_to_create))
         for slug in ingresses_to_create:
             create_station_ingress(networking_v1, slug)
+
+    # Path-set drift detection: replace ingress in place when desired paths
+    # don't match actual paths. Idempotent (delete + recreate via the same
+    # spec we'd use for a fresh create).
+    drifted = []
+    for slug in (desired_slugs & existing_ingresses):
+        try:
+            current = networking_v1.read_namespaced_ingress(
+                name=ingress_name(slug), namespace=NAMESPACE,
+            )
+            current_paths = {
+                (rule.host, p.path)
+                for rule in (current.spec.rules or [])
+                for p in (rule.http.paths or [])
+            }
+            desired = build_station_ingress(slug)
+            desired_paths = {
+                (rule.host, p.path)
+                for rule in (desired.spec.rules or [])
+                for p in (rule.http.paths or [])
+            }
+            if current_paths != desired_paths:
+                drifted.append(slug)
+        except client.ApiException:
+            continue
+    if drifted:
+        log.info("Reconciling %d drifted ingress(es): %s", len(drifted), drifted[:5])
+        for slug in drifted:
+            try:
+                networking_v1.replace_namespaced_ingress(
+                    name=ingress_name(slug),
+                    namespace=NAMESPACE,
+                    body=build_station_ingress(slug),
+                )
+            except client.ApiException as e:
+                log.warning("Failed to replace ingress for %s: %s", slug, e)
 
     # Clean up orphaned ingresses (station disabled/deleted but ingress remained)
     orphaned_ingresses = (existing_ingresses - desired_slugs) - {""}
