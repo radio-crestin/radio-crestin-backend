@@ -26,6 +26,7 @@ import json
 import os
 import re
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 FFMPEG_PLAYLIST = Path("/data/hls/aac/live.m3u8")
@@ -102,6 +103,26 @@ def _daterange_for_song(song: dict) -> str | None:
     return "#EXT-X-DATERANGE:" + ",".join(parts)
 
 
+def _earliest_segment_pdt_epoch(raw: str) -> float | None:
+    """Extract the smallest EXT-X-PROGRAM-DATE-TIME from the playlist as a
+    Unix epoch. None if no PDT lines are present."""
+    earliest: float | None = None
+    for line in raw.split("\n"):
+        if line.startswith("#EXT-X-PROGRAM-DATE-TIME:"):
+            ts = line[len("#EXT-X-PROGRAM-DATE-TIME:"):].strip()
+            try:
+                # Tolerate both `+0000` and `Z` UTC suffixes
+                if ts.endswith("Z"):
+                    ts = ts[:-1] + "+00:00"
+                dt = datetime.fromisoformat(ts)
+                ep = dt.astimezone(timezone.utc).timestamp()
+                if earliest is None or ep < earliest:
+                    earliest = ep
+            except (ValueError, TypeError):
+                continue
+    return earliest
+
+
 def enhance(raw: str, songs: list[dict]) -> str:
     """Return the playlist with DATERANGE tags injected into the header
     block (between EXT-X-MEDIA-SEQUENCE and the first segment), and the
@@ -111,12 +132,38 @@ def enhance(raw: str, songs: list[dict]) -> str:
     its physical position has no impact on which segment it 'belongs to'.
     Putting them in the header block keeps AVPlayer from treating each tag
     as a per-segment playback boundary.
+
+    Cutoff is the earliest segment's PROGRAM-DATE-TIME (with a 2s grace),
+    not wall-clock. Apple's mediastreamvalidator flags a DATERANGE that
+    disappears while its time range still overlaps any segment in the
+    playlist ("Removed an EXT-X-DATERANGE while mapped to range in
+    playlist"). Tying the cutoff to the playlist content guarantees a
+    DATERANGE only drops once the playlist has rolled past it.
+
+    The most recent song (by START-DATE) is always kept, even if it
+    started before the earliest segment — for a long-running song whose
+    start scrolled out of the playlist window, AVPlayer still needs the
+    DATERANGE to show "now playing".
     """
-    cutoff = time.time() - (HLS_LIST_SIZE * SEGMENT_DURATION + 60)
+    earliest_pdt = _earliest_segment_pdt_epoch(raw)
+    if earliest_pdt is None:
+        # No PDT lines yet (warmup); fall back to keeping all recent songs.
+        cutoff = 0.0
+    else:
+        cutoff = earliest_pdt - 2
+
+    most_recent_started_at = max(
+        (s.get("started_at", 0) for s in songs), default=0
+    )
+
     daterange_lines: list[str] = []
     seen: set[str] = set()
     for song in songs:
-        if song.get("started_at", 0) < cutoff:
+        started_at = song.get("started_at", 0)
+        # Drop entries whose range is entirely behind the playlist window,
+        # except always keep the single most-recent song so AVPlayer can
+        # render "now playing" for long-running songs.
+        if started_at < cutoff and started_at != most_recent_started_at:
             continue
         line = _daterange_for_song(song)
         if not line:
