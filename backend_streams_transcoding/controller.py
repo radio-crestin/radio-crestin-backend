@@ -405,12 +405,16 @@ def build_station_ingress(slug: str) -> client.V1Ingress:
     rules = []
     hosts = []
 
-    # New host: live.radiocrestin.ro/<slug>/...
+    # New host: live.radiocrestin.ro/<slug>/... (clean) and
+    # live.radiocrestin.ro/hls/<slug>/... (compat: graphql/types.py emits the
+    # `/hls/` form as hls_stream_url and existing mobile-app builds have it
+    # cached; both routes proxy to the same station pod).
     rules.append(
         client.V1IngressRule(
             host=INGRESS_HOST,
             http=client.V1HTTPIngressRuleValue(paths=[
                 _make_path(f"/{slug}/(.*)", slug),
+                _make_path(f"/hls/{slug}/(.*)", slug),
             ]),
         )
     )

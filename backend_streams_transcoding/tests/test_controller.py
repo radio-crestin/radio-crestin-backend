@@ -174,11 +174,14 @@ class TestBuildStationIngress(unittest.TestCase):
         )
 
     def test_ingress_has_new_host_path(self):
-        # New URL pattern: live.radiocrestin.ro/<slug>/...
+        # New host carries both the clean `/<slug>/...` route and a compat
+        # `/hls/<slug>/...` route (graphql/types.py:hls_stream_url emits the
+        # `/hls/` form, and pre-deploy mobile-app builds have it cached).
         ingress = controller.build_station_ingress("radio-a")
         new_rule = next(r for r in ingress.spec.rules if r.host == controller.INGRESS_HOST)
         paths = [p.path for p in new_rule.http.paths]
         self.assertIn("/radio-a/(.*)", paths)
+        self.assertIn("/hls/radio-a/(.*)", paths)
 
     def test_ingress_has_legacy_host_path(self):
         # Legacy URL pattern (kept for backward compat): hls.radiocrestin.ro/hls/<slug>/...
