@@ -14,6 +14,7 @@ from .listening_sessions import ListeningSessions
 from .reviews import Reviews
 from .users import AppUsers
 from .share_links import ShareLink, ShareLinkVisit
+from .session_recording import SessionRecordingConfig, SessionRecordingOverride
 
 __all__ = [
     'Artists',
@@ -34,4 +35,6 @@ __all__ = [
     'AppUsers',
     'ShareLink',
     'ShareLinkVisit',
+    'SessionRecordingConfig',
+    'SessionRecordingOverride',
 ]

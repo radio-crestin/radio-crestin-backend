@@ -9,3 +9,5 @@ from .legacy_views import (
     api_docs_view,
 )
 from .pod_health_api import PodHealthReportView
+from .session_recording_api import SessionRecordingView
+from .device_registration_api import DeviceRegistrationView

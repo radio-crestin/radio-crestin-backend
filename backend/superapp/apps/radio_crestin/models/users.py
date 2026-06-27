@@ -26,6 +26,26 @@ class AppUsers(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+    # Device registration details — upserted by the mobile app on every launch
+    # via POST /api/v1/devices/register/, keyed by anonymous_id. The columns
+    # below are the queryable essentials; the full raw snapshot (brand, screen
+    # size, ABIs, etc.) is kept in device_info. The public IP is captured
+    # server-side from the request, never trusted from the client body.
+    device_platform = models.CharField(_("Device platform"), max_length=64, blank=True, null=True)
+    device_model = models.CharField(_("Device model"), max_length=255, blank=True, null=True)
+    device_manufacturer = models.CharField(_("Device manufacturer"), max_length=255, blank=True, null=True)
+    device_os_version = models.CharField(_("OS version"), max_length=64, blank=True, null=True)
+    device_app_version = models.CharField(_("App version"), max_length=64, blank=True, null=True)
+    device_build_number = models.CharField(_("App build number"), max_length=64, blank=True, null=True)
+    device_locale = models.CharField(_("Locale"), max_length=64, blank=True, null=True)
+    device_timezone = models.CharField(_("Timezone"), max_length=64, blank=True, null=True)
+    device_is_physical = models.BooleanField(_("Is physical device"), blank=True, null=True)
+    device_fcm_token = models.TextField(_("FCM push token"), blank=True, null=True)
+    device_last_ip = models.GenericIPAddressField(_("Last IP address"), blank=True, null=True)
+    device_info = models.JSONField(_("Raw device info"), blank=True, null=True)
+    device_first_seen_at = models.DateTimeField(_("Device first seen at"), blank=True, null=True)
+    device_last_seen_at = models.DateTimeField(_("Device last seen at"), blank=True, null=True)
+
     class Meta:
         managed = True
         db_table = 'app_users'

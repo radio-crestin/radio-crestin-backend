@@ -3,6 +3,7 @@ from .artists import ArtistsAdmin
 from .listening_sessions import ListeningSessionsAdmin
 from .posts import PostsAdmin
 from .reviews import ReviewsAdmin
+from .session_recording import SessionRecordingConfigAdmin, SessionRecordingOverrideAdmin
 from .share_links import ShareLinkAdmin, ShareLinkVisitAdmin
 from .songs import SongsAdmin
 from .station_groups import StationGroupsAdmin
@@ -21,6 +22,8 @@ __all__ = [
     'ListeningSessionsAdmin',
     'PostsAdmin',
     'ReviewsAdmin',
+    'SessionRecordingConfigAdmin',
+    'SessionRecordingOverrideAdmin',
     'ShareLinkAdmin',
     'ShareLinkVisitAdmin',
     'SongsAdmin',

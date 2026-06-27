@@ -1,6 +1,6 @@
 from django.urls import path, include
 from . import views
-from .views import PodHealthReportView
+from .views import PodHealthReportView, SessionRecordingView, DeviceRegistrationView
 
 # App-specific URL patterns
 app_name = 'radio_crestin'
@@ -22,4 +22,8 @@ def extend_superapp_urlpatterns(main_urlpatterns):
         path('api/v1/docs/', api_docs_view, name='api_docs'),
         # Pod health reporting API (for streaming pods)
         path('api/v1/pod-health/', PodHealthReportView.as_view(), name='api_v1_pod_health'),
+        # Per-device session replay (screen recording) decision for the app
+        path('api/v1/session-recording/<str:device_id>/', SessionRecordingView.as_view(), name='api_v1_session_recording'),
+        # Device/client registration upsert (called by the app on every launch)
+        path('api/v1/devices/register/', DeviceRegistrationView.as_view(), name='api_v1_device_register'),
     ])

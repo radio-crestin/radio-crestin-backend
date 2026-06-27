@@ -33,10 +33,18 @@ class IsAnonymousFilter(admin.SimpleListFilter):
 
 @admin.register(AppUsers, site=superapp_admin_site)
 class AppUsersAdmin(SuperAppModelAdmin):
-    list_display = ['id', 'email', 'anonymous_id', 'user_type_display', 'is_active', 'created_at']
-    list_filter = ['is_active', 'created_at', IsAnonymousFilter]
-    search_fields = ['email', 'anonymous_id']
-    readonly_fields = ['created_at', 'modified_at', 'date_joined']
+    list_display = ['id', 'email', 'anonymous_id', 'user_type_display', 'device_platform', 'device_model', 'device_app_version', 'is_active', 'device_last_seen_at', 'created_at']
+    list_filter = ['is_active', 'device_platform', 'created_at', IsAnonymousFilter]
+    search_fields = ['email', 'anonymous_id', 'device_model', 'device_manufacturer', 'device_fcm_token']
+    readonly_fields = [
+        'created_at', 'modified_at', 'date_joined',
+        # Device fields are written by the app via the registration API.
+        'device_platform', 'device_model', 'device_manufacturer',
+        'device_os_version', 'device_app_version', 'device_build_number',
+        'device_locale', 'device_timezone', 'device_is_physical',
+        'device_fcm_token', 'device_last_ip', 'device_info',
+        'device_first_seen_at', 'device_last_seen_at',
+    ]
     date_hierarchy = 'created_at'
     ordering = ['-created_at']
     actions_list = [
@@ -56,6 +64,16 @@ class AppUsersAdmin(SuperAppModelAdmin):
         }),
         (_("Verification"), {
             'fields': ('email_verified', 'phone_number_verified', 'anonymous_id_verified'),
+            'classes': ('collapse',)
+        }),
+        (_("Device"), {
+            'fields': (
+                'device_platform', 'device_model', 'device_manufacturer',
+                'device_os_version', 'device_app_version', 'device_build_number',
+                'device_locale', 'device_timezone', 'device_is_physical',
+                'device_last_ip', 'device_fcm_token',
+                'device_first_seen_at', 'device_last_seen_at', 'device_info',
+            ),
             'classes': ('collapse',)
         }),
         (_("Timestamps"), {
