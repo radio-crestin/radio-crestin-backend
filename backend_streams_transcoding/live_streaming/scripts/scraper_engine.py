@@ -40,6 +40,36 @@ _config_version = 0
 _last_song_raw = ""
 
 
+def _parse_graphql_response(status: int, raw: bytes) -> dict:
+    """Parse a GraphQL HTTP response body into its ``data`` payload.
+
+    Returns ``{}`` (instead of raising) when the upstream returns a non-2xx
+    status or a body that isn't valid JSON. Django behind nginx can answer with
+    an HTML error page (e.g. 502/503 during a restart/deploy); previously
+    ``json.loads()`` raised ``JSONDecodeError: Expecting value: line 1 column 1
+    (char 0)`` which was reported to PostHog as noise. Treat those as a
+    transient empty result.
+    """
+    if status >= 400:
+        print(f"scraper: graphql HTTP {status}: {raw[:200]!r}", flush=True)
+        return {}
+    if not raw or not raw.strip():
+        return {}
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        print(
+            f"scraper: graphql non-JSON response (HTTP {status}): {raw[:200]!r}",
+            flush=True,
+        )
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    # GraphQL returns {"data": null, "errors": [...]} on failure — `or {}` lets
+    # callers always do data.get(...) without a guard.
+    return data.get("data") or {}
+
+
 def _graphql_request(query: str, variables: dict = None) -> dict:
     """Execute a GraphQL query/mutation against Django."""
     parsed = urlparse(DJANGO_GRAPHQL_URL)
@@ -69,12 +99,9 @@ def _graphql_request(query: str, variables: dict = None) -> dict:
                 conn = HTTPConnection(parsed.hostname, parsed.port or 80, timeout=10)
             conn.request("POST", redirect_path, body=body, headers=headers)
             resp = conn.getresponse()
-        data = json.loads(resp.read())
+        raw = resp.read()
         conn.close()
-        # GraphQL returns {"data": null, "errors": [...]} on failure — the
-        # `, {}` default only fires for missing keys, not explicit None values.
-        # Use `or {}` so callers can always do data.get(...) without a guard.
-        return data.get("data") or {}
+        return _parse_graphql_response(resp.status, raw)
     except Exception as e:
         print(f"scraper: graphql error: {e}", flush=True)
         posthog_reporter.capture_exception(e, context={"component": "scraper_engine.graphql"})

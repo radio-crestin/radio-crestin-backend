@@ -665,8 +665,13 @@ def automated_backup(self, backup_type='essential_data'):
             type=backup_type
         )
 
-        # Process the backup
-        backup_id = process_backup.apply_async(args=[backup.pk]).get()
+        # Process the backup synchronously, in this worker.
+        # Calling `.apply_async(...).get()` here raises
+        # "RuntimeError: Never call result.get() within a task!" because waiting
+        # on another task from inside a task can deadlock the worker pool.
+        # `automated_backup` already needs the result before returning, so we run
+        # the bound task directly (executes in-process and returns its value).
+        backup_id = process_backup(backup.pk)
 
         if backup_id:
             logger.info(f"Automated backup created successfully with ID: {backup_id} for type: {backup_type}")
