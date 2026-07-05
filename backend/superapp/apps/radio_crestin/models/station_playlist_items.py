@@ -6,6 +6,10 @@ class PlaylistItemType(models.TextChoices):
     AUDIO = 'audio', _('Audio')
     VIDEO = 'video', _('Video')
     YOUTUBE = 'youtube', _('YouTube')
+    # An entire YouTube playlist as one item; `url` holds a full playlist URL
+    # (https://www.youtube.com/playlist?list=<ID>). Clients play it via the
+    # official IFrame player's playlist mode.
+    YOUTUBE_PLAYLIST = 'youtube_playlist', _('YouTube Playlist')
 
 
 class StationPlaylistItems(models.Model):
