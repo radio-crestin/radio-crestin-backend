@@ -160,6 +160,17 @@ class StationType:
         return None
 
     @strawberry.field
+    def hls_dvr_stream_url(self) -> Optional[str]:
+        """DVR HLS playlist: same stream with a 1-hour seek-back window.
+
+        Apps switch to it only when the user rewinds; absence in the payload
+        means "no DVR" (older caches / transcoding disabled).
+        """
+        if self.transcode_enabled:
+            return f"https://live.radiocrestin.ro/hls/{self.slug}/dvr.m3u8"
+        return None
+
+    @strawberry.field
     def dash_stream_url(self) -> Optional[str]:
         """Deprecated: DASH/Opus has been removed. Returns None for backward compatibility."""
         return None
