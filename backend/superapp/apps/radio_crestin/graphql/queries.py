@@ -80,12 +80,14 @@ def _stations_base_queryset():
             'station_streams',
             queryset=StationStreams.objects.order_by('order', 'id')
         ),
-        # Prefetch managed playlist items ordered by playlist_item_order.
+        # Prefetch managed playlist items NEWEST-FIRST (highest
+        # playlist_item_order, ties by highest id): apps display the newest
+        # item at the top and start playback with it.
         # Unlike station_streams (not enabled-filtered here), we exclude
         # disabled items so clients never receive an item an editor turned off.
         Prefetch(
             'playlist_items',
-            queryset=StationPlaylistItems.objects.filter(enabled=True).order_by('playlist_item_order', 'id')
+            queryset=StationPlaylistItems.objects.filter(enabled=True).order_by('-playlist_item_order', '-id')
         )
     )
 
@@ -291,7 +293,7 @@ class Query:
                 # Exclude disabled playlist items so they never reach clients.
                 Prefetch(
                     'playlist_items',
-                    queryset=StationPlaylistItems.objects.filter(enabled=True).order_by('playlist_item_order', 'id')
+                    queryset=StationPlaylistItems.objects.filter(enabled=True).order_by('-playlist_item_order', '-id')
                 )
             ).filter(disabled=False, slug__in=station_slugs).order_by('order', 'title')
         )
@@ -367,7 +369,7 @@ class Query:
                 # Exclude disabled playlist items so they never reach clients.
                 Prefetch(
                     'playlist_items',
-                    queryset=StationPlaylistItems.objects.filter(enabled=True).order_by('playlist_item_order', 'id')
+                    queryset=StationPlaylistItems.objects.filter(enabled=True).order_by('-playlist_item_order', '-id')
                 ),
             ).get(id=id, disabled=False, is_public=True)
         except Stations.DoesNotExist:

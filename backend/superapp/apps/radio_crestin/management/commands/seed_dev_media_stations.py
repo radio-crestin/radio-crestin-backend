@@ -32,6 +32,9 @@ MUX_HLS_VOD = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8'
 APPLE_BIPBOP_HLS = 'https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8'
 
 # station_order values well past real stations so test entries sort last.
+# playlist_items are listed OLDEST -> NEWEST (playlist_item_order 1..n);
+# clients are served newest-first, so e.g. Media Mix plays
+# audio -> video -> youtube_playlist -> youtube from the app's perspective.
 SEED_STATIONS = [
     {
         'slug': 'test-media-mix-dev',

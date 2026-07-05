@@ -176,7 +176,8 @@ class StationsAdmin(SuperAppModelAdmin):
             '<div style="display:flex; flex-direction:column; gap:8px;">'
             '<code style="user-select:all; word-break:break-all;">{}</code>'
             '<small>Authorizes external playlist updates for this station only. '
-            'POST a full-replace items array (apps pick it up within ~5-10s):</small>'
+            'POST a full-replace items array, oldest&rarr;newest — the last '
+            'element is served first by apps (picked up within ~5-10s):</small>'
             '<code style="white-space:pre-wrap; word-break:break-all; user-select:all;">{}</code>'
             '</div>',
             obj.playlist_api_key,

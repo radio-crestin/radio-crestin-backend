@@ -39,9 +39,14 @@ class StationPlaylistUpdateView(View):
     are deleted and replaced in one atomic transaction, ordered by array
     position (playlist_item_order = 1..n).
 
+    Order semantics: the submitted array is interpreted OLDEST -> NEWEST, so
+    the LAST array element is the newest item. Clients are served items
+    newest-first (highest playlist_item_order, ties by highest id), meaning
+    the last submitted item is displayed at the top and plays first.
+
     Response 200 mirrors the GET /api/v1/station-playlist station object
     (a single ``station`` instead of the ``stations`` array; enabled items
-    only, in client playback order):
+    only, newest-first as clients receive them):
         {"data": {"station": {"id", "slug", "station_type", "playlist_items":
             [{"id", "order", "type", "url", "title", "thumbnail_url",
               "duration_seconds"}, ...]}}}
@@ -98,9 +103,10 @@ class StationPlaylistUpdateView(View):
                 for index, item in enumerate(items, start=1)
             ])
 
+        # Newest-first, exactly as the GET endpoint serves clients
         fresh_items = station.playlist_items.filter(
             enabled=True,
-        ).order_by('playlist_item_order', 'id')
+        ).order_by('-playlist_item_order', '-id')
         response = JsonResponse({'data': {'station': {
             'id': station.id,
             'slug': station.slug,
