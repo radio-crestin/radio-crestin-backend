@@ -100,6 +100,25 @@ query GetStations($station_slugs: [String!], $exclude_station_slugs: [String!]) 
 }
 '''
 
+STATION_PLAYLIST_GRAPHQL_QUERY = '''
+query GetStationPlaylist($station_slugs: [String!]) @cached(ttl: 0) {
+  stations(station_slugs: $station_slugs) {
+    id
+    slug
+    station_type
+    playlist_items {
+      id
+      order
+      type
+      url
+      title
+      thumbnail_url
+      duration_seconds
+    }
+  }
+}
+'''
+
 REVIEWS_GRAPHQL_QUERY = '''
 query GetReviews($station_id: Int, $station_slug: String) @cache_control(max_age: 30, max_stale: 30, stale_while_revalidate: 30) @cached(ttl: 0) {
   __typename

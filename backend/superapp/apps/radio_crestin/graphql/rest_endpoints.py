@@ -9,8 +9,18 @@ from django.utils import timezone
 from typing import Dict, Any, Optional
 
 from superapp.apps.graphql.rest_api import RestApiEndpoint, HttpMethod
-from ..constants import STATIONS_GRAPHQL_QUERY, REVIEWS_GRAPHQL_QUERY
+from ..constants import STATIONS_GRAPHQL_QUERY, REVIEWS_GRAPHQL_QUERY, STATION_PLAYLIST_GRAPHQL_QUERY
 from .constants_metadata import STATIONS_METADATA_GRAPHQL_QUERY, STATIONS_METADATA_HISTORY_GRAPHQL_QUERY
+
+
+def rounded_timestamp(window_seconds: int = 10) -> int:
+    """Current unix timestamp rounded down to a multiple of `window_seconds`.
+
+    Timestamped endpoints redirect to `?timestamp=<rounded>` so the URL is
+    stable within a window and safe to cache. Most endpoints use the default
+    10-second window; pass a smaller window for faster-polling endpoints.
+    """
+    return int(timezone.now().timestamp() // window_seconds) * window_seconds
 
 
 def parse_slug_filters(request) -> Dict[str, Any]:
@@ -25,12 +35,16 @@ def parse_slug_filters(request) -> Dict[str, Any]:
     return variables
 
 
-def validate_timestamp_not_future(request) -> Optional[Dict[str, Any]]:
+def validate_timestamp_not_future(request, window_seconds: int = 10) -> Optional[Dict[str, Any]]:
     """
     Validate that the timestamp parameter is not in the future (beyond current time + 2 seconds).
 
     If the timestamp is invalid or in the future (e.g. client clock skew), redirect to
     the correct rounded timestamp instead of returning an error.
+
+    Args:
+        request: Django request object
+        window_seconds: Rounding window used for the corrected redirect timestamp
 
     Returns:
         None if valid, redirect dict if timestamp needs correction
@@ -38,7 +52,6 @@ def validate_timestamp_not_future(request) -> Optional[Dict[str, Any]]:
     timestamp_param = request.GET.get('timestamp') or request.GET.get('_t')
     if timestamp_param:
         current_timestamp = timezone.now().timestamp()
-        rounded_timestamp = int(current_timestamp // 10) * 10
         needs_redirect = False
 
         try:
@@ -54,7 +67,7 @@ def validate_timestamp_not_future(request) -> Optional[Dict[str, Any]]:
             query_params = dict(request.GET)
             query_params.pop('timestamp', None)
             query_params.pop('_t', None)
-            query_params['timestamp'] = [str(rounded_timestamp)]
+            query_params['timestamp'] = [str(rounded_timestamp(window_seconds))]
             query_string = '&'.join(
                 f"{k}={v[0] if isinstance(v, list) else v}" for k, v in query_params.items()
             )
@@ -477,11 +490,70 @@ class StationsMetadataHistoryApiEndpoint(RestApiEndpoint):
         return variables
 
 
+class StationPlaylistApiEndpoint(RestApiEndpoint):
+    """
+    REST API endpoint for polling a single station's managed playlist.
+
+    GET /api/v1/station-playlist?station_slug=<slug>&timestamp=<timestamp>
+
+    Clients poll this at a ~5-second cadence, so the timestamp is rounded to
+    5-second windows (not the usual 10): each URL is unique per window, which
+    makes the immutable cache header safe while still refreshing every 5s.
+    """
+
+    path = "api/v1/station-playlist"
+    graphql_query = STATION_PLAYLIST_GRAPHQL_QUERY
+    method = HttpMethod.GET
+    name = "api_v1_station_playlist"
+    cache_control = "public, max-age=2592000, immutable"
+    cors_enabled = True
+
+    # 5s window to match the clients' polling cadence (other endpoints use 10s)
+    TIMESTAMP_WINDOW_SECONDS = 5
+
+    @staticmethod
+    def pre_processor(request, **kwargs) -> Optional[Dict[str, Any]]:
+        """
+        Add timestamp redirect for cache control and validate timestamp is not in the future.
+        Preserves station_slug (and other query parameters) in the redirect.
+        """
+        window = StationPlaylistApiEndpoint.TIMESTAMP_WINDOW_SECONDS
+
+        timestamp_param = request.GET.get('timestamp') or request.GET.get('_t')
+
+        if not timestamp_param:
+            # Build redirect URL preserving other query parameters
+            query_params = dict(request.GET)
+            query_params['timestamp'] = [str(rounded_timestamp(window))]
+            query_string = '&'.join(
+                f"{k}={v[0]}" for k, v in query_params.items()
+            )
+            redirect_url = f"{request.path}?{query_string}"
+            return {'redirect': redirect_url}
+
+        # Validate timestamp is not in the future
+        validation_error = validate_timestamp_not_future(request, window_seconds=window)
+        if validation_error:
+            return validation_error
+
+        return None
+
+    @staticmethod
+    def variable_extractor(request, **kwargs) -> Dict[str, Any]:
+        variables: Dict[str, Any] = {}
+        station_slug = request.GET.get('station_slug')
+        if station_slug:
+            # The stations resolver filters via the station_slugs list variable
+            variables['station_slugs'] = [station_slug.strip()]
+        return variables
+
+
 # List of endpoint classes to register
 REST_ENDPOINTS = [
     StationsApiEndpoint,
     StationsMetadataApiEndpoint,
     StationsMetadataHistoryApiEndpoint,
+    StationPlaylistApiEndpoint,
     ShareLinksApiEndpoint,
     ReviewsApiEndpoint,
     DeleteReviewApiEndpoint,
