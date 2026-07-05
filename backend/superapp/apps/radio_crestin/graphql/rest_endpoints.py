@@ -9,7 +9,12 @@ from django.utils import timezone
 from typing import Dict, Any, Optional
 
 from superapp.apps.graphql.rest_api import RestApiEndpoint, HttpMethod
-from ..constants import STATIONS_GRAPHQL_QUERY, REVIEWS_GRAPHQL_QUERY, STATION_PLAYLIST_GRAPHQL_QUERY
+from ..constants import (
+    STATIONS_GRAPHQL_QUERY,
+    REVIEWS_GRAPHQL_QUERY,
+    STATION_PLAYLIST_GRAPHQL_QUERY,
+    PRIVATE_STATIONS_GRAPHQL_QUERY,
+)
 from .constants_metadata import STATIONS_METADATA_GRAPHQL_QUERY, STATIONS_METADATA_HISTORY_GRAPHQL_QUERY
 
 
@@ -548,12 +553,70 @@ class StationPlaylistApiEndpoint(RestApiEndpoint):
         return variables
 
 
+class PrivateStationsApiEndpoint(RestApiEndpoint):
+    """
+    REST API endpoint for a device's private (allowlisted) stations.
+
+    GET /api/v1/private-stations?device_id=<anonymous_id>&timestamp=<timestamp>
+
+    Returns the same station shape as /api/v1/stations under data.stations,
+    so clients merge private stations into their existing lists. Unknown
+    devices get an empty list, never an error. URLs are per-device, which
+    makes CDN caching mostly moot; a 60-second rounding window keeps
+    device-side freshness reasonable without hammering the backend.
+    """
+
+    path = "api/v1/private-stations"
+    graphql_query = PRIVATE_STATIONS_GRAPHQL_QUERY
+    method = HttpMethod.GET
+    name = "api_v1_private_stations"
+    cache_control = "public, max-age=2592000, immutable"
+    cors_enabled = True
+
+    # 60s window: per-device URLs barely benefit from CDN caching, so a
+    # larger window than the public endpoints just bounds request volume.
+    TIMESTAMP_WINDOW_SECONDS = 60
+
+    @staticmethod
+    def pre_processor(request, **kwargs) -> Optional[Dict[str, Any]]:
+        """
+        Add timestamp redirect for cache control and validate timestamp is not in the future.
+        Preserves device_id (and other query parameters) in the redirect.
+        """
+        window = PrivateStationsApiEndpoint.TIMESTAMP_WINDOW_SECONDS
+
+        timestamp_param = request.GET.get('timestamp') or request.GET.get('_t')
+
+        if not timestamp_param:
+            # Build redirect URL preserving other query parameters
+            query_params = dict(request.GET)
+            query_params['timestamp'] = [str(rounded_timestamp(window))]
+            query_string = '&'.join(
+                f"{k}={v[0]}" for k, v in query_params.items()
+            )
+            redirect_url = f"{request.path}?{query_string}"
+            return {'redirect': redirect_url}
+
+        # Validate timestamp is not in the future
+        validation_error = validate_timestamp_not_future(request, window_seconds=window)
+        if validation_error:
+            return validation_error
+
+        return None
+
+    @staticmethod
+    def variable_extractor(request, **kwargs) -> Dict[str, Any]:
+        # Empty device_id yields an empty stations list from the resolver
+        return {'device_id': (request.GET.get('device_id') or '').strip()}
+
+
 # List of endpoint classes to register
 REST_ENDPOINTS = [
     StationsApiEndpoint,
     StationsMetadataApiEndpoint,
     StationsMetadataHistoryApiEndpoint,
     StationPlaylistApiEndpoint,
+    PrivateStationsApiEndpoint,
     ShareLinksApiEndpoint,
     ReviewsApiEndpoint,
     DeleteReviewApiEndpoint,

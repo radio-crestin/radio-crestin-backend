@@ -83,11 +83,11 @@ class StationsMetadataFetchInline(SuperAppStackedInline):
 @admin.register(Stations, site=superapp_admin_site)
 class StationsAdmin(SuperAppModelAdmin):
     resource_class = StationResource
-    list_display = ['title', 'station_type', 'status_indicator', 'thumbnail_preview', 'station_order', 'website_link', 'groups_display', 'latest_uptime_status']
-    list_filter = ['disabled', 'station_type', 'transcode_enabled', 'feature_latest_post', 'groups', 'created_at']
+    list_display = ['title', 'station_type', 'is_public', 'status_indicator', 'thumbnail_preview', 'station_order', 'website_link', 'groups_display', 'latest_uptime_status']
+    list_filter = ['disabled', 'is_public', 'station_type', 'transcode_enabled', 'feature_latest_post', 'groups', 'created_at']
     search_fields = ['title', 'slug', 'website', 'email']
     prepopulated_fields = {'slug': ('title',)}
-    autocomplete_fields = ['latest_station_uptime', 'latest_station_now_playing']
+    autocomplete_fields = ['latest_station_uptime', 'latest_station_now_playing', 'visible_to_devices']
     readonly_fields = [
         'thumbnail_url', 'created_at', 'updated_at', 'thumbnail_preview',
         'now_playing_display', 'hls_url_display', 'player_link_display',
@@ -100,6 +100,8 @@ class StationsAdmin(SuperAppModelAdmin):
             'classes': ['tab'],
             'fields': (
                 'title', 'slug', 'station_type', 'station_order', 'disabled',
+                # Grouped together: the allowlist only applies when not public
+                'is_public', 'visible_to_devices',
                 'website', 'email',
             ),
         }),
