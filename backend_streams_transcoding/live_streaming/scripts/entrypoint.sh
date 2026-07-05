@@ -10,33 +10,40 @@ if ! echo "$STATION_SLUG" | grep -qE '^[a-z0-9][a-z0-9-]*[a-z0-9]$'; then
 fi
 
 SEGMENT_DURATION="${SEGMENT_DURATION:-6}"
-# Live seek-back window served to players. Apps offer "seek back up to 1h"
-# on live radio, so the playlist holds one hour of segments.
-HLS_WINDOW_SECONDS="${HLS_WINDOW_SECONDS:-3600}"
-# Playlist sliding window in segments: 3600s / 6s = 600 entries.
-# At 64k HE-AAC in MPEG-TS this is ~35 MB/h per station on disk
-# (~40 MB including the delete threshold below) — well within the
-# per-station 200Mi emptyDir limit set by the stream controller.
+# Live playlist window served to normal listeners at /index.m3u8. Kept short
+# (65 × 6s = 6.5 min, the pre-DVR size) so the playlist stays ~12 KB — most
+# listeners poll it every ~6s, so its size dominates playlist egress.
+HLS_WINDOW_SECONDS="${HLS_WINDOW_SECONDS:-390}"
 HLS_LIST_SIZE="${HLS_LIST_SIZE:-$((HLS_WINDOW_SECONDS / SEGMENT_DURATION))}"
-# Keep segments on disk just past the playlist window so lagging clients and
-# CDN cache misses don't 404. Epoch-named segments are globally unique, so a
-# long retention window is safe (no risk of name collision across ffmpeg
-# restarts). Deletion lags the window by
-# HLS_DELETE_THRESHOLD × SEGMENT_DURATION = 100×6s = 10 min.
-HLS_DELETE_THRESHOLD="${HLS_DELETE_THRESHOLD:-100}"
+# DVR playlist window served at /dvr.m3u8 — apps switch to it only when the
+# user rewinds ("seek back up to 1h"). Built by playlist_rewriter.py from
+# the same segment set: 3600s / 6s = 600 entries. ~32 MB/h per station at
+# 64k HE-AAC in MPEG-TS (~37 MB on disk incl. the delete margin) — well
+# within the per-station 200Mi emptyDir limit set by the stream controller.
+DVR_WINDOW_SECONDS="${DVR_WINDOW_SECONDS:-3600}"
+DVR_LIST_SIZE="${DVR_LIST_SIZE:-$((DVR_WINDOW_SECONDS / SEGMENT_DURATION))}"
+# ffmpeg deletes a segment once it falls HLS_DELETE_THRESHOLD entries behind
+# its own (short) live playlist, so the threshold must cover the entire DVR
+# window plus a margin for lagging clients / CDN cache misses:
+# 600 - 65 + 100 = 635 → 65+635 = 700 segments ≈ 70 min on disk.
+# Epoch-prefixed segment names stay globally unique, so long retention is
+# safe across ffmpeg restarts (no name collisions).
+HLS_DELETE_THRESHOLD="${HLS_DELETE_THRESHOLD:-$((DVR_LIST_SIZE - HLS_LIST_SIZE + 100))}"
 
 # Exported so child processes (stream_monitor, playlist_rewriter, cleanup.sh)
 # always see the effective values instead of falling back to their own defaults.
 export SEGMENT_DURATION HLS_WINDOW_SECONDS HLS_LIST_SIZE HLS_DELETE_THRESHOLD
+export DVR_WINDOW_SECONDS DVR_LIST_SIZE
 
 echo "Station: $STATION_SLUG"
 echo "Stream:  $STREAM_URL"
-echo "HLS:     HE-AAC v1 64k, ${SEGMENT_DURATION}s segments, ${HLS_LIST_SIZE} in playlist, ${HLS_DELETE_THRESHOLD} retained past window"
+echo "HLS:     HE-AAC v1 64k, ${SEGMENT_DURATION}s segments, ${HLS_LIST_SIZE} live / ${DVR_LIST_SIZE} DVR entries, ${HLS_DELETE_THRESHOLD} retained past live window"
 
 # Fire a pod-startup event so PostHog timelines line up with restarts.
 python3 /app/scripts/report_event.py pod_started \
     --prop segment_duration="$SEGMENT_DURATION" \
     --prop hls_list_size="$HLS_LIST_SIZE" \
+    --prop dvr_list_size="$DVR_LIST_SIZE" \
     --prop hls_delete_threshold="$HLS_DELETE_THRESHOLD" >/dev/null 2>&1 &
 
 # Directory layout:

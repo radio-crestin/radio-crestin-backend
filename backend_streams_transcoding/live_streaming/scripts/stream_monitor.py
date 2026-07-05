@@ -25,9 +25,10 @@ SESSION_LOG = os.environ.get("NGINX_SESSION_LOG", "/tmp/nginx_session_access.log
 
 SEGMENT_DURATION = int(os.environ.get("SEGMENT_DURATION", "6"))
 MONITOR_INTERVAL = int(os.environ.get("MONITOR_INTERVAL", "30"))
-# Mirrors entrypoint.sh (1h window / 6s segments); the pod exports the
+# Mirrors entrypoint.sh (short live window: 390s / 6s segments = 65; the 1h
+# DVR window is a separate rewriter-built playlist). The pod exports the
 # effective value, so this default only applies outside the pod.
-HLS_LIST_SIZE = int(os.environ.get("HLS_LIST_SIZE", "600"))
+HLS_LIST_SIZE = int(os.environ.get("HLS_LIST_SIZE", "65"))
 # A segment should appear every SEGMENT_DURATION s; flag stalls past 3× that.
 STALL_THRESHOLD = SEGMENT_DURATION * 3
 

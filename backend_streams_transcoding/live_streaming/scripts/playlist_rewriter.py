@@ -1,6 +1,21 @@
 """
-HLS playlist rewriter — copies ffmpeg's live.m3u8 to index.m3u8, injecting
-EXT-X-DATERANGE song-metadata tags from /data/metadata/index.json.
+HLS playlist rewriter — produces the two public playlists from ffmpeg's
+live.m3u8, injecting EXT-X-DATERANGE song-metadata tags from
+/data/metadata/index.json into both:
+
+  index.m3u8  — the live playlist (same short window as ffmpeg's own list;
+                what normal listeners poll every ~6s).
+  dvr.m3u8    — the DVR variant: up to DVR_LIST_SIZE (1 hour) of segments
+                accumulated from successive live.m3u8 reads. ffmpeg's
+                delete threshold keeps that many segments on disk, so every
+                URI in the DVR playlist is servable. Apps request this
+                variant only when the user rewinds, so the ~10x larger
+                playlist doesn't multiply steady-state playlist egress.
+                Segment history (URI, EXTINF, PDT, sequence number) is
+                persisted to dvr_history.json on the data volume so the
+                window survives pod restarts; EXT-X-DISCONTINUITY is
+                inserted where the segment-name boot prefix changes
+                (i.e. across ffmpeg restarts).
 
 Why a separate file instead of rewriting in place:
   - ffmpeg writes live.m3u8 via temp-file + atomic rename (`+temp_file`); we
@@ -29,15 +44,20 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-FFMPEG_PLAYLIST = Path("/data/hls/aac/live.m3u8")
-ENHANCED_PLAYLIST = Path("/data/hls/aac/index.m3u8")
+SEGMENTS_DIR = Path("/data/hls/aac")
+FFMPEG_PLAYLIST = SEGMENTS_DIR / "live.m3u8"
+ENHANCED_PLAYLIST = SEGMENTS_DIR / "index.m3u8"
+DVR_PLAYLIST = SEGMENTS_DIR / "dvr.m3u8"
+# On the data volume next to the segments, so the DVR window survives pod
+# restarts (cleanup.sh only sweeps *.ts / *.pdt, never this file).
+DVR_HISTORY_PATH = SEGMENTS_DIR / "dvr_history.json"
 METADATA_PATH = Path("/data/metadata/index.json")
 
 POLL_INTERVAL = 1
 SEGMENT_DURATION = int(os.environ.get("SEGMENT_DURATION", "6"))
-# Mirrors entrypoint.sh (1h window / 6s segments); the pod exports the
+# Mirrors entrypoint.sh (1h DVR window / 6s segments); the pod exports the
 # effective value, so this default only applies outside the pod.
-HLS_LIST_SIZE = int(os.environ.get("HLS_LIST_SIZE", "600"))
+DVR_LIST_SIZE = int(os.environ.get("DVR_LIST_SIZE", "600"))
 
 
 SEGMENT_PREFIXES = (
@@ -286,6 +306,110 @@ def enhance(raw: str, songs: list[dict]) -> str:
     return "\n".join(out) + "\n"
 
 
+def _parse_live_playlist(raw: str) -> tuple[str | None, list[dict]]:
+    """Parse ffmpeg's live.m3u8 into (targetduration_line, segments).
+
+    Each segment dict carries everything the DVR playlist needs to replay
+    the entry verbatim later: name (URI), extinf line, optional PDT line,
+    and its EXT-X-MEDIA-SEQUENCE number (header value + list position).
+    """
+    media_seq = 0
+    target_line: str | None = None
+    segments: list[dict] = []
+    cur_extinf: str | None = None
+    cur_pdt: str | None = None
+    for line in raw.split("\n"):
+        stripped = line.strip()
+        if stripped.startswith("#EXT-X-MEDIA-SEQUENCE:"):
+            try:
+                media_seq = int(stripped.split(":", 1)[1])
+            except (ValueError, IndexError):
+                pass
+        elif stripped.startswith("#EXT-X-TARGETDURATION:"):
+            target_line = stripped
+        elif stripped.startswith("#EXTINF:"):
+            cur_extinf = stripped
+        elif stripped.startswith("#EXT-X-PROGRAM-DATE-TIME:"):
+            cur_pdt = stripped
+        elif stripped.endswith(".ts") and not stripped.startswith("#"):
+            segments.append({
+                "name": stripped,
+                "extinf": cur_extinf or f"#EXTINF:{SEGMENT_DURATION}.0,",
+                "pdt": cur_pdt,
+                "seq": media_seq + len(segments),
+            })
+            cur_extinf = None
+            cur_pdt = None
+    return target_line, segments
+
+
+def _load_dvr_history() -> list[dict]:
+    """Load persisted DVR history, dropping entries whose files are gone."""
+    try:
+        with open(DVR_HISTORY_PATH, "r") as f:
+            entries = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+    if not isinstance(entries, list):
+        return []
+    history = [
+        e for e in entries
+        if isinstance(e, dict)
+        and all(k in e for k in ("name", "extinf", "seq"))
+        and (SEGMENTS_DIR / e["name"]).exists()
+    ]
+    return history[-DVR_LIST_SIZE:]
+
+
+def _update_dvr_history(history: list[dict], segments: list[dict]) -> bool:
+    """Append newly seen segments; trim to the DVR window and to files that
+    still exist on disk. Returns True when the history changed."""
+    known = {e["name"] for e in history}
+    changed = False
+    for seg in segments:
+        if seg["name"] not in known:
+            history.append(seg)
+            changed = True
+    while len(history) > DVR_LIST_SIZE:
+        history.pop(0)
+        changed = True
+    # ffmpeg's delete threshold outlives the DVR window, so this only fires
+    # when retention was shortened or a manual sweep removed files.
+    while history and not (SEGMENTS_DIR / history[0]["name"]).exists():
+        history.pop(0)
+        changed = True
+    return changed
+
+
+def _build_dvr_raw(history: list[dict], target_line: str | None,
+                   independent_segments: bool) -> str:
+    """Assemble the raw (pre-enhance) DVR playlist from the segment history.
+
+    MEDIA-SEQUENCE is the first entry's recorded sequence number — it only
+    moves forward as entries fall out of the window (epoch-seeded, so it
+    also jumps forward, never back, across ffmpeg restarts). A restart is
+    marked with EXT-X-DISCONTINUITY where the `<slug>-<boot>` segment-name
+    prefix changes, matching the +initial_discontinuity mpegts flag on the
+    segments themselves.
+    """
+    lines = ["#EXTM3U", "#EXT-X-VERSION:3"]
+    if independent_segments:
+        lines.append("#EXT-X-INDEPENDENT-SEGMENTS")
+    lines.append(target_line or f"#EXT-X-TARGETDURATION:{SEGMENT_DURATION}")
+    lines.append(f"#EXT-X-MEDIA-SEQUENCE:{history[0]['seq']}")
+    prev_boot: str | None = None
+    for entry in history:
+        boot = entry["name"].rsplit("-", 1)[0]
+        if prev_boot is not None and boot != prev_boot:
+            lines.append("#EXT-X-DISCONTINUITY")
+        prev_boot = boot
+        if entry.get("pdt"):
+            lines.append(entry["pdt"])
+        lines.append(entry["extinf"])
+        lines.append(entry["name"])
+    return "\n".join(lines) + "\n"
+
+
 def write_atomic(path: Path, content: str) -> None:
     """Atomic write: tmp + os.replace. nginx never serves a partial file."""
     tmp = path.with_suffix(path.suffix + ".tmp")
@@ -295,7 +419,18 @@ def write_atomic(path: Path, content: str) -> None:
 
 
 def main() -> None:
-    print(f"playlist_rewriter: {FFMPEG_PLAYLIST} → {ENHANCED_PLAYLIST}", flush=True)
+    print(
+        f"playlist_rewriter: {FFMPEG_PLAYLIST} → {ENHANCED_PLAYLIST} + "
+        f"{DVR_PLAYLIST} (DVR window: {DVR_LIST_SIZE} segments)",
+        flush=True,
+    )
+    dvr_history = _load_dvr_history()
+    if dvr_history:
+        print(
+            f"playlist_rewriter: restored {len(dvr_history)} DVR history "
+            f"entries from {DVR_HISTORY_PATH}",
+            flush=True,
+        )
     last_playlist_mtime = 0.0
     last_metadata_mtime = 0.0
     while True:
@@ -317,6 +452,26 @@ def main() -> None:
                 if raw and "#EXTM3U" in raw:
                     songs = _load_songs()
                     write_atomic(ENHANCED_PLAYLIST, enhance(raw, songs))
+
+                    # DVR variant: accumulate segments across live.m3u8
+                    # updates and emit the long-window playlist with the
+                    # exact same enhance() pass (PDT comes with the stored
+                    # entries; DATERANGE + RC-METADATA-CHANGED injection is
+                    # identical to the live variant).
+                    target_line, segments = _parse_live_playlist(raw)
+                    history_changed = _update_dvr_history(dvr_history, segments)
+                    if dvr_history:
+                        dvr_raw = _build_dvr_raw(
+                            dvr_history,
+                            target_line,
+                            "#EXT-X-INDEPENDENT-SEGMENTS" in raw,
+                        )
+                        write_atomic(DVR_PLAYLIST, enhance(dvr_raw, songs))
+                    if history_changed:
+                        write_atomic(
+                            DVR_HISTORY_PATH, json.dumps(dvr_history),
+                        )
+
                     last_playlist_mtime = playlist_stat.st_mtime
                     last_metadata_mtime = metadata_mtime
             except Exception as e:

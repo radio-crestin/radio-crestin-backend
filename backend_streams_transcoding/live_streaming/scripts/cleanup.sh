@@ -5,13 +5,15 @@
 # Also sweeps any leftover .pdt sidecars from the previous playlist_generator
 # implementation (PDT now comes from ffmpeg directly, no sidecars are written).
 #
-# The sweep age is derived from the serving window so it can never delete a
-# segment that is still referenced by the live playlist:
+# The sweep age is derived from the on-disk retention window — the live list
+# plus ffmpeg's delete threshold, which is sized to cover the larger DVR
+# window (dvr.m3u8) — so it can never delete a segment still referenced by
+# either playlist:
 #   (HLS_LIST_SIZE + HLS_DELETE_THRESHOLD) x SEGMENT_DURATION + 10 min margin.
-# Defaults mirror entrypoint.sh: (600+100)x6s/60 + 10 = 80 minutes.
+# Defaults mirror entrypoint.sh: (65+635)x6s/60 + 10 = 80 minutes.
 SEGMENT_DURATION="${SEGMENT_DURATION:-6}"
-HLS_LIST_SIZE="${HLS_LIST_SIZE:-600}"
-HLS_DELETE_THRESHOLD="${HLS_DELETE_THRESHOLD:-100}"
+HLS_LIST_SIZE="${HLS_LIST_SIZE:-65}"
+HLS_DELETE_THRESHOLD="${HLS_DELETE_THRESHOLD:-635}"
 RETENTION_MIN=$(( (HLS_LIST_SIZE + HLS_DELETE_THRESHOLD) * SEGMENT_DURATION / 60 + 10 ))
 
 while true; do
