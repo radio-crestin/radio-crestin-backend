@@ -1,3 +1,5 @@
+import secrets
+
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from .station_groups import StationGroups
@@ -36,6 +38,14 @@ class Stations(models.Model):
         choices=StationKind.choices,
         default=StationKind.RADIO,
         help_text=_("Radio stream, TV stream, or a managed playlist of media items"),
+    )
+    playlist_api_key = models.CharField(
+        _("Playlist API Key"),
+        max_length=64,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text=_("Authorizes external playlist updates for this station only (X-Api-Key header on POST /api/v1/station-playlist/update). Auto-generated for playlist stations."),
     )
     website = models.URLField(_("Website"))
     email = models.TextField(_("Email"), blank=True, null=False, default="")
@@ -120,6 +130,10 @@ class Stations(models.Model):
 
     def save(self, *args, **kwargs):
         self.order = round(self.station_order)
+        # Playlist stations get their update API key on first save, so the
+        # key already exists by the time an admin opens the station form.
+        if self.station_type == StationKind.PLAYLIST and not self.playlist_api_key:
+            self.playlist_api_key = secrets.token_urlsafe(32)
         super(Stations, self).save(*args, **kwargs)
         if self.thumbnail:
             self.thumbnail_url = self.thumbnail.url

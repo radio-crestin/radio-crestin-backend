@@ -113,7 +113,10 @@ class StationToStationGroupType:
     group_id: int = strawberry_django.field()
 
 
-@strawberry_django.type(model=Stations, fields="__all__")
+# Excluded (never expose via public GraphQL): playlist_api_key is a secret
+# authorizing external playlist updates; visible_to_devices is the private
+# station allowlist, an admin-only concern.
+@strawberry_django.type(model=Stations, exclude=["playlist_api_key", "visible_to_devices"])
 class StationType:
     id: int = strawberry_django.field()
     latest_station_uptime_id: Optional[int] = strawberry_django.field()
