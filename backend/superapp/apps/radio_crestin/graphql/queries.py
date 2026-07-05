@@ -65,6 +65,133 @@ def _latest_history_per_station(station_ids, as_of_dt):
     return {h.station_id: h for h in records}
 
 
+def _stations_base_queryset():
+    """Base Stations queryset with the select/prefetch set shared by the
+    public `stations` and per-device `private_stations` resolvers, so both
+    return identically shaped, N+1-free results."""
+    return Stations.objects.select_related(
+        'latest_station_uptime',
+        'latest_station_now_playing',
+        'latest_station_now_playing__song',
+        'latest_station_now_playing__song__artist'
+    ).prefetch_related(
+        # Prefetch station streams ordered by order field
+        Prefetch(
+            'station_streams',
+            queryset=StationStreams.objects.order_by('order', 'id')
+        ),
+        # Prefetch managed playlist items ordered by playlist_item_order.
+        # Unlike station_streams (not enabled-filtered here), we exclude
+        # disabled items so clients never receive an item an editor turned off.
+        Prefetch(
+            'playlist_items',
+            queryset=StationPlaylistItems.objects.filter(enabled=True).order_by('playlist_item_order', 'id')
+        )
+    )
+
+
+def _attach_station_batch_caches(stations_list, queryset):
+    """Batch-load listener counts, latest posts and review stats onto stations.
+
+    Attaches per-station caches consumed by the StationType field resolvers,
+    avoiding N+1 queries. Shared by `stations` and `private_stations`.
+    """
+    # Batch load listener counts for all stations
+    from ..services.listener_analytics_service import ListenerAnalyticsService
+    station_ids = [station.id for station in stations_list]
+    listener_counts = ListenerAnalyticsService.get_combined_listener_counts(
+        stations=stations_list,
+        minutes=1
+    )
+
+    # Attach listener counts to stations to avoid N+1 queries
+    for station in stations_list:
+        if station.id in listener_counts:
+            station._listener_counts_cache = listener_counts[station.id]
+
+    # If we're not already prefetching posts, batch load latest posts for common case (limit=1)
+    if not any('posts' in str(p) for p in queryset._prefetch_related_lookups):
+        from ..models import Posts
+        # Use raw SQL with window function for efficient single post per station
+        from django.db import connection
+
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                WITH ranked_posts AS (
+                    SELECT
+                        id, title, description, link, published,
+                        created_at, updated_at, station_id,
+                        ROW_NUMBER() OVER (PARTITION BY station_id ORDER BY published DESC) as rn
+                    FROM posts
+                    WHERE station_id = ANY(%s)
+                )
+                SELECT * FROM ranked_posts WHERE rn = 1
+                ORDER BY station_id
+            """, [station_ids])
+
+            columns = [col[0] for col in cursor.description]
+            posts_raw = cursor.fetchall()
+
+        # Create Post objects and attach to stations
+        posts_by_station = {}
+        for row in posts_raw:
+            post_dict = dict(zip(columns, row))
+            post_dict.pop('rn', None)
+
+            post = Posts(
+                id=post_dict['id'],
+                title=post_dict['title'],
+                description=post_dict['description'],
+                link=post_dict['link'],
+                published=post_dict['published'],
+                created_at=post_dict['created_at'],
+                updated_at=post_dict['updated_at'],
+                station_id=post_dict['station_id']
+            )
+            post._state.adding = False
+            post._state.db = 'default'
+
+            posts_by_station[post.station_id] = [post]
+
+        # Attach posts to stations
+        for station in stations_list:
+            if station.id in posts_by_station:
+                station._posts_cache = posts_by_station[station.id]
+            else:
+                # Ensure all stations have a cache entry to prevent N+1 queries
+                station._posts_cache = []
+
+    # Batch load review stats for all stations in a single query
+    from django.db.models import Avg, Count
+    from ..models import Reviews as ReviewsModel
+
+    reviews_stats = ReviewsModel.objects.filter(
+        station_id__in=station_ids,
+        verified=True
+    ).values('station_id').annotate(
+        count=Count('id'),
+        avg_rating=Avg('stars')
+    )
+
+    # Build lookup dict
+    reviews_stats_by_station = {
+        stat['station_id']: {
+            'count': stat['count'] or 0,
+            'avg_rating': round(stat['avg_rating'] or 0.0, 2)
+        }
+        for stat in reviews_stats
+    }
+
+    # Attach review stats cache to stations
+    for station in stations_list:
+        station._reviews_stats_cache = reviews_stats_by_station.get(
+            station.id,
+            {'count': 0, 'avg_rating': 0.0}
+        )
+
+    return stations_list
+
+
 @strawberry.type
 class Query:
     @strawberry_django.field
@@ -84,25 +211,7 @@ class Query:
 
         """
         # Build optimized queryset with all necessary prefetches
-        queryset = Stations.objects.select_related(
-            'latest_station_uptime',
-            'latest_station_now_playing',
-            'latest_station_now_playing__song',
-            'latest_station_now_playing__song__artist'
-        ).prefetch_related(
-            # Prefetch station streams ordered by order field
-            Prefetch(
-                'station_streams',
-                queryset=StationStreams.objects.order_by('order', 'id')
-            ),
-            # Prefetch managed playlist items ordered by playlist_item_order.
-            # Unlike station_streams (not enabled-filtered here), we exclude
-            # disabled items so clients never receive an item an editor turned off.
-            Prefetch(
-                'playlist_items',
-                queryset=StationPlaylistItems.objects.filter(enabled=True).order_by('playlist_item_order', 'id')
-            )
-        ).filter(disabled=False)
+        queryset = _stations_base_queryset().filter(disabled=False, is_public=True)
 
         # Apply slug filters
         if station_slugs:
@@ -138,103 +247,54 @@ class Query:
         if limit:
             queryset = queryset[:limit]
 
-        # Convert to list to execute the query
+        # Convert to list to execute the query, then batch-attach caches
         stations_list = list(queryset)
+        return _attach_station_batch_caches(stations_list, queryset)
 
-        # Batch load listener counts for all stations
-        from ..services.listener_analytics_service import ListenerAnalyticsService
-        station_ids = [station.id for station in stations_list]
-        listener_counts = ListenerAnalyticsService.get_combined_listener_counts(
-            stations=stations_list,
-            minutes=1
-        )
+    @strawberry_django.field
+    def private_stations(self, device_id: str) -> List[StationType]:
+        """
+        Private stations allowlisted for a device (AppUsers.anonymous_id).
 
-        # Attach listener counts to stations to avoid N+1 queries
-        for station in stations_list:
-            if station.id in listener_counts:
-                station._listener_counts_cache = listener_counts[station.id]
+        Same shape, prefetches and batch caches as `stations`, but returns
+        only is_public=False stations explicitly allowlisted for the device.
+        Unknown or empty device ids yield an empty list, never an error.
+        """
+        if not device_id:
+            return []
 
-        # If we're not already prefetching posts, batch load latest posts for common case (limit=1)
-        if not any('posts' in str(p) for p in queryset._prefetch_related_lookups):
-            from ..models import Posts
-            # Use raw SQL with window function for efficient single post per station
-            from django.db import connection
+        queryset = _stations_base_queryset().filter(
+            disabled=False,
+            is_public=False,
+            visible_to_devices__anonymous_id=device_id,
+        ).order_by('order', 'title')
 
-            with connection.cursor() as cursor:
-                cursor.execute("""
-                    WITH ranked_posts AS (
-                        SELECT 
-                            id, title, description, link, published, 
-                            created_at, updated_at, station_id,
-                            ROW_NUMBER() OVER (PARTITION BY station_id ORDER BY published DESC) as rn
-                        FROM posts
-                        WHERE station_id = ANY(%s)
-                    )
-                    SELECT * FROM ranked_posts WHERE rn = 1
-                    ORDER BY station_id
-                """, [station_ids])
+        stations_list = list(queryset)
+        return _attach_station_batch_caches(stations_list, queryset)
 
-                columns = [col[0] for col in cursor.description]
-                posts_raw = cursor.fetchall()
+    @strawberry_django.field
+    def playlist_stations(self, station_slugs: Optional[List[str]] = None) -> List[StationType]:
+        """
+        Stations by exact slug for playlist polling, including private ones.
 
-            # Create Post objects and attach to stations
-            posts_by_station = {}
-            for row in posts_raw:
-                post_dict = dict(zip(columns, row))
-                post_dict.pop('rn', None)
+        Private playlist stations must keep live-syncing their playlist on
+        allowlisted devices, and this path requires knowing the exact slug
+        (which only allowlisted devices receive via `private_stations`), so
+        it intentionally does NOT filter on is_public. Returns an empty list
+        when no slugs are provided — it never lists stations unrequested.
+        """
+        if not station_slugs:
+            return []
 
-                post = Posts(
-                    id=post_dict['id'],
-                    title=post_dict['title'],
-                    description=post_dict['description'],
-                    link=post_dict['link'],
-                    published=post_dict['published'],
-                    created_at=post_dict['created_at'],
-                    updated_at=post_dict['updated_at'],
-                    station_id=post_dict['station_id']
+        return list(
+            Stations.objects.prefetch_related(
+                # Exclude disabled playlist items so they never reach clients.
+                Prefetch(
+                    'playlist_items',
+                    queryset=StationPlaylistItems.objects.filter(enabled=True).order_by('playlist_item_order', 'id')
                 )
-                post._state.adding = False
-                post._state.db = 'default'
-
-                posts_by_station[post.station_id] = [post]
-
-            # Attach posts to stations
-            for station in stations_list:
-                if station.id in posts_by_station:
-                    station._posts_cache = posts_by_station[station.id]
-                else:
-                    # Ensure all stations have a cache entry to prevent N+1 queries
-                    station._posts_cache = []
-
-        # Batch load review stats for all stations in a single query
-        from django.db.models import Avg, Count
-        from ..models import Reviews as ReviewsModel
-
-        reviews_stats = ReviewsModel.objects.filter(
-            station_id__in=station_ids,
-            verified=True
-        ).values('station_id').annotate(
-            count=Count('id'),
-            avg_rating=Avg('stars')
+            ).filter(disabled=False, slug__in=station_slugs).order_by('order', 'title')
         )
-
-        # Build lookup dict
-        reviews_stats_by_station = {
-            stat['station_id']: {
-                'count': stat['count'] or 0,
-                'avg_rating': round(stat['avg_rating'] or 0.0, 2)
-            }
-            for stat in reviews_stats
-        }
-
-        # Attach review stats cache to stations
-        for station in stations_list:
-            station._reviews_stats_cache = reviews_stats_by_station.get(
-                station.id,
-                {'count': 0, 'avg_rating': 0.0}
-            )
-
-        return stations_list
 
     @strawberry_django.field
     def station_groups(
@@ -303,7 +363,7 @@ class Query:
                     'playlist_items',
                     queryset=StationPlaylistItems.objects.filter(enabled=True).order_by('playlist_item_order', 'id')
                 ),
-            ).get(id=id, disabled=False)
+            ).get(id=id, disabled=False, is_public=True)
         except Stations.DoesNotExist:
             return None
 
@@ -558,8 +618,8 @@ class Query:
                 now_playing=now_playing,
             )
 
-        # Build base station filter kwargs
-        station_filter = {'disabled': False}
+        # Build base station filter kwargs (private stations never appear here)
+        station_filter = {'disabled': False, 'is_public': True}
         station_exclude = {}
         if station_slugs:
             station_filter['slug__in'] = station_slugs
@@ -704,9 +764,9 @@ class Query:
         from_dt = datetime.fromtimestamp(from_timestamp, tz=dt_tz.utc)
         to_dt = datetime.fromtimestamp(to_timestamp, tz=dt_tz.utc)
 
-        # Query 1: find station
+        # Query 1: find station (private stations are not exposed here)
         station = Stations.objects.filter(
-            slug=station_slug, disabled=False,
+            slug=station_slug, disabled=False, is_public=True,
         ).first()
         if not station:
             raise ValueError(f"Station '{station_slug}' not found.")

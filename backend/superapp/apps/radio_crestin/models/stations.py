@@ -21,6 +21,11 @@ class Stations(models.Model):
     created_at = models.DateTimeField(_("Created at"), auto_now_add=True)
     updated_at = models.DateTimeField(_("Updated at"), auto_now=True)
     disabled = models.BooleanField(_("Disabled"), default=False)
+    is_public = models.BooleanField(
+        _("Public"),
+        default=True,
+        help_text=_("Public stations appear in all public APIs. Private stations are only visible to the allowlisted devices below."),
+    )
     order = models.IntegerField(_("Order"), default=0) # deprecated, use station_order instead
     station_order = models.FloatField(_("Station Order"), default=0)
     slug = models.SlugField(_("Slug"))
@@ -84,6 +89,15 @@ class Stations(models.Model):
         through='StationToStationGroup',
         related_name='stations',
         verbose_name=_("Groups")
+    )
+
+    visible_to_devices = models.ManyToManyField(
+        'AppUsers',
+        blank=True,
+        db_table='station_visible_to_devices',
+        related_name='private_stations',
+        verbose_name=_("Visible to Devices"),
+        help_text=_("Devices (matched by anonymous_id) allowed to see this station when it is not public."),
     )
 
     class Meta:
