@@ -1,4 +1,5 @@
 import os
+import secrets
 
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
@@ -20,7 +21,7 @@ STREAMING_BASE_URL = os.environ.get('STREAMING_BASE_URL', 'http://localhost:8085
 
 from superapp.apps.admin_portal.admin import SuperAppModelAdmin, SuperAppTabularInline, SuperAppStackedInline
 from superapp.apps.admin_portal.sites import superapp_admin_site
-from ..models import Stations, StationToStationGroup, StationStreams, StationsMetadataFetch, StationPlaylistItems
+from ..models import Stations, StationKind, StationToStationGroup, StationStreams, StationsMetadataFetch, StationPlaylistItems
 
 
 class StationResource(resources.ModelResource):
@@ -93,6 +94,7 @@ class StationsAdmin(SuperAppModelAdmin):
         'now_playing_display', 'hls_url_display', 'player_link_display',
         'hls_data_links',
         'config_version',
+        'playlist_api_usage',
     ]
 
     fieldsets = (
@@ -147,6 +149,40 @@ class StationsAdmin(SuperAppModelAdmin):
     )
 
     inlines = [StationsMetadataFetchInline, StationStreamsInline, StationPlaylistItemsInline, StationToStationGroupInline]
+
+    def get_fieldsets(self, request, obj=None):
+        """Append the Playlist API tab on playlist-type stations only."""
+        fieldsets = super().get_fieldsets(request, obj)
+        if obj and obj.station_type == StationKind.PLAYLIST:
+            fieldsets = list(fieldsets) + [
+                (_("Playlist API"), {
+                    'classes': ['tab'],
+                    'fields': ('playlist_api_usage',),
+                }),
+            ]
+        return fieldsets
+
+    def playlist_api_usage(self, obj):
+        if not obj.playlist_api_key:
+            return _("Key is generated when the station is saved.")
+        curl_example = (
+            "curl -X POST https://api.radiocrestin.ro/api/v1/station-playlist/update"
+            f" -H 'X-Api-Key: {obj.playlist_api_key}'"
+            " -H 'Content-Type: application/json'"
+            " -d '{\"station_slug\": \"" + obj.slug + "\", "
+            "\"items\": [{\"type\": \"audio\", \"url\": \"https://example.com/song.mp3\", \"title\": \"Song\"}]}'"
+        )
+        return format_html(
+            '<div style="display:flex; flex-direction:column; gap:8px;">'
+            '<code style="user-select:all; word-break:break-all;">{}</code>'
+            '<small>Authorizes external playlist updates for this station only. '
+            'POST a full-replace items array (apps pick it up within ~5-10s):</small>'
+            '<code style="white-space:pre-wrap; word-break:break-all; user-select:all;">{}</code>'
+            '</div>',
+            obj.playlist_api_key,
+            curl_example,
+        )
+    playlist_api_usage.short_description = _("Playlist API Key")
 
     def hls_url_display(self, obj):
         if obj.transcode_enabled:
@@ -283,8 +319,23 @@ class StationsAdmin(SuperAppModelAdmin):
             'latest_station_now_playing__song__artist'
         ).prefetch_related('groups')
 
-    # Admin actions for manual scraping
-    actions = ['scrape_metadata_rss_sync', 'scrape_metadata_rss_async']
+    # Admin actions for manual scraping + playlist API key management
+    actions = ['scrape_metadata_rss_sync', 'scrape_metadata_rss_async', 'regenerate_playlist_api_key']
+
+    def regenerate_playlist_api_key(self, request, queryset):
+        """Rotate the playlist update API key on selected playlist stations."""
+        regenerated = 0
+        for station in queryset.filter(station_type=StationKind.PLAYLIST):
+            station.playlist_api_key = secrets.token_urlsafe(32)
+            station.save(update_fields=['playlist_api_key'])
+            regenerated += 1
+        skipped = queryset.count() - regenerated
+
+        if regenerated:
+            messages.success(request, f"Regenerated playlist API key for {regenerated} station(s). Old keys stopped working immediately.")
+        if skipped:
+            messages.warning(request, f"Skipped {skipped} non-playlist station(s).")
+    regenerate_playlist_api_key.short_description = _("Regenerate playlist API key")
 
     # Detail actions for individual stations
     actions_detail = [

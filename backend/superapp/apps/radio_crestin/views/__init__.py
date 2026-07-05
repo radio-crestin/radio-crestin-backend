@@ -11,3 +11,4 @@ from .legacy_views import (
 from .pod_health_api import PodHealthReportView
 from .session_recording_api import SessionRecordingView
 from .device_registration_api import DeviceRegistrationView
+from .playlist_update_api import StationPlaylistUpdateView
