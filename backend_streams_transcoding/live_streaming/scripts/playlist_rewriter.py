@@ -1,7 +1,8 @@
 """
 HLS playlist rewriter — produces the two public playlists from ffmpeg's
 live.m3u8, injecting EXT-X-DATERANGE song-metadata tags from
-/data/metadata/index.json into both:
+/data/metadata/index.json plus an EXT-X-START near-live join hint
+(TIME-OFFSET = -2 x segment duration, for fast player startup) into both:
 
   index.m3u8  — the live playlist (same short window as ffmpeg's own list;
                 what normal listeners poll every ~6s).
@@ -235,6 +236,17 @@ def enhance(raw: str, songs: list[dict]) -> str:
       even when only one song is known (the case where DATERANGE
       cannot emit anything).
     """
+    # Deterministic near-live join point: start 2 target durations behind
+    # the live edge (the spec-minimum safe distance) instead of the player
+    # default of 3 — shaves one segment of startup buffering. RFC 8216
+    # §4.3.5.2: EXT-X-START is the *preferred* start point; explicit seeks
+    # (the DVR use case) still win, so the DVR variant carries it too and
+    # a DVR join before any seek also starts near live. No EXT-X-VERSION
+    # requirement; unknown-tag-tolerant players ignore it.
+    start_line: str | None = None
+    if "#EXT-X-START:" not in raw:
+        start_line = f"#EXT-X-START:TIME-OFFSET=-{2 * SEGMENT_DURATION}"
+
     earliest_pdt = _earliest_segment_pdt_epoch(raw)
     cutoff = (earliest_pdt - 2) if earliest_pdt is not None else None
 
@@ -278,7 +290,10 @@ def enhance(raw: str, songs: list[dict]) -> str:
             f'EPOCH={current_started_at}'
         )
 
-    header_inserts = list(daterange_lines)
+    header_inserts: list[str] = []
+    if start_line is not None:
+        header_inserts.append(start_line)
+    header_inserts.extend(daterange_lines)
     if metadata_changed_line is not None:
         header_inserts.append(metadata_changed_line)
 
