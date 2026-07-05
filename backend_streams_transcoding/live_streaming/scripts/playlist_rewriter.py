@@ -35,7 +35,9 @@ METADATA_PATH = Path("/data/metadata/index.json")
 
 POLL_INTERVAL = 1
 SEGMENT_DURATION = int(os.environ.get("SEGMENT_DURATION", "6"))
-HLS_LIST_SIZE = int(os.environ.get("HLS_LIST_SIZE", "65"))
+# Mirrors entrypoint.sh (1h window / 6s segments); the pod exports the
+# effective value, so this default only applies outside the pod.
+HLS_LIST_SIZE = int(os.environ.get("HLS_LIST_SIZE", "600"))
 
 
 SEGMENT_PREFIXES = (

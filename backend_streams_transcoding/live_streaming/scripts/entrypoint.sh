@@ -10,15 +10,24 @@ if ! echo "$STATION_SLUG" | grep -qE '^[a-z0-9][a-z0-9-]*[a-z0-9]$'; then
 fi
 
 SEGMENT_DURATION="${SEGMENT_DURATION:-6}"
-# 65 segments × 6s = 6.5 minutes sliding window (matches old backend_hls_streaming)
-HLS_LIST_SIZE="${HLS_LIST_SIZE:-65}"
-# Keep segments on disk past the playlist window so lagging clients and CDN
-# cache misses don't 404. Epoch-named segments are globally unique, so a long
-# retention window is safe (no risk of name collision across ffmpeg restarts).
-# (HLS_LIST_SIZE + HLS_DELETE_THRESHOLD) × SEGMENT_DURATION = (65+100)×6 ≈ 16.5 min.
+# Live seek-back window served to players. Apps offer "seek back up to 1h"
+# on live radio, so the playlist holds one hour of segments.
+HLS_WINDOW_SECONDS="${HLS_WINDOW_SECONDS:-3600}"
+# Playlist sliding window in segments: 3600s / 6s = 600 entries.
+# At 64k HE-AAC in MPEG-TS this is ~35 MB/h per station on disk
+# (~40 MB including the delete threshold below) — well within the
+# per-station 200Mi emptyDir limit set by the stream controller.
+HLS_LIST_SIZE="${HLS_LIST_SIZE:-$((HLS_WINDOW_SECONDS / SEGMENT_DURATION))}"
+# Keep segments on disk just past the playlist window so lagging clients and
+# CDN cache misses don't 404. Epoch-named segments are globally unique, so a
+# long retention window is safe (no risk of name collision across ffmpeg
+# restarts). Deletion lags the window by
+# HLS_DELETE_THRESHOLD × SEGMENT_DURATION = 100×6s = 10 min.
 HLS_DELETE_THRESHOLD="${HLS_DELETE_THRESHOLD:-100}"
 
-export SEGMENT_DURATION
+# Exported so child processes (stream_monitor, playlist_rewriter, cleanup.sh)
+# always see the effective values instead of falling back to their own defaults.
+export SEGMENT_DURATION HLS_WINDOW_SECONDS HLS_LIST_SIZE HLS_DELETE_THRESHOLD
 
 echo "Station: $STATION_SLUG"
 echo "Stream:  $STREAM_URL"
@@ -71,7 +80,7 @@ echo "Starting stream monitor..."
 python3 /app/scripts/stream_monitor.py &
 STREAM_MONITOR_PID=$!
 
-echo "Starting segment cleanup (30min max)..."
+echo "Starting segment cleanup (window-aware orphan sweep)..."
 sh /app/scripts/cleanup.sh &
 CLEANUP_PID=$!
 
