@@ -8,6 +8,7 @@ from .share_links import ShareLinkAdmin, ShareLinkVisitAdmin
 from .songs import SongsAdmin
 from .station_groups import StationGroupsAdmin
 from .station_metadata_fetch_categories import StationMetadataFetchCategoriesAdmin
+from .station_playlist_items import StationPlaylistItemsAdmin
 from .station_streams import StationStreamsAdmin
 from .station_to_station_group import StationToStationGroupAdmin
 from .stations import StationsAdmin
@@ -29,6 +30,7 @@ __all__ = [
     'SongsAdmin',
     'StationGroupsAdmin',
     'StationMetadataFetchCategoriesAdmin',
+    'StationPlaylistItemsAdmin',
     'StationStreamsAdmin',
     'StationToStationGroupAdmin',
     'StationsAdmin',

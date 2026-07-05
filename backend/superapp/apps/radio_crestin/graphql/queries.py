@@ -14,7 +14,7 @@ from .types import (
     StationMetadataHistoryType, StationMetadataHistoryEntryType,
     StationStreamingConfigType, StationScraperConfigType,
 )
-from ..models import Stations, StationGroups, StationStreams, Posts, StationToStationGroup, Artists, Songs
+from ..models import Stations, StationGroups, StationStreams, StationPlaylistItems, Posts, StationToStationGroup, Artists, Songs
 from ..models import StationsNowPlayingHistory
 from ..services import AutocompleteService
 from ..utils.cdn_proxy import proxy_image_url
@@ -94,6 +94,13 @@ class Query:
             Prefetch(
                 'station_streams',
                 queryset=StationStreams.objects.order_by('order', 'id')
+            ),
+            # Prefetch managed playlist items ordered by playlist_item_order.
+            # Unlike station_streams (not enabled-filtered here), we exclude
+            # disabled items so clients never receive an item an editor turned off.
+            Prefetch(
+                'playlist_items',
+                queryset=StationPlaylistItems.objects.filter(enabled=True).order_by('playlist_item_order', 'id')
             )
         ).filter(disabled=False)
 
@@ -289,7 +296,14 @@ class Query:
                 'latest_station_now_playing',
                 'latest_station_now_playing__song',
                 'latest_station_now_playing__song__artist'
-            ).prefetch_related('station_streams').get(id=id, disabled=False)
+            ).prefetch_related(
+                'station_streams',
+                # Exclude disabled playlist items so they never reach clients.
+                Prefetch(
+                    'playlist_items',
+                    queryset=StationPlaylistItems.objects.filter(enabled=True).order_by('playlist_item_order', 'id')
+                ),
+            ).get(id=id, disabled=False)
         except Stations.DoesNotExist:
             return None
 

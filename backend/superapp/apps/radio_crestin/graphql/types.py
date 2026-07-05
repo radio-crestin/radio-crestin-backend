@@ -39,6 +39,7 @@ from ..models import (
     Stations,
     Posts,
     StationStreams,
+    StationPlaylistItems,
     StationsUptime,
     StationsNowPlaying,
     StationGroups,
@@ -71,6 +72,12 @@ class SongType:
 
 @strawberry_django.type(model=StationStreams, fields="__all__")
 class StationStreamType:
+    id: int = strawberry_django.field()
+    station_id: int = strawberry_django.field()
+
+
+@strawberry_django.type(model=StationPlaylistItems, fields="__all__")
+class StationPlaylistItemType:
     id: int = strawberry_django.field()
     station_id: int = strawberry_django.field()
 
@@ -113,8 +120,17 @@ class StationType:
     latest_station_now_playing_id: Optional[int] = strawberry_django.field()
     # Related fields optimized for the Hasura query
     station_streams: List[StationStreamType] = strawberry_django.field(field_name="station_streams")
+    playlist_items: List[StationPlaylistItemType] = strawberry_django.field(field_name="playlist_items")
     uptime: Optional[StationUptimeType] = strawberry_django.field(field_name="latest_station_uptime")
     now_playing: Optional[StationNowPlayingType] = strawberry_django.field(field_name="latest_station_now_playing")
+
+    # Explicitly serialize station_type as a plain lowercase string
+    # ("radio" / "tv" / "playlist"). Django choices are exposed as their raw
+    # values, so clients receive the exact value strings, never an UPPERCASE
+    # GraphQL enum name.
+    @strawberry.field(name="station_type")
+    def station_type_value(self) -> str:
+        return self.station_type
 
     # Proxy thumbnail through CDN
     @strawberry.field(name="thumbnail_url")

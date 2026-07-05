@@ -80,6 +80,12 @@ def extend_superapp_settings(main_settings):
                     "permission": lambda request: request.user.has_perm("radio_crestin.view_stationstreams"),
                 },
                 {
+                    "title": lambda request: _("Playlist Items"),
+                    "icon": "playlist_play",
+                    "link": reverse_lazy("admin:radio_crestin_stationplaylistitems_changelist"),
+                    "permission": lambda request: request.user.has_perm("radio_crestin.view_stationplaylistitems"),
+                },
+                {
                     "title": lambda request: _("Metadata Categories"),
                     "icon": "category",
                     "link": reverse_lazy("admin:radio_crestin_stationmetadatafetchcategories_changelist"),

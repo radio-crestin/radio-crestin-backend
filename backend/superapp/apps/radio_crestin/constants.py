@@ -23,11 +23,22 @@ query GetStations($station_slugs: [String!], $exclude_station_slugs: [String!]) 
     description_link
     feature_latest_post
     facebook_page_id
+    station_type
     station_streams {
       __typename
       order
       type
       stream_url
+    }
+    playlist_items {
+      __typename
+      id
+      order
+      type
+      url
+      title
+      thumbnail_url
+      duration_seconds
     }
     posts(limit: 1, order_by: {published: desc}) {
       __typename

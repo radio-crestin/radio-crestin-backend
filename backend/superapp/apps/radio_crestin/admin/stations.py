@@ -20,7 +20,7 @@ STREAMING_BASE_URL = os.environ.get('STREAMING_BASE_URL', 'http://localhost:8085
 
 from superapp.apps.admin_portal.admin import SuperAppModelAdmin, SuperAppTabularInline, SuperAppStackedInline
 from superapp.apps.admin_portal.sites import superapp_admin_site
-from ..models import Stations, StationToStationGroup, StationStreams, StationsMetadataFetch
+from ..models import Stations, StationToStationGroup, StationStreams, StationsMetadataFetch, StationPlaylistItems
 
 
 class StationResource(resources.ModelResource):
@@ -51,6 +51,16 @@ class StationStreamsInline(SuperAppTabularInline):
     verbose_name_plural = _("Streams")
 
 
+class StationPlaylistItemsInline(SuperAppTabularInline):
+    model = StationPlaylistItems
+    fk_name = 'station'
+    extra = 0
+    tab = True
+    fields = ['type', 'url', 'title', 'thumbnail_url', 'playlist_item_order', 'enabled']
+    verbose_name = _("Playlist Item")
+    verbose_name_plural = _("Playlist Items")
+
+
 class StationsMetadataFetchInline(SuperAppStackedInline):
     model = StationsMetadataFetch
     fk_name = 'station'
@@ -73,8 +83,8 @@ class StationsMetadataFetchInline(SuperAppStackedInline):
 @admin.register(Stations, site=superapp_admin_site)
 class StationsAdmin(SuperAppModelAdmin):
     resource_class = StationResource
-    list_display = ['title', 'status_indicator', 'thumbnail_preview', 'station_order', 'website_link', 'groups_display', 'latest_uptime_status']
-    list_filter = ['disabled', 'transcode_enabled', 'feature_latest_post', 'groups', 'created_at']
+    list_display = ['title', 'station_type', 'status_indicator', 'thumbnail_preview', 'station_order', 'website_link', 'groups_display', 'latest_uptime_status']
+    list_filter = ['disabled', 'station_type', 'transcode_enabled', 'feature_latest_post', 'groups', 'created_at']
     search_fields = ['title', 'slug', 'website', 'email']
     prepopulated_fields = {'slug': ('title',)}
     autocomplete_fields = ['latest_station_uptime', 'latest_station_now_playing']
@@ -89,7 +99,7 @@ class StationsAdmin(SuperAppModelAdmin):
         (_("General"), {
             'classes': ['tab'],
             'fields': (
-                'title', 'slug', 'station_order', 'disabled',
+                'title', 'slug', 'station_type', 'station_order', 'disabled',
                 'website', 'email',
             ),
         }),
@@ -134,7 +144,7 @@ class StationsAdmin(SuperAppModelAdmin):
         }),
     )
 
-    inlines = [StationsMetadataFetchInline, StationStreamsInline, StationToStationGroupInline]
+    inlines = [StationsMetadataFetchInline, StationStreamsInline, StationPlaylistItemsInline, StationToStationGroupInline]
 
     def hls_url_display(self, obj):
         if obj.transcode_enabled:
