@@ -9,6 +9,14 @@ class MetadataTimestampSource(models.TextChoices):
     SCRAPER = 'scraper', _('External Scraper (periodic)')
 
 
+# Named `StationKind` (not `StationType`) to avoid colliding with the Strawberry
+# GraphQL type `StationType`, which is auto-generated from the Stations model.
+class StationKind(models.TextChoices):
+    RADIO = 'radio', _('Radio')
+    TV = 'tv', _('TV')
+    PLAYLIST = 'playlist', _('Playlist')
+
+
 class Stations(models.Model):
     created_at = models.DateTimeField(_("Created at"), auto_now_add=True)
     updated_at = models.DateTimeField(_("Updated at"), auto_now=True)
@@ -17,6 +25,13 @@ class Stations(models.Model):
     station_order = models.FloatField(_("Station Order"), default=0)
     slug = models.SlugField(_("Slug"))
     title = models.TextField(_("Title"))
+    station_type = models.CharField(
+        _("Station Type"),
+        max_length=16,
+        choices=StationKind.choices,
+        default=StationKind.RADIO,
+        help_text=_("Radio stream, TV stream, or a managed playlist of media items"),
+    )
     website = models.URLField(_("Website"))
     email = models.TextField(_("Email"), blank=True, null=False, default="")
     transcode_enabled = models.BooleanField(_("Live Transcoding"), default=True)

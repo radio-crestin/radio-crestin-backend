@@ -3,8 +3,9 @@ from .songs import Songs
 from .station_groups import StationGroups
 from .station_metadata_fetch_categories import StationMetadataFetchCategories
 from .station_to_station_group import StationToStationGroup
-from .stations import Stations, MetadataTimestampSource
+from .stations import Stations, MetadataTimestampSource, StationKind
 from .station_streams import StationStreams
+from .station_playlist_items import StationPlaylistItems, PlaylistItemType
 from .stations_metadata_fetch import StationsMetadataFetch
 from .posts import Posts
 from .stations_now_playing import StationsNowPlaying
@@ -24,7 +25,10 @@ __all__ = [
     'StationToStationGroup',
     'Stations',
     'MetadataTimestampSource',
+    'StationKind',
     'StationStreams',
+    'StationPlaylistItems',
+    'PlaylistItemType',
     'StationsMetadataFetch',
     'Posts',
     'StationsNowPlaying',
