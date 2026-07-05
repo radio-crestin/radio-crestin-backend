@@ -309,10 +309,16 @@ class Query:
         """
         # Build optimized queryset
         queryset = StationGroups.objects.prefetch_related(
-            # Prefetch station-to-group relationships with ordering
+            # Prefetch station-to-group relationships with ordering.
+            # Membership rows are restricted to the stations the public
+            # stations list itself exposes (not disabled, public), so private
+            # station ids never leak through the groups payload.
             Prefetch(
                 'station_to_station_groups',
-                queryset=StationToStationGroup.objects.select_related('station').order_by('order', 'station__title')
+                queryset=StationToStationGroup.objects.filter(
+                    station__disabled=False,
+                    station__is_public=True,
+                ).select_related('station').order_by('order', 'station__title')
             )
         )
 
