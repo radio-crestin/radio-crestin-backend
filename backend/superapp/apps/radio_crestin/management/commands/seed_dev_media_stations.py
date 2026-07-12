@@ -23,15 +23,45 @@ from superapp.apps.radio_crestin.models import (
 YOUTUBE_VIDEO_URL = 'https://www.youtube.com/watch?v=M7lc1UVf-VE'  # YouTube IFrame API demo video
 # Playlist referenced by the official YouTube IFrame Player API docs (cuePlaylist example)
 YOUTUBE_PLAYLIST_URL = 'https://www.youtube.com/playlist?list=PLC77007E23FF423C6'
-# A second real playlist so the app exercises more than one youtube_playlist item.
-YOUTUBE_PLAYLIST_URL_2 = 'https://www.youtube.com/playlist?list=PLT0o16dku1NHDiS4rDXqwCgfMN1AQuCq2'
-YOUTUBE_PLAYLIST_2_THUMB = 'https://i.ytimg.com/vi/X3RvK_bJris/hqdefault.jpg'
 # Short (10s, 720p) MP4 clip; the classic gtv-videos-bucket samples were retired.
 BIG_BUCK_BUNNY_MP4 = 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_5MB.mp4'
 SINTEL_TRAILER_MP4 = 'https://media.w3.org/2010/05/sintel/trailer.mp4'
 SOUNDHELIX_MP3 = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
 MUX_HLS_VOD = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8'
 APPLE_BIPBOP_HLS = 'https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8'
+
+# First 25 videos (playlist positions 1-25, newest first) of the BCEV Live
+# YouTube playlist (list=PLT0o16dku1NHDiS4rDXqwCgfMN1AQuCq2). Snapshot taken
+# 2026-07-12; the playlist held 646 videos, so the remaining 621 are skipped
+# to keep the test station a reasonable size. Every video is titled
+# "BCEV Live" on YouTube, so items are numbered by playlist position to stay
+# distinguishable in the app.
+BCEV_LIVE_VIDEO_IDS = [
+    'X3RvK_bJris', 'OvT6Ihluo5Q', 'm5B4pNkxsNA', 'A-73SwiT9YE', 'nWogqJs1DFY',
+    'DNL872CNIYs', 'efS6mUk26RI', 'ht3ptf3DzF0', '3Xs-wT41WFM', 'FSLhnGCB2bk',
+    'HGL33as3zXo', '7Sm6v0UnAbE', 'LHZN62__pTA', 'sV86wQkG-QY', 'a4DQT9MJ9WE',
+    'CIMYAObQ1M0', 'X6cVys7J0zg', 'i1uQZJKV_9s', 'oItualjByss', 'j1DsoI47hgQ',
+    'u8MxOfqkMsg', 'sEcjqbhIZok', 'dgiW5TV5zHs', 'oWvtQ0yzoIg', 'EmLkHyFqTTA',
+]
+
+
+def _bcev_live_playlist_items():
+    """One `youtube` item per BCEV Live video, listed OLDEST -> NEWEST.
+
+    Clients are served newest-first (highest playlist_item_order first), so
+    reversing the newest-first id list makes playlist position 1 play first.
+    """
+    return [
+        {
+            'type': PlaylistItemType.YOUTUBE,
+            'url': f'https://www.youtube.com/watch?v={video_id}',
+            'title': f'BCEV Live #{position}',
+            'thumbnail_url': f'https://i.ytimg.com/vi/{video_id}/hqdefault.jpg',
+            'duration_seconds': None,
+        }
+        for position, video_id in
+        reversed(list(enumerate(BCEV_LIVE_VIDEO_IDS, start=1)))
+    ]
 
 # station_order values well past real stations so test entries sort last.
 # playlist_items are listed OLDEST -> NEWEST (playlist_item_order 1..n);
@@ -72,13 +102,6 @@ SEED_STATIONS = [
                 'title': 'SoundHelix Song 1 (MP3)',
                 'thumbnail_url': None,
                 'duration_seconds': 372,
-            },
-            {
-                'type': PlaylistItemType.YOUTUBE_PLAYLIST,
-                'url': YOUTUBE_PLAYLIST_URL_2,
-                'title': 'BCEV Live',
-                'thumbnail_url': YOUTUBE_PLAYLIST_2_THUMB,
-                'duration_seconds': None,
             },
         ],
         'streams': [],
@@ -121,6 +144,15 @@ SEED_STATIONS = [
                 'station_stream_order': 1,
             },
         ],
+    },
+    {
+        'slug': 'test-bcev-live-dev',
+        'title': 'Test: BCEV Live (Dev)',
+        'station_type': StationKind.PLAYLIST,
+        'station_order': 9004,
+        'stream_url': 'https://www.radiocrestin.ro',
+        'playlist_items': _bcev_live_playlist_items(),
+        'streams': [],
     },
 ]
 
