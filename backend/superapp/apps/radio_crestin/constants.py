@@ -128,6 +128,7 @@ query GetStationPlaylist($station_slugs: [String!]) @cached(ttl: 0) {
     id
     slug
     station_type
+    thumbnail_url
     playlist_items {
       id
       order

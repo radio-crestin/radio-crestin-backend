@@ -81,6 +81,15 @@ class StationPlaylistItemType:
     id: int = strawberry_django.field()
     station_id: int = strawberry_django.field()
 
+    # Resolved thumbnail: the uploaded image wins over the manual URL, but the
+    # wire field stays `thumbnail_url` so existing clients keep working.
+    @strawberry.field(name="thumbnail_url")
+    def resolved_thumbnail_url(self) -> Optional[str]:
+        thumbnail = getattr(self, 'thumbnail', None)
+        if thumbnail:
+            return thumbnail.url
+        return getattr(self, 'thumbnail_url', None) or None
+
 
 @strawberry_django.type(model=Posts, fields="__all__")
 class PostType:

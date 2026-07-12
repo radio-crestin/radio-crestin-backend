@@ -1,6 +1,8 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from ...storage.config import get_public_storage
+
 
 class PlaylistItemType(models.TextChoices):
     AUDIO = 'audio', _('Audio')
@@ -39,6 +41,16 @@ class StationPlaylistItems(models.Model):
         help_text=_("Media URL — direct MP3/AAC/MP4 file, HLS .m3u8, or a full YouTube link"),
     )
     title = models.TextField(_("Title"), blank=True, null=False, default="")
+    # Optional uploaded artwork; mirrors the Stations.thumbnail conventions.
+    # APIs serve a resolved thumbnail (upload wins over `thumbnail_url`), so
+    # the wire field stays `thumbnail_url` — see `resolved_thumbnail_url`.
+    thumbnail = models.ImageField(
+        _("Thumbnail"),
+        storage=get_public_storage,
+        upload_to='playlist_items/',
+        blank=True,
+        null=True,
+    )
     thumbnail_url = models.URLField(_("Thumbnail URL"), blank=True, null=True)
     duration_seconds = models.IntegerField(_("Duration (seconds)"), blank=True, null=True)
     order = models.IntegerField(_("Order"), default=0)  # Deprecated, use playlist_item_order
@@ -55,6 +67,13 @@ class StationPlaylistItems(models.Model):
     def __str__(self):
         label = self.title or self.url
         return f"{self.station} -> {label}"
+
+    @property
+    def resolved_thumbnail_url(self):
+        """Thumbnail served to clients: uploaded image wins over the URL."""
+        if self.thumbnail:
+            return self.thumbnail.url
+        return self.thumbnail_url or None
 
     def save(self, *args, **kwargs):
         self.order = round(self.playlist_item_order) if self.playlist_item_order is not None else 0

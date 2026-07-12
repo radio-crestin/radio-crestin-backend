@@ -57,7 +57,7 @@ class StationPlaylistItemsInline(SuperAppTabularInline):
     fk_name = 'station'
     extra = 0
     tab = True
-    fields = ['type', 'url', 'title', 'thumbnail_url', 'playlist_item_order', 'enabled']
+    fields = ['type', 'url', 'title', 'thumbnail', 'thumbnail_url', 'playlist_item_order', 'enabled']
     verbose_name = _("Playlist Item")
     verbose_name_plural = _("Playlist Items")
 
