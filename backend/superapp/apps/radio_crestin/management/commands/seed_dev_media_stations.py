@@ -23,10 +23,12 @@ from superapp.apps.radio_crestin.models import (
 YOUTUBE_VIDEO_URL = 'https://www.youtube.com/watch?v=M7lc1UVf-VE'  # YouTube IFrame API demo video
 # Playlist referenced by the official YouTube IFrame Player API docs (cuePlaylist example)
 YOUTUBE_PLAYLIST_URL = 'https://www.youtube.com/playlist?list=PLC77007E23FF423C6'
-BIG_BUCK_BUNNY_MP4 = 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
-BIG_BUCK_BUNNY_POSTER = 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg'
-ELEPHANTS_DREAM_MP4 = 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4'
-ELEPHANTS_DREAM_POSTER = 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ElephantsDream.jpg'
+# A second real playlist so the app exercises more than one youtube_playlist item.
+YOUTUBE_PLAYLIST_URL_2 = 'https://www.youtube.com/playlist?list=PLT0o16dku1NHDiS4rDXqwCgfMN1AQuCq2'
+YOUTUBE_PLAYLIST_2_THUMB = 'https://i.ytimg.com/vi/X3RvK_bJris/hqdefault.jpg'
+# Short (10s, 720p) MP4 clip; the classic gtv-videos-bucket samples were retired.
+BIG_BUCK_BUNNY_MP4 = 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_5MB.mp4'
+SINTEL_TRAILER_MP4 = 'https://media.w3.org/2010/05/sintel/trailer.mp4'
 SOUNDHELIX_MP3 = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
 MUX_HLS_VOD = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8'
 APPLE_BIPBOP_HLS = 'https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8'
@@ -60,9 +62,9 @@ SEED_STATIONS = [
             {
                 'type': PlaylistItemType.VIDEO,
                 'url': BIG_BUCK_BUNNY_MP4,
-                'title': 'Big Buck Bunny (MP4)',
-                'thumbnail_url': BIG_BUCK_BUNNY_POSTER,
-                'duration_seconds': 596,
+                'title': 'Big Buck Bunny (720p MP4, 10s)',
+                'thumbnail_url': None,
+                'duration_seconds': 10,
             },
             {
                 'type': PlaylistItemType.AUDIO,
@@ -70,6 +72,13 @@ SEED_STATIONS = [
                 'title': 'SoundHelix Song 1 (MP3)',
                 'thumbnail_url': None,
                 'duration_seconds': 372,
+            },
+            {
+                'type': PlaylistItemType.YOUTUBE_PLAYLIST,
+                'url': YOUTUBE_PLAYLIST_URL_2,
+                'title': 'BCEV Live',
+                'thumbnail_url': YOUTUBE_PLAYLIST_2_THUMB,
+                'duration_seconds': None,
             },
         ],
         'streams': [],
@@ -85,15 +94,15 @@ SEED_STATIONS = [
                 'type': PlaylistItemType.VIDEO,
                 'url': MUX_HLS_VOD,
                 'title': 'Big Buck Bunny (HLS VOD, mux test stream)',
-                'thumbnail_url': BIG_BUCK_BUNNY_POSTER,
+                'thumbnail_url': None,
                 'duration_seconds': None,
             },
             {
                 'type': PlaylistItemType.VIDEO,
-                'url': ELEPHANTS_DREAM_MP4,
-                'title': 'Elephants Dream (MP4)',
-                'thumbnail_url': ELEPHANTS_DREAM_POSTER,
-                'duration_seconds': 653,
+                'url': SINTEL_TRAILER_MP4,
+                'title': 'Sintel Trailer (MP4)',
+                'thumbnail_url': None,
+                'duration_seconds': 52,
             },
         ],
         'streams': [],
