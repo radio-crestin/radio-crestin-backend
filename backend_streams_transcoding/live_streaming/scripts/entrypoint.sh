@@ -10,10 +10,17 @@ if ! echo "$STATION_SLUG" | grep -qE '^[a-z0-9][a-z0-9-]*[a-z0-9]$'; then
 fi
 
 SEGMENT_DURATION="${SEGMENT_DURATION:-6}"
-# Live playlist window served to normal listeners at /index.m3u8. Kept short
-# (65 × 6s = 6.5 min, the pre-DVR size) so the playlist stays ~12 KB — most
-# listeners poll it every ~6s, so its size dominates playlist egress.
-HLS_WINDOW_SECONDS="${HLS_WINDOW_SECONDS:-390}"
+# Live playlist window served to normal listeners at /index.m3u8. Sized to
+# guarantee AT LEAST 10 min (600s) of audio is always available, with margin:
+# 660s / 6s = 110 entries → 11 min steady-state. ffmpeg transiently holds a
+# few segments fewer than the list size while rotating near the live edge
+# (~107 observed at cap), so the 660s target keeps the served window ≥10 min
+# even at the worst point of the rotation. The playlist grows to ~20 KB
+# (from ~12 KB at the old 65-entry / 6.5-min window); listeners poll it every
+# ~6s, so this raises playlist egress ~1.7x — an accepted cost for the DVR-
+# grade 10-min live buffer. On-disk retention is unaffected (see below): it is
+# driven by the 1h DVR window, which already dwarfs any live-window size.
+HLS_WINDOW_SECONDS="${HLS_WINDOW_SECONDS:-660}"
 HLS_LIST_SIZE="${HLS_LIST_SIZE:-$((HLS_WINDOW_SECONDS / SEGMENT_DURATION))}"
 # DVR playlist window served at /dvr.m3u8 — apps switch to it only when the
 # user rewinds ("seek back up to 1h"). Built by playlist_rewriter.py from
@@ -23,9 +30,12 @@ HLS_LIST_SIZE="${HLS_LIST_SIZE:-$((HLS_WINDOW_SECONDS / SEGMENT_DURATION))}"
 DVR_WINDOW_SECONDS="${DVR_WINDOW_SECONDS:-3600}"
 DVR_LIST_SIZE="${DVR_LIST_SIZE:-$((DVR_WINDOW_SECONDS / SEGMENT_DURATION))}"
 # ffmpeg deletes a segment once it falls HLS_DELETE_THRESHOLD entries behind
-# its own (short) live playlist, so the threshold must cover the entire DVR
-# window plus a margin for lagging clients / CDN cache misses:
-# 600 - 65 + 100 = 635 → 65+635 = 700 segments ≈ 70 min on disk.
+# its own live playlist, so the threshold must cover the entire DVR window
+# plus a margin for lagging clients / CDN cache misses. It is derived from the
+# DVR and live sizes, so the on-disk total stays constant regardless of the
+# live-window size: 600 - 110 + 100 = 590 → 110+590 = 700 segments ≈ 70 min on
+# disk. That 70 min comfortably exceeds the 11-min live window, so a client
+# playing at the tail of the live playlist is never at risk of a 404.
 # Epoch-prefixed segment names stay globally unique, so long retention is
 # safe across ffmpeg restarts (no name collisions).
 HLS_DELETE_THRESHOLD="${HLS_DELETE_THRESHOLD:-$((DVR_LIST_SIZE - HLS_LIST_SIZE + 100))}"

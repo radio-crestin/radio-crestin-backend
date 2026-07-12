@@ -10,10 +10,12 @@
 # window (dvr.m3u8) — so it can never delete a segment still referenced by
 # either playlist:
 #   (HLS_LIST_SIZE + HLS_DELETE_THRESHOLD) x SEGMENT_DURATION + 10 min margin.
-# Defaults mirror entrypoint.sh: (65+635)x6s/60 + 10 = 80 minutes.
+# Defaults mirror entrypoint.sh: (110+590)x6s/60 + 10 = 80 minutes. (The
+# on-disk total is DVR-driven, so it stays 700 segments regardless of the
+# live-window size — widening the live window does not shorten retention.)
 SEGMENT_DURATION="${SEGMENT_DURATION:-6}"
-HLS_LIST_SIZE="${HLS_LIST_SIZE:-65}"
-HLS_DELETE_THRESHOLD="${HLS_DELETE_THRESHOLD:-635}"
+HLS_LIST_SIZE="${HLS_LIST_SIZE:-110}"
+HLS_DELETE_THRESHOLD="${HLS_DELETE_THRESHOLD:-590}"
 RETENTION_MIN=$(( (HLS_LIST_SIZE + HLS_DELETE_THRESHOLD) * SEGMENT_DURATION / 60 + 10 ))
 
 while true; do
