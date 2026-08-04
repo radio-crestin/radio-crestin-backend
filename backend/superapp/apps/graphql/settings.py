@@ -21,3 +21,7 @@ def extend_superapp_settings(main_settings):
 
     # Add connection abort handler middleware early in the chain
     main_settings['MIDDLEWARE'].insert(0, 'superapp.apps.graphql.middleware.ConnectionAbortMiddleware')
+
+    # First in the list means its response phase runs last, which is the only
+    # place the Vary headers added by Session/Locale middleware can be undone.
+    main_settings['MIDDLEWARE'].insert(0, 'superapp.apps.graphql.middleware.PublicCacheHeadersMiddleware')

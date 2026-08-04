@@ -228,7 +228,15 @@ class GraphQLRestApiView(View):
         # Add cache control
         if self.endpoint_config.cache_control:
             response['Cache-Control'] = self.endpoint_config.cache_control
-        
+
+            # Flag for PublicCacheHeadersMiddleware, which runs last and clears
+            # the Vary: Cookie / Accept-Language that Django's session and
+            # locale middleware would otherwise append — those make Cloudflare
+            # refuse to cache the response at all.
+            if 'public' in self.endpoint_config.cache_control.lower():
+                response._public_cacheable = True
+
+
         # Add extra headers
         for header, value in self.endpoint_config.extra_headers.items():
             response[header] = value

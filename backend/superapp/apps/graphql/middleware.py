@@ -36,6 +36,56 @@ class GraphQlSuperuserApiAuthMiddleware:
         return response
 
 
+class PublicCacheHeadersMiddleware:
+    """
+    Make publicly-cacheable responses actually cacheable at the edge.
+
+    Django appends to Vary during *response* processing, after the view has run:
+    LocaleMiddleware always adds `Accept-Language`, and SessionMiddleware adds
+    `Cookie` whenever the session is touched. Cloudflare declines to cache any
+    response whose Vary names anything beyond Accept-Encoding, so those two
+    additions silently defeated the `Cache-Control: public, max-age=..., immutable`
+    that endpoints like /api/v1/stations set — every timestamp bucket travelled
+    to the origin instead of being served from the edge.
+
+    Registered first in MIDDLEWARE so its response phase runs last, after the
+    middlewares that add Vary. It only rewrites responses a view opted in by
+    setting `_public_cacheable`, so authenticated and per-user views keep their
+    correct Vary headers.
+
+    Supports both sync and async (ASGI) request paths.
+    """
+
+    sync_capable = True
+    async_capable = True
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+        if iscoroutinefunction(self.get_response):
+            markcoroutinefunction(self)
+
+    def __call__(self, request):
+        if iscoroutinefunction(self.get_response):
+            return self.__acall__(request)
+        return self._patch(self.get_response(request))
+
+    async def __acall__(self, request):
+        return self._patch(await self.get_response(request))
+
+    @staticmethod
+    def _patch(response):
+        if not getattr(response, '_public_cacheable', False):
+            return response
+
+        response['Vary'] = 'Accept-Encoding'
+        # One shared cache entry must never carry a Set-Cookie, or the first
+        # visitor's session would be handed to everyone who hits the same entry.
+        # It is also a second reason Cloudflare would refuse to store it.
+        if response.has_header('Set-Cookie'):
+            del response['Set-Cookie']
+        return response
+
+
 def _client_gone_response(request, context):
     """
     Build the 499 ("Client Closed Request") returned when the peer is already gone.
