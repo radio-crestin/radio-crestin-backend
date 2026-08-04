@@ -126,6 +126,29 @@ def _build_data_volume(slug: str) -> client.V1Volume:
     )
 
 
+def _spread_across_nodes(match_labels: dict) -> list[client.V1TopologySpreadConstraint]:
+    """
+    Even out pods carrying `match_labels` across the cluster's nodes.
+
+    Each station is its own single-replica Deployment, so spreading within a
+    Deployment would do nothing. The selector therefore matches the whole
+    `app=live-stream` fleet: the scheduler compares how many streamers each node
+    already runs and places the next one on the emptiest, which is what keeps
+    ffmpeg off the nodes serving Postgres and the API.
+
+    ScheduleAnyway rather than DoNotSchedule — a station that cannot be placed
+    perfectly must still go somewhere rather than sit Pending and stay off air.
+    """
+    return [
+        client.V1TopologySpreadConstraint(
+            max_skew=1,
+            topology_key="kubernetes.io/hostname",
+            when_unsatisfiable="ScheduleAnyway",
+            label_selector=client.V1LabelSelector(match_labels=match_labels),
+        )
+    ]
+
+
 def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
     """Build Deployment spec for a station streamer with fast restart on failure."""
     labels = {"app": LABEL_APP, "station": slug}
@@ -159,6 +182,9 @@ def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
                 ),
                 spec=client.V1PodSpec(
                     restart_policy="Always",
+                    # Balance the whole streamer fleet across nodes, not just
+                    # this station's single replica.
+                    topology_spread_constraints=_spread_across_nodes({"app": LABEL_APP}),
                     # Grace period must exceed preStop sleep to allow connection draining
                     termination_grace_period_seconds=30,
                     image_pull_secrets=[
@@ -320,6 +346,7 @@ def ensure_listing_deployment(
             template=client.V1PodTemplateSpec(
                 metadata=client.V1ObjectMeta(labels=labels),
                 spec=client.V1PodSpec(
+                    topology_spread_constraints=_spread_across_nodes(labels),
                     image_pull_secrets=[
                         client.V1LocalObjectReference(name=IMAGE_PULL_SECRET)
                     ] if IMAGE_PULL_SECRET else None,
