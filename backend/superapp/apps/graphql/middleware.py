@@ -2,6 +2,7 @@ import asyncio
 import os
 import logging
 
+from asgiref.sync import iscoroutinefunction, markcoroutinefunction
 from django.contrib.auth import get_user_model
 from django.http import JsonResponse
 
@@ -35,12 +36,42 @@ class GraphQlSuperuserApiAuthMiddleware:
         return response
 
 
+def _client_gone_response(request, context):
+    """
+    Build the 499 ("Client Closed Request") returned when the peer is already gone.
+
+    Two details keep this quiet in the logs:
+
+    * 499 is an nginx extension with no entry in http.client.responses, so
+      HttpResponse.reason_phrase would fall back to the literal string
+      "Unknown Status Code". Set the phrase explicitly.
+    * BaseHandler.get_response{,_async}() calls log_response() for every
+      response with status >= 400, which logs "<reason_phrase>: <path>" at
+      WARNING. A client hanging up is not a server error, so mark the response
+      as already logged and keep our own DEBUG line instead.
+    """
+    logger.debug("%s: %s %s", context, request.method, request.path)
+    response = JsonResponse({"error": "Connection closed"}, status=499)
+    response.reason_phrase = "Client Closed Request"
+    response._has_been_logged = True
+    return response
+
+
 class ConnectionAbortMiddleware:
     """
-    Middleware to handle client disconnections and other connection issues.
+    Turn abrupt client disconnections into a quiet 499 instead of a traceback.
 
-    Catches CancelledError (ASGI request timeout), SystemExit, BrokenPipe,
-    and ConnectionReset to prevent unhandled exceptions from crashing workers.
+    Two exception types are deliberately NOT caught here:
+
+    * asyncio.CancelledError — ASGIHandler.handle() cancels the request task
+      when it sees http.disconnect and expects the task to re-raise, so it can
+      skip response.close() and fire request_finished. Swallowing it makes
+      Django write a response to a dead socket and lets the view keep spending
+      DB/CPU on a client that already left.
+    * SystemExit — gunicorn raises this in the worker (sys.exit(1) on SIGABRT)
+      when it kills a worker that blew past its timeout. Catching it stops the
+      worker from exiting as intended.
+
     Supports both sync and async (ASGI) request paths.
     """
 
@@ -49,35 +80,24 @@ class ConnectionAbortMiddleware:
 
     def __init__(self, get_response):
         self.get_response = get_response
-        if asyncio.iscoroutinefunction(self.get_response):
-            self._is_coroutine = asyncio.coroutines._is_coroutine
+        if iscoroutinefunction(self.get_response):
+            markcoroutinefunction(self)
 
     def __call__(self, request):
-        if asyncio.iscoroutinefunction(self.get_response):
+        if iscoroutinefunction(self.get_response):
             return self.__acall__(request)
         try:
-            response = self.get_response(request)
-            return response
-        except (SystemExit, asyncio.CancelledError):
-            logger.debug(f"Client disconnected during request: {request.method} {request.path}")
-            return JsonResponse({"error": "Connection closed"}, status=499)
+            return self.get_response(request)
         except (BrokenPipeError, ConnectionResetError):
-            logger.debug(f"Connection closed during request: {request.method} {request.path}")
-            return JsonResponse({"error": "Connection closed"}, status=499)
-        except Exception as e:
-            logger.error(f"Unexpected error in ConnectionAbortMiddleware: {e}", exc_info=True)
-            raise
+            return _client_gone_response(request, "Connection closed during request")
 
     async def __acall__(self, request):
         try:
-            response = await self.get_response(request)
-            return response
-        except (asyncio.CancelledError, SystemExit):
-            logger.debug(f"Request cancelled (ASGI): {request.method} {request.path}")
-            return JsonResponse({"error": "Connection closed"}, status=499)
-        except (BrokenPipeError, ConnectionResetError):
-            logger.debug(f"Connection closed (ASGI): {request.method} {request.path}")
-            return JsonResponse({"error": "Connection closed"}, status=499)
-        except Exception as e:
-            logger.error(f"Unexpected error in ConnectionAbortMiddleware (async): {e}", exc_info=True)
+            return await self.get_response(request)
+        except asyncio.CancelledError:
+            logger.debug(
+                "Request cancelled, client disconnected: %s %s", request.method, request.path
+            )
             raise
+        except (BrokenPipeError, ConnectionResetError):
+            return _client_gone_response(request, "Connection closed during request (ASGI)")

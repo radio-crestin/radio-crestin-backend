@@ -84,7 +84,10 @@ class Mutation:
             station_cache = {}
 
             for event_input in events:
-                logger.info("Processing event: %s", event_input)
+                # DEBUG, not INFO: streaming pods submit these in batches for every
+                # active listener, so one line per event floods the web pod logs
+                # (and the formatting/IO cost lands in the request path).
+                logger.debug("Processing event: %s", event_input)
                 try:
                     # Parse timestamp
                     timestamp = datetime.fromisoformat(event_input.timestamp.replace('Z', '+00:00'))
