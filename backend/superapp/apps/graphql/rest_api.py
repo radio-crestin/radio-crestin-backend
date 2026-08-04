@@ -31,6 +31,10 @@ class RestApiEndpoint:
     
     # Response configuration
     cache_control: Optional[str] = None  # Cache-Control header value
+    # Seconds to keep the rendered response in Redis (0 disables it). Only GET
+    # endpoints whose response is fully determined by the URL may set this —
+    # the key is the path plus query string, shared across all callers.
+    cache_ttl: int = 0
     cors_enabled: bool = True  # Enable CORS headers
     cors_origins: str = "*"  # Allowed CORS origins
     cors_methods: Optional[List[str]] = None  # Allowed CORS methods
@@ -93,6 +97,8 @@ class RestApiRegistry:
             config_kwargs['name'] = endpoint_class.name
         if hasattr(endpoint_class, 'cache_control'):
             config_kwargs['cache_control'] = endpoint_class.cache_control
+        if hasattr(endpoint_class, 'cache_ttl'):
+            config_kwargs['cache_ttl'] = endpoint_class.cache_ttl
         if hasattr(endpoint_class, 'cors_enabled'):
             config_kwargs['cors_enabled'] = endpoint_class.cors_enabled
         if hasattr(endpoint_class, 'cors_origins'):
@@ -137,6 +143,7 @@ def rest_api(
     method: HttpMethod = HttpMethod.GET,
     name: Optional[str] = None,
     cache_control: Optional[str] = None,
+    cache_ttl: int = 0,
     cors_enabled: bool = True,
     pre_processor: Optional[Callable] = None,
     post_processor: Optional[Callable] = None,
@@ -163,6 +170,7 @@ def rest_api(
             method=method,
             name=name,
             cache_control=cache_control,
+            cache_ttl=cache_ttl,
             cors_enabled=cors_enabled,
             pre_processor=pre_processor,
             post_processor=post_processor,

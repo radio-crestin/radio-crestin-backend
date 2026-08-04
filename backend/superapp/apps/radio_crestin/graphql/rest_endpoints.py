@@ -92,6 +92,9 @@ class StationsApiEndpoint(RestApiEndpoint):
     method = HttpMethod.GET
     name = "api_v1_stations"
     cache_control = "public, max-age=2592000, immutable"
+    # Matches the 10s timestamp window below: every poller inside a window
+    # shares one execution instead of each hitting Postgres.
+    cache_ttl = 10
     cors_enabled = True
 
     @staticmethod
@@ -345,6 +348,8 @@ class ReviewsListApiEndpoint(RestApiEndpoint):
     method = HttpMethod.GET
     name = "api_v1_reviews_list"
     cache_control = "public, max-age=2592000, immutable"
+    # Matches the 10s timestamp window below.
+    cache_ttl = 10
     cors_enabled = True
 
     @staticmethod
@@ -421,6 +426,9 @@ class StationsMetadataApiEndpoint(RestApiEndpoint):
     method = HttpMethod.GET
     name = "api_v1_stations_metadata"
     cache_control = "public, max-age=2592000, immutable"
+    # Matches the 10s timestamp window below. This is the most-polled endpoint,
+    # so it benefits the most from collapsing a window into one execution.
+    cache_ttl = 10
     cors_enabled = True
 
     @staticmethod
@@ -479,6 +487,8 @@ class StationsMetadataHistoryApiEndpoint(RestApiEndpoint):
     method = HttpMethod.GET
     name = "api_v1_stations_metadata_history"
     cache_control = "public, max-age=60"
+    # Pure history over a closed time range — the answer never changes.
+    cache_ttl = 60
     cors_enabled = True
 
     @staticmethod
@@ -511,6 +521,8 @@ class StationPlaylistApiEndpoint(RestApiEndpoint):
     method = HttpMethod.GET
     name = "api_v1_station_playlist"
     cache_control = "public, max-age=2592000, immutable"
+    # Matches TIMESTAMP_WINDOW_SECONDS below.
+    cache_ttl = 5
     cors_enabled = True
 
     # 5s window to match the clients' polling cadence (other endpoints use 10s)
@@ -571,6 +583,9 @@ class PrivateStationsApiEndpoint(RestApiEndpoint):
     method = HttpMethod.GET
     name = "api_v1_private_stations"
     cache_control = "public, max-age=2592000, immutable"
+    # Matches TIMESTAMP_WINDOW_SECONDS below. Keys include device_id, so each
+    # device gets its own entry.
+    cache_ttl = 60
     cors_enabled = True
 
     # 60s window: per-device URLs barely benefit from CDN caching, so a

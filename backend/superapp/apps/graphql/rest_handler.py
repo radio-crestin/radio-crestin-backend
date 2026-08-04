@@ -5,13 +5,17 @@ This module provides a view handler that executes GraphQL queries/mutations
 and returns JSON responses for REST API endpoints.
 """
 
+import hashlib
+import json
 import logging
 from typing import Dict, Any, Optional
 
+from django.core.cache import cache
 from django.http import JsonResponse, HttpResponseRedirect, HttpResponse
 from django.views import View
 from strawberry.django.context import StrawberryDjangoContext
 
+from superapp.apps.graphql.rest_api import HttpMethod
 from superapp.apps.graphql.schema import schema
 
 
@@ -101,6 +105,18 @@ class GraphQLRestApiView(View):
                         status=pre_result.get('status', 400)
                     )
 
+            # Serve from Redis when the endpoint opts in. These endpoints round
+            # their timestamp into fixed windows, so one URL names one immutable
+            # snapshot and dozens of concurrent pollers can share a single
+            # execution instead of each running the query against Postgres.
+            cache_key = self._response_cache_key(request)
+            if cache_key is not None:
+                cached_data = cache.get(cache_key)
+                if cached_data is not None:
+                    response = JsonResponse(cached_data)
+                    self._add_headers(response)
+                    return response
+
             # Extract GraphQL variables
             variables = {}
             if self.endpoint_config.variable_extractor:
@@ -116,6 +132,11 @@ class GraphQLRestApiView(View):
             # Run post-processor if configured
             if self.endpoint_config.post_processor:
                 response_data = self.endpoint_config.post_processor(response_data, request, **kwargs)
+
+            # Only successful results are worth keeping — caching an error would
+            # pin it in place for the whole TTL.
+            if cache_key is not None and not response_data.get('errors'):
+                cache.set(cache_key, response_data, self.endpoint_config.cache_ttl)
 
             # Create JSON response
             response = JsonResponse(response_data)
@@ -139,6 +160,30 @@ class GraphQLRestApiView(View):
 
             return response
     
+    def _response_cache_key(self, request) -> Optional[str]:
+        """
+        Redis key for this request's response, or None if it must not be cached.
+
+        The entry is shared between every caller, so caching is limited to GET
+        endpoints that opted in with cache_ttl and whose response depends only
+        on the URL. Requests carrying an Authorization header are skipped so a
+        privileged response can never land in the shared entry.
+
+        Query parameters are sorted, so the same parameters in a different order
+        hit the same entry.
+        """
+        if self.endpoint_config.cache_ttl <= 0:
+            return None
+        if request.method != HttpMethod.GET.value:
+            return None
+        if request.headers.get('Authorization'):
+            return None
+
+        params = sorted((key, sorted(values)) for key, values in request.GET.lists())
+        key_source = json.dumps([request.path, params], separators=(',', ':'))
+        digest = hashlib.md5(key_source.encode()).hexdigest()
+        return f"restapi:{digest}"
+
     def _execute_graphql(self, query: str, variables: Dict[str, Any], request) -> Dict[str, Any]:
         """
         Execute GraphQL query/mutation using Strawberry schema

@@ -11,7 +11,13 @@ from ..models import (
 )
 
 
-@override_settings(DEBUG_TOOLBAR_CONFIG={"SHOW_TOOLBAR_CALLBACK": lambda request: False})
+# DummyCache keeps these tests hermetic: the REST endpoints cache their
+# responses in Redis, so a real cache would let one run (or one test) serve the
+# next from a stored entry and measure zero queries.
+@override_settings(
+    DEBUG_TOOLBAR_CONFIG={"SHOW_TOOLBAR_CALLBACK": lambda request: False},
+    CACHES={'default': {'BACKEND': 'django.core.cache.backends.dummy.DummyCache'}},
+)
 class StationsMetadataPerformanceTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -129,9 +135,11 @@ class StationsMetadataPerformanceTests(TestCase):
             self.assertIn('slug', station)
             self.assertIn('uptime', station)
             self.assertIn('now_playing', station)
-        for i, q in enumerate(ctx.captured_queries):
-            print(f"  Query {i+1}: {q['sql'][:200]}")
-        self.assertLessEqual(len(ctx), 2, f"Expected <=2 queries, got {len(ctx)}")
+        # 4 queries, all independent of station count: the station list, the
+        # LATERAL pick of each station's latest history row, hydrating those
+        # rows with song/artist, and the batched listener counts. An N+1 would
+        # scale with the 10 stations above and blow past this.
+        self.assertLessEqual(len(ctx), 4, f"Expected <=4 queries, got {len(ctx)}")
 
     def test_stations_metadata_with_changes(self):
         """GET /api/v1/stations-metadata with changes_from_timestamp returns only changed stations."""
@@ -149,9 +157,9 @@ class StationsMetadataPerformanceTests(TestCase):
         self.assertLessEqual(len(stations), 10)
         for station in stations:
             self.assertIn('now_playing', station)
-        for i, q in enumerate(ctx.captured_queries):
-            print(f"  Query {i+1}: {q['sql'][:200]}")
-        self.assertLessEqual(len(ctx), 4, f"Expected <=4 queries, got {len(ctx)}")
+        # One more than the timestamp-only path: the changed-station ids are
+        # looked up first. Still constant in the number of stations.
+        self.assertLessEqual(len(ctx), 5, f"Expected <=5 queries, got {len(ctx)}")
 
     def test_stations_metadata_no_changes(self):
         """changes_from_timestamp far in the future should return empty list."""

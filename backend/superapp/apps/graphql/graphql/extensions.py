@@ -69,6 +69,11 @@ class CacheExtension(SchemaExtension):
                     operation = definition
                     break
 
+        # Mutations change state, so replaying a stored result would be wrong.
+        if operation is not None and getattr(operation.operation, 'value', None) == 'mutation':
+            self.should_cache = False
+            return
+
         if operation and hasattr(operation, 'directives') and operation.directives:
             for directive in operation.directives:
                 if directive.name.value == 'cached':
@@ -104,16 +109,19 @@ class CacheExtension(SchemaExtension):
                             if request and hasattr(request, 'user') and request.user.is_authenticated:
                                 user_id = str(request.user.id)
 
-                    # Generate cache key
-                    self.cache_key = self._generate_cache_key(
-                        execution_context.query,
-                        execution_context.variables,
-                        execution_context.operation_name,
-                        user_id
-                    )
-                    self.should_cache = True
+                    # A non-positive TTL means "don't cache". Skip key
+                    # generation too — hashing the query is pure overhead when
+                    # the result is never stored.
+                    if self.cached_params['ttl'] > 0:
+                        self.cache_key = self._generate_cache_key(
+                            execution_context.query,
+                            execution_context.variables,
+                            execution_context.operation_name,
+                            user_id
+                        )
+                        self.should_cache = True
                     break
-        else:
+        elif self.cached_params['ttl'] > 0:
             # No cached directive found, use defaults for caching behavior
             # Get user ID if include_user is True by default
             user_id = None
@@ -420,6 +428,12 @@ def extend_graphql_extensions(main_extensions):
     # The CacheExtension and CacheControlExtension are already added in schema.py as base extensions
     # This function exists for consistency with the extension loading pattern
     return main_extensions + [
+        # ttl=0 disables this extension outright: no key hashing, no Redis
+        # round trip, no serializing a payload that would be thrown away.
+        # Read caching lives on the REST endpoints (RestApiEndpoint.cache_ttl),
+        # which key on the URL and so can share one result between all callers.
+        # Raise this only for a query worth caching at the GraphQL layer —
+        # mutations are never cached regardless.
         CacheExtension(cache_params=CacheParams(
             ttl=0,
             refresh_while_caching=False,
