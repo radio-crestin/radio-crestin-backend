@@ -41,6 +41,14 @@ DJANGO_API_URL = os.environ.get("DJANGO_API_URL", "web:8080")
 POSTHOG_API_KEY = os.environ.get("POSTHOG_API_KEY", "")
 POSTHOG_HOST = os.environ.get("POSTHOG_HOST", "https://eu.i.posthog.com")
 
+# Ingress controller the generated Ingresses target: "nginx" (regex paths +
+# rewrite/CORS annotations) or "traefik" (Prefix paths + Traefik Middlewares,
+# named as "<namespace>-<name>@kubernetescrd", comma separated).
+INGRESS_CLASS = os.environ.get("INGRESS_CLASS", "nginx")
+TRAEFIK_STATION_MIDDLEWARES = os.environ.get("TRAEFIK_STATION_MIDDLEWARES", "")
+TRAEFIK_LISTING_MIDDLEWARES = os.environ.get("TRAEFIK_LISTING_MIDDLEWARES", "")
+TRAEFIK_MIDDLEWARES_ANNOTATION = "traefik.ingress.kubernetes.io/router.middlewares"
+
 SLUG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*[a-z0-9]$")
 LABEL_APP = "live-stream"
 
@@ -293,10 +301,14 @@ def build_pvc_spec(slug: str) -> client.V1PersistentVolumeClaim:
     )
 
 
-def _make_path(path_pattern: str, slug: str) -> client.V1HTTPIngressPath:
+def _uses_traefik() -> bool:
+    return INGRESS_CLASS == "traefik"
+
+
+def _make_path(path_pattern: str, slug: str, path_type: str = "ImplementationSpecific") -> client.V1HTTPIngressPath:
     return client.V1HTTPIngressPath(
         path=path_pattern,
-        path_type="ImplementationSpecific",
+        path_type=path_type,
         backend=client.V1IngressBackend(
             service=client.V1IngressServiceBackend(
                 name=service_name(slug),
@@ -304,6 +316,21 @@ def _make_path(path_pattern: str, slug: str) -> client.V1HTTPIngressPath:
             ),
         ),
     )
+
+
+def _station_path(prefix: str, slug: str) -> client.V1HTTPIngressPath:
+    """Route `<prefix>...` to the station pod, `prefix` ending in "/".
+
+    nginx: a regex path; the rewrite annotation strips the prefix.
+    traefik: a Prefix path; the strip Middleware removes the prefix.
+    """
+    if _uses_traefik():
+        return _make_path(prefix, slug, path_type="Prefix")
+    return _make_path(f"{prefix}(.*)", slug)
+
+
+def _traefik_annotations(middlewares: str) -> dict:
+    return {TRAEFIK_MIDDLEWARES_ANNOTATION: middlewares} if middlewares else {}
 
 
 LISTING_SERVICE_NAME = "station-listing"
@@ -314,8 +341,8 @@ LISTING_INGRESS_NAME = "live-streaming-listing"
 def _make_listing_path() -> client.V1HTTPIngressPath:
     """Root path that routes to the station listing service."""
     return client.V1HTTPIngressPath(
-        path="/(.*)",
-        path_type="ImplementationSpecific",
+        path="/" if _uses_traefik() else "/(.*)",
+        path_type="Prefix" if _uses_traefik() else "ImplementationSpecific",
         backend=client.V1IngressBackend(
             service=client.V1IngressServiceBackend(
                 name=LISTING_SERVICE_NAME,
@@ -420,6 +447,28 @@ def ensure_listing_deployment(
             raise
 
 
+_NGINX_CORS_ANNOTATIONS = {
+    "nginx.ingress.kubernetes.io/use-regex": "true",
+    "nginx.ingress.kubernetes.io/rewrite-target": "/$1",
+    "nginx.ingress.kubernetes.io/enable-cors": "true",
+    "nginx.ingress.kubernetes.io/cors-allow-origin": "*",
+    "nginx.ingress.kubernetes.io/cors-allow-methods": "GET, HEAD, OPTIONS",
+    "nginx.ingress.kubernetes.io/cors-allow-headers": "Range, Content-Type, Accept, Origin",
+}
+
+
+def _station_annotations() -> dict:
+    if _uses_traefik():
+        return _traefik_annotations(TRAEFIK_STATION_MIDDLEWARES)
+    return {**_NGINX_CORS_ANNOTATIONS, "nginx.ingress.kubernetes.io/proxy-buffering": "off"}
+
+
+def _listing_annotations() -> dict:
+    if _uses_traefik():
+        return _traefik_annotations(TRAEFIK_LISTING_MIDDLEWARES)
+    return dict(_NGINX_CORS_ANNOTATIONS)
+
+
 def build_station_ingress(slug: str) -> client.V1Ingress:
     """Build a dedicated ingress for a single station.
 
@@ -440,8 +489,8 @@ def build_station_ingress(slug: str) -> client.V1Ingress:
         client.V1IngressRule(
             host=INGRESS_HOST,
             http=client.V1HTTPIngressRuleValue(paths=[
-                _make_path(f"/{slug}/(.*)", slug),
-                _make_path(f"/hls/{slug}/(.*)", slug),
+                _station_path(f"/{slug}/", slug),
+                _station_path(f"/hls/{slug}/", slug),
             ]),
         )
     )
@@ -453,7 +502,7 @@ def build_station_ingress(slug: str) -> client.V1Ingress:
             client.V1IngressRule(
                 host=LEGACY_INGRESS_HOST,
                 http=client.V1HTTPIngressRuleValue(paths=[
-                    _make_path(f"/hls/{slug}/(.*)", slug),
+                    _station_path(f"/hls/{slug}/", slug),
                 ]),
             )
         )
@@ -476,18 +525,10 @@ def build_station_ingress(slug: str) -> client.V1Ingress:
             name=ingress_name(slug),
             namespace=NAMESPACE,
             labels=labels,
-            annotations={
-                "nginx.ingress.kubernetes.io/use-regex": "true",
-                "nginx.ingress.kubernetes.io/rewrite-target": "/$1",
-                "nginx.ingress.kubernetes.io/enable-cors": "true",
-                "nginx.ingress.kubernetes.io/cors-allow-origin": "*",
-                "nginx.ingress.kubernetes.io/cors-allow-methods": "GET, HEAD, OPTIONS",
-                "nginx.ingress.kubernetes.io/cors-allow-headers": "Range, Content-Type, Accept, Origin",
-                "nginx.ingress.kubernetes.io/proxy-buffering": "off",
-            },
+            annotations=_station_annotations(),
         ),
         spec=client.V1IngressSpec(
-            ingress_class_name="nginx",
+            ingress_class_name=INGRESS_CLASS,
             tls=tls if tls else None,
             rules=rules,
         ),
@@ -506,17 +547,10 @@ def build_listing_ingress() -> client.V1Ingress:
             name=LISTING_INGRESS_NAME,
             namespace=NAMESPACE,
             labels={"app": "station-listing"},
-            annotations={
-                "nginx.ingress.kubernetes.io/use-regex": "true",
-                "nginx.ingress.kubernetes.io/rewrite-target": "/$1",
-                "nginx.ingress.kubernetes.io/enable-cors": "true",
-                "nginx.ingress.kubernetes.io/cors-allow-origin": "*",
-                "nginx.ingress.kubernetes.io/cors-allow-methods": "GET, HEAD, OPTIONS",
-                "nginx.ingress.kubernetes.io/cors-allow-headers": "Range, Content-Type, Accept, Origin",
-            },
+            annotations=_listing_annotations(),
         ),
         spec=client.V1IngressSpec(
-            ingress_class_name="nginx",
+            ingress_class_name=INGRESS_CLASS,
             tls=tls,
             rules=[
                 client.V1IngressRule(
@@ -663,20 +697,39 @@ def delete_station_ingress(networking_v1: client.NetworkingV1Api, slug: str):
             raise
 
 
+def ingress_signature(ingress: client.V1Ingress) -> tuple:
+    """What routing depends on: class, Traefik middlewares, and (host, path, type) set.
+
+    nginx annotations are left out so Ingresses created before this check
+    existed are not all replaced at once.
+    """
+    annotations = ingress.metadata.annotations or {}
+    paths = frozenset(
+        (rule.host, p.path, p.path_type)
+        for rule in (ingress.spec.rules or [])
+        for p in ((rule.http.paths if rule.http else None) or [])
+    )
+    return ingress.spec.ingress_class_name, annotations.get(TRAEFIK_MIDDLEWARES_ANNOTATION), paths
+
+
 def ensure_listing_ingress(networking_v1: client.NetworkingV1Api):
-    """Create the listing ingress if it doesn't exist."""
+    """Create the listing ingress, or replace it when its routing drifted."""
+    desired = build_listing_ingress()
     try:
-        networking_v1.read_namespaced_ingress(
+        current = networking_v1.read_namespaced_ingress(
             name=LISTING_INGRESS_NAME, namespace=NAMESPACE,
         )
     except client.ApiException as e:
         if e.status == 404:
             log.info("Creating listing ingress")
-            networking_v1.create_namespaced_ingress(
-                namespace=NAMESPACE, body=build_listing_ingress(),
-            )
-        else:
-            raise
+            networking_v1.create_namespaced_ingress(namespace=NAMESPACE, body=desired)
+            return
+        raise
+    if ingress_signature(current) != ingress_signature(desired):
+        log.info("Reconciling drifted listing ingress")
+        networking_v1.replace_namespaced_ingress(
+            name=LISTING_INGRESS_NAME, namespace=NAMESPACE, body=desired,
+        )
 
 
 def cleanup_shared_ingress(networking_v1: client.NetworkingV1Api):
@@ -802,27 +855,16 @@ def sync_once(
         for slug in ingresses_to_create:
             create_station_ingress(networking_v1, slug)
 
-    # Path-set drift detection: replace ingress in place when desired paths
-    # don't match actual paths. Idempotent (delete + recreate via the same
-    # spec we'd use for a fresh create).
+    # Drift detection: replace an ingress in place when its class, Traefik
+    # middlewares or paths differ from the desired spec (ingress_signature).
+    # Idempotent (the same spec we'd use for a fresh create).
     drifted = []
     for slug in (desired_slugs & existing_ingresses):
         try:
             current = networking_v1.read_namespaced_ingress(
                 name=ingress_name(slug), namespace=NAMESPACE,
             )
-            current_paths = {
-                (rule.host, p.path)
-                for rule in (current.spec.rules or [])
-                for p in (rule.http.paths or [])
-            }
-            desired = build_station_ingress(slug)
-            desired_paths = {
-                (rule.host, p.path)
-                for rule in (desired.spec.rules or [])
-                for p in (rule.http.paths or [])
-            }
-            if current_paths != desired_paths:
+            if ingress_signature(current) != ingress_signature(build_station_ingress(slug)):
                 drifted.append(slug)
         except client.ApiException:
             continue

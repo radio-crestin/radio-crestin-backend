@@ -207,6 +207,97 @@ class TestBuildStationIngress(unittest.TestCase):
                 self.assertEqual(path.backend.service.port.number, 8080)
 
 
+class TestNginxIngressUnchanged(unittest.TestCase):
+    """The default (nginx) Ingresses keep their exact legacy shape."""
+
+    def test_station_ingress(self):
+        ingress = controller.build_station_ingress("radio-a")
+        self.assertEqual(ingress.spec.ingress_class_name, "nginx")
+        self.assertEqual(ingress.metadata.annotations, {
+            "nginx.ingress.kubernetes.io/use-regex": "true",
+            "nginx.ingress.kubernetes.io/rewrite-target": "/$1",
+            "nginx.ingress.kubernetes.io/enable-cors": "true",
+            "nginx.ingress.kubernetes.io/cors-allow-origin": "*",
+            "nginx.ingress.kubernetes.io/cors-allow-methods": "GET, HEAD, OPTIONS",
+            "nginx.ingress.kubernetes.io/cors-allow-headers": "Range, Content-Type, Accept, Origin",
+            "nginx.ingress.kubernetes.io/proxy-buffering": "off",
+        })
+        types = {p.path_type for r in ingress.spec.rules for p in r.http.paths}
+        self.assertEqual(types, {"ImplementationSpecific"})
+
+    def test_listing_ingress(self):
+        ingress = controller.build_listing_ingress()
+        self.assertEqual(ingress.spec.ingress_class_name, "nginx")
+        self.assertNotIn("nginx.ingress.kubernetes.io/proxy-buffering", ingress.metadata.annotations)
+        path = ingress.spec.rules[0].http.paths[0]
+        self.assertEqual((path.path, path.path_type), ("/(.*)", "ImplementationSpecific"))
+
+
+@patch.object(controller, "INGRESS_CLASS", "traefik")
+@patch.object(controller, "TRAEFIK_STATION_MIDDLEWARES", "ns-strip@kubernetescrd,ns-cors@kubernetescrd")
+@patch.object(controller, "TRAEFIK_LISTING_MIDDLEWARES", "ns-cors@kubernetescrd")
+class TestTraefikIngress(unittest.TestCase):
+    """INGRESS_CLASS=traefik: Prefix paths, Middlewares instead of nginx annotations."""
+
+    def test_station_ingress_uses_prefix_paths(self):
+        ingress = controller.build_station_ingress("radio-a")
+        self.assertEqual(ingress.spec.ingress_class_name, "traefik")
+        paths = {(r.host, p.path, p.path_type) for r in ingress.spec.rules for p in r.http.paths}
+        self.assertEqual(paths, {
+            (controller.INGRESS_HOST, "/radio-a/", "Prefix"),
+            (controller.INGRESS_HOST, "/hls/radio-a/", "Prefix"),
+            (controller.LEGACY_INGRESS_HOST, "/hls/radio-a/", "Prefix"),
+        })
+
+    def test_station_ingress_annotations_are_middlewares_only(self):
+        ingress = controller.build_station_ingress("radio-a")
+        self.assertEqual(ingress.metadata.annotations, {
+            controller.TRAEFIK_MIDDLEWARES_ANNOTATION: "ns-strip@kubernetescrd,ns-cors@kubernetescrd",
+        })
+
+    def test_listing_ingress(self):
+        ingress = controller.build_listing_ingress()
+        path = ingress.spec.rules[0].http.paths[0]
+        self.assertEqual((path.path, path.path_type), ("/", "Prefix"))
+        self.assertEqual(ingress.metadata.annotations,
+                         {controller.TRAEFIK_MIDDLEWARES_ANNOTATION: "ns-cors@kubernetescrd"})
+
+    def test_nginx_ingress_counts_as_drifted(self):
+        with patch.object(controller, "INGRESS_CLASS", "nginx"):
+            legacy = controller.build_station_ingress("radio-a")
+        self.assertNotEqual(controller.ingress_signature(legacy),
+                            controller.ingress_signature(controller.build_station_ingress("radio-a")))
+
+    def test_listing_ingress_is_replaced_when_drifted(self):
+        with patch.object(controller, "INGRESS_CLASS", "nginx"):
+            legacy = controller.build_listing_ingress()
+        networking = MagicMock()
+        networking.read_namespaced_ingress.return_value = legacy
+        controller.ensure_listing_ingress(networking)
+        networking.replace_namespaced_ingress.assert_called_once()
+        body = networking.replace_namespaced_ingress.call_args.kwargs["body"]
+        self.assertEqual(body.spec.ingress_class_name, "traefik")
+
+    def test_matching_listing_ingress_is_left_alone(self):
+        networking = MagicMock()
+        networking.read_namespaced_ingress.return_value = controller.build_listing_ingress()
+        controller.ensure_listing_ingress(networking)
+        networking.replace_namespaced_ingress.assert_not_called()
+        networking.create_namespaced_ingress.assert_not_called()
+
+
+class TestIngressSignature(unittest.TestCase):
+    def test_same_spec_matches(self):
+        self.assertEqual(controller.ingress_signature(controller.build_station_ingress("radio-a")),
+                         controller.ingress_signature(controller.build_station_ingress("radio-a")))
+
+    def test_nginx_annotation_changes_are_ignored(self):
+        ingress = controller.build_station_ingress("radio-a")
+        before = controller.ingress_signature(ingress)
+        ingress.metadata.annotations["nginx.ingress.kubernetes.io/proxy-buffering"] = "on"
+        self.assertEqual(controller.ingress_signature(ingress), before)
+
+
 class TestFetchStations(unittest.TestCase):
     """Test station fetching with mocked HTTP."""
 
