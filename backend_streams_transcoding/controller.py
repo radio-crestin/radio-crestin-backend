@@ -49,6 +49,18 @@ TRAEFIK_STATION_MIDDLEWARES = os.environ.get("TRAEFIK_STATION_MIDDLEWARES", "")
 TRAEFIK_LISTING_MIDDLEWARES = os.environ.get("TRAEFIK_LISTING_MIDDLEWARES", "")
 TRAEFIK_MIDDLEWARES_ANNOTATION = "traefik.ingress.kubernetes.io/router.middlewares"
 
+# Egress proxy client Secret for the pods this controller creates. Each pod
+# gets a loopback sidecar (EGRESS_PROXY_SIDECAR_IMAGE, gost) that holds the
+# credentials from the Secret and forwards over TLS to the proxy, verifying
+# its CA. The app containers only see http://127.0.0.1:<port>, which ffmpeg
+# and urllib understand. Empty secret = no proxy wiring.
+EGRESS_PROXY_SECRET = os.environ.get("EGRESS_PROXY_SECRET", "")
+EGRESS_PROXY_SIDECAR_IMAGE = os.environ.get("EGRESS_PROXY_SIDECAR_IMAGE", "docker.io/gogost/gost:3.3.0")
+EGRESS_PROXY_PORT = int(os.environ.get("EGRESS_PROXY_PORT", "3128"))
+EGRESS_PROXY_CA_DIR = "/etc/egress-proxy"
+EGRESS_PROXY_VOLUME = "egress-proxy-ca"
+EGRESS_PROXY_SIDECAR = "egress-proxy"
+
 SLUG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*[a-z0-9]$")
 LABEL_APP = "live-stream"
 
@@ -157,6 +169,71 @@ def _spread_across_nodes(match_labels: dict) -> list[client.V1TopologySpreadCons
     ]
 
 
+def _egress_proxy_env() -> list[client.V1EnvVar]:
+    """App containers: the loopback sidecar as proxy, NO_PROXY from the Secret."""
+    if not EGRESS_PROXY_SECRET:
+        return []
+    local = f"http://127.0.0.1:{EGRESS_PROXY_PORT}"
+    no_proxy = client.V1EnvVarSource(secret_key_ref=client.V1SecretKeySelector(
+        name=EGRESS_PROXY_SECRET, key="NO_PROXY"))
+    return ([client.V1EnvVar(name=name, value=local)
+             for name in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy")]
+            + [client.V1EnvVar(name=name, value_from=no_proxy) for name in ("NO_PROXY", "no_proxy")])
+
+
+def _egress_proxy_probe() -> client.V1Probe:
+    return client.V1Probe(_exec=client.V1ExecAction(
+        command=["nc", "-z", "127.0.0.1", str(EGRESS_PROXY_PORT)]), period_seconds=2, failure_threshold=30)
+
+
+def _egress_proxy_init_containers() -> list[client.V1Container] | None:
+    """Native sidecar: plain HTTP proxy on loopback -> TLS + credentials -> egress proxy."""
+    if not EGRESS_PROXY_SECRET:
+        return None
+    return [client.V1Container(
+        name=EGRESS_PROXY_SIDECAR,
+        image=EGRESS_PROXY_SIDECAR_IMAGE,
+        image_pull_policy="IfNotPresent",
+        restart_policy="Always",
+        args=["-L", f"http://127.0.0.1:{EGRESS_PROXY_PORT}",
+              "-F", f"$(EGRESS_UPSTREAM)?secure=true&caFile={EGRESS_PROXY_CA_DIR}/ca.crt"],
+        env=[client.V1EnvVar(name="EGRESS_UPSTREAM", value_from=client.V1EnvVarSource(
+            secret_key_ref=client.V1SecretKeySelector(name=EGRESS_PROXY_SECRET, key="HTTPS_PROXY")))],
+        startup_probe=_egress_proxy_probe(),
+        readiness_probe=_egress_proxy_probe(),
+        security_context=client.V1SecurityContext(
+            run_as_non_root=True, run_as_user=65534, run_as_group=65534,
+            read_only_root_filesystem=True, allow_privilege_escalation=False,
+            capabilities=client.V1Capabilities(drop=["ALL"])),
+        resources=client.V1ResourceRequirements(
+            requests={"cpu": "10m", "memory": "16Mi"}, limits={"cpu": "200m", "memory": "64Mi"}),
+        volume_mounts=[client.V1VolumeMount(name=EGRESS_PROXY_VOLUME, mount_path=EGRESS_PROXY_CA_DIR,
+                                            read_only=True)],
+    )]
+
+
+def _egress_proxy_volumes() -> list[client.V1Volume]:
+    if not EGRESS_PROXY_SECRET:
+        return []
+    return [client.V1Volume(name=EGRESS_PROXY_VOLUME, secret=client.V1SecretVolumeSource(
+        secret_name=EGRESS_PROXY_SECRET, items=[client.V1KeyToPath(key="ca.crt", path="ca.crt")]))]
+
+
+def egress_proxy_of(deployment: client.V1Deployment) -> tuple[str, str]:
+    """(client Secret, sidecar image) of a Deployment's egress sidecar; ("", "") if none."""
+    for container in deployment.spec.template.spec.init_containers or []:
+        if container.name != EGRESS_PROXY_SIDECAR:
+            continue
+        for var in container.env or []:
+            if var.name == "EGRESS_UPSTREAM" and var.value_from and var.value_from.secret_key_ref:
+                return var.value_from.secret_key_ref.name, container.image
+    return "", ""
+
+
+def desired_egress_proxy() -> tuple[str, str]:
+    return (EGRESS_PROXY_SECRET, EGRESS_PROXY_SIDECAR_IMAGE) if EGRESS_PROXY_SECRET else ("", "")
+
+
 def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
     """Build Deployment spec for a station streamer with fast restart on failure."""
     labels = {"app": LABEL_APP, "station": slug}
@@ -212,6 +289,7 @@ def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
                                 client.V1EnvVar(name="POSTHOG_API_KEY", value=POSTHOG_API_KEY),
                                 client.V1EnvVar(name="POSTHOG_HOST", value=POSTHOG_HOST),
                                 client.V1EnvVar(name="IMAGE_TAG", value=STREAMER_IMAGE.rsplit(":", 1)[-1]),
+                                *_egress_proxy_env(),
                             ],
                             ports=[client.V1ContainerPort(container_port=8080)],
                             volume_mounts=[
@@ -252,7 +330,8 @@ def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
                             ),
                         )
                     ],
-                    volumes=[_build_data_volume(slug)],
+                    init_containers=_egress_proxy_init_containers(),
+                    volumes=[_build_data_volume(slug), *_egress_proxy_volumes()],
                 ),
             ),
         ),
@@ -385,6 +464,7 @@ def ensure_listing_deployment(
                             env=[
                                 client.V1EnvVar(name="GRAPHQL_ENDPOINT", value=GRAPHQL_ENDPOINT),
                                 client.V1EnvVar(name="INGRESS_HOST", value=INGRESS_HOST),
+                                *_egress_proxy_env(),
                             ],
                             ports=[client.V1ContainerPort(container_port=8080)],
                             resources=client.V1ResourceRequirements(
@@ -397,6 +477,8 @@ def ensure_listing_deployment(
                             ),
                         )
                     ],
+                    init_containers=_egress_proxy_init_containers(),
+                    volumes=_egress_proxy_volumes() or None,
                 ),
             ),
         ),
@@ -424,8 +506,9 @@ def ensure_listing_deployment(
         current_image = ""
         if existing.spec.template.spec.containers:
             current_image = existing.spec.template.spec.containers[0].image
-        if current_image != LISTING_IMAGE:
-            log.info("Updating listing deployment image: %s -> %s", current_image, LISTING_IMAGE)
+        if current_image != LISTING_IMAGE or egress_proxy_of(existing) != desired_egress_proxy():
+            log.info("Updating listing deployment: image %s -> %s, egress proxy %r -> %r", current_image,
+                     LISTING_IMAGE, egress_proxy_of(existing), desired_egress_proxy())
             apps_v1.patch_namespaced_deployment(
                 name=LISTING_DEPLOYMENT_NAME, namespace=NAMESPACE, body=deployment,
             )
@@ -812,7 +895,7 @@ def sync_once(
         if current_url != desired_map[slug]:
             log.info("Stream URL changed for %s: %r -> %r", slug, current_url, desired_map[slug])
             to_update_url.add(slug)
-        elif current_image != STREAMER_IMAGE:
+        elif current_image != STREAMER_IMAGE or egress_proxy_of(dep) != desired_egress_proxy():
             to_update_image.add(slug)
 
     to_update = to_update_url | to_update_image

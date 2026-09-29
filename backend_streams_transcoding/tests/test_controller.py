@@ -503,3 +503,84 @@ class TestSyncOnce(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestEgressProxy(unittest.TestCase):
+    """Pods the controller creates reach the internet through a loopback egress sidecar."""
+
+    SECRET = "egress-proxy-radio-streams"
+
+    def test_no_secret_means_no_proxy_wiring(self):
+        with patch.object(controller, "EGRESS_PROXY_SECRET", ""):
+            dep = controller.build_deployment_spec("radio-a", "https://s.example/live")
+        pod = dep.spec.template.spec
+        self.assertIsNone(pod.init_containers)
+        self.assertNotIn("HTTPS_PROXY", [e.name for e in pod.containers[0].env])
+        self.assertEqual([v.name for v in pod.volumes], ["data"])
+
+    def test_streamer_gets_the_sidecar_and_local_proxy(self):
+        with patch.object(controller, "EGRESS_PROXY_SECRET", self.SECRET):
+            dep = controller.build_deployment_spec("radio-a", "https://s.example/live")
+        pod = dep.spec.template.spec
+        sidecar = pod.init_containers[0]
+        self.assertEqual(sidecar.restart_policy, "Always")
+        self.assertEqual(sidecar.image, controller.EGRESS_PROXY_SIDECAR_IMAGE)
+        self.assertEqual(sidecar.args[:2], ["-L", "http://127.0.0.1:3128"])
+        self.assertEqual(sidecar.env[0].value_from.secret_key_ref.name, self.SECRET)
+        self.assertTrue(sidecar.security_context.read_only_root_filesystem)
+        container = pod.containers[0]
+        self.assertIsNone(container.env_from)  # no credentials in the app container
+        env = {e.name: e for e in container.env}
+        self.assertEqual(env["http_proxy"].value, "http://127.0.0.1:3128")
+        self.assertEqual(env["HTTPS_PROXY"].value, "http://127.0.0.1:3128")
+        self.assertEqual(env["NO_PROXY"].value_from.secret_key_ref.key, "NO_PROXY")
+        self.assertNotIn("SSL_CERT_FILE", env)
+        self.assertEqual([m.mount_path for m in container.volume_mounts], ["/data"])
+        volume = next(v for v in pod.volumes if v.name == "egress-proxy-ca")
+        self.assertEqual([i.key for i in volume.secret.items], ["ca.crt"])
+
+    def test_egress_proxy_of_reads_the_sidecar(self):
+        with patch.object(controller, "EGRESS_PROXY_SECRET", self.SECRET):
+            dep = controller.build_deployment_spec("radio-a", "https://s.example/live")
+            self.assertEqual(controller.egress_proxy_of(dep), controller.desired_egress_proxy())
+        with patch.object(controller, "EGRESS_PROXY_SECRET", ""):
+            dep = controller.build_deployment_spec("radio-a", "https://s.example/live")
+            self.assertEqual(controller.egress_proxy_of(dep), ("", ""))
+            self.assertEqual(controller.desired_egress_proxy(), ("", ""))
+
+    def test_sidecar_image_change_is_drift(self):
+        with patch.object(controller, "EGRESS_PROXY_SECRET", self.SECRET):
+            dep = controller.build_deployment_spec("radio-a", "https://s.example/live")
+            with patch.object(controller, "EGRESS_PROXY_SIDECAR_IMAGE", "docker.io/gogost/gost:9.9.9"):
+                self.assertNotEqual(controller.egress_proxy_of(dep), controller.desired_egress_proxy())
+
+    @patch("controller.ensure_listing_ingress")
+    @patch("controller.ensure_listing_deployment")
+    @patch("controller.fetch_stations")
+    def test_station_without_proxy_secret_is_updated(self, mock_fetch, _listing_dep, _listing_ing):
+        mock_fetch.return_value = [
+            {"slug": "radio-a", "stream_url": "https://stream.com", "transcode_enabled": True}
+        ]
+        with patch.object(controller, "EGRESS_PROXY_SECRET", ""):
+            existing = controller.build_deployment_spec("radio-a", "https://stream.com")
+        sync = TestSyncOnce()
+        core_v1, apps_v1, networking_v1 = sync._setup_kube_mocks(
+            deployments=[existing], services=[sync._mock_service("radio-a")],
+            ingresses=[sync._mock_ingress("radio-a")])
+        with patch.object(controller, "EGRESS_PROXY_SECRET", self.SECRET):
+            controller.sync_once(core_v1, apps_v1, networking_v1)
+        apps_v1.patch_namespaced_deployment.assert_called_once()
+
+    def test_listing_is_patched_when_the_proxy_secret_changes(self):
+        apps_v1, core_v1 = MagicMock(), MagicMock()
+        with patch.object(controller, "EGRESS_PROXY_SECRET", ""):
+            apps_v1.read_namespaced_deployment.side_effect = controller.client.ApiException(status=404)
+            controller.ensure_listing_deployment(apps_v1, core_v1)
+            built = apps_v1.create_namespaced_deployment.call_args.kwargs["body"]
+        apps_v1 = MagicMock()
+        apps_v1.read_namespaced_deployment.return_value = built
+        with patch.object(controller, "EGRESS_PROXY_SECRET", self.SECRET):
+            controller.ensure_listing_deployment(apps_v1, MagicMock())
+        apps_v1.patch_namespaced_deployment.assert_called_once()
+        body = apps_v1.patch_namespaced_deployment.call_args.kwargs["body"]
+        self.assertEqual(controller.egress_proxy_of(body)[0], self.SECRET)
