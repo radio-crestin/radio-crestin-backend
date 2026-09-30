@@ -3,6 +3,7 @@ import os
 import logging
 
 from asgiref.sync import iscoroutinefunction, markcoroutinefunction
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.http import JsonResponse
 
@@ -36,6 +37,27 @@ class GraphQlSuperuserApiAuthMiddleware:
         return response
 
 
+CREDENTIAL_HEADERS = ('Authorization', 'X-Streaming-Api-Key', 'X-Api-Key')
+
+
+def carries_credentials(request):
+    """True when the response may depend on who is asking.
+
+    Checks only what the request carries (no database lookup, so it is safe in
+    async code): a logged-out browser with a stale session cookie also counts,
+    which costs it the shared cache, never someone else their data.
+    """
+    if settings.SESSION_COOKIE_NAME in request.COOKIES:
+        return True
+    return any(request.headers.get(name) for name in CREDENTIAL_HEADERS)
+
+
+def is_shared_cacheable(response):
+    """True when a CDN or other shared cache may store this response."""
+    cache_control = response.get('Cache-Control', '').lower()
+    return 'public' in cache_control or 's-maxage' in cache_control
+
+
 class PublicCacheHeadersMiddleware:
     """
     Make publicly-cacheable responses actually cacheable at the edge.
@@ -53,6 +75,12 @@ class PublicCacheHeadersMiddleware:
     setting `_public_cacheable`, so authenticated and per-user views keep their
     correct Vary headers.
 
+    It is also the last line of defence against sharing one user's response
+    with another: a request that carries credentials (a session cookie, an
+    Authorization or API-key header) never gets a shared-cacheable response,
+    whatever the view asked for. GraphQL GET takes its Cache-Control from the
+    query text, which the caller writes, so the view alone cannot promise that.
+
     Supports both sync and async (ASGI) request paths.
     """
 
@@ -67,13 +95,18 @@ class PublicCacheHeadersMiddleware:
     def __call__(self, request):
         if iscoroutinefunction(self.get_response):
             return self.__acall__(request)
-        return self._patch(self.get_response(request))
+        return self._patch(request, self.get_response(request))
 
     async def __acall__(self, request):
-        return self._patch(await self.get_response(request))
+        return self._patch(request, await self.get_response(request))
 
     @staticmethod
-    def _patch(response):
+    def _patch(request, response):
+        if is_shared_cacheable(response) and carries_credentials(request):
+            response['Cache-Control'] = 'private, no-store'
+            response._public_cacheable = False
+            return response
+
         if not getattr(response, '_public_cacheable', False):
             return response
 

@@ -15,6 +15,7 @@ from django.http import JsonResponse, HttpResponseRedirect, HttpResponse
 from django.views import View
 from strawberry.django.context import StrawberryDjangoContext
 
+from superapp.apps.graphql.middleware import carries_credentials
 from superapp.apps.graphql.rest_api import HttpMethod
 from superapp.apps.graphql.schema import schema
 
@@ -114,7 +115,7 @@ class GraphQLRestApiView(View):
                 cached_data = cache.get(cache_key)
                 if cached_data is not None:
                     response = JsonResponse(cached_data)
-                    self._add_headers(response)
+                    self._add_headers(response, request)
                     return response
 
             # Extract GraphQL variables
@@ -142,7 +143,7 @@ class GraphQLRestApiView(View):
             response = JsonResponse(response_data)
 
             # Add headers
-            self._add_headers(response)
+            self._add_headers(response, request)
 
             return response
 
@@ -219,14 +220,18 @@ class GraphQLRestApiView(View):
         
         return response_data
     
-    def _add_headers(self, response: HttpResponse) -> None:
+    def _add_headers(self, response: HttpResponse, request) -> None:
         """Add all configured headers to response"""
         # Add CORS headers
         if self.endpoint_config.cors_enabled:
             self._add_cors_headers(response)
         
-        # Add cache control
-        if self.endpoint_config.cache_control:
+        # Add cache control. A request carrying credentials never gets a
+        # shared-cacheable answer, so nothing computed for it can be stored
+        # (by Django's page cache or the CDN) and handed to someone else.
+        if carries_credentials(request):
+            response['Cache-Control'] = 'private, no-store'
+        elif self.endpoint_config.cache_control:
             response['Cache-Control'] = self.endpoint_config.cache_control
 
             # Flag for PublicCacheHeadersMiddleware, which runs last and clears

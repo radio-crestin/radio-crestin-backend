@@ -26,7 +26,10 @@ from django.utils import timezone
 from django.views import View
 from strawberry.django.context import StrawberryDjangoContext
 from strawberry.django.views import GraphQLView
+from strawberry.schema.exceptions import InvalidOperationTypeError
+from strawberry.types.graphql import OperationType
 
+from superapp.apps.graphql.middleware import carries_credentials
 from superapp.apps.graphql.schema import schema
 
 
@@ -225,12 +228,23 @@ class GraphQLWithGetRedirectView(View):
             response_obj = HttpResponse()
             context = StrawberryDjangoContext(request=request, response=response_obj)
 
-            result = schema.execute_sync(
-                query,
-                variable_values=variables if variables else None,
-                operation_name=operation_name,
-                context_value=context,
-            )
+            try:
+                # A GET must never change anything: it can be triggered by a
+                # link or an <img>, and its URL may be cached and replayed.
+                result = schema.execute_sync(
+                    query,
+                    variable_values=variables if variables else None,
+                    operation_name=operation_name,
+                    context_value=context,
+                    allowed_operation_types={OperationType.QUERY},
+                )
+            except InvalidOperationTypeError:
+                response = JsonResponse(
+                    {"errors": [{"message": "Only queries are allowed over GET; send mutations as POST."}]},
+                    status=405,
+                )
+                response['Allow'] = 'POST'
+                return response
 
             response_data = {"data": result.data}
             if result.errors:
@@ -249,6 +263,12 @@ class GraphQLWithGetRedirectView(View):
                 cc_from_query = _parse_cache_control_header(query)
                 if cc_from_query:
                     response['Cache-Control'] = cc_from_query
+
+            # The caller writes the @cache_control directive, so a query run
+            # with someone's session or API key must not be stored for others
+            # (here, before Django's page cache and the CDN see it).
+            if carries_credentials(request):
+                response['Cache-Control'] = 'private, no-store'
 
             # CORS headers
             response['Access-Control-Allow-Origin'] = '*'
