@@ -27,9 +27,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies (cached unless requirements change)
+# constraints.txt pins every package to the versions production runs, so a
+# rebuild ships only code changes, never a surprise library upgrade.
 COPY --from=requirements /app/unified_requirements.txt /app/
+COPY constraints.txt /app/
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir -r /app/unified_requirements.txt psycopg2-binary
+    pip install --no-cache-dir -r /app/unified_requirements.txt -c /app/constraints.txt psycopg2-binary
 
 # Create non-root user before copying source
 RUN useradd -m -u 1001 -s /bin/bash app
