@@ -11,3 +11,6 @@ boto3==1.37.*
 beautifulsoup4==4.12.*
 django-regex-field==3.1.*
 ffmpeg-python==0.2.*
+# graphql-core 3.3 drops graphql.execution.ExecutionContext, which
+# strawberry-graphql 0.314 imports: the app fails at startup.
+graphql-core>=3.2,<3.3
