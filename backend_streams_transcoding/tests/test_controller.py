@@ -474,7 +474,7 @@ class TestSyncOnce(unittest.TestCase):
         controller.sync_once(core_v1, apps_v1, networking_v1)
 
         # Should patch the deployment (not delete+create).
-        apps_v1.patch_namespaced_deployment.assert_called_once()
+        apps_v1.replace_namespaced_deployment.assert_called_once()
         apps_v1.delete_namespaced_deployment.assert_not_called()
         apps_v1.create_namespaced_deployment.assert_not_called()
 
@@ -496,7 +496,7 @@ class TestSyncOnce(unittest.TestCase):
         # Nothing should be created, deleted, or patched when fully in sync.
         apps_v1.create_namespaced_deployment.assert_not_called()
         apps_v1.delete_namespaced_deployment.assert_not_called()
-        apps_v1.patch_namespaced_deployment.assert_not_called()
+        apps_v1.replace_namespaced_deployment.assert_not_called()
         networking_v1.create_namespaced_ingress.assert_not_called()
         networking_v1.delete_namespaced_ingress.assert_not_called()
 
@@ -525,8 +525,9 @@ class TestEgressProxy(unittest.TestCase):
         sidecar = pod.init_containers[0]
         self.assertEqual(sidecar.restart_policy, "Always")
         self.assertEqual(sidecar.image, controller.EGRESS_PROXY_SIDECAR_IMAGE)
-        self.assertEqual(sidecar.args[:2], ["-L", "http://127.0.0.1:3128"])
-        self.assertEqual(sidecar.env[0].value_from.secret_key_ref.name, self.SECRET)
+        # Squid reads everything (login included) from the mounted squid-sidecar.conf.
+        self.assertIsNone(sidecar.args)
+        self.assertIsNone(sidecar.env)
         self.assertTrue(sidecar.security_context.read_only_root_filesystem)
         container = pod.containers[0]
         self.assertIsNone(container.env_from)  # no credentials in the app container
@@ -537,7 +538,8 @@ class TestEgressProxy(unittest.TestCase):
         self.assertNotIn("SSL_CERT_FILE", env)
         self.assertEqual([m.mount_path for m in container.volume_mounts], ["/data"])
         volume = next(v for v in pod.volumes if v.name == "egress-proxy-ca")
-        self.assertEqual([i.key for i in volume.secret.items], ["ca.crt"])
+        self.assertEqual(volume.secret.secret_name, self.SECRET)
+        self.assertEqual([i.key for i in volume.secret.items], ["ca.crt", "squid-sidecar.conf"])
 
     def test_egress_proxy_of_reads_the_sidecar(self):
         with patch.object(controller, "EGRESS_PROXY_SECRET", self.SECRET):
@@ -551,8 +553,16 @@ class TestEgressProxy(unittest.TestCase):
     def test_sidecar_image_change_is_drift(self):
         with patch.object(controller, "EGRESS_PROXY_SECRET", self.SECRET):
             dep = controller.build_deployment_spec("radio-a", "https://s.example/live")
-            with patch.object(controller, "EGRESS_PROXY_SIDECAR_IMAGE", "docker.io/gogost/gost:9.9.9"):
+            with patch.object(controller, "EGRESS_PROXY_SIDECAR_IMAGE", "registry.example/sidecar:9.9.9"):
                 self.assertNotEqual(controller.egress_proxy_of(dep), controller.desired_egress_proxy())
+
+    def test_old_gost_sidecar_is_drift(self):
+        with patch.object(controller, "EGRESS_PROXY_SECRET", self.SECRET):
+            dep = controller.build_deployment_spec("radio-a", "https://s.example/live")
+            sidecar = dep.spec.template.spec.init_containers[0]
+            sidecar.image, sidecar.args = "docker.io/gogost/gost:3.3.0", ["-L", "http://127.0.0.1:3128"]
+            self.assertEqual(controller.egress_proxy_of(dep), (self.SECRET, "docker.io/gogost/gost:3.3.0"))
+            self.assertNotEqual(controller.egress_proxy_of(dep), controller.desired_egress_proxy())
 
     @patch("controller.ensure_listing_ingress")
     @patch("controller.ensure_listing_deployment")
@@ -569,18 +579,26 @@ class TestEgressProxy(unittest.TestCase):
             ingresses=[sync._mock_ingress("radio-a")])
         with patch.object(controller, "EGRESS_PROXY_SECRET", self.SECRET):
             controller.sync_once(core_v1, apps_v1, networking_v1)
-        apps_v1.patch_namespaced_deployment.assert_called_once()
+        apps_v1.replace_namespaced_deployment.assert_called_once()
 
-    def test_listing_is_patched_when_the_proxy_secret_changes(self):
-        apps_v1, core_v1 = MagicMock(), MagicMock()
-        with patch.object(controller, "EGRESS_PROXY_SECRET", ""):
-            apps_v1.read_namespaced_deployment.side_effect = controller.client.ApiException(status=404)
-            controller.ensure_listing_deployment(apps_v1, core_v1)
-            built = apps_v1.create_namespaced_deployment.call_args.kwargs["body"]
+    def test_listing_never_gets_the_egress_proxy(self):
+        """It only reads the in-cluster web API; a proxy would route that call out and fail."""
         apps_v1 = MagicMock()
-        apps_v1.read_namespaced_deployment.return_value = built
+        apps_v1.read_namespaced_deployment.side_effect = controller.client.ApiException(status=404)
         with patch.object(controller, "EGRESS_PROXY_SECRET", self.SECRET):
             controller.ensure_listing_deployment(apps_v1, MagicMock())
-        apps_v1.patch_namespaced_deployment.assert_called_once()
-        body = apps_v1.patch_namespaced_deployment.call_args.kwargs["body"]
-        self.assertEqual(controller.egress_proxy_of(body)[0], self.SECRET)
+        pod = apps_v1.create_namespaced_deployment.call_args.kwargs["body"].spec.template.spec
+        self.assertIsNone(pod.init_containers)
+        self.assertIsNone(pod.volumes)
+        self.assertNotIn("HTTP_PROXY", [e.name for e in pod.containers[0].env])
+
+    def test_listing_with_an_old_sidecar_is_replaced_without_it(self):
+        with patch.object(controller, "EGRESS_PROXY_SECRET", self.SECRET):
+            old = controller.build_deployment_spec("radio-a", "https://s.example/live")  # carries a sidecar
+        old.spec.template.spec.containers[0].image = controller.LISTING_IMAGE
+        apps_v1 = MagicMock()
+        apps_v1.read_namespaced_deployment.return_value = old
+        with patch.object(controller, "EGRESS_PROXY_SECRET", self.SECRET):
+            controller.ensure_listing_deployment(apps_v1, MagicMock())
+        body = apps_v1.replace_namespaced_deployment.call_args.kwargs["body"]
+        self.assertEqual(controller.egress_proxy_of(body), ("", ""))

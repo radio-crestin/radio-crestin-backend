@@ -50,13 +50,15 @@ TRAEFIK_LISTING_MIDDLEWARES = os.environ.get("TRAEFIK_LISTING_MIDDLEWARES", "")
 TRAEFIK_MIDDLEWARES_ANNOTATION = "traefik.ingress.kubernetes.io/router.middlewares"
 
 # Egress proxy client Secret for the pods this controller creates. Each pod
-# gets a loopback sidecar (EGRESS_PROXY_SIDECAR_IMAGE, gost) that holds the
-# credentials from the Secret and forwards over TLS to the proxy, verifying
-# its CA. The app containers only see http://127.0.0.1:<port>, which ffmpeg
-# and urllib understand. Empty secret = no proxy wiring.
+# gets a loopback Squid sidecar (EGRESS_PROXY_SIDECAR_IMAGE; bringes-infrastructure
+# components/egress_proxy/sidecar) whose whole config, login included, is the
+# Secret's squid-sidecar.conf: it forwards over TLS to the proxy, verifying its
+# CA. The app containers only see http://127.0.0.1:3128, which ffmpeg and
+# urllib understand. Empty secret = no proxy wiring.
 EGRESS_PROXY_SECRET = os.environ.get("EGRESS_PROXY_SECRET", "")
-EGRESS_PROXY_SIDECAR_IMAGE = os.environ.get("EGRESS_PROXY_SIDECAR_IMAGE", "docker.io/gogost/gost:3.3.0")
-EGRESS_PROXY_PORT = int(os.environ.get("EGRESS_PROXY_PORT", "3128"))
+EGRESS_PROXY_SIDECAR_IMAGE = os.environ.get(
+    "EGRESS_PROXY_SIDECAR_IMAGE", "ghcr.io/bringes/egress-proxy-sidecar:6.14-0ubuntu0.24.04.4-1")
+EGRESS_PROXY_PORT = 3128  # fixed by squid-sidecar.conf
 EGRESS_PROXY_CA_DIR = "/etc/egress-proxy"
 EGRESS_PROXY_VOLUME = "egress-proxy-ca"
 EGRESS_PROXY_SIDECAR = "egress-proxy"
@@ -183,11 +185,15 @@ def _egress_proxy_env() -> list[client.V1EnvVar]:
 
 def _egress_proxy_probe() -> client.V1Probe:
     return client.V1Probe(_exec=client.V1ExecAction(
-        command=["nc", "-z", "127.0.0.1", str(EGRESS_PROXY_PORT)]), period_seconds=2, failure_threshold=30)
+        # A plain connect: `bash </dev/tcp/...` would look like a reverse shell to Falco.
+        command=["perl", "-MIO::Socket::INET", "-e",
+                 f"exit !IO::Socket::INET->new(PeerAddr => q(127.0.0.1:{EGRESS_PROXY_PORT}))"]),
+        period_seconds=2, failure_threshold=30)
 
 
 def _egress_proxy_init_containers() -> list[client.V1Container] | None:
-    """Native sidecar: plain HTTP proxy on loopback -> TLS + credentials -> egress proxy."""
+    """Native sidecar: plain HTTP proxy on loopback -> TLS + credentials -> egress proxy.
+    No args, no env: the image runs Squid with the mounted squid-sidecar.conf."""
     if not EGRESS_PROXY_SECRET:
         return None
     return [client.V1Container(
@@ -195,10 +201,6 @@ def _egress_proxy_init_containers() -> list[client.V1Container] | None:
         image=EGRESS_PROXY_SIDECAR_IMAGE,
         image_pull_policy="IfNotPresent",
         restart_policy="Always",
-        args=["-L", f"http://127.0.0.1:{EGRESS_PROXY_PORT}",
-              "-F", f"$(EGRESS_UPSTREAM)?secure=true&caFile={EGRESS_PROXY_CA_DIR}/ca.crt"],
-        env=[client.V1EnvVar(name="EGRESS_UPSTREAM", value_from=client.V1EnvVarSource(
-            secret_key_ref=client.V1SecretKeySelector(name=EGRESS_PROXY_SECRET, key="HTTPS_PROXY")))],
         startup_probe=_egress_proxy_probe(),
         readiness_probe=_egress_proxy_probe(),
         security_context=client.V1SecurityContext(
@@ -206,7 +208,7 @@ def _egress_proxy_init_containers() -> list[client.V1Container] | None:
             read_only_root_filesystem=True, allow_privilege_escalation=False,
             capabilities=client.V1Capabilities(drop=["ALL"])),
         resources=client.V1ResourceRequirements(
-            requests={"cpu": "10m", "memory": "16Mi"}, limits={"cpu": "200m", "memory": "64Mi"}),
+            requests={"cpu": "10m", "memory": "16Mi"}, limits={"cpu": "200m", "memory": "128Mi"}),
         volume_mounts=[client.V1VolumeMount(name=EGRESS_PROXY_VOLUME, mount_path=EGRESS_PROXY_CA_DIR,
                                             read_only=True)],
     )]
@@ -216,18 +218,17 @@ def _egress_proxy_volumes() -> list[client.V1Volume]:
     if not EGRESS_PROXY_SECRET:
         return []
     return [client.V1Volume(name=EGRESS_PROXY_VOLUME, secret=client.V1SecretVolumeSource(
-        secret_name=EGRESS_PROXY_SECRET, items=[client.V1KeyToPath(key="ca.crt", path="ca.crt")]))]
+        secret_name=EGRESS_PROXY_SECRET, items=[client.V1KeyToPath(key=key, path=key)
+                                                for key in ("ca.crt", "squid-sidecar.conf")]))]
 
 
 def egress_proxy_of(deployment: client.V1Deployment) -> tuple[str, str]:
     """(client Secret, sidecar image) of a Deployment's egress sidecar; ("", "") if none."""
-    for container in deployment.spec.template.spec.init_containers or []:
-        if container.name != EGRESS_PROXY_SIDECAR:
-            continue
-        for var in container.env or []:
-            if var.name == "EGRESS_UPSTREAM" and var.value_from and var.value_from.secret_key_ref:
-                return var.value_from.secret_key_ref.name, container.image
-    return "", ""
+    pod = deployment.spec.template.spec
+    image = next((c.image for c in pod.init_containers or [] if c.name == EGRESS_PROXY_SIDECAR), "")
+    secret = next((v.secret.secret_name for v in pod.volumes or []
+                   if v.name == EGRESS_PROXY_VOLUME and v.secret), "")
+    return (secret, image) if image and secret else ("", "")
 
 
 def desired_egress_proxy() -> tuple[str, str]:
@@ -464,7 +465,6 @@ def ensure_listing_deployment(
                             env=[
                                 client.V1EnvVar(name="GRAPHQL_ENDPOINT", value=GRAPHQL_ENDPOINT),
                                 client.V1EnvVar(name="INGRESS_HOST", value=INGRESS_HOST),
-                                *_egress_proxy_env(),
                             ],
                             ports=[client.V1ContainerPort(container_port=8080)],
                             resources=client.V1ResourceRequirements(
@@ -477,8 +477,9 @@ def ensure_listing_deployment(
                             ),
                         )
                     ],
-                    init_containers=_egress_proxy_init_containers(),
-                    volumes=_egress_proxy_volumes() or None,
+                    # No egress proxy: the listing only reads the in-cluster web API
+                    # (its bare Service name is not in NO_PROXY, so a proxy would
+                    # send that call to the internet proxy and fail).
                 ),
             ),
         ),
@@ -506,10 +507,11 @@ def ensure_listing_deployment(
         current_image = ""
         if existing.spec.template.spec.containers:
             current_image = existing.spec.template.spec.containers[0].image
-        if current_image != LISTING_IMAGE or egress_proxy_of(existing) != desired_egress_proxy():
-            log.info("Updating listing deployment: image %s -> %s, egress proxy %r -> %r", current_image,
-                     LISTING_IMAGE, egress_proxy_of(existing), desired_egress_proxy())
-            apps_v1.patch_namespaced_deployment(
+        if current_image != LISTING_IMAGE or egress_proxy_of(existing) != ("", ""):
+            log.info("Updating listing deployment: image %s -> %s, egress proxy %r -> none", current_image,
+                     LISTING_IMAGE, egress_proxy_of(existing))
+            # Replace, not patch: a strategic merge keeps fields the new spec dropped.
+            apps_v1.replace_namespaced_deployment(
                 name=LISTING_DEPLOYMENT_NAME, namespace=NAMESPACE, body=deployment,
             )
     except client.ApiException as e:
@@ -713,9 +715,11 @@ def create_deployment(apps_v1: client.AppsV1Api, slug: str, stream_url: str):
 
 
 def update_deployment(apps_v1: client.AppsV1Api, slug: str, stream_url: str):
-    """Update a station streamer deployment (e.g. stream_url changed)."""
+    """Update a station streamer deployment (e.g. stream_url changed). Replace,
+    not patch: a strategic merge keeps fields the new spec dropped (an old
+    sidecar's args would reach the new image)."""
     log.info("Updating deployment for station: %s", slug)
-    apps_v1.patch_namespaced_deployment(
+    apps_v1.replace_namespaced_deployment(
         name=deployment_name(slug),
         namespace=NAMESPACE,
         body=build_deployment_spec(slug, stream_url),

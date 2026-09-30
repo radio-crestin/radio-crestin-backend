@@ -28,7 +28,9 @@ BIG_BUCK_BUNNY_MP4 = 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/B
 SINTEL_TRAILER_MP4 = 'https://media.w3.org/2010/05/sintel/trailer.mp4'
 SOUNDHELIX_MP3 = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
 MUX_HLS_VOD = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8'
-APPLE_BIPBOP_HLS = 'https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8'
+# Always-on public LIVE HLS (Red Bull TV) with plain TS segments, H.264+AAC
+# — decodes fast in libmpv, unlike fMP4/SCTE-35 demo streams.
+RED_BULL_TV_LIVE_HLS = 'https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8'
 
 # First 25 videos (playlist positions 1-25, newest first) of the BCEV Live
 # YouTube playlist (list=PLT0o16dku1NHDiS4rDXqwCgfMN1AQuCq2). Snapshot taken
@@ -135,12 +137,12 @@ SEED_STATIONS = [
         'title': 'Test: TV HLS (Dev)',
         'station_type': StationKind.TV,
         'station_order': 9003,
-        'stream_url': APPLE_BIPBOP_HLS,
+        'stream_url': RED_BULL_TV_LIVE_HLS,
         'playlist_items': [],
         'streams': [
             {
                 'type': 'HLS',
-                'stream_url': APPLE_BIPBOP_HLS,
+                'stream_url': RED_BULL_TV_LIVE_HLS,
                 'station_stream_order': 1,
             },
         ],

@@ -22,6 +22,8 @@ import time
 import xml.etree.ElementTree as ET
 from http.client import HTTPConnection, HTTPSConnection
 from pathlib import Path
+import urllib.error
+import urllib.request
 from urllib.parse import urlparse
 
 import posthog_reporter
@@ -212,21 +214,14 @@ def _update_local_metadata(song_id=None, thumbnail_url=None, station_id=None):
 
 
 def _http_get(url: str, timeout: int = 5) -> str:
-    """Simple HTTP GET, returns response body as string."""
-    parsed = urlparse(url)
+    """Simple HTTP GET, returns response body as string (also on an error status).
+    urllib honours HTTP(S)_PROXY / NO_PROXY, i.e. the pod's egress sidecar;
+    a bare http.client connection would go straight out and be dropped."""
     try:
-        if parsed.scheme == "https":
-            conn = HTTPSConnection(parsed.hostname, parsed.port or 443, timeout=timeout)
-        else:
-            conn = HTTPConnection(parsed.hostname, parsed.port or 80, timeout=timeout)
-        path = parsed.path
-        if parsed.query:
-            path += "?" + parsed.query
-        conn.request("GET", path or "/")
-        resp = conn.getresponse()
-        body = resp.read().decode("utf-8", errors="replace")
-        conn.close()
-        return body
+        with urllib.request.urlopen(url, timeout=timeout) as resp:
+            return resp.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as e:
+        return e.read().decode("utf-8", errors="replace")
     except Exception as e:
         print(f"scraper: http error {url}: {e}", flush=True)
         return ""

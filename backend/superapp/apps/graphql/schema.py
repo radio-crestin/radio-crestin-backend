@@ -6,10 +6,9 @@ from typing import List, Type, Any
 import strawberry
 from django.apps import apps
 from django.db import connection
-from strawberry.extensions import Extension, ParserCache
+from strawberry.extensions import Extension, ParserCache, ValidationCache
 from strawberry.tools import merge_types
 from strawberry.types.base import StrawberryObjectDefinition
-from strawberry_django.extensions.django_validation_cache import DjangoValidationCache
 from strawberry_django.optimizer import DjangoOptimizerExtension
 from .graphql.extensions import CacheControlExtension, CacheExtension
 
@@ -212,9 +211,9 @@ all_directives = find_graphql_directives()
 # Collect base extensions
 base_extensions = [
     ParserCache(maxsize=1000),
-    DjangoValidationCache(
-        timeout=7 * 24 * 60 * 60,  # Cache for 7 days
-    ),
+    # In memory, per process: the Django-cache variant keyed Redis entries on
+    # object addresses, so every process wrote 7-day keys no other one read.
+    ValidationCache(maxsize=1000),
     DjangoOptimizerExtension(
         enable_only_optimization = False, # This is creating a problem with django_multitenant
         enable_select_related_optimization = True,

@@ -67,7 +67,7 @@ INSTALLED_APPS = [
 # Middleware
 ######################################################################
 MIDDLEWARE = [
-    "django.middleware.cache.UpdateCacheMiddleware",         # Must be first — stores responses in cache
+    "superapp.apps.graphql.cache_middleware.BoundedUpdateCacheMiddleware",  # Must be first — stores responses in cache
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     *(["debug_toolbar.middleware.DebugToolbarMiddleware"] if DEBUG else []),
@@ -81,9 +81,11 @@ MIDDLEWARE = [
     "django.middleware.cache.FetchFromCacheMiddleware",      # Must be last — serves from cache
 ]
 
-# Server-side cache: use s-maxage from Cache-Control headers.
-# Fallback TTL for responses without explicit cache headers.
+# Server-side page cache: a response is stored for its Cache-Control max-age,
+# capped at CACHE_MIDDLEWARE_MAX_SECONDS (timestamped URLs say 30 days, for the
+# CDN; Redis only needs the current window). No max-age: not cached.
 CACHE_MIDDLEWARE_SECONDS = 0
+CACHE_MIDDLEWARE_MAX_SECONDS = 60
 CACHE_MIDDLEWARE_KEY_PREFIX = "page"
 
 ######################################################################
