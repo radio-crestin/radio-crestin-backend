@@ -75,13 +75,28 @@ class HealthHandler(BaseHTTPRequestHandler):
         pass
 
 
+def _newest_mtime(paths):
+    """Newest mtime among paths, skipping files deleted while we look.
+
+    FFmpeg (delete_segments) and cleanup.sh remove segments between glob()
+    and getmtime(); raising there turned a healthy probe into a 502.
+    """
+    newest = 0.0
+    for path in paths:
+        try:
+            newest = max(newest, os.path.getmtime(path))
+        except FileNotFoundError:
+            continue
+    return newest
+
+
 def _check_segments_fresh():
     """Check that recent .ts segments exist on disk."""
     now = time.time()
     segments = glob.glob(os.path.join(AAC_SEGMENTS_DIR, "*.ts"))
     if not segments:
         return False, "no aac segments on disk"
-    newest_mtime = max(os.path.getmtime(s) for s in segments)
+    newest_mtime = _newest_mtime(segments)
     age = now - newest_mtime
     if age > HEALTH_MAX_AGE:
         return False, f"aac segments stale ({int(age)}s old, max {HEALTH_MAX_AGE}s)"
@@ -104,10 +119,11 @@ def _check_playlist_segments():
         if not line.endswith(".ts"):
             continue
         seg_path = os.path.join(AAC_SEGMENTS_DIR, line.strip())
-        if not os.path.exists(seg_path):
+        try:
+            if os.path.getsize(seg_path) == 0:
+                empty.append(line.strip())
+        except FileNotFoundError:
             missing.append(line.strip())
-        elif os.path.getsize(seg_path) == 0:
-            empty.append(line.strip())
 
     if missing:
         return False, f"{len(missing)} segments missing from disk ({missing[0]})"
@@ -134,8 +150,7 @@ def _measure_latency():
         segments = glob.glob(os.path.join(AAC_SEGMENTS_DIR, "*.ts"))
         if not segments:
             return 0
-        newest_mtime = max(os.path.getmtime(s) for s in segments)
-        return max(0, int((time.time() - newest_mtime) * 1000))
+        return max(0, int((time.time() - _newest_mtime(segments)) * 1000))
     except Exception:
         return 0
 
