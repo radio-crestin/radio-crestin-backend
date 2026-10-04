@@ -15,6 +15,7 @@ Runs as a background process alongside the main FFmpeg transcoder.
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import threading
@@ -27,6 +28,7 @@ import posthog_reporter
 STREAM_URL = os.environ.get("STREAM_URL", "")
 METADATA_DIR = Path("/data/metadata")
 INDEX_PATH = METADATA_DIR / "index.json"
+FFMPEG_STOP_TIMEOUT = 5  # seconds between SIGTERM and SIGKILL
 
 # Current song state
 _current_song = {
@@ -163,6 +165,19 @@ def _get_hls_newest_segment_epoch():
     return time.time()
 
 
+def _decode_line(raw: bytes) -> str:
+    """Decode one FFmpeg stderr line.
+
+    FFmpeg prints ICY StreamTitle bytes exactly as the station sends them,
+    and many Romanian stations send Windows-1250 (ş, ţ, â, î), not UTF-8.
+    Strict UTF-8 decoding raised mid-read and leaked the FFmpeg child.
+    """
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("cp1250", errors="replace")
+
+
 def _monitor_ffmpeg_output(proc):
     """Parse FFmpeg stderr for metadata changes and silence events."""
     last_title = ""
@@ -175,8 +190,8 @@ def _monitor_ffmpeg_output(proc):
     title_re = re.compile(r"StreamTitle\s*:\s*(.+)")
     metadata_update_re = re.compile(r"Metadata update for StreamTitle:\s*(.+)")
 
-    for line in proc.stderr:
-        line = line.strip()
+    for raw_line in proc.stderr:
+        line = _decode_line(raw_line).strip()
         if not line:
             continue
 
@@ -201,6 +216,31 @@ def _monitor_ffmpeg_output(proc):
             continue
 
 
+def _stop_ffmpeg(proc):
+    """Terminate, then kill, and always reap the FFmpeg child."""
+    if proc.poll() is None:
+        proc.terminate()
+        try:
+            proc.wait(timeout=FFMPEG_STOP_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+    proc.stderr.close()
+
+
+def _run_ffmpeg_once(cmd):
+    """Run one FFmpeg monitor until it exits or its output can't be parsed.
+
+    The child is stopped and reaped on every exit path, so a parse error
+    can never leave an orphan behind (it used to: one leaked per retry).
+    """
+    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    try:
+        _monitor_ffmpeg_output(proc)
+    finally:
+        _stop_ffmpeg(proc)
+
+
 def _run_metadata_extractor():
     """Run a lightweight FFmpeg process to monitor stream metadata."""
     cmd = [
@@ -210,6 +250,8 @@ def _run_metadata_extractor():
         # updates are only printed at "verbose" level as:
         #   [https @ 0x...] Metadata update for StreamTitle: Artist - Song
         "-loglevel", "verbose",
+        # No \r progress lines: stderr is read as bytes, split on \n only
+        "-nostats",
         "-reconnect", "1",
         "-reconnect_streamed", "1",
         "-reconnect_delay_max", "30",
@@ -224,15 +266,7 @@ def _run_metadata_extractor():
 
     while True:
         try:
-            proc = subprocess.Popen(
-                cmd,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1,
-            )
-            _monitor_ffmpeg_output(proc)
-            proc.wait()
+            _run_ffmpeg_once(cmd)
             print("metadata: ffmpeg exited, restarting in 5s...", flush=True)
         except Exception as e:
             print(f"metadata: error: {e}", flush=True)
@@ -252,6 +286,9 @@ def main():
         return
 
     METADATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Exit through `finally` on SIGTERM so the FFmpeg child is reaped too
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 
     # Start periodic index updates
     t = threading.Thread(target=_periodic_index_update, daemon=True)
