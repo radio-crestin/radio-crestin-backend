@@ -126,7 +126,11 @@ trap cleanup SIGTERM SIGINT
 #   -hls_segment_filename      — segment naming pattern
 #
 FFMPEG_RETRY_DELAY=10
-FFMPEG_MAX_RETRY_DELAY=120
+# Liveness no longer restarts the pod during an upstream outage, so this loop
+# is the only recovery: cap the wait so audio resumes within a minute.
+FFMPEG_MAX_RETRY_DELAY=60
+# A run this long was healthy: the next failure starts the backoff over.
+FFMPEG_HEALTHY_RUN=60
 FFMPEG_PID=""
 
 start_ffmpeg() {
@@ -163,9 +167,11 @@ start_ffmpeg() {
     #                                              which collided whenever two segments wrote
     #                                              in the same epoch second.
     #   - input -reconnect flags                   transient input flap recovery without exiting
+    #   - -rw_timeout 15s                          a stalled input socket errors out instead of
+    #                                              hanging forever (liveness no longer catches it)
     ffmpeg -loglevel warning \
         -reconnect 1 -reconnect_streamed 1 -reconnect_on_network_error 1 \
-        -reconnect_delay_max 4 \
+        -reconnect_delay_max 4 -rw_timeout 15000000 \
         -fflags +genpts+discardcorrupt -max_delay 5000000 \
         -i "$STREAM_URL" -y \
         -map 0:a:0 -c:a libfdk_aac -profile:a aac_he -b:a 64k \
@@ -195,10 +201,13 @@ ffmpeg_loop() {
     while true; do
         started_at=$(date +%s)
         start_ffmpeg
-        wait "$FFMPEG_PID" || true
-        local exit_code=$?
+        local exit_code=0
+        wait "$FFMPEG_PID" || exit_code=$?
         ran_for=$(( $(date +%s) - started_at ))
         restarts=$((restarts + 1))
+        if [ "$ran_for" -ge "$FFMPEG_HEALTHY_RUN" ]; then
+            delay=$FFMPEG_RETRY_DELAY
+        fi
         echo "ffmpeg_loop: ffmpeg exited (code=${exit_code}, ran=${ran_for}s, restart_count=${restarts}); retrying in ${delay}s"
         # Fire-and-forget event to PostHog. Errors here must never break the supervisor.
         python3 /app/scripts/report_event.py ffmpeg_exit \
@@ -217,7 +226,8 @@ ffmpeg_loop() {
 ffmpeg_loop &
 FFMPEG_LOOP_PID=$!
 
-# Wait for any critical background process to exit
-wait -n "$NGINX_PID" || true
+# Exit (and let the kubelet restart the container) when any process that
+# listeners depend on dies; the liveness probe only checks NGINX answers.
+wait -n "$NGINX_PID" "$HEALTH_PID" "$PLAYLIST_REWRITER_PID" "$FFMPEG_LOOP_PID" || true
 echo "Critical process exited, shutting down..."
 cleanup

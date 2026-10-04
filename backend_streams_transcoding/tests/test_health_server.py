@@ -10,7 +10,10 @@ the pod through the liveness probe.
 import os
 import sys
 import tempfile
+import threading
 import time
+import urllib.error
+import urllib.request
 
 import pytest
 
@@ -68,3 +71,30 @@ def test_stale_segments_still_fail(segments_dir):
         os.utime(os.path.join(segments_dir, name), (old, old))
     ok, reason = health_server.check_health()
     assert not ok and "stale" in reason
+
+
+@pytest.fixture
+def server(segments_dir):
+    httpd = health_server.QuietHTTPServer(("127.0.0.1", 0), health_server.HealthHandler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    yield f"http://127.0.0.1:{httpd.server_port}"
+    httpd.shutdown()
+
+
+def _get(url):
+    try:
+        with urllib.request.urlopen(url, timeout=5) as response:
+            return response.status, response.read()
+    except urllib.error.HTTPError as error:
+        return error.code, error.read()
+
+
+def test_live_answers_while_upstream_is_down(server):
+    # No segments at all (station offline): readiness fails, liveness doesn't,
+    # so the kubelet leaves the pod alone while ffmpeg_loop reconnects.
+    assert _get(server + "/live") == (200, b"alive")
+    assert _get(server + "/health") == (503, b"no aac segments on disk")
+
+
+def test_unknown_path_is_404(server):
+    assert _get(server + "/nope")[0] == 404

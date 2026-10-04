@@ -309,24 +309,29 @@ def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
                                     ),
                                 ),
                             ),
-                            # Startup probe: generous window for FFmpeg to produce first segments
+                            # Startup + liveness use /live: NGINX and the health server
+                            # answer. A dead critical process makes the entrypoint
+                            # exit, and ffmpeg_loop reconnects to the station in
+                            # place, so an upstream outage never restarts the pod
+                            # (restarting cannot bring a station back).
                             startup_probe=client.V1Probe(
-                                http_get=client.V1HTTPGetAction(path="/health", port=8080),
-                                initial_delay_seconds=5,
-                                period_seconds=5,
-                                failure_threshold=12,  # 60s max startup
+                                http_get=client.V1HTTPGetAction(path="/live", port=8080),
+                                initial_delay_seconds=2,
+                                period_seconds=2,
+                                failure_threshold=15,  # 30s for NGINX + health server
                             ),
-                            # Liveness: fast detection, fast restart
                             liveness_probe=client.V1Probe(
-                                http_get=client.V1HTTPGetAction(path="/health", port=8080),
-                                period_seconds=5,
-                                failure_threshold=2,  # 10s to detect failure after staleness
+                                http_get=client.V1HTTPGetAction(path="/live", port=8080),
+                                period_seconds=10,
+                                failure_threshold=3,  # 30s without an answer
                                 timeout_seconds=5,
                             ),
+                            # Readiness uses /health (fresh segments): a pod without
+                            # audio leaves the Service until ffmpeg recovers.
                             readiness_probe=client.V1Probe(
                                 http_get=client.V1HTTPGetAction(path="/health", port=8080),
                                 period_seconds=5,
-                                failure_threshold=1,
+                                failure_threshold=2,
                                 timeout_seconds=3,
                             ),
                         )

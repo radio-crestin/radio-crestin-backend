@@ -6,7 +6,12 @@ Checks:
   2. Enough segments exist for smooth player handoff (MIN_READY_SEGMENTS)
   3. Every segment referenced in live.m3u8 exists on disk and is non-empty
 
-Returns 200 "ok" when all checks pass, 503 with failure reason otherwise.
+GET /health returns 200 "ok" when all checks pass, 503 with failure reason
+otherwise; it is the READINESS probe (an upstream outage takes the pod out
+of the Service, and ffmpeg_loop reconnects in place).
+GET /live always returns 200 "alive": it is the LIVENESS probe and only
+proves NGINX and this server answer. A dead critical process makes the
+entrypoint exit instead (wait -n), so liveness never depends on upstream.
 Runs on 127.0.0.1:8082.
 
 Also reports health to Django API so the station's uptime record reflects
@@ -51,23 +56,23 @@ REPORT_INTERVAL = int(os.environ.get("HEALTH_REPORT_INTERVAL", "15"))
 
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        if self.path != "/health":
-            self.send_response(404)
-            self.end_headers()
-            return
-
-        ok, reason = check_health()
-        try:
+        if self.path == "/live":
+            self._reply(200, b"alive")
+        elif self.path == "/health":
+            ok, reason = check_health()
             if ok:
-                self.send_response(200)
-                self.send_header("Content-Type", "text/plain")
-                self.end_headers()
-                self.wfile.write(b"ok")
+                self._reply(200, b"ok")
             else:
-                self.send_response(503)
-                self.send_header("Content-Type", "text/plain")
-                self.end_headers()
-                self.wfile.write(reason.encode())
+                self._reply(503, reason.encode())
+        else:
+            self._reply(404, b"")
+
+    def _reply(self, status, body):
+        try:
+            self.send_response(status)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write(body)
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             pass
 

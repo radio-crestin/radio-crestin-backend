@@ -89,7 +89,11 @@ class TestBuildDeploymentSpec(unittest.TestCase):
         self.assertIsNotNone(container.liveness_probe)
         self.assertIsNotNone(container.readiness_probe)
         self.assertIsNotNone(container.startup_probe)
-        self.assertEqual(container.liveness_probe.http_get.path, "/health")
+        # Liveness/startup never depend on the station's upstream: an outage
+        # only takes the pod out of the Service (readiness).
+        self.assertEqual(container.startup_probe.http_get.path, "/live")
+        self.assertEqual(container.liveness_probe.http_get.path, "/live")
+        self.assertEqual(container.readiness_probe.http_get.path, "/health")
 
     def test_deployment_has_resource_limits(self):
         dep = controller.build_deployment_spec("test-station", "https://stream.example.com/live")
@@ -115,12 +119,15 @@ class TestBuildDeploymentSpec(unittest.TestCase):
         self.assertEqual(dep.spec.selector.match_labels["app"], "live-stream")
         self.assertEqual(dep.spec.selector.match_labels["station"], "test-station")
 
-    def test_liveness_probe_fast_failure_detection(self):
+    def test_staleness_is_detected_by_readiness_not_liveness(self):
         dep = controller.build_deployment_spec("test-station", "https://stream.example.com/live")
         container = dep.spec.template.spec.containers[0]
-        # 2 failures × 5s period = 10s to detect failure after staleness.
-        self.assertEqual(container.liveness_probe.failure_threshold, 2)
-        self.assertEqual(container.liveness_probe.period_seconds, 5)
+        # Stale audio: out of the Service after 2 failures × 5s = 10s.
+        self.assertEqual(container.readiness_probe.failure_threshold, 2)
+        self.assertEqual(container.readiness_probe.period_seconds, 5)
+        # Restart only when NGINX/health server stop answering for 30s.
+        self.assertEqual(container.liveness_probe.failure_threshold, 3)
+        self.assertEqual(container.liveness_probe.period_seconds, 10)
 
 
 class TestBuildServiceSpec(unittest.TestCase):

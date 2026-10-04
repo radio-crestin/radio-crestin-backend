@@ -255,6 +255,8 @@ def _run_metadata_extractor():
         "-reconnect", "1",
         "-reconnect_streamed", "1",
         "-reconnect_delay_max", "30",
+        # A stalled socket errors out (and is retried) instead of hanging
+        "-rw_timeout", "15000000",
         "-i", STREAM_URL,
         # Silence detection filter (low CPU)
         "-af", "silencedetect=noise=-40dB:d=1.5",
