@@ -382,7 +382,10 @@ class TestSyncOnce(unittest.TestCase):
         dep = MagicMock()
         dep.metadata.name = f"live-stream-{slug}"
         dep.metadata.labels = {"app": "live-stream", "station": slug}
-        dep.metadata.annotations = {"stream-url": stream_url}
+        dep.metadata.annotations = {
+            "stream-url": stream_url,
+            controller.RESOURCES_ANNOTATION: controller.desired_resources(),
+        }
         container = MagicMock()
         container.image = image or controller.STREAMER_IMAGE
         dep.spec.template.spec.containers = [container]
@@ -609,3 +612,48 @@ class TestEgressProxy(unittest.TestCase):
             controller.ensure_listing_deployment(apps_v1, MagicMock())
         body = apps_v1.replace_namespaced_deployment.call_args.kwargs["body"]
         self.assertEqual(controller.egress_proxy_of(body), ("", ""))
+
+
+class TestPodResources(unittest.TestCase):
+    """Live-stream pod resources come from env knobs and roll out on change."""
+
+    def test_defaults(self):
+        dep = controller.build_deployment_spec("radio-a", "https://s.example/live")
+        streamer = dep.spec.template.spec.containers[0]
+        self.assertEqual(streamer.resources.requests, {"cpu": "50m", "memory": "96Mi"})
+        self.assertEqual(streamer.resources.limits, {"cpu": "300m", "memory": "384Mi"})
+        self.assertEqual(controller.EGRESS_PROXY_SIDECAR_RESOURCES,
+                         {"requests": {"cpu": "10m", "memory": "16Mi"},
+                          "limits": {"cpu": "200m", "memory": "128Mi"}})
+
+    def test_env_overrides_one_value(self):
+        with patch.dict(os.environ, {"STREAMER_MEMORY_LIMIT": "512Mi"}):
+            resources = controller._resources_from_env("STREAMER", "75m", "128Mi", "300m", "384Mi")
+        self.assertEqual(resources["limits"], {"cpu": "300m", "memory": "512Mi"})
+        self.assertEqual(resources["requests"], {"cpu": "75m", "memory": "128Mi"})
+
+    def test_sidecar_uses_its_resources(self):
+        with patch.object(controller, "EGRESS_PROXY_SECRET", "egress-proxy-radio"):
+            dep = controller.build_deployment_spec("radio-a", "https://s.example/live")
+        sidecar = dep.spec.template.spec.init_containers[0]
+        self.assertEqual(sidecar.resources.requests, controller.EGRESS_PROXY_SIDECAR_RESOURCES["requests"])
+        self.assertEqual(sidecar.resources.limits, controller.EGRESS_PROXY_SIDECAR_RESOURCES["limits"])
+
+    @patch("controller.ensure_listing_ingress")
+    @patch("controller.ensure_listing_deployment")
+    @patch("controller.fetch_stations")
+    def test_resource_change_updates_deployment(self, mock_fetch, _listing_dep, _listing_ing):
+        mock_fetch.return_value = [
+            {"slug": "radio-a", "stream_url": "https://stream.com", "transcode_enabled": True}
+        ]
+        existing = controller.build_deployment_spec("radio-a", "https://stream.com")
+        sync = TestSyncOnce()
+        core_v1, apps_v1, networking_v1 = sync._setup_kube_mocks(
+            deployments=[existing], services=[sync._mock_service("radio-a")],
+            ingresses=[sync._mock_ingress("radio-a")])
+        bigger = {"requests": {"cpu": "75m", "memory": "128Mi"}, "limits": {"cpu": "300m", "memory": "384Mi"}}
+        with patch.object(controller, "STREAMER_RESOURCES", bigger):
+            controller.sync_once(core_v1, apps_v1, networking_v1)
+        apps_v1.replace_namespaced_deployment.assert_called_once()
+        body = apps_v1.replace_namespaced_deployment.call_args.kwargs["body"]
+        self.assertEqual(body.spec.template.spec.containers[0].resources.requests["memory"], "128Mi")

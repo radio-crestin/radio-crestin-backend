@@ -6,6 +6,7 @@ creates/deletes Kubernetes Deployments, Services, PVCs, and ingress rules.
 Uses Deployments (not bare Pods) for automatic restart on failure.
 """
 
+import json
 import logging
 import os
 import re
@@ -62,6 +63,26 @@ EGRESS_PROXY_PORT = 3128  # fixed by squid-sidecar.conf
 EGRESS_PROXY_CA_DIR = "/etc/egress-proxy"
 EGRESS_PROXY_VOLUME = "egress-proxy-ca"
 EGRESS_PROXY_SIDECAR = "egress-proxy"
+
+
+def _resources_from_env(prefix: str, cpu_request: str, memory_request: str,
+                        cpu_limit: str, memory_limit: str) -> dict:
+    """Requests/limits for one container, each overridable as <prefix>_<CPU|MEMORY>_<REQUEST|LIMIT>."""
+    def env(name, default):
+        return os.environ.get(f"{prefix}_{name}", default)
+    return {
+        "requests": {"cpu": env("CPU_REQUEST", cpu_request), "memory": env("MEMORY_REQUEST", memory_request)},
+        "limits": {"cpu": env("CPU_LIMIT", cpu_limit), "memory": env("MEMORY_LIMIT", memory_limit)},
+    }
+
+
+# Live-stream pod resources. The 384Mi streamer limit also keeps a runaway
+# ffmpeg-child leak (metadata_monitor) inside one pod.
+STREAMER_RESOURCES = _resources_from_env("STREAMER", "50m", "96Mi", "300m", "384Mi")
+EGRESS_PROXY_SIDECAR_RESOURCES = _resources_from_env("EGRESS_PROXY_SIDECAR", "10m", "16Mi", "200m", "128Mi")
+# Deployment annotation holding the resources it was built with, so a change
+# is detected without comparing the API's normalized quantities ("0.1" -> "100m").
+RESOURCES_ANNOTATION = "live-stream/resources"
 
 SLUG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*[a-z0-9]$")
 LABEL_APP = "live-stream"
@@ -207,8 +228,7 @@ def _egress_proxy_init_containers() -> list[client.V1Container] | None:
             run_as_non_root=True, run_as_user=65534, run_as_group=65534,
             read_only_root_filesystem=True, allow_privilege_escalation=False,
             capabilities=client.V1Capabilities(drop=["ALL"])),
-        resources=client.V1ResourceRequirements(
-            requests={"cpu": "10m", "memory": "16Mi"}, limits={"cpu": "200m", "memory": "128Mi"}),
+        resources=client.V1ResourceRequirements(**EGRESS_PROXY_SIDECAR_RESOURCES),
         volume_mounts=[client.V1VolumeMount(name=EGRESS_PROXY_VOLUME, mount_path=EGRESS_PROXY_CA_DIR,
                                             read_only=True)],
     )]
@@ -235,6 +255,16 @@ def desired_egress_proxy() -> tuple[str, str]:
     return (EGRESS_PROXY_SECRET, EGRESS_PROXY_SIDECAR_IMAGE) if EGRESS_PROXY_SECRET else ("", "")
 
 
+def desired_resources() -> str:
+    """Signature of the pod resources, stored in RESOURCES_ANNOTATION."""
+    return json.dumps({"streamer": STREAMER_RESOURCES, "egress-proxy": EGRESS_PROXY_SIDECAR_RESOURCES},
+                      sort_keys=True)
+
+
+def resources_of(deployment: client.V1Deployment) -> str:
+    return (deployment.metadata.annotations or {}).get(RESOURCES_ANNOTATION, "")
+
+
 def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
     """Build Deployment spec for a station streamer with fast restart on failure."""
     labels = {"app": LABEL_APP, "station": slug}
@@ -246,7 +276,7 @@ def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
             name=deployment_name(slug),
             namespace=NAMESPACE,
             labels=labels,
-            annotations={"stream-url": stream_url},
+            annotations={"stream-url": stream_url, RESOURCES_ANNOTATION: desired_resources()},
         ),
         spec=client.V1DeploymentSpec(
             replicas=1,
@@ -296,10 +326,7 @@ def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
                             volume_mounts=[
                                 client.V1VolumeMount(name="data", mount_path="/data"),
                             ],
-                            resources=client.V1ResourceRequirements(
-                                requests={"cpu": "50m", "memory": "96Mi"},
-                                limits={"cpu": "300m", "memory": "384Mi"},
-                            ),
+                            resources=client.V1ResourceRequirements(**STREAMER_RESOURCES),
                             # preStop: sleep to let K8s remove pod from endpoints
                             # before SIGTERM arrives — prevents traffic to dying pod
                             lifecycle=client.V1Lifecycle(
@@ -893,7 +920,7 @@ def sync_once(
     to_delete = existing_slugs - desired_slugs
     to_check = desired_slugs & existing_slugs
 
-    # Check for stream_url or image changes (need update)
+    # Check for stream_url, image or resource changes (need update)
     to_update_url = set()
     to_update_image = set()
     for slug in to_check:
@@ -904,7 +931,8 @@ def sync_once(
         if current_url != desired_map[slug]:
             log.info("Stream URL changed for %s: %r -> %r", slug, current_url, desired_map[slug])
             to_update_url.add(slug)
-        elif current_image != STREAMER_IMAGE or egress_proxy_of(dep) != desired_egress_proxy():
+        elif (current_image != STREAMER_IMAGE or egress_proxy_of(dep) != desired_egress_proxy()
+              or resources_of(dep) != desired_resources()):
             to_update_image.add(slug)
 
     to_update = to_update_url | to_update_image
