@@ -10,15 +10,8 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 import os
-import warnings
 from os import environ
 from pathlib import Path
-
-from django.core.cache.backends.base import CacheKeyWarning
-
-# Suppress CacheKeyWarning: strawberry-django's DjangoValidationCache generates
-# long cache keys with special chars. This is harmless with Redis (not memcached).
-warnings.filterwarnings("ignore", category=CacheKeyWarning)
 
 import dj_database_url
 from django.core.management.utils import get_random_secret_key
