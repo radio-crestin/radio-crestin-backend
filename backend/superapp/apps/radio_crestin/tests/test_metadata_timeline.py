@@ -79,17 +79,27 @@ class StationsMetadataCachePolicyTests(TestCase):
     def test_recent_window_is_short_lived(self):
         ts = _epoch(timezone.now()) - 10
         self.assertEqual(self._get(timestamp=ts)['Cache-Control'],
-                         'public, max-age=5')
+                         'public, max-age=60')
+
+    def test_unsettled_copies_expire_before_offset_listeners_ask(self):
+        # An unsettled copy is made before T + METADATA_SETTLE_SECONDS, so a
+        # listener in the shortest offset mode (2 min) always gets the
+        # settled answer, while Redis refreshes it within seconds.
+        self.assertLessEqual(
+            METADATA_SETTLE_SECONDS + rest_endpoints.METADATA_UNSETTLED_MAX_AGE,
+            120)
+        self.assertLess(rest_endpoints.UNSETTLED_METADATA_POLICY.ttl,
+                        rest_endpoints.METADATA_UNSETTLED_MAX_AGE)
 
     def test_diff_requests_follow_the_same_policy(self):
         ts = _epoch(timezone.now()) - 10
         response = self._get(timestamp=ts, changes_from_timestamp=ts - 60)
-        self.assertEqual(response['Cache-Control'], 'public, max-age=5')
+        self.assertEqual(response['Cache-Control'], 'public, max-age=60')
 
     def test_timestamp_zero_means_now_and_is_short_lived(self):
         # The resolver reads timestamp=0 as "now", so it never settles.
         self.assertEqual(self._get(timestamp=0)['Cache-Control'],
-                         'public, max-age=5')
+                         'public, max-age=60')
 
     def test_response_says_when_it_was_generated(self):
         before = int(timezone.now().timestamp())
@@ -120,15 +130,15 @@ class HistoryCachePolicyTests(TestCase):
         to = _epoch(timezone.now()) - 5
         self.assertEqual(
             self._get(from_timestamp=to - 60, to_timestamp=to)['Cache-Control'],
-            'public, max-age=5')
-        self.assertEqual(self._get()['Cache-Control'], 'public, max-age=5')
+            'public, max-age=60')
+        self.assertEqual(self._get()['Cache-Control'], 'public, max-age=60')
 
     def test_range_starting_relative_to_now_is_short_lived(self):
         # Without from_timestamp the range starts an hour before now, so the
         # answer for this URL keeps moving even though `to` has settled.
         to = _epoch(timezone.now()) - METADATA_SETTLE_SECONDS - 10
         self.assertEqual(self._get(to_timestamp=to)['Cache-Control'],
-                         'public, max-age=5')
+                         'public, max-age=60')
 
 
 @override_settings(CACHES=LOCMEM_CACHE)
@@ -157,8 +167,9 @@ class StationsMetadataLateRowTests(TestCase):
             song=self.old)
         first, name = self._name_at(t)
         self.assertEqual(name, 'Old Song')
-        self.assertEqual(first['Cache-Control'], 'public, max-age=5')
-        # Every cached copy of the unsettled answer lives at most 5 s.
+        self.assertEqual(first['Cache-Control'], 'public, max-age=60')
+        # Redis keeps the unsettled answer at most 5 s and the CDN at most
+        # 60 s, both gone by the time a listener 2 minutes behind asks.
         cache.clear()
         # The new song started 2 s before T and was ingested after the
         # first request (the back-dated row the CDN used to freeze out).
@@ -220,7 +231,7 @@ class CachePolicyKeyTests(SimpleTestCase):
         from superapp.apps.graphql.rest_handler import GraphQLRestApiView
 
         policies = iter([
-            CachePolicy('public, max-age=5', 5, 'unsettled'),
+            CachePolicy('public, max-age=60', 5, 'unsettled'),
             CachePolicy('public, max-age=2592000, immutable', 10, 'settled'),
         ])
 
@@ -239,7 +250,7 @@ class CachePolicyKeyTests(SimpleTestCase):
             second = View()._handle_request(
                 factory.get('/api/v1/things', {'timestamp': '100'}))
         self.assertEqual(execute.call_count, 2)
-        self.assertEqual(first['Cache-Control'], 'public, max-age=5')
+        self.assertEqual(first['Cache-Control'], 'public, max-age=60')
         self.assertEqual(second['Cache-Control'],
                          'public, max-age=2592000, immutable')
 

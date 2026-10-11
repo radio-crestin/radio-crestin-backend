@@ -37,15 +37,21 @@ def rounded_timestamp(window_seconds: int = 10) -> int:
 #
 # The CDN must keep honouring these headers: Cloudflare's Cache Rule for
 # api.radiocrestin.ro/api/v1/stations-metadata* has to use the origin's
-# Cache-Control ("respect origin"), or the 5 s answers get frozen again. The
+# Cache-Control ("respect origin"), or the 60 s answers get frozen again. The
 # edge also appends `no-store` to the client-facing Cache-Control after
 # caching (a "Modify response header" Transform Rule or the Browser Cache TTL
 # setting); clients must not read caching hints from that header.
 METADATA_SETTLE_SECONDS = 60
-# Lifetime of an answer for a window that can still change: long enough to
-# collapse a burst of identical requests, short enough that a row ingested
-# after the first request shows up a few seconds later.
-METADATA_UNSETTLED_MAX_AGE = 5
+# CDN lifetime of an answer for a window that can still change. Live pollers
+# move to a new timestamp on every poll and their diffs look back 60 s, so a
+# copy that misses a late row only delays that row for them. A copy expires
+# no later than 60 s after its window settled, so a listener 2 or 5 minutes
+# behind live, or a later lookup of T, gets it recomputed as immutable: each
+# URL reaches the origin at most twice per edge location.
+METADATA_UNSETTLED_MAX_AGE = 60
+# Redis keeps an unsettled answer only long enough to collapse a burst of
+# identical requests, so an edge refetch sees the rows ingested since.
+METADATA_UNSETTLED_REDIS_TTL = 5
 METADATA_SETTLED_CACHE_CONTROL = "public, max-age=2592000, immutable"
 # Redis keeps settled answers this long: their data is final, the TTL only
 # bounds memory.
@@ -60,7 +66,7 @@ SETTLED_METADATA_POLICY = CachePolicy(
 )
 UNSETTLED_METADATA_POLICY = CachePolicy(
     header=f"public, max-age={METADATA_UNSETTLED_MAX_AGE}",
-    ttl=METADATA_UNSETTLED_MAX_AGE,
+    ttl=METADATA_UNSETTLED_REDIS_TTL,
     key="unsettled",
 )
 
