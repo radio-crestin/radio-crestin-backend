@@ -19,12 +19,14 @@ A song's `started_at` is the wall-clock time its StreamTitle was read, minus
 the station's `id3_metadata_delay_offset` (from station.json, written by
 scraper_engine). That one value feeds index.json, the playlist's
 EXT-X-DATERANGE / EXT-X-RC-METADATA-CHANGED and the API history, so all of
-them describe the same instant.
+them describe the same instant. Song starts only move forward: a new song
+starts at least MIN_SONG_SECONDS after the current one.
 
 Runs as a background process alongside the main FFmpeg transcoder.
 """
 
 import json
+import math
 import os
 import re
 import signal
@@ -64,6 +66,19 @@ RECENT_SONGS_MAX_AGE = (
     int(os.environ.get("DVR_WINDOW_SECONDS", "3600")) + 300 + 60)
 # Bounds memory on stations whose title changes absurdly often.
 SONG_HISTORY_LIMIT = 200
+# id3_metadata_delay_offset is documented as within ±30 s. The bound also
+# dates a song at most 30 s before its detection, which leaves
+# scraper_engine 15 s of Django's 45 s backdate limit to report it before
+# Django would clamp the start and the API disagree with the playlist.
+MAX_DELAY_OFFSET = 30.0
+# A new song starts at least this long after the current one, even when a
+# larger offset would date it earlier: durations stay positive and every
+# song gets its own whole-second EPOCH.
+MIN_SONG_SECONDS = 1.0
+# A restored current song is carried over only when the previous process
+# was alive this recently. After a longer outage it ends when that process
+# was last alive, instead of stretching over the whole gap.
+RESTORE_MAX_GAP = 120
 
 # `-progress` output is `key=value` lines (out_time_us=..., progress=...).
 _PROGRESS_LINE = re.compile(r"^[a-z][a-z0-9_]*=")
@@ -83,6 +98,8 @@ _lock = threading.Lock()
 # When the stream last delivered media (or a title); see READER_STALL_TIMEOUT.
 _reader_alive_at = 0.0
 _current_proc: subprocess.Popen | None = None
+# The out-of-range offset last logged, so a clamp is logged once per value.
+_clamp_logged_offset: float | None = None
 
 
 def _parse_stream_title(raw: str) -> tuple[str, str]:
@@ -107,16 +124,31 @@ def song_started_at(detected_at: float, delay_offset: float) -> float:
     return detected_at - delay_offset
 
 
+def clamp_delay_offset(offset: float) -> float:
+    """The offset within ±MAX_DELAY_OFFSET; an out-of-range value is logged
+    once."""
+    global _clamp_logged_offset
+    if not math.isfinite(offset):
+        return 0.0
+    clamped = max(-MAX_DELAY_OFFSET, min(MAX_DELAY_OFFSET, offset))
+    if clamped != offset and offset != _clamp_logged_offset:
+        _clamp_logged_offset = offset
+        print(f"metadata: id3_metadata_delay_offset {offset:g}s is outside "
+              f"±{MAX_DELAY_OFFSET:g}s, using {clamped:g}s", flush=True)
+    return clamped
+
+
 def _load_delay_offset() -> float:
     """The station's id3_metadata_delay_offset; 0 until scraper_engine has
     written station.json."""
     try:
         with open(STATION_CONFIG_PATH, "r") as f:
             data = json.load(f)
-        return float(data.get("id3_metadata_delay_offset") or 0)
+        offset = float(data.get("id3_metadata_delay_offset") or 0)
     except (FileNotFoundError, json.JSONDecodeError, TypeError, ValueError,
             AttributeError):
         return 0.0
+    return clamp_delay_offset(offset)
 
 
 def progress_media_time(line: str) -> int | None:
@@ -160,13 +192,37 @@ def _get_slot_path(epoch: float) -> Path:
 def _load_slot(path: Path) -> list[dict]:
     try:
         with open(path, "r") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
+            songs = json.load(f)
+    except (OSError, ValueError):
         return []
+    return songs if isinstance(songs, list) else []
 
 
 def _save_slot(path: Path, songs: list[dict]):
     _write_json_atomic(path, songs, indent=1)
+
+
+def _archive_song(song: dict) -> None:
+    """Append an ended song to its 15-minute slot file."""
+    path = _get_slot_path(song["started_at"])
+    try:
+        _save_slot(path, _load_slot(path) + [song])
+    except (OSError, TypeError, ValueError) as e:
+        print(f"metadata: slot write error: {e}", flush=True)
+
+
+def _end_current_song(ended_at: float) -> dict | None:
+    """Move the current song, if any, to the history and return it. The
+    caller holds _lock and replaces _current_song in the same step."""
+    if not (_current_song["raw"] and _current_song["started_at"] > 0):
+        return None
+    ended = _current_song.copy()
+    ended["ended_at"] = ended_at
+    ended["duration_seconds"] = round(ended_at - ended["started_at"])
+    _song_history.append(ended)
+    if len(_song_history) > SONG_HISTORY_LIMIT:
+        _song_history[:] = _song_history[-SONG_HISTORY_LIMIT:]
+    return ended
 
 
 def recent_songs(history: list[dict], now: float) -> list[dict]:
@@ -185,26 +241,43 @@ def _restore_state() -> None:
     every published EXT-X-DATERANGE while it is still mapped, and the
     connect-time re-announcement of the current title would be dated as a
     new song.
+
+    After an outage longer than RESTORE_MAX_GAP the current song ends when
+    the previous process was last alive: the audio after the gap is a new
+    song instance, even when the station announces the same title.
     """
     try:
         with open(INDEX_PATH, "r") as f:
             data = json.load(f)
         current = data.get("current") or {}
         recent = data.get("recent") or []
-    except (FileNotFoundError, json.JSONDecodeError, AttributeError):
+        alive_at = float(data.get("monitor_alive_at")
+                         or data.get("updated_at") or 0)
+    except (FileNotFoundError, json.JSONDecodeError, AttributeError,
+            TypeError, ValueError):
         return
     if not isinstance(current, dict) or not isinstance(recent, list):
         return
     ended = [s for s in reversed(recent)
              if isinstance(s, dict) and s.get("started_at")]
     restored = bool(current.get("raw") and current.get("started_at"))
+    outage_ended = None
     with _lock:
+        _song_history[:] = ended[-SONG_HISTORY_LIMIT:]
         if restored:
             _current_song.update(current)
-        _song_history[:] = ended[-SONG_HISTORY_LIMIT:]
+            if alive_at and time.time() - alive_at > RESTORE_MAX_GAP:
+                outage_ended = _end_current_song(
+                    max(alive_at, _current_song["started_at"]))
+                _current_song.update(title="", artist="", raw="",
+                                     started_at=0, started_at_iso="")
+    if outage_ended:
+        _archive_song(outage_ended)
+    carried = restored and not outage_ended
     print(f"metadata: restored {len(ended)} ended songs"
-          f"{' and the current one' if restored else ''} from {INDEX_PATH}",
-          flush=True)
+          f"{' and the current one' if carried else ''}"
+          f"{' (ended at the outage)' if outage_ended else ''}"
+          f" from {INDEX_PATH}", flush=True)
 
 
 def _save_index():
@@ -231,7 +304,13 @@ def _save_index():
 
 
 def _on_song_change(raw_title: str, epoch: float):
-    """Handle a song change event."""
+    """Handle a song change event.
+
+    The previous song ends and the new one becomes current in one step
+    under the lock, before any file is written: a failed write (a full
+    disk) can no longer leave the ended song in the history while it is
+    still current, which appended it again at the next title.
+    """
     artist, title = _parse_stream_title(raw_title)
     iso = datetime.fromtimestamp(epoch, tz=timezone.utc).strftime(
         "%Y-%m-%dT%H:%M:%S+0000"
@@ -246,25 +325,10 @@ def _on_song_change(raw_title: str, epoch: float):
     }
 
     with _lock:
-        # End previous song
-        if _current_song["raw"] and _current_song["started_at"] > 0:
-            ended = _current_song.copy()
-            ended["ended_at"] = epoch
-            ended["duration_seconds"] = round(epoch - ended["started_at"])
-            _song_history.append(ended)
-
-            # Save to 15-minute slot file
-            slot_path = _get_slot_path(ended["started_at"])
-            slot = _load_slot(slot_path)
-            slot.append(ended)
-            _save_slot(slot_path, slot)
-
-            # Keep history bounded
-            if len(_song_history) > SONG_HISTORY_LIMIT:
-                _song_history[:] = _song_history[-SONG_HISTORY_LIMIT:]
-
+        ended = _end_current_song(epoch)
         _current_song.update(song)
-
+    if ended:
+        _archive_song(ended)
     _save_index()
     print(f"metadata: song change: {artist} - {title}", flush=True)
 
@@ -275,10 +339,13 @@ def _on_title(raw_title: str, detected_at: float) -> None:
     (re)connect, and dating it again would invent a song boundary."""
     with _lock:
         current = _current_song["raw"]
+        current_start = _current_song["started_at"]
     if raw_title == current:
         return
-    _on_song_change(raw_title,
-                    song_started_at(detected_at, _load_delay_offset()))
+    started_at = song_started_at(detected_at, _load_delay_offset())
+    if current:
+        started_at = max(started_at, current_start + MIN_SONG_SECONDS)
+    _on_song_change(raw_title, started_at)
 
 
 def _on_silence(epoch: float, duration: float):

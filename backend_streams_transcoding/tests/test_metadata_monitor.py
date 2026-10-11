@@ -1,6 +1,8 @@
 """metadata_monitor: song start = detection - delay offset, atomic
 index.json, and a reader heartbeat with a watchdog."""
 
+import contextlib
+import io
 import json
 import os
 import sys
@@ -48,6 +50,7 @@ class MonitorFixture(unittest.TestCase):
             mock.patch.object(mm, "_song_history", []),
             mock.patch.object(mm, "_reader_alive_at", 0.0),
             mock.patch.object(mm, "_current_proc", None),
+            mock.patch.object(mm, "_clamp_logged_offset", None),
         ]
         for p in self.patches:
             p.start()
@@ -101,6 +104,34 @@ class SongStartTests(MonitorFixture):
         self.assertEqual(index["current"]["started_at"], 1_600.0)
         self.assertEqual(index["recent"][0]["ended_at"], 1_600.0)
 
+    def test_offset_is_clamped_to_30_seconds_and_logged_once(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            for offset, now, expected in ((300, 1_000.0, 970.0),
+                                          (300, 1_100.0, 1_070.0),
+                                          (-300, 1_200.0, 1_230.0)):
+                mm.STATION_CONFIG_PATH.write_text(json.dumps(
+                    {"id3_metadata_delay_offset": offset}))
+                self.feed([UPDATE.format(f"A - {now}")], now=now)
+                self.assertEqual(self.index()["current"]["started_at"],
+                                 expected)
+        self.assertEqual(out.getvalue().count("is outside"), 2)
+        self.assertEqual(mm.clamp_delay_offset(float("nan")), 0.0)
+
+    def test_song_starts_never_move_backwards(self):
+        # The offset grew from 0 to 30 s between two titles 10 s apart:
+        # detection - offset would start B before A.
+        self.feed([UPDATE.format("A - One")], now=1_000.0)
+        mm.STATION_CONFIG_PATH.write_text(json.dumps(
+            {"id3_metadata_delay_offset": 30}))
+        self.feed([UPDATE.format("B - Two")], now=1_010.0)
+        index = self.index()
+        self.assertEqual(index["current"]["started_at"],
+                         1_000.0 + mm.MIN_SONG_SECONDS)
+        self.assertEqual(index["recent"][0]["ended_at"],
+                         1_000.0 + mm.MIN_SONG_SECONDS)
+        self.assertGreater(index["recent"][0]["duration_seconds"], 0)
+
     def test_progress_and_garbage_lines_are_not_titles(self):
         self.feed(["progress=continue", "out_time_us=6321633",
                    "out_time=00:00:06.321633", "bitrate=N/A",
@@ -108,6 +139,31 @@ class SongStartTests(MonitorFixture):
                    UPDATE.format("")], now=1_000.0)
         self.assertFalse(mm.INDEX_PATH.exists())
         self.assertEqual(mm._current_song["raw"], "")
+
+
+class FailedWriteTests(MonitorFixture):
+    """A failed slot write must not leave the ended song both in the history
+    and current: the next title appended it a second time."""
+
+    def test_full_disk_does_not_duplicate_the_ended_song(self):
+        self.feed([UPDATE.format("A - One")], now=1_000.0)
+        with mock.patch.object(mm, "_save_slot",
+                               side_effect=OSError(28, "No space left")):
+            self.feed([UPDATE.format("B - Two")], now=1_100.0)
+        self.assertEqual(mm._current_song["raw"], "B - Two")
+        self.feed([UPDATE.format("C - Three")], now=1_200.0)
+        self.assertEqual([s["raw"] for s in mm._song_history],
+                         ["A - One", "B - Two"])
+
+    def test_malformed_slot_file_is_replaced(self):
+        slot = mm._get_slot_path(1_000.0)
+        slot.parent.mkdir(parents=True)
+        slot.write_text(json.dumps({"not": "a list"}))
+        self.feed([UPDATE.format("A - One")], now=1_000.0)
+        self.feed([UPDATE.format("B - Two")], now=1_100.0)
+        self.assertEqual([s["raw"] for s in json.loads(slot.read_text())],
+                         ["A - One"])
+        self.assertEqual(mm._current_song["raw"], "B - Two")
 
 
 class HeartbeatTests(MonitorFixture):
@@ -313,9 +369,42 @@ class RestartTests(MonitorFixture):
 
         with mock.patch.object(mm, "STREAM_URL", "http://source"), \
                 mock.patch.object(mm.threading, "Thread", side_effect=thread), \
-                mock.patch.object(mm, "_run_metadata_extractor"):
+                mock.patch.object(mm, "_run_metadata_extractor"), \
+                mock.patch.object(mm.signal, "signal"), \
+                mock.patch.object(mm.time, "time", return_value=1_330.0):
             mm.main()
         self.assertEqual(current_when_started, ["A - Song 2"] * 2)
+
+    def test_long_outage_ends_the_restored_song(self):
+        # Pod down for 10 minutes, data volume kept: the restored song must
+        # not stretch over the gap until the first new title.
+        with mock.patch.object(mm.time, "time", return_value=1_300.0):
+            self._previous_process()
+        self._new_process()
+        later = 1_300.0 + 600
+        with mock.patch.object(mm.time, "time", return_value=later):
+            mm._restore_state()
+            mm._save_index()
+        index = self.index()
+        self.assertEqual(index["current"]["raw"], "")
+        ended = index["recent"][0]
+        self.assertEqual((ended["raw"], ended["started_at"], ended["ended_at"]),
+                         ("A - Song 2", 1_240.0, 1_300.0))
+        slot = json.loads(mm._get_slot_path(1_240.0).read_text())
+        self.assertEqual(slot[-1]["ended_at"], 1_300.0)
+        # The same title after the outage is a new song instance.
+        with mock.patch.object(mm.time, "time", return_value=later + 5):
+            mm._on_title("A - Song 2", later + 5)
+        self.assertEqual(self.index()["current"]["started_at"], later + 5)
+
+    def test_short_gap_carries_the_restored_song(self):
+        with mock.patch.object(mm.time, "time", return_value=1_300.0):
+            self._previous_process()
+        self._new_process()
+        with mock.patch.object(mm.time, "time",
+                               return_value=1_300.0 + mm.RESTORE_MAX_GAP):
+            mm._restore_state()
+        self.assertEqual(mm._current_song["raw"], "A - Song 2")
 
     def test_unusable_index_starts_empty(self):
         for text in ("{not json", "[]", json.dumps({"current": 3}),

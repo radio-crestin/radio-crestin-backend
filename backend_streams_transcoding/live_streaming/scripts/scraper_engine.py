@@ -8,7 +8,11 @@ Reports results back to Django via GraphQL mutation.
 Triggered by the station's configured timestamp source:
   - 'id3_metadata': waits for metadata_monitor to detect StreamTitle change
   - 'scraper' (and any unknown source): runs on a fixed interval
-    (metadata_scrape_interval seconds)
+    (metadata_scrape_interval seconds), and right after an ICY change
+
+A report dated by an ICY start reaches Django before that start is
+ICY_REPORT_MAX_AGE old, so Django stores it unclamped and the API's song
+change stays at the playlist's EPOCH.
 
 Polls config_version from Django to detect admin changes and reload config.
 
@@ -47,11 +51,23 @@ STATION_CONFIG_PATH = Path("/data/metadata/station.json")
 NOW_PLAYING_PATH = Path("/data/metadata/now_playing.json")
 ID3_TRIGGER = Path("/data/id3_trigger")
 CONFIG_POLL_INTERVAL = 60
+SCRAPER_HTTP_TIMEOUT = 5
+# Django dates a song at most 45 s before it receives the report
+# (METADATA_BACKDATE_LIMIT in history_timeline.py) and clamps an older
+# start, which moves the API's song change after the playlist's EPOCH.
+# Reports dated by an ICY start are sent before the start is this old; the
+# rest is margin for the request.
+ICY_REPORT_MAX_AGE = 38
+# How long a new ICY song waits for the scrapers before its own title is
+# reported (a scraper started in time may still take its HTTP timeout).
+ICY_SCRAPE_BUDGET = 3
+# Until a scrape names the new ICY song, the scrapers are retried this
+# often while the song is younger than ICY_REPORT_MAX_AGE.
+SCRAPE_RETRY_INTERVAL = 5
 
 # Station config (loaded from Django)
 _config = None
 _config_version = 0
-_last_song_raw = ""
 # (raw, started_at, song_id) of the song instance now_playing.json holds.
 _now_playing_key = None
 
@@ -303,7 +319,7 @@ def _remember_report(icy, response: dict, now: float) -> None:
         print(f"scraper: now_playing.json write error: {e}", flush=True)
 
 
-def _http_get(url: str, timeout: int = 5) -> str:
+def _http_get(url: str, timeout: int = SCRAPER_HTTP_TIMEOUT) -> str:
     """Simple HTTP GET, returns response body as string (also on an error status).
     urllib honours HTTP(S)_PROXY / NO_PROXY, i.e. the pod's egress sidecar;
     a bare http.client connection would go straight out and be dropped."""
@@ -483,10 +499,13 @@ SCRAPERS = {
 }
 
 
-def _run_scrapers(scrapers_config: list) -> dict:
-    """Run all configured scrapers in priority order and merge results."""
+def _run_scrapers(scrapers_config: list, deadline: float | None = None) -> dict:
+    """Run all configured scrapers in priority order and merge results.
+    No scraper is started after `deadline`."""
     results = []
     for cfg in sorted(scrapers_config, key=lambda c: -c.get("priority", 0)):
+        if deadline is not None and time.time() >= deadline:
+            break
         slug = cfg.get("category_slug", "")
         # Skip stream_id3/uptime/legacy scrapers — handled separately or not used
         if slug in ("mel_analysis", "stream_id3", "uptime_ffmpeg", "uptime_http",
@@ -581,8 +600,8 @@ class Dating:
 
     `icy` is the ICY song instance whose start dates the reported song, or
     None when the song is dated by the scrape. `scrape_dated_change` marks a
-    song change dated by the scrape although an earlier change exists to
-    compare with (the rate is reported to PostHog).
+    song change dated by the scrape after the first report (the rate is
+    reported to PostHog).
     """
 
     timestamp: float
@@ -594,37 +613,82 @@ class Dating:
 class ReportClock:
     """Dates scraper-mode reports.
 
-    A song change is dated by the ICY start whenever ICY changed since the
-    last reported song change, even when the scraped title differs from the
-    ICY title (sources format the same song differently, and a scrape can
-    lag the stream by a whole interval): the API row then lands at the
-    playlist's EPOCH instead of up to one scrape interval later. Only when
-    ICY did not change (a static or missing ICY title) is the song dated by
-    the scrape that first saw it. An unchanged song resends the timestamp of
-    its change; Django dates listener-count updates itself.
-
-    The first report has nothing to compare ICY with and is dated by the
-    scrape.
+    A song change is dated by the ICY start when the scraped title names
+    the ICY song (`titles_match`) and that ICY song instance has not dated
+    a change yet: the API row then lands at the playlist's EPOCH. Any other
+    change (a static or missing ICY title, or a station API still showing
+    an earlier song) is dated by the scrape that first saw it, with no ICY
+    instance, so the ICY song's playlist hint never carries another song.
+    An unchanged song resends the timestamp of its change; Django dates
+    listener-count updates itself.
     """
 
     def __init__(self):
         self._raw: str | None = None
         self._dating: Dating | None = None
-        self._icy_seen: IcySong | None = None
+        self._icy_used: IcySong | None = None
 
     def date(self, raw_title: str, icy: IcySong | None,
              now: float) -> Dating:
         if self._dating is not None and raw_title == self._raw:
             return Dating(self._dating.timestamp, False, self._dating.icy)
-        first = self._dating is None
-        icy_changed = (not first and icy is not None and icy.started_at > 0
-                       and icy != self._icy_seen)
-        if icy_changed:
+        if (icy is not None and icy.started_at > 0 and icy != self._icy_used
+                and song_titles.titles_match(raw_title, icy.raw)):
             dating = Dating(icy.started_at, True, icy)
+            self._icy_used = icy
         else:
-            dating = Dating(now, True, None, scrape_dated_change=not first)
-        self._raw, self._dating, self._icy_seen = raw_title, dating, icy
+            dating = Dating(now, True, None,
+                            scrape_dated_change=self._dating is not None)
+        self._raw, self._dating = raw_title, dating
         return dating
+
+
+def _fresh(icy: IcySong, now: float) -> bool:
+    """Whether a report dated by `icy` still reaches Django unclamped."""
+    return icy.started_at > 0 and now - icy.started_at < ICY_REPORT_MAX_AGE
+
+
+def _note_late_report(icy: IcySong, timestamp_source: str, now: float) -> None:
+    """Count a report Django will date later than the playlist's EPOCH."""
+    if icy.started_at > 0 and not _fresh(icy, now):
+        print(f"scraper: '{icy.raw}' reported {now - icy.started_at:.0f}s "
+              "after its start; Django clamps it", flush=True)
+        posthog_reporter.capture_event("late_icy_report", {
+            "timestamp_source": timestamp_source,
+            "age_s": round(now - icy.started_at, 1),
+        })
+
+
+class ScrapeSchedule:
+    """When scraper mode scrapes: every `interval`, and as soon as ICY
+    announces a new song, then every SCRAPE_RETRY_INTERVAL until a scrape
+    names that song or it is too old to date a report unclamped. Waiting
+    for the interval (30-60 s) would report most ICY starts after Django's
+    backdate limit."""
+
+    def __init__(self, interval: float):
+        self.interval = interval
+        self._scraped_at = float("-inf")
+        self._icy_seen: IcySong | None = None
+        self._chasing: IcySong | None = None
+
+    def due(self, icy: IcySong | None, now: float) -> bool:
+        if icy != self._icy_seen:
+            self._icy_seen = icy
+            self._chasing = icy if icy is not None and _fresh(icy, now) else None
+            if self._chasing is not None:
+                return True
+        if self._chasing is not None and not _fresh(self._chasing, now):
+            self._chasing = None
+        if (self._chasing is not None
+                and now - self._scraped_at >= SCRAPE_RETRY_INTERVAL):
+            return True
+        return now - self._scraped_at >= self.interval
+
+    def scraped(self, dating: Dating | None, now: float) -> None:
+        self._scraped_at = now
+        if dating is not None and dating.icy == self._chasing:
+            self._chasing = None
 
 
 def _iso(epoch: float) -> str:
@@ -658,38 +722,109 @@ def _send_report(result: dict, timestamp_source: str, id3_ts=None,
     return response
 
 
-def _report_icy_change(icy: IcySong, now: float) -> None:
-    """id3_metadata mode: ICY announced a new song. It is dated by its ICY
-    start, which metadata_monitor already corrected by the delay offset."""
-    result = _run_scrapers(_config.get("scrapers", [])) or _icy_result(icy.raw)
+def _scrape_for(icy: IcySong, deadline: float) -> dict | None:
+    """The scraped song, if it is the ICY song: a station API can still
+    show the previous song after the stream moved on."""
+    scraped = _run_scrapers(_config.get("scrapers", []), deadline)
+    if scraped and song_titles.titles_match(scraped["raw_title"], icy.raw):
+        return scraped
+    return None
+
+
+def _scrape_deadline(icy: IcySong, now: float) -> float:
+    if icy.started_at <= 0:
+        return now + ICY_SCRAPE_BUDGET
+    return min(now + ICY_SCRAPE_BUDGET,
+               icy.started_at + ICY_REPORT_MAX_AGE - SCRAPER_HTTP_TIMEOUT)
+
+
+def _report_icy_song(icy: IcySong, result: dict, now: float) -> None:
+    """Report `result` as the ICY song, dated by its ICY start, which
+    metadata_monitor already corrected by the delay offset."""
     if icy.started_at > 0:
         epoch = icy.started_at
     else:  # no ICY start known: the detection is now
         epoch = now - float(_config.get("id3_metadata_delay_offset") or 0)
+    _note_late_report(icy, "id3_metadata", now)
     response = _send_report(result, "id3_metadata", id3_ts=_iso(epoch))
     if response.get("success"):
         _remember_report(icy if icy.started_at > 0 else None, response, now)
 
 
+def _report_icy_change(icy: IcySong, now: float) -> bool:
+    """id3_metadata mode: ICY announced a new song.
+
+    The scrapers get ICY_SCRAPE_BUDGET to name it (they add a thumbnail and
+    cleaner fields); otherwise the ICY title itself is reported right away,
+    so Django gets the start before it would clamp it. A scrape naming
+    another song is never dated by this start nor hinted on its boundary.
+    True when the scrapers are worth retrying (`_enrich_icy_report`).
+    """
+    scraped = _scrape_for(icy, _scrape_deadline(icy, now))
+    _report_icy_song(icy, scraped or _icy_result(icy.raw), now)
+    return scraped is None and bool(_config.get("scrapers"))
+
+
+def _enrich_icy_report(icy: IcySong, now: float) -> bool:
+    """Retry the scrapers for an ICY song reported by its own title; True
+    while still worth retrying. The scraped song replaces it only while
+    Django takes the ICY start unclamped: after that the API keeps the ICY
+    title, which still agrees with the playlist."""
+    if not _fresh(icy, now):
+        return False
+    scraped = _scrape_for(icy, _scrape_deadline(icy, now))
+    if scraped is None:
+        return True
+    _report_icy_song(icy, scraped, now)
+    return False
+
+
+class Id3Reporter:
+    """id3_metadata mode: reports every new ICY song instance, then retries
+    the scrapers every SCRAPE_RETRY_INTERVAL while they have not named it."""
+
+    def __init__(self):
+        self._icy: IcySong | None = None
+        self._enriching = False
+        self._scraped_at = 0.0
+
+    def poll(self, icy: IcySong | None, now: float) -> None:
+        if icy is None:
+            return
+        if icy != self._icy:
+            self._icy = icy
+            print(f"scraper: id3 trigger: {icy.raw}", flush=True)
+            self._enriching = _report_icy_change(icy, now)
+            self._scraped_at = now
+        elif (self._enriching
+                and now - self._scraped_at >= SCRAPE_RETRY_INTERVAL):
+            self._scraped_at = now
+            self._enriching = _enrich_icy_report(icy, now)
+
+
 def _scrape_and_report(clock: ReportClock, timestamp_source: str,
-                       now: float) -> None:
-    """Scraper mode: one periodic scrape and its report."""
+                       now: float) -> Dating | None:
+    """Scraper mode: one scrape and its report; its dating, if it
+    reported."""
     icy = _get_icy_current()
     result = _run_scrapers(_config.get("scrapers", []))
     if not result and icy is not None:
         result = _icy_result(icy.raw)
     if not result:
-        return
+        return None
     dating = clock.date(result["raw_title"], icy, now)
     if dating.scrape_dated_change:
         posthog_reporter.capture_event("scrape_dated_song_change", {
             "timestamp_source": timestamp_source,
             "icy_known": icy is not None and icy.started_at > 0,
         })
+    if dating.song_changed and dating.icy is not None:
+        _note_late_report(dating.icy, timestamp_source, now)
     response = _send_report(result, timestamp_source,
                             scraper_ts=_iso(dating.timestamp))
     if response.get("success"):
         _remember_report(dating.icy, response, now)
+    return dating
 
 
 def _load_config(config: dict) -> None:
@@ -700,8 +835,6 @@ def _load_config(config: dict) -> None:
 
 
 def main():
-    global _last_song_raw
-
     if not STATION_SLUG:
         print("scraper: STATION_SLUG not set, exiting", flush=True)
         return
@@ -721,11 +854,12 @@ def main():
               f"interval={_config.get('metadata_scrape_interval')}s, "
               f"scrapers={len(_config.get('scrapers', []))}", flush=True)
 
-    last_scrape_time = 0
     last_config_check = time.time()
     ts_source = _config.get("metadata_timestamp_source", "scraper")
     interval = _config.get("metadata_scrape_interval", 30)
     clock = ReportClock()
+    schedule = ScrapeSchedule(interval)
+    id3_reporter = Id3Reporter()
 
     while True:
         now = time.time()
@@ -737,21 +871,17 @@ def main():
                 _load_config(new_config)
                 ts_source = _config.get("metadata_timestamp_source", "scraper")
                 interval = _config.get("metadata_scrape_interval", 30)
+                schedule.interval = interval
                 print(f"scraper: config updated to v{_config_version}", flush=True)
             last_config_check = now
 
         if ts_source == "id3_metadata":
-            icy = _get_icy_current()
-            if icy is not None and icy.raw != _last_song_raw:
-                _last_song_raw = icy.raw
-                print(f"scraper: id3 trigger: {icy.raw}", flush=True)
-                _report_icy_change(icy, now)
+            id3_reporter.poll(_get_icy_current(), now)
             time.sleep(2)  # Poll id3 changes
         else:  # scraper (periodic) — also catches any unknown/legacy ts_source
-            if now - last_scrape_time >= interval:
-                _scrape_and_report(clock, ts_source, now)
-                last_scrape_time = now
-            time.sleep(min(interval, 5))  # Don't sleep longer than 5s for responsiveness
+            if schedule.due(_get_icy_current(), now):
+                schedule.scraped(_scrape_and_report(clock, ts_source, now), now)
+            time.sleep(2)  # Notice an ICY change promptly
 
 
 if __name__ == "__main__":

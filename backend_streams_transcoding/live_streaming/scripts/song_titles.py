@@ -21,7 +21,9 @@ _DUMP_RE = re.compile(r"^\s*StreamTitle\s*:\s*(.*)$")
 
 # ffmpeg messages that can end up after "StreamTitle :" on one line.
 _FFMPEG_MESSAGES = (
-    re.compile(r"^\[[\w:.-]+ @ (0x)?[0-9a-fA-F]+\]"),
+    # "[aac @ 0x55d5c8a3e2c0]": a context and its address, which is 0x-hex
+    # or 16 bare hex digits (Windows), so "[Live @ 2024] Isus" is a title.
+    re.compile(r"^\[[\w:.-]+ @ (0x[0-9a-fA-F]+|[0-9a-fA-F]{16})\]"),
     re.compile(r"\bChannelElement \d+\.\d+ missing\b", re.IGNORECASE),
     re.compile(r"\bchannel element \d+\.\d+ (is not allocated|duplicate)\b",
                re.IGNORECASE),

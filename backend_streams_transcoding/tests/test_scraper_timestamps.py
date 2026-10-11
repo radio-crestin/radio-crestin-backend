@@ -21,26 +21,35 @@ import scraper_engine as se  # noqa: E402
 NOW = 1_800_000_000.0
 ICY_A = se.IcySong("Artist A - Song A", NOW - 40)
 ICY_B = se.IcySong("Artist B - Song B", NOW - 12)
+ICY_C = se.IcySong("Artist C - Song C", NOW - 2)
 
 
 class ReportClockTests(unittest.TestCase):
     def setUp(self):
         self.clock = se.ReportClock()
-        # The first report has no earlier change to compare ICY with.
         first = self.clock.date("Artist A - Song A", ICY_A, NOW - 30)
-        self.assertEqual(first, se.Dating(NOW - 30, True, None, False))
+        self.assertEqual(first, se.Dating(ICY_A.started_at, True, ICY_A))
 
     def test_change_with_new_icy_song_is_dated_by_icy(self):
         dating = self.clock.date("Artist B - Song B", ICY_B, NOW)
         self.assertEqual(dating, se.Dating(ICY_B.started_at, True, ICY_B))
 
-    def test_icy_dates_the_change_even_when_titles_differ(self):
-        # The scrape formats the song differently (or lags ICY by a whole
-        # interval): ICY changed since the last change, so its start wins.
-        dating = self.clock.date("SONG B (Live) / Artist B", ICY_B, NOW)
-        self.assertEqual(dating.timestamp, ICY_B.started_at)
-        self.assertIs(dating.icy, ICY_B)
-        self.assertFalse(dating.scrape_dated_change)
+    def test_icy_dates_the_same_song_formatted_differently(self):
+        dating = self.clock.date("ARTIST B – song b (Radio Edit)", ICY_B, NOW)
+        self.assertEqual(dating, se.Dating(ICY_B.started_at, True, ICY_B))
+
+    def test_another_song_is_never_dated_by_the_icy_start(self):
+        # The station API lags the stream by a song: it reports B while
+        # ICY already plays C. B must not get C's start (or C's hint), and
+        # C, scraped later, still gets it.
+        dating = self.clock.date("Artist B - Song B", ICY_C, NOW)
+        self.assertEqual(dating, se.Dating(NOW, True, None, True))
+        dating = self.clock.date("Artist C - Song C", ICY_C, NOW + 5)
+        self.assertEqual(dating, se.Dating(ICY_C.started_at, True, ICY_C))
+
+    def test_an_icy_song_dates_one_change_only(self):
+        dating = self.clock.date("Artist A - Song A (Live)", ICY_A, NOW)
+        self.assertEqual(dating, se.Dating(NOW, True, None, True))
 
     def test_change_without_icy_change_is_dated_by_the_scrape(self):
         dating = self.clock.date("Artist C - Song C", ICY_A, NOW)
@@ -64,7 +73,8 @@ class ReportClockTests(unittest.TestCase):
 
     def test_icy_appearing_after_the_last_change_dates_the_next(self):
         clock = se.ReportClock()
-        clock.date("Artist A - Song A", None, NOW - 60)
+        first = clock.date("Artist A - Song A", None, NOW - 60)
+        self.assertEqual(first, se.Dating(NOW - 60, True, None, False))
         dating = clock.date("Artist B - Song B", ICY_B, NOW)
         self.assertEqual(dating.timestamp, ICY_B.started_at)
 
@@ -150,7 +160,7 @@ class ScraperModeTests(PodFilesFixture):
     def test_icy_dated_change_publishes_the_stored_song(self):
         clock = se.ReportClock()
         self.scrape(clock, "Artist A - Song A", ICY_A, NOW - 30)
-        self.assertFalse(se.NOW_PLAYING_PATH.exists())
+        self.assertEqual(self.now_playing()["raw"], ICY_A.raw)
         self.scrape(clock, "Artist B - Song B", ICY_B, NOW)
         report = self.django.reports()[-1]
         self.assertEqual(datetime.fromisoformat(
@@ -175,6 +185,18 @@ class ScraperModeTests(PodFilesFixture):
             self.django.reports()[-1]["scraper_timestamp"]).timestamp(), NOW)
         self.assertEqual(self.events, [("scrape_dated_song_change", {
             "timestamp_source": "scraper", "icy_known": True})])
+
+    def test_lagging_scrape_puts_no_hint_on_the_icy_song(self):
+        clock = se.ReportClock()
+        self.scrape(clock, "Artist A - Song A", ICY_A, NOW - 30)
+        self.scrape(clock, "Artist A - Song A", ICY_B, NOW)
+        self.assertNotEqual(self.now_playing()["raw"], ICY_B.raw)
+
+    def test_late_icy_dated_report_is_counted(self):
+        clock = se.ReportClock()
+        old = se.IcySong("Artist B - Song B", NOW - se.ICY_REPORT_MAX_AGE - 5)
+        self.scrape(clock, "Artist B - Song B", old, NOW)
+        self.assertEqual(self.events[-1][0], "late_icy_report")
 
     def test_index_json_is_never_written(self):
         # metadata_monitor is its single writer: the old read-modify-
@@ -213,6 +235,114 @@ class Id3ModeTests(PodFilesFixture):
         self.assertEqual(datetime.fromisoformat(
             report["id3_timestamp"]).timestamp(), NOW - 10)
         self.assertFalse(se.NOW_PLAYING_PATH.exists())
+
+
+class Id3ScrapedTitleTests(PodFilesFixture):
+    """A station API that still shows the previous song when ICY changes
+    must neither be reported for the new song nor hinted on its EPOCH."""
+
+    SCRAPERS = [{"category_slug": "aripisprecer_api", "url": "http://x",
+                 "priority": 1}]
+
+    def setUp(self):
+        super().setUp()
+        se._config["scrapers"] = self.SCRAPERS
+        self.api = {"artist": "Artist A", "title": "Song A", "picture": None}
+        patch = mock.patch.dict(se.SCRAPERS, {"aripisprecer_api": lambda url: {
+            "raw_title": f"{self.api['artist']} - {self.api['title']}",
+            "thumbnail_url": self.api["picture"]}})
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def test_lagging_api_reports_the_icy_title(self):
+        se._report_icy_change(ICY_B, NOW)
+        report = self.django.reports()[-1]
+        self.assertEqual((report["song_artist"], report["song_title"]),
+                         ("Artist B", "Song B"))
+        self.assertEqual(self.now_playing()["title"], "Song B")
+
+    def test_matching_api_is_reported_once(self):
+        self.api = {"artist": "Artist B", "title": "Song B",
+                    "picture": "https://source.example/b.jpg"}
+        self.assertFalse(se._report_icy_change(ICY_B, NOW))
+        self.assertEqual(len(self.django.reports()), 1)
+        self.assertEqual(self.django.reports()[0]["thumbnail_url"],
+                         "https://source.example/b.jpg")
+
+    def test_api_catching_up_enriches_with_the_same_start(self):
+        reporter = se.Id3Reporter()
+        reporter.poll(ICY_B, NOW)
+        reporter.poll(ICY_B, NOW + 2)  # before the retry interval
+        self.assertEqual(len(self.django.reports()), 1)
+        self.api = {"artist": "Artist B", "title": "Song B",
+                    "picture": "https://source.example/b.jpg"}
+        reporter.poll(ICY_B, NOW + se.SCRAPE_RETRY_INTERVAL)
+        first, enriched = self.django.reports()
+        self.assertEqual(enriched["id3_timestamp"], first["id3_timestamp"])
+        self.assertEqual(enriched["thumbnail_url"],
+                         "https://source.example/b.jpg")
+        reporter.poll(ICY_B, NOW + 3 * se.SCRAPE_RETRY_INTERVAL)
+        self.assertEqual(len(self.django.reports()), 2)
+
+    def test_no_enrichment_once_django_would_clamp_the_start(self):
+        reporter = se.Id3Reporter()
+        reporter.poll(ICY_B, NOW)
+        self.api = {"artist": "Artist B", "title": "Song B", "picture": None}
+        too_late = ICY_B.started_at + se.ICY_REPORT_MAX_AGE
+        reporter.poll(ICY_B, too_late)
+        self.assertEqual(len(self.django.reports()), 1)
+
+    def test_slow_scrapers_do_not_hold_the_report(self):
+        # Scrapers start only within ICY_SCRAPE_BUDGET; the clock jumps
+        # past it while the first one runs.
+        clock = [NOW]
+        calls = []
+
+        def slow(url):
+            calls.append(url)
+            clock[0] += se.SCRAPER_HTTP_TIMEOUT
+            return {}
+
+        cfg = [dict(self.SCRAPERS[0], url=f"http://{i}") for i in range(3)]
+        se._config["scrapers"] = cfg
+        with mock.patch.dict(se.SCRAPERS, {"aripisprecer_api": slow}), \
+                mock.patch.object(se.time, "time", lambda: clock[0]):
+            se._report_icy_change(ICY_B, NOW)
+        self.assertEqual(calls, ["http://0"])
+        self.assertEqual(self.django.reports()[-1]["song_title"], "Song B")
+
+    def test_icy_change_is_reported_by_instance(self):
+        # After an outage metadata_monitor starts a new instance of the
+        # same title; it is a new boundary to report.
+        reporter = se.Id3Reporter()
+        reporter.poll(ICY_B, NOW)
+        reporter.poll(se.IcySong(ICY_B.raw, NOW + 600), NOW + 601)
+        self.assertEqual(len(self.django.reports()), 2)
+
+
+class ScrapeScheduleTests(unittest.TestCase):
+    def test_icy_change_is_scraped_at_once_then_retried(self):
+        schedule = se.ScrapeSchedule(interval=60)
+        self.assertTrue(schedule.due(ICY_A, NOW))
+        schedule.scraped(se.Dating(ICY_A.started_at, True, ICY_A), NOW)
+        self.assertFalse(schedule.due(ICY_A, NOW + 10))
+        icy = se.IcySong("Artist B - Song B", NOW + 10)
+        self.assertTrue(schedule.due(icy, NOW + 11))
+        # The scrape still shows A: retry soon, not after the interval.
+        schedule.scraped(se.Dating(ICY_A.started_at, False, ICY_A), NOW + 11)
+        self.assertFalse(schedule.due(icy, NOW + 12))
+        self.assertTrue(
+            schedule.due(icy, NOW + 11 + se.SCRAPE_RETRY_INTERVAL))
+        schedule.scraped(se.Dating(icy.started_at, True, icy), NOW + 16)
+        self.assertFalse(schedule.due(icy, NOW + 22))
+        self.assertTrue(schedule.due(icy, NOW + 16 + 60))
+
+    def test_retries_stop_when_the_start_is_too_old(self):
+        schedule = se.ScrapeSchedule(interval=60)
+        schedule.due(ICY_B, NOW)
+        schedule.scraped(None, NOW)
+        late = ICY_B.started_at + se.ICY_REPORT_MAX_AGE
+        self.assertFalse(schedule.due(ICY_B, late))
 
 
 class StationConfigTests(PodFilesFixture):

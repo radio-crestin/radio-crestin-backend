@@ -42,6 +42,11 @@ class TestCleanTitle:
         for raw in ("Missing You", "Unknown Soldier - Hope", "LIVE"):
             assert st.clean_title(raw) == raw
 
+    def test_bracketed_title_is_not_an_ffmpeg_address(self):
+        assert st.clean_title("[Live @ 2024] Isus") == "[Live @ 2024] Isus"
+        assert st.clean_title("[http @ 0x7f8a1c00] Opening") is None
+        assert st.clean_title("[aac @ 000001d2c3a4b5c6] error") is None
+
     def test_whitespace_is_collapsed(self):
         assert st.clean_title("  Artist  -   Song ") == "Artist - Song"
 
