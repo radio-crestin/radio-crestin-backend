@@ -19,10 +19,16 @@ not copies of live.m3u8:
   * An ffmpeg restart appends to both playlists after
     EXT-X-DISCONTINUITY instead of replacing them: EXT-X-MEDIA-SEQUENCE
     and EXT-X-DISCONTINUITY-SEQUENCE are stored per segment, so any window
-    satisfies RFC 8216 6.2.2.
-  * ffmpeg deletes nothing. The history drops a segment once it is older
-    than the DVR window plus 5 minutes (or its file is gone); cleanup.sh
-    deletes the file 5 minutes after that, so a listed URI never 404s.
+    satisfies RFC 8216 6.2.2. Segments wallclock_pdt withholds (replayed
+    audio, drift resync) are skipped the same way, after
+    EXT-X-DISCONTINUITY.
+  * ffmpeg deletes nothing. The history drops its oldest segments once
+    they are older than the DVR window plus 5 minutes (by file mtime or
+    PDT, whichever is earlier), or up to the newest one whose file is gone;
+    cleanup.sh deletes a file 5 minutes later by mtime, so a listed URI
+    never 404s.
+  * EXT-X-TARGETDURATION is the largest rounded EXTINF ever published (at
+    least SEGMENT_DURATION) and never decreases.
 
 Contract for clients (C-1, C-2):
 
@@ -85,6 +91,9 @@ HINT_TEXT_LIMIT = 256
 HINT_URL_LIMIT = 1024
 
 POLL_INTERVAL = 1
+# Re-render at least this often, so expired segments also leave the
+# playlists while ffmpeg and the metadata are idle (an upstream outage).
+REFRESH_INTERVAL = 60
 SEGMENT_DURATION = int(os.environ.get("SEGMENT_DURATION", "6"))
 # Mirrors entrypoint.sh (1h DVR window / 6s segments); the pod exports the
 # effective value, so this default only applies outside the pod.
@@ -378,7 +387,7 @@ def enhance(raw: str, songs: list[dict],
     # requirement; unknown-tag-tolerant players ignore it.
     start_line: str | None = None
     if "#EXT-X-START:" not in raw:
-        offset = START_OFFSET_SEGMENTS * SEGMENT_DURATION
+        offset = START_OFFSET_SEGMENTS * _target_duration_of(raw)
         start_line = f"#EXT-X-START:TIME-OFFSET=-{offset}"
 
     earliest_pdt = _earliest_segment_pdt_epoch(raw)
@@ -459,6 +468,12 @@ def enhance(raw: str, songs: list[dict],
     return "\n".join(out) + "\n"
 
 
+def _target_duration_of(raw: str) -> int:
+    """EXT-X-TARGETDURATION of a playlist (SEGMENT_DURATION if absent)."""
+    match = re.search(r"^#EXT-X-TARGETDURATION:(\d+)", raw, re.MULTILINE)
+    return int(match.group(1)) if match else SEGMENT_DURATION
+
+
 def _extinf_seconds(extinf: str) -> float:
     """Duration of an `#EXTINF:<seconds>,` line."""
     try:
@@ -467,18 +482,22 @@ def _extinf_seconds(extinf: str) -> float:
         return float(SEGMENT_DURATION)
 
 
+def _rounded_extinf(extinf: str) -> int:
+    """EXTINF rounded to the nearest integer, as RFC 8216 4.3.3.1 compares
+    it with EXT-X-TARGETDURATION."""
+    return int(_extinf_seconds(extinf) + 0.5)
+
+
 def _parse_live_playlist(raw: str) -> tuple[dict, list[dict]]:
     """Parse ffmpeg's live.m3u8 into (header, segments).
 
     ffmpeg's own EXT-X-PROGRAM-DATE-TIME lines are ignored on purpose: they
     are muxer-init time plus media duration, not wall clock (see
-    wallclock_pdt). Each segment dict carries its URI, EXTINF line and
+    wallclock_pdt). So is its EXT-X-TARGETDURATION: it only covers ffmpeg's
+    own window. Each segment dict carries its URI, EXTINF line and
     duration, and its EXT-X-MEDIA-SEQUENCE number.
     """
-    header = {
-        "target_line": None,
-        "independent": "#EXT-X-INDEPENDENT-SEGMENTS" in raw,
-    }
+    header = {"independent": "#EXT-X-INDEPENDENT-SEGMENTS" in raw}
     media_seq = 0
     segments: list[dict] = []
     cur_extinf: str | None = None
@@ -489,8 +508,6 @@ def _parse_live_playlist(raw: str) -> tuple[dict, list[dict]]:
                 media_seq = int(stripped.split(":", 1)[1])
             except (ValueError, IndexError):
                 pass
-        elif stripped.startswith("#EXT-X-TARGETDURATION:"):
-            header["target_line"] = stripped
         elif stripped.startswith("#EXTINF:"):
             cur_extinf = stripped
         elif stripped.endswith(".ts") and not stripped.startswith("#"):
@@ -536,18 +553,24 @@ def _segment_mtime(name: str) -> float | None:
 #   mtime, paced, residual, kind (wallclock_pdt.KIND_*), ahead (drifting
 #   ahead after replayed audio), published, and for published entries:
 #   pub_seq  contiguous media sequence of published entries (both playlists),
-#   disc     discontinuity sequence number (ffmpeg boots seen before it).
+#   disc     discontinuity sequence number: +1 at each new ffmpeg boot and
+#            after withheld entries.
 # Both public playlists are windows over the published entries: index.m3u8
 # the newest LIVE_LIST_SIZE, dvr.m3u8 the newest DVR_LIST_SIZE. A segment's
 # PDT, media sequence and discontinuity number are fixed when it is first
 # published, so every playlist that lists it agrees (RFC 8216 6.2.1/6.2.2),
 # including across ffmpeg restarts and rewriter restarts.
+# Next to the entries:
+#   high_water       per boot still in live.m3u8 or history, the newest
+#                    ffmpeg sequence number ever stamped (survives trimming)
+#   target_duration  EXT-X-TARGETDURATION of both playlists
 
 HISTORY_VERSION = 3
 
 
 def _new_history() -> dict:
-    return {"version": HISTORY_VERSION, "entries": []}
+    return {"version": HISTORY_VERSION, "entries": [], "high_water": {},
+            "target_duration": SEGMENT_DURATION}
 
 
 def _load_history() -> dict:
@@ -573,6 +596,13 @@ def _load_history() -> dict:
         e for e in data.get("entries", [])
         if isinstance(e, dict) and "name" in e and "wall" in e
     ]
+    marks = data.get("high_water")
+    if isinstance(marks, dict):
+        history["high_water"] = {boot: seq for boot, seq in marks.items()
+                                 if isinstance(seq, int)}
+    target = data.get("target_duration")
+    if isinstance(target, int):
+        history["target_duration"] = max(target, SEGMENT_DURATION)
     _trim_history(history, time.time())
     return history
 
@@ -587,11 +617,10 @@ def _stamp_of(entry: dict) -> wallclock_pdt.Stamp:
     )
 
 
-def _boot_floor(entries: list[dict],
-                boot: str) -> wallclock_pdt.BootEnd | None:
-    """Where the newest published entry of an earlier boot ends."""
+def _published_end(entries: list[dict]) -> wallclock_pdt.BootEnd | None:
+    """Where the newest published entry ends."""
     for e in reversed(entries):
-        if wallclock_pdt.boot_of(e["name"]) != boot and e.get("published"):
+        if e.get("published"):
             return wallclock_pdt.boot_end(_stamp_of(e))
     return None
 
@@ -612,12 +641,16 @@ def _append_stamp(entries: list[dict], seg: dict,
         prev = next((e for e in reversed(entries) if e.get("published")),
                     None)
         if prev is None:
-            entry["pub_seq"], entry["disc"] = seg["seq"], 0
+            # Seeded like EXT-X-MEDIA-SEQUENCE (ffmpeg numbers segments
+            # from the epoch), so a replacement pod's playlist never goes
+            # back to a discontinuity number the previous pod used.
+            entry["pub_seq"] = entry["disc"] = seg["seq"]
         else:
             new_boot = (wallclock_pdt.boot_of(prev["name"])
                         != wallclock_pdt.boot_of(seg["name"]))
+            skipped = entries[-1] is not prev
             entry["pub_seq"] = prev["pub_seq"] + 1
-            entry["disc"] = prev["disc"] + (1 if new_boot else 0)
+            entry["disc"] = prev["disc"] + (1 if new_boot or skipped else 0)
     last = entries[-1] if entries else None
     entries.append(entry)
     # One report per run of same-kind stamps (a boot's back-chained burst,
@@ -633,15 +666,16 @@ def _append_stamp(entries: list[dict], seg: dict,
 
 
 def _report_stamp(stamp: wallclock_pdt.Stamp, jump: float | None) -> None:
-    """Boot anchors, re-anchors, replays and dropped duplicates are rare and
+    """Boot anchors, re-anchors, replays and withheld segments are rare and
     worth a log line plus a PostHog event; chain stamps are not.
 
     `residual_s` is anchor minus stamp: for a `replay` it is minus the drift
-    ahead of the wall clock (in a new boot: the drift carried over from a
-    previous boot that ran ahead). `jump_s` is how far the stamp lies after
-    the end of the previous segment in history: the audio lost in a stall
-    for a `reanchor`, the gap between runs for a `boot`, minus the withheld
-    replay for a `duplicate`.
+    ahead of the wall clock (at most wallclock_pdt.MAX_DRIFT; in a new boot
+    or after withheld segments: the drift carried over). `jump_s` is how far
+    the stamp lies after the end of the previous segment in history: the
+    audio lost in a stall for a `reanchor`, the gap between runs for a
+    `boot`, minus the withheld replay for a `duplicate`, minus the drift
+    that triggered a `resync`.
     """
     residual = (None if stamp.residual is None
                 else round(stamp.residual, 3))
@@ -667,18 +701,12 @@ def _stamp_new_segments(history: dict, segments: list[dict],
     history changed.
     """
     entries = history["entries"]
-    known = {e["name"] for e in entries}
-    newest = {}
-    for e in entries:
-        boot = wallclock_pdt.boot_of(e["name"])
-        newest[boot] = max(newest.get(boot, e["seq"]), e["seq"])
-    # Only segments after the newest one already stamped for their boot:
-    # an older one missing from history was trimmed, never re-stamp it.
-    fresh = [s for s in segments
-             if s["name"] not in known
-             and s["seq"] > newest.get(wallclock_pdt.boot_of(s["name"]),
-                                       -1)]
-    changed = False
+    changed = _update_high_water(history, segments)
+    # Only segments after the newest one ever stamped for their boot: an
+    # older one missing from history was trimmed, never re-stamp it (also
+    # not once its whole boot has left history, e.g. ffmpeg's last
+    # live.m3u8 during an outage longer than the DVR window).
+    fresh = [s for s in segments if _pending(s, history["high_water"])]
     i = 0
     while i < len(fresh):
         seg = fresh[i]
@@ -700,8 +728,7 @@ def _stamp_new_segments(history: dict, segments: list[dict],
                 i += len(stamps)
                 continue
             stamp = wallclock_pdt.stamp_next(
-                _stamp_of(last), observation,
-                floor=_boot_floor(entries, boot))
+                _stamp_of(last), observation, floor=_published_end(entries))
             _append_stamp(entries, seg, stamp)
             changed = True
             i += 1
@@ -709,51 +736,91 @@ def _stamp_new_segments(history: dict, segments: list[dict],
         pending = [s for s in fresh[i:]
                    if wallclock_pdt.boot_of(s["name"]) == boot]
         stamps = wallclock_pdt.anchor_new_boot(
-            [_observe(s) for s in pending],
-            now,
-            _boot_floor(entries, boot),
-        )
+            [_observe(s) for s in pending], now, _published_end(entries))
         if not stamps:
             break
         for seg_, stamp in zip(pending, stamps):
             _append_stamp(entries, seg_, stamp)
         changed = True
         i += len(pending)
-    return changed
+    return _update_high_water(history, segments) or changed
+
+
+def _pending(seg: dict, high_water: dict[str, int]) -> bool:
+    """True for a segment newer than every one stamped for its boot."""
+    return seg["seq"] > high_water.get(wallclock_pdt.boot_of(seg["name"]), -1)
+
+
+def _update_high_water(history: dict, segments: list[dict]) -> bool:
+    """Raise each boot's high-water mark to its newest history entry and
+    forget boots that left both live.m3u8 and history (ffmpeg never lists
+    them again). Returns True when the marks changed."""
+    marks = dict(history["high_water"])
+    for e in history["entries"]:
+        boot = wallclock_pdt.boot_of(e["name"])
+        marks[boot] = max(marks.get(boot, e["seq"]), e["seq"])
+    current = {wallclock_pdt.boot_of(x["name"])
+               for x in segments + history["entries"]}
+    marks = {boot: seq for boot, seq in marks.items() if boot in current}
+    if marks == history["high_water"]:
+        return False
+    history["high_water"] = marks
+    return True
+
+
+def _oldest_time(entry: dict) -> float:
+    """The earlier of the entry's PDT and its file's mtime: cleanup.sh
+    deletes by mtime, and PDT may run ahead of it."""
+    mtime = entry.get("mtime")
+    return entry["wall"] if mtime is None else min(entry["wall"], mtime)
 
 
 def _trim_history(history: dict, now: float) -> bool:
-    """Keep the newest DVR_LIST_SIZE published entries that are younger
-    than DVR_MAX_AGE and whose file still exists. Returns True when
-    history changed.
+    """Drop the oldest entries: those older than DVR_MAX_AGE, up to the
+    newest one whose file is gone, and beyond the newest DVR_LIST_SIZE
+    published ones. Returns True when history changed.
 
-    Nothing is renumbered: pub_seq and disc travel with each entry, so a
-    trimmed head only advances EXT-X-MEDIA-SEQUENCE and
-    EXT-X-DISCONTINUITY-SEQUENCE.
+    Only a head is ever dropped and nothing is renumbered: pub_seq and disc
+    travel with each entry, so trimming only advances EXT-X-MEDIA-SEQUENCE
+    and EXT-X-DISCONTINUITY-SEQUENCE (RFC 8216 6.2.1).
     """
     entries = history["entries"]
-    oldest_wall = now - DVR_MAX_AGE
-    kept = [e for e in entries
-            if e["wall"] >= oldest_wall
-            and (SEGMENTS_DIR / e["name"]).exists()]
+    oldest = now - DVR_MAX_AGE
+    start = 0
+    for i, e in enumerate(entries):
+        if (_oldest_time(e) < oldest
+                or not (SEGMENTS_DIR / e["name"]).exists()):
+            start = i + 1
+    kept = entries[start:]
     published = _published(kept)
     if len(published) > DVR_LIST_SIZE:
-        first = published[-DVR_LIST_SIZE]["name"]
-        kept = kept[next(i for i, e in enumerate(kept)
-                         if e["name"] == first):]
+        first = published[-DVR_LIST_SIZE]
+        kept = kept[next(i for i, e in enumerate(kept) if e is first):]
     if len(kept) == len(entries):
         return False
     history["entries"] = kept
     return True
 
 
-def _render_media_playlist(entries: list[dict], header: dict) -> str:
+def _raise_target_duration(history: dict) -> bool:
+    """Raise target_duration to the largest rounded EXTINF published
+    (RFC 8216 4.3.3.1); it never decreases. Returns True when raised."""
+    target = max([history["target_duration"]]
+                 + [_rounded_extinf(e["extinf"])
+                    for e in _published(history["entries"])])
+    if target == history["target_duration"]:
+        return False
+    history["target_duration"] = target
+    return True
+
+
+def _render_media_playlist(entries: list[dict], header: dict,
+                           target_duration: int) -> str:
     """Render a media playlist (pre-enhance) from published entries."""
     lines = ["#EXTM3U", "#EXT-X-VERSION:3"]
     if header.get("independent"):
         lines.append("#EXT-X-INDEPENDENT-SEGMENTS")
-    lines.append(header.get("target_line")
-                 or f"#EXT-X-TARGETDURATION:{SEGMENT_DURATION}")
+    lines.append(f"#EXT-X-TARGETDURATION:{target_duration}")
     lines.append(f"#EXT-X-MEDIA-SEQUENCE:{entries[0]['pub_seq']}")
     lines.append(f"#EXT-X-DISCONTINUITY-SEQUENCE:{entries[0]['disc']}")
     prev_disc = entries[0]["disc"]
@@ -796,9 +863,9 @@ def _publish(history: dict, raw: str, songs: list[dict], now: float,
              now_playing: dict | None = None) -> bool:
     """Stamp new segments and render both playlists from the history.
 
-    Returns True when every segment of `raw` is in history, i.e. nothing is
-    waiting for a boot anchor and the next poll may skip an unchanged
-    live.m3u8.
+    Returns True when every segment of `raw` was stamped (it may have been
+    trimmed since), i.e. nothing is waiting for a boot anchor and the next
+    poll may skip an unchanged live.m3u8.
 
     New stamps are persisted before any playlist lists them, and `history`
     only takes them once they are on disk: a rewriter killed (or a write
@@ -806,21 +873,29 @@ def _publish(history: dict, raw: str, songs: list[dict], now: float,
     rewriter would date differently (RFC 8216 6.2.1).
     """
     header, segments = _parse_live_playlist(raw)
-    draft = {"version": HISTORY_VERSION, "entries": list(history["entries"])}
+    draft = {**history, "entries": list(history["entries"])}
     changed = _stamp_new_segments(draft, segments, now)
     changed = _trim_history(draft, now) or changed
+    changed = _raise_target_duration(draft) or changed
     if changed:
         write_atomic(DVR_HISTORY_PATH, json.dumps(draft))
-        history["entries"] = draft["entries"]
+        history.update(draft)
     published = _published(history["entries"])
+    target = history["target_duration"]
     if published:
         live = published[-LIVE_LIST_SIZE:]
         write_if_changed(ENHANCED_PLAYLIST, enhance(
-            _render_media_playlist(live, header), songs, now_playing))
+            _render_media_playlist(live, header, target), songs,
+            now_playing))
         write_if_changed(DVR_PLAYLIST, enhance(
-            _render_media_playlist(published, header), songs, now_playing))
-    known = {e["name"] for e in history["entries"]}
-    return all(s["name"] in known for s in segments)
+            _render_media_playlist(published, header, target), songs,
+            now_playing))
+    else:
+        # Everything expired (a long outage): serve no playlist rather than
+        # one whose segments cleanup.sh deletes.
+        ENHANCED_PLAYLIST.unlink(missing_ok=True)
+        DVR_PLAYLIST.unlink(missing_ok=True)
+    return not any(_pending(s, history["high_water"]) for s in segments)
 
 
 def _mtime(path: Path) -> float:
@@ -864,17 +939,20 @@ def main() -> None:
         )
     last_playlist_mtime = 0.0
     last_metadata_key = (0.0, 0.0)
+    last_publish = 0.0
     while True:
         try:
             playlist_mtime = FFMPEG_PLAYLIST.stat().st_mtime
             metadata_key = (_mtime(METADATA_PATH), _mtime(NOW_PLAYING_PATH))
             if (playlist_mtime != last_playlist_mtime
-                    or metadata_key != last_metadata_key):
+                    or metadata_key != last_metadata_key
+                    or time.time() - last_publish >= REFRESH_INTERVAL):
                 with open(FFMPEG_PLAYLIST, "r") as f:
                     raw = f.read()
                 songs = _load_songs()
                 if raw and "#EXTM3U" in raw and songs is not None:
-                    if _publish(history, raw, songs, time.time(),
+                    last_publish = time.time()
+                    if _publish(history, raw, songs, last_publish,
                                 _load_now_playing()):
                         last_playlist_mtime = playlist_mtime
                     last_metadata_key = metadata_key

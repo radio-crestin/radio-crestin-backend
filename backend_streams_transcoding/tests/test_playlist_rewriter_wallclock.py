@@ -170,7 +170,9 @@ class RestartContinuityTests(RewriterFixture):
         live = self.media(pr.ENHANCED_PLAYLIST)
         self.assertEqual([u for u, _, _ in live], old + new)
         self.assertEqual([s for _, s, _ in live], list(range(100, 107)))
-        self.assertEqual([d for _, _, d in live], [0] * 4 + [1] * 3)
+        # The discontinuity sequence starts like the media sequence (ffmpeg
+        # numbers from the epoch), so a replacement pod never repeats one.
+        self.assertEqual([d for _, _, d in live], [100] * 4 + [101] * 3)
 
     def test_sequence_and_discontinuity_numbers_are_stable_when_trimmed(self):
         old, new = self._restart()
@@ -200,12 +202,28 @@ class RestartContinuityTests(RewriterFixture):
         self.assertEqual(len(names), len(set(names)))
         self.assertFalse(set(old) & set(names))
 
-    def test_missing_files_are_dropped_anywhere(self):
+    def test_a_missing_file_drops_the_head_up_to_it(self):
+        # Removing only the missing entry would renumber the ones after it.
         names = [self.segment(100, 100 + i, T + 6 * (i + 1)) for i in range(5)]
         self.publish(names, 100, T + 31)
+        before = {u: (s, d) for u, s, d in self.media(pr.DVR_PLAYLIST)}
         (self.root / names[2]).unlink()
         self.publish(names[3:], 103, T + 32)
-        self.assertNotIn(names[2], pr.DVR_PLAYLIST.read_text())
+        after = self.media(pr.DVR_PLAYLIST)
+        self.assertEqual([u for u, _, _ in after], names[3:])
+        for u, s, d in after:
+            self.assertEqual(before[u], (s, d))
+
+    def test_entries_expire_by_file_mtime_when_pdt_runs_ahead(self):
+        # cleanup.sh deletes by mtime; a PDT running ahead of the files
+        # must not keep a segment listed past that.
+        names = [self.segment(100, 100 + i, T + 6 * (i + 1)) for i in range(4)]
+        self.publish(names, 100, T + 25)
+        for e in self.history["entries"]:
+            e["wall"] += 600
+        self.publish(names, 100, T + 6 + pr.DVR_MAX_AGE + 1)
+        self.assertNotIn(names[0], pr.DVR_PLAYLIST.read_text())
+        self.assertIn(names[1], pr.DVR_PLAYLIST.read_text())
 
     def test_entries_older_than_the_dvr_age_leave_both_playlists(self):
         names = [self.segment(100, 100 + i, T + 6 * (i + 1)) for i in range(4)]
@@ -269,7 +287,8 @@ class RenderedHeaderTests(RewriterFixture):
                   "artist": "a"}]
         self.publish(names, 100, T + 25, songs)
         lines = pr.ENHANCED_PLAYLIST.read_text().splitlines()
-        disc_seq = lines.index("#EXT-X-DISCONTINUITY-SEQUENCE:0")
+        disc_seq = next(i for i, l in enumerate(lines)
+                        if l.startswith("#EXT-X-DISCONTINUITY-SEQUENCE:"))
         start = next(i for i, l in enumerate(lines)
                      if l.startswith("#EXT-X-START:"))
         first_extinf = next(i for i, l in enumerate(lines)
@@ -298,9 +317,10 @@ class DriftPersistenceTests(RewriterFixture):
 
 class DriftedRestartTests(RewriterFixture):
     """ffmpeg restarts after an in-process reconnect replayed 30 s of audio
-    (stage 1): the old boot's stamps end 27 s after its audio. The new
-    boot's audio after that point is new and must reach listeners at once;
-    withholding it froze the live edge until /health failed."""
+    (stage 1): the replay is withheld except for 3 s, so the old boot's
+    stamps end 3 s after its audio. The new boot's audio after that point
+    is new and must reach listeners at once; withholding it froze the live
+    edge until /health failed."""
 
     def _drifted_boot(self):
         """Boot 100: 20 paced segments, a 1 s blip whose reconnect burst
@@ -318,11 +338,28 @@ class DriftedRestartTests(RewriterFixture):
             self.publish(names[-110:], 0, t + 0.5)
         return t
 
+    def test_replayed_audio_is_withheld_after_a_discontinuity(self):
+        audio_end = self._drifted_boot()
+        last = pr._published(self.history["entries"])[-1]
+        # Only the first burst segment (3 s new audio, 3 s replay) chains;
+        # the 24 s of replayed audio after it are withheld.
+        self.assertAlmostEqual(last["wall"] + 6 - audio_end, 3.0, places=3)
+        withheld = [e["name"] for e in self.history["entries"]
+                    if not e["published"]]
+        self.assertEqual(withheld, [f"st-100-{n}.ts" for n in range(21, 25)])
+        text = pr.DVR_PLAYLIST.read_text()
+        self.assertEqual(text.count("#EXT-X-DISCONTINUITY\n"), 1)
+        uris = hs.playlist_uris(text)
+        self.assertEqual(uris[uris.index("st-100-20.ts") + 1], "st-100-25.ts")
+        pdts = list(self.pdts(pr.DVR_PLAYLIST).values())
+        for a, b in zip(pdts, pdts[1:]):
+            self.assertGreaterEqual(b - a, 6 - 1e-3)
+
     def test_new_audio_is_published_at_once_and_health_stays_up(self):
         audio_end = self._drifted_boot()
         last = pr._published(self.history["entries"])[-1]
         pdt_end = last["wall"] + 6
-        self.assertAlmostEqual(pdt_end - audio_end, 27.0, places=3)
+        self.assertAlmostEqual(pdt_end - audio_end, 3.0, places=3)
         # The new boot connects 2 s later: 30 s burst, then real time.
         start = audio_end + 2
         names = [self.segment(200, j, start + 0.01 * j) for j in range(5)]
@@ -351,7 +388,9 @@ class DriftedRestartTests(RewriterFixture):
                          if e["name"].startswith("st-200-")
                          and e["published"])
         self.assertAlmostEqual(first_new["wall"], pdt_end, places=3)
-        self.assertEqual(first_new["kind"], "replay")
+        # 2 s between the runs leave 1 s of drift: below REANCHOR_THRESHOLD.
+        self.assertEqual(first_new["kind"], "boot")
+        self.assertFalse(first_new["ahead"])
 
     def _mtime(self, uri):
         try:
@@ -444,6 +483,82 @@ class StartOffsetTests(unittest.TestCase):
     def test_start_offset_is_three_target_durations(self):
         raw = "#EXTM3U\n#EXT-X-TARGETDURATION:6\n#EXTINF:6.0,\nseg.ts\n"
         self.assertIn("#EXT-X-START:TIME-OFFSET=-18", pr.enhance(raw, []))
+        raw = raw.replace("TARGETDURATION:6", "TARGETDURATION:7")
+        self.assertIn("#EXT-X-START:TIME-OFFSET=-21", pr.enhance(raw, []))
+
+
+class TargetDurationTests(RewriterFixture):
+    """EXT-X-TARGETDURATION covers every EXTINF either playlist ever listed
+    (RFC 8216 4.3.3.1) and never decreases; ffmpeg's value only covers its
+    own window."""
+
+    def publish_extinfs(self, extinfs, now):
+        names = [self.segment(100, 100 + i, T + 6 * (i + 1))
+                 for i in range(len(extinfs))]
+        lines = ["#EXTM3U", "#EXT-X-TARGETDURATION:6",
+                 "#EXT-X-MEDIA-SEQUENCE:100"]
+        for name, extinf in zip(names, extinfs):
+            lines += [f"#EXTINF:{extinf},", name]
+        pr._publish(self.history, "\n".join(lines) + "\n", [], now)
+
+    def target(self, path):
+        return int(re.search(r"#EXT-X-TARGETDURATION:(\d+)",
+                             path.read_text()).group(1))
+
+    def test_rounds_to_the_nearest_second(self):
+        self.publish_extinfs(["6.040000"] * 4, T + 25)
+        self.assertEqual(self.target(pr.DVR_PLAYLIST), 6)
+
+    def test_covers_the_longest_segment_and_never_decreases(self):
+        self.publish_extinfs(["6.000000", "7.400000", "6.000000",
+                              "6.000000"], T + 25)
+        for path in (pr.ENHANCED_PLAYLIST, pr.DVR_PLAYLIST):
+            self.assertEqual(self.target(path), 7)
+            self.assertIn("#EXT-X-START:TIME-OFFSET=-21", path.read_text())
+        saved = pr.DVR_LIST_SIZE
+        pr.DVR_LIST_SIZE = 2
+        try:
+            self.publish_extinfs(["6.000000", "7.400000", "6.000000",
+                                  "6.000000"], T + 26)
+        finally:
+            pr.DVR_LIST_SIZE = saved
+        self.assertNotIn("st-100-101.ts", pr.DVR_PLAYLIST.read_text())
+        self.assertEqual(self.target(pr.DVR_PLAYLIST), 7)
+        self.assertEqual(pr._load_history()["target_duration"], 7)
+
+
+class LongOutageTests(RewriterFixture):
+    """ffmpeg's last live.m3u8 stays on disk through an outage. Once all of
+    it has expired from history it must not be stamped again (a PostHog
+    event and a history write every second), and neither playlist may keep
+    listing segments cleanup.sh deletes."""
+
+    def test_expired_segments_are_never_restamped(self):
+        events = []
+        names = [self.segment(100, 100 + i, T - 6 * (109 - i))
+                 for i in range(110)]
+        self.publish(names, 100, T + 1)
+        self.assertTrue(pr.ENHANCED_PLAYLIST.exists())
+        with mock.patch.object(pr.posthog_reporter, "capture_event",
+                               lambda *a, **k: events.append(a)):
+            for later in (3905, 3906, 4000):
+                self.assertTrue(self.publish(names, 100, T + later))
+            self.history = pr._load_history()
+            self.assertTrue(self.publish(names, 100, T + 4001))
+        self.assertEqual(events, [])
+        self.assertEqual(self.history["entries"], [])
+        self.assertFalse(pr.ENHANCED_PLAYLIST.exists())
+        self.assertFalse(pr.DVR_PLAYLIST.exists())
+
+    def test_the_next_boot_is_published_after_the_outage(self):
+        old = [self.segment(100, 100 + i, T + 6 * (i + 1)) for i in range(4)]
+        self.publish(old, 100, T + 25)
+        self.publish(old, 100, T + 25 + pr.DVR_MAX_AGE + 60)
+        start = T + 30 + pr.DVR_MAX_AGE + 60
+        new = [self.segment(200, 900 + i, start + 6 * i) for i in range(3)]
+        self.publish(new, 900, start + 13)
+        self.assertEqual(hs.playlist_uris(pr.ENHANCED_PLAYLIST.read_text()),
+                         new)
 
 
 if __name__ == "__main__":

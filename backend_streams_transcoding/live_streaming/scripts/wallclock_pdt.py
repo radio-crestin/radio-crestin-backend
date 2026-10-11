@@ -23,17 +23,22 @@ clock, so playlist_rewriter stamps every segment itself:
   boot (in-process reconnect) is held and dated from the first paced
   segment after it, like a boot.
 * RFC 8216 6.2.1 forbids a PDT that makes the date-to-segment mapping
-  ambiguous, so stamps never overlap: they only move forward. Audio
-  replayed inside a boot cannot be dropped, so the stamps stay ahead of the
-  wall clock by the replayed length; `Stamp.ahead` tracks such an episode
-  so it is reported once (kind `replay`).
+  ambiguous, so stamps never overlap: they only move forward, also across
+  a discontinuity. Replayed audio that stays published therefore leaves the
+  stamps ahead of the wall clock by the replayed length; `Stamp.ahead`
+  tracks such an episode so it is reported once (kind `replay`).
+* That drift is bounded by MAX_DRIFT. Segments that would put the stamps
+  further ahead are withheld (stamped, marked unpublished) instead, and the
+  rewriter puts EXT-X-DISCONTINUITY before the next published one: a burst
+  replaying published audio (inside a boot or at a new boot, kind
+  `duplicate`) and, once the chain is confirmed more than MAX_DRIFT ahead,
+  new audio until the stamps are back within MAX_DRIFT (kind `resync`).
 * Leading segments of a new boot whose audio aired before the previous
   boot's last published sample (a reconnect burst replaying audio already
-  published) are stamped but marked unpublished. When the previous boot
-  ran ahead, its stamps end later than its audio (BootEnd): the new boot's
-  audio in between is new, so it is published, starting where the previous
-  stamps end. The drift carries over instead of the live edge freezing
-  until the wall clock catches up with the old stamps.
+  published) are withheld. When the previous boot ran ahead, its stamps end
+  later than its audio (BootEnd): the new boot's audio in between is new
+  and is published, starting where the previous stamps end, so at most
+  MAX_DRIFT carries over.
 * A stamp is computed once and never changes (RFC 8216 6.2.1): callers
   persist it with the segment.
 
@@ -60,6 +65,12 @@ REANCHOR_THRESHOLD = 2.0
 # The two residuals that confirm a re-anchor (or a drift ahead) must agree
 # this closely.
 CONFIRM_TOLERANCE = 1.0
+# How far the stamps may stay ahead of the wall clock: one segment, about
+# the app's 10 s song lookup windows. A replay that would exceed it is
+# withheld (one EXT-X-DISCONTINUITY) instead of shifting every later PDT; a
+# short replay pushing past it is withheld once the next segment confirms
+# it, so a single published segment can briefly be up to two segments ahead.
+MAX_DRIFT = 6.0
 # A boot whose segments never arrive paced is stamped from its newest
 # segment after this long, so a misbehaving source cannot hide the stream.
 BOOT_ANCHOR_TIMEOUT = 20.0
@@ -72,9 +83,12 @@ KIND_CHAIN = "chain"
 KIND_REANCHOR = "reanchor"
 KIND_DUPLICATE = "duplicate"
 # The segment that confirms a drift-ahead episode: audio already published
-# in this boot was replayed, so the stamps stay ahead of the wall clock by
-# the replayed length until the next boot. Its residual is minus the drift.
+# was replayed, so the stamps stay ahead of the wall clock by the replayed
+# length (at most MAX_DRIFT). Its residual is minus the drift.
 KIND_REPLAY = "replay"
+# New audio withheld because the stamps ran more than MAX_DRIFT ahead.
+KIND_RESYNC = "resync"
+WITHHELD_KINDS = (KIND_DUPLICATE, KIND_RESYNC)
 
 
 @dataclass(frozen=True)
@@ -110,19 +124,20 @@ class Stamp:
 
     @property
     def published(self) -> bool:
-        return self.kind != KIND_DUPLICATE
+        return self.kind not in WITHHELD_KINDS
 
 
 @dataclass(frozen=True)
 class BootEnd:
-    """Where the previous boot's published segments end, in two clocks.
+    """Where the published segments end, in two clocks.
 
-    `pdt` is the end of its last published stamp: no later stamp may start
+    `pdt` is the end of the last published stamp: no later stamp may start
     before it (RFC 8216 6.2.1). `audio` is when that segment's last sample
-    arrived. It is earlier than `pdt` when the boot ran ahead of the wall
+    arrived. It is earlier than `pdt` when the stamps ran ahead of the wall
     clock (audio replayed in-process), and never earlier than the sample
-    aired. A new boot's segment that aired before `audio` replays published
-    audio; one that aired after it is new audio, published from `pdt` on.
+    aired. A later segment that aired before `audio` replays published
+    audio; one that aired after it is new audio, published from `pdt` on
+    unless that is more than MAX_DRIFT after it aired.
     """
 
     pdt: float
@@ -142,17 +157,28 @@ def boot_end(last: Stamp) -> BootEnd:
 
 
 def _placed_after(wall: float, floor: BootEnd | None) -> float | None:
-    """Where a new boot's segment that aired at `wall` is published.
+    """Where a segment that aired at `wall` is published when it is the
+    first of a new boot or follows withheld segments.
 
-    None when it replays audio the previous boot published. New audio that
-    aired before the previous boot's stamps ended (that boot ran ahead)
-    starts at their end, so PDT never goes back.
+    None when it replays published audio, or when following the published
+    stamps would put it more than MAX_DRIFT ahead. Other new audio that
+    aired before those stamps ended (they ran ahead) starts at their end,
+    so PDT never goes back.
     """
     if floor is None:
         return wall
     if wall < floor.audio - OVERLAP_TOLERANCE:
         return None
+    if wall < floor.pdt - MAX_DRIFT - OVERLAP_TOLERANCE:
+        return None
     return floor.pdt if wall < floor.pdt - OVERLAP_TOLERANCE else wall
+
+
+def _withheld_kind(wall: float, floor: BootEnd) -> str:
+    """Why a segment that aired at `wall` is not published."""
+    if wall < floor.audio - OVERLAP_TOLERANCE:
+        return KIND_DUPLICATE
+    return KIND_RESYNC
 
 
 def _first_new_audio(walls: list[float],
@@ -220,6 +246,16 @@ def anchor_new_boot(pending: list[Observation], now: float,
         walls[i] = walls[i + 1] - pending[i].duration
     for i in range(anchor_idx + 1, len(pending)):
         walls[i] = walls[i - 1] + pending[i - 1].duration
+    return _follow(pending, walls, floor, kind, anchor_idx)
+
+
+def _follow(pending: list[Observation], walls: list[float],
+            floor: BootEnd | None, kind: str,
+            anchor_idx: int) -> list[Stamp]:
+    """Stamps for `pending`, whose audio aired at `walls`, following the
+    published stamps that end at `floor`: the leading segments
+    _placed_after places nowhere are withheld, the rest published as
+    `kind`."""
     first, shift = _first_new_audio(walls, floor)
     ahead = shift > REANCHOR_THRESHOLD
     # A carried drift is reported where it is measured: on the anchor
@@ -231,7 +267,7 @@ def anchor_new_boot(pending: list[Observation], now: float,
         published = i >= first
         wall = walls[i] + shift if published else walls[i]
         if not published:
-            stamp_kind = KIND_DUPLICATE
+            stamp_kind = _withheld_kind(walls[i], floor)
         elif i == replay_at:
             stamp_kind = KIND_REPLAY
         else:
@@ -250,13 +286,18 @@ def stamp_next(prev: Stamp, obs: Observation,
                floor: BootEnd | None = None) -> Stamp:
     """Stamp the segment that follows `prev` in the same boot.
 
-    `floor` is only consulted while the boot is still replaying audio the
-    previous boot published (`prev` unpublished): those segments stay
-    unpublished until one aired after the previous boot's audio ended.
+    `floor` is where the newest published stamp ends. It is only consulted
+    after withheld segments (`prev` unpublished): they stay withheld until
+    one can follow the published stamps (see _placed_after).
     """
     chain = prev.end
     paced = _paced(obs, prev.mtime)
     residual = _residual(obs, chain)
+    if prev.published and _too_far_ahead(prev, residual):
+        # Withheld and dated when it aired; the next segment follows the
+        # published stamps from `floor` again, one segment less ahead.
+        return Stamp(obs.name, obs.duration, obs.mtime, _anchor(obs), paced,
+                     0.0, KIND_RESYNC)
     confirmed = (
         paced and residual is not None and residual > REANCHOR_THRESHOLD
         and prev.paced and prev.residual is not None
@@ -279,13 +320,13 @@ def stamp_next(prev: Stamp, obs: Observation,
 
 def _after_replayed_audio(stamp: Stamp, obs: Observation,
                           floor: BootEnd) -> Stamp:
-    """`stamp` (of `obs`, dated when its audio aired) in a boot that so far
-    only replayed audio the previous boot published: still a duplicate, or
-    the boot's first published segment, moved forward to follow the
-    previous boot's stamps when that boot ran ahead."""
+    """`stamp` (of `obs`, dated when its audio aired) right after withheld
+    segments: still withheld, or the first published segment after them,
+    moved forward to follow the published stamps when those ran ahead."""
     placed = _placed_after(stamp.wall, floor)
     if placed is None:
-        return replace(stamp, kind=KIND_DUPLICATE, ahead=False)
+        return replace(stamp, kind=_withheld_kind(stamp.wall, floor),
+                       ahead=False)
     if placed == stamp.wall:
         return stamp
     ahead = placed - stamp.wall > REANCHOR_THRESHOLD
@@ -293,12 +334,20 @@ def _after_replayed_audio(stamp: Stamp, obs: Observation,
                    ahead=ahead, kind=KIND_REPLAY if ahead else stamp.kind)
 
 
+def _too_far_ahead(prev: Stamp, residual: float | None) -> bool:
+    """True when two consecutive residuals agree that the chain runs more
+    than MAX_DRIFT ahead of the wall clock (short replays add up)."""
+    return (residual is not None and residual < -MAX_DRIFT
+            and prev.residual is not None and prev.residual < -MAX_DRIFT
+            and _agree(residual, prev.residual))
+
+
 def _drifts_ahead(prev: Stamp, residual: float | None) -> bool:
     """True while the chain is confirmed ahead of the wall clock.
 
     A replay shorter than one segment never forms a burst, yet it leaves the
     chain ahead by the replayed length. The clock cannot move back (RFC 8216
-    6.2.1), so this only reports: two consecutive residuals below
+    6.2.1); up to MAX_DRIFT this only reports: two consecutive residuals below
     -REANCHOR_THRESHOLD that agree start an episode, which lasts until the
     residual comes back above the threshold.
     """
@@ -326,10 +375,12 @@ def stamp_burst(prev: Stamp, held: list[Observation],
     holds the following segments of the same boot in order. The burst is
     dated from the first paced segment after it, exactly like a boot: when
     the chain is more than REANCHOR_THRESHOLD behind that anchor (audio was
-    lost in a stall), the burst moves forward to it at once; otherwise
-    (jitter, or replayed audio that cannot move the clock back) it chains.
-    Returns stamps for the burst and its anchor only. A replay is marked on
-    the anchor, the segment whose timing measured it (residual = -drift).
+    lost in a stall), the burst moves forward to it at once; when chaining
+    would leave the stamps more than MAX_DRIFT ahead (replayed audio), the
+    segments replaying published audio are withheld, as at a new boot;
+    otherwise (jitter, a short replay) it chains. Returns stamps for the
+    burst and its anchor only. A replay is marked on the anchor, the
+    segment whose timing measured it (residual = -drift).
     """
     anchor_idx = next((i for i in range(1, len(held))
                        if _paced(held[i], held[i - 1].mtime)), None)
@@ -345,7 +396,10 @@ def stamp_burst(prev: Stamp, held: list[Observation],
         for i in range(anchor_idx - 1, -1, -1):
             back[i] = back[i + 1] - held[i].duration
     shift = None if back is None else back[0] - prev.end
-    jump = shift is not None and shift > REANCHOR_THRESHOLD
+    if shift is not None and shift < -MAX_DRIFT:
+        return _follow(held[:anchor_idx + 1], back, boot_end(prev),
+                       KIND_REANCHOR, anchor_idx)
+    jump =shift is not None and shift > REANCHOR_THRESHOLD
     replay = shift is not None and shift < -REANCHOR_THRESHOLD
     # Without an anchor (timeout) nothing new is known about the drift.
     ahead = prev.ahead if shift is None else replay

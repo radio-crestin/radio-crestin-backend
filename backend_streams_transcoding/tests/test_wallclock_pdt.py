@@ -25,6 +25,16 @@ def obs(n, mtime, boot="st-100", duration=D):
     return w.Observation(f"{boot}-{n}.ts", duration, mtime)
 
 
+def floor_of(stamps):
+    """Where the newest published stamp ends, as the rewriter passes it."""
+    published = [s for s in stamps if s.published]
+    return w.boot_end(published[-1]) if published else None
+
+
+def published_only(stamps):
+    return [s for s in stamps if s.published]
+
+
 def run_boot(observations, now=None, floor=None):
     """Anchor a boot from its first observations, then chain the rest."""
     for k in range(1, len(observations) + 1):
@@ -83,24 +93,25 @@ class BootAnchorTests(unittest.TestCase):
 class DriftedBootEndTests(unittest.TestCase):
     """The previous boot ran ahead of the wall clock (audio replayed
     in-process), so its stamps end later than its audio. A new boot must
-    withhold only the audio that boot published, and publish the rest at
-    once, following its stamps (RFC 8216 6.2.1), instead of freezing the
-    live edge until the wall clock passes them."""
+    withhold the audio that boot published, and publish the rest following
+    its stamps (RFC 8216 6.2.1) instead of freezing the live edge until the
+    wall clock passes them, carrying at most MAX_DRIFT of that drift."""
 
-    # Stamps end at T+317; the last sample arrived at T+290 (27 s ahead).
-    END = w.BootEnd(pdt=T + 317, audio=T + 290)
-
-    def test_only_already_published_audio_is_withheld(self):
+    def burst_then_steady(self, steady):
         # 30 s connect burst at T+296 (aired T+266..T+296), then real time.
         burst = [obs(i, T + 296 + 0.06 * i, boot="st-200") for i in range(5)]
-        steady = [obs(5 + i, T + 296 + 6 * (i + 1), boot="st-200")
-                  for i in range(3)]
-        stamps = run_boot(burst + steady, floor=self.END)
+        return burst + [obs(5 + i, T + 296 + 6 * (i + 1), boot="st-200")
+                        for i in range(steady)]
+
+    def test_only_already_published_audio_is_withheld(self):
+        # Stamps end at T+295; the last sample arrived at T+290 (5 s ahead).
+        end = w.BootEnd(pdt=T + 295, audio=T + 290)
+        stamps = run_boot(self.burst_then_steady(3), floor=end)
         aired = [T + 266 + 6 * i for i in range(8)]
         self.assertEqual([s.published for s in stamps],
-                         [a >= self.END.audio for a in aired])
-        published = [s for s in stamps if s.published]
-        self.assertAlmostEqual(published[0].wall, self.END.pdt, places=6)
+                         [a >= end.audio for a in aired])
+        published = published_only(stamps)
+        self.assertAlmostEqual(published[0].wall, end.pdt, places=6)
         for a, b in zip(published, published[1:]):
             self.assertAlmostEqual(b.wall, a.end, places=6)
         self.assertTrue(all(s.ahead for s in published))
@@ -108,25 +119,27 @@ class DriftedBootEndTests(unittest.TestCase):
         self.assertEqual([s.kind for s in published],
                          [w.KIND_BOOT, w.KIND_REPLAY, w.KIND_CHAIN,
                           w.KIND_CHAIN])
-        self.assertAlmostEqual(published[1].residual, -27.0, places=6)
+        self.assertAlmostEqual(published[1].residual, -5.0, places=6)
 
-    def test_new_audio_after_a_replayed_anchor_follows_the_old_stamps(self):
-        # The whole anchored burst replays published audio; the next
-        # segment is the boot's first new audio.
+    def test_drift_beyond_max_drift_is_not_carried_over(self):
+        # Stamps end at T+330; the last sample arrived at T+300 (30 s
+        # ahead). New audio is withheld until following the old stamps
+        # puts it at most MAX_DRIFT ahead.
         end = w.BootEnd(pdt=T + 330, audio=T + 300)
-        burst = [obs(i, T + 296 + 0.06 * i, boot="st-200") for i in range(5)]
-        steady = [obs(5 + i, T + 296 + 6 * (i + 1), boot="st-200")
-                  for i in range(3)]
-        stamps = run_boot(burst + steady, floor=end)
-        self.assertEqual([s.published for s in stamps],
-                         [False] * 6 + [True] * 2)
-        first = stamps[6]
+        stamps = run_boot(self.burst_then_steady(7), floor=end)
+        aired = [T + 266 + 6 * i for i in range(12)]
+        self.assertEqual(
+            [s.published for s in stamps],
+            [a >= end.pdt - w.MAX_DRIFT for a in aired])
+        self.assertEqual(
+            [s.kind for s in stamps if not s.published],
+            [w.KIND_DUPLICATE] * 6 + [w.KIND_RESYNC] * 4)
+        first, second = published_only(stamps)
         self.assertAlmostEqual(first.wall, end.pdt, places=6)
         self.assertEqual(first.kind, w.KIND_REPLAY)
-        self.assertTrue(first.ahead)
-        self.assertAlmostEqual(first.residual, -28.0, places=6)
-        self.assertAlmostEqual(stamps[7].wall, first.end, places=6)
-        self.assertEqual(stamps[7].kind, w.KIND_CHAIN)
+        self.assertAlmostEqual(first.residual, -4.0, places=6)
+        self.assertAlmostEqual(second.wall, first.end, places=6)
+        self.assertEqual(second.kind, w.KIND_CHAIN)
 
     def test_a_stall_while_replaying_never_publishes_before_the_floor(self):
         # A stall re-anchors the replayed segments' chain; the re-anchored
@@ -160,7 +173,8 @@ class ChainTests(unittest.TestCase):
 
     def follow(self, mtimes):
         for i, m in enumerate(mtimes):
-            self.stamps.append(w.stamp_next(self.stamps[-1], obs(100 + i, m)))
+            self.stamps.append(w.stamp_next(self.stamps[-1], obs(100 + i, m),
+                                            floor_of(self.stamps)))
         return self.stamps
 
     def test_jitter_never_moves_the_clock(self):
@@ -196,15 +210,32 @@ class ChainTests(unittest.TestCase):
         # Reconnect after 1 s with a 4 s replay: 3 s of audio repeats. The
         # stamps keep chaining (3 s ahead) instead of overlapping.
         last = self.stamps[-1].mtime
-        stamps = self.follow([last + 1.1, last + 4, last + 10, last + 16])
+        stamps = published_only(
+            self.follow([last + 1.1, last + 4, last + 10, last + 16]))
         for a, b in zip(stamps, stamps[1:]):
             self.assertGreaterEqual(b.wall, a.end - 1e-9)
 
     def test_stamps_never_overlap(self):
         last = self.stamps[-1].mtime
-        stamps = self.follow([last + 2, last + 2.1, last + 30, last + 36, last + 37, last + 43])
+        stamps = published_only(self.follow(
+            [last + 2, last + 2.1, last + 30, last + 36, last + 37, last + 43]))
         for a, b in zip(stamps, stamps[1:]):
             self.assertGreaterEqual(b.wall, a.end - 1e-9)
+
+    def test_short_replays_adding_up_beyond_max_drift_are_resynced(self):
+        # Two short replays leave the chain 7 s ahead (residuals -4, -7,
+        # -7): the segment confirming it is withheld, and the next one
+        # follows the published stamps, now 1 s ahead.
+        last = self.stamps[-1].mtime
+        stamps = self.follow([last + 2, last + 5, last + 11, last + 17,
+                              last + 23])[-5:]
+        self.assertEqual([s.kind for s in stamps],
+                         [w.KIND_CHAIN, w.KIND_CHAIN, w.KIND_RESYNC,
+                          w.KIND_CHAIN, w.KIND_CHAIN])
+        published = published_only(stamps)
+        for a, b in zip(published, published[1:]):
+            self.assertAlmostEqual(b.wall, a.end, places=6)
+        self.assertAlmostEqual(published[-1].residual, -1.0, places=6)
 
 
 class BurstTests(unittest.TestCase):
@@ -234,18 +265,31 @@ class BurstTests(unittest.TestCase):
         for a, b in zip(stamps, stamps[1:]):
             self.assertAlmostEqual(b.wall, a.end, places=6)
 
-    def test_replay_burst_keeps_chaining(self):
-        # 1 s blip, 5 s replayed: the anchor says the burst started 4 s
-        # before the chain; the clock never moves back.
+    def test_short_replay_burst_keeps_chaining(self):
+        # The anchor says the burst started 5.5 s before the chain (at most
+        # MAX_DRIFT): the clock never moves back, the stamps run ahead.
+        held = [obs(10, self.last + 0.5), obs(11, self.last + 6.5)]
+        stamps = w.stamp_burst(self.prev, held, self.last + 7)
+        # The replay is marked where it was measured: on the paced anchor,
+        # whose residual is minus the drift.
+        self.assertEqual([s.kind for s in stamps],
+                         [w.KIND_CHAIN, w.KIND_REPLAY])
+        self.assertAlmostEqual(stamps[-1].residual, -5.5, places=6)
+        self.assertAlmostEqual(stamps[0].wall, self.prev.end, places=6)
+
+    def test_long_replay_burst_is_withheld(self):
+        # 1 s blip, 12 s replayed: chaining would run 10.85 s ahead, so
+        # the segments replaying published audio are withheld and the
+        # anchor is dated when it aired.
         held = [obs(10, self.last + 1.1), obs(11, self.last + 1.15),
                 obs(12, self.last + 7.15)]
         stamps = w.stamp_burst(self.prev, held, self.last + 8)
-        # The replay is marked where it was measured: on the paced anchor,
-        # whose residual is minus the drift (here 10.85 s replayed).
         self.assertEqual([s.kind for s in stamps],
-                         [w.KIND_CHAIN, w.KIND_CHAIN, w.KIND_REPLAY])
-        self.assertAlmostEqual(stamps[-1].residual, -10.85, places=6)
-        self.assertAlmostEqual(stamps[0].wall, self.prev.end, places=6)
+                         [w.KIND_DUPLICATE, w.KIND_DUPLICATE,
+                          w.KIND_REANCHOR])
+        self.assertAlmostEqual(stamps[-1].wall, self.last + 1.15, places=6)
+        self.assertGreaterEqual(stamps[-1].wall, self.prev.end)
+        self.assertFalse(stamps[-1].ahead)
 
     def test_burst_without_pacing_chains_after_the_timeout(self):
         held = [obs(10, self.last + 0.5), obs(11, self.last + 0.6)]
@@ -305,13 +349,12 @@ class DriftTelemetryTests(unittest.TestCase):
         # A replay burst is reported by stamp_burst; the paced segments
         # after it continue the episode without a second report.
         prev = self.stamps[-1]
-        held = [obs(10, self.last + 1.1), obs(11, self.last + 1.15),
-                obs(12, self.last + 7.15)]
-        burst = w.stamp_burst(prev, held, self.last + 8)
+        held = [obs(10, self.last + 0.5), obs(11, self.last + 6.5)]
+        burst = w.stamp_burst(prev, held, self.last + 7)
         self.assertEqual([s.kind for s in burst].count(w.KIND_REPLAY), 1)
         self.assertEqual(burst[-1].kind, w.KIND_REPLAY)
         self.assertTrue(all(s.ahead for s in burst))
-        nxt = w.stamp_next(burst[-1], obs(13, self.last + 13.15))
+        nxt = w.stamp_next(burst[-1], obs(13, self.last + 12.5))
         self.assertEqual(nxt.kind, w.KIND_CHAIN)
         self.assertTrue(nxt.ahead)
 

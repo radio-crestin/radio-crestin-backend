@@ -57,7 +57,7 @@ AAC_SEGMENTS_DIR = "/data/hls/aac"
 FFMPEG_PLAYLIST = os.path.join(AAC_SEGMENTS_DIR, "live.m3u8")
 SERVED_PLAYLIST = os.path.join(AAC_SEGMENTS_DIR, "index.m3u8")
 # playlist_rewriter's segment history; its unpublished entries are segments
-# withheld on purpose (a new ffmpeg run replaying audio already published).
+# withheld on purpose (audio replayed by a reconnect or a new ffmpeg run).
 SEGMENT_HISTORY = os.path.join(AAC_SEGMENTS_DIR, "dvr_history.json")
 METADATA_INDEX = "/data/metadata/index.json"
 HEALTH_MAX_AGE = int(os.environ.get("HEALTH_MAX_AGE", "30"))
@@ -145,8 +145,9 @@ def served_lag(live_uris: list[str], served: set[str], now: float,
     after a reconnect burst counts only for itself (at most
     wallclock_pdt.BOOT_ANCHOR_TIMEOUT plus one segment), a stuck rewriter
     grows without bound. Segments the rewriter withholds on purpose (a new
-    boot replaying published audio) are never served and never count: a
-    deliberate decision must not fail readiness or restart the pod.
+    boot or a reconnect replaying published audio) are never served and
+    never count: a deliberate decision must not fail readiness or restart
+    the pod.
     `mtime_of(uri)` is None for a vanished file.
     """
     handled = served | withheld

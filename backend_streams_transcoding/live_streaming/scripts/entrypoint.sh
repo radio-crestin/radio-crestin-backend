@@ -40,9 +40,10 @@ DVR_WINDOW_SECONDS="${DVR_WINDOW_SECONDS:-3600}"
 DVR_LIST_SIZE="${DVR_LIST_SIZE:-$((DVR_WINDOW_SECONDS / SEGMENT_DURATION))}"
 # How ffmpeg handles a broken source connection:
 #   inprocess  (default) reconnect inside the running ffmpeg. A reconnect
-#              burst that replays audio already received leaves the PDT
-#              ahead by the replayed length until the next run
-#              (PostHog pdt_stamp kind=replay).
+#              burst that replays audio already received is withheld (one
+#              EXT-X-DISCONTINUITY) once it would put the PDT more than one
+#              segment ahead; shorter replays leave it ahead by at most that
+#              (PostHog pdt_stamp kind=replay/duplicate/resync).
 #   restart    end the run; ffmpeg_loop starts a new one 2 s later. The
 #              rewriter dates each new run exactly and withholds replayed
 #              segments, at the cost of one EXT-X-DISCONTINUITY per
