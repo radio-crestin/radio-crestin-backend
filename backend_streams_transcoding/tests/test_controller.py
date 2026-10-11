@@ -511,6 +511,93 @@ class TestSyncOnce(unittest.TestCase):
         networking_v1.delete_namespaced_ingress.assert_not_called()
 
 
+class TestCanaryAndTunables(unittest.TestCase):
+    """A canary image can be pinned per station, and streamer tunables set on
+    the controller reach the pods (rolling them like an image update)."""
+
+    def _deployment(self, slug, image, env=()):
+        dep = MagicMock()
+        dep.metadata.annotations = {
+            "stream-url": "https://s.example/live",
+            controller.RESOURCES_ANNOTATION: controller.desired_resources(),
+        }
+        container = MagicMock()
+        container.image = image
+        container.env = [controller.client.V1EnvVar(name=n, value=v)
+                         for n, v in env]
+        dep.spec.template.spec.containers = [container]
+        return dep
+
+    def _sync(self, deployments):
+        core_v1, apps_v1, networking_v1 = MagicMock(), MagicMock(), MagicMock()
+        apps_v1.list_namespaced_deployment.return_value.items = deployments
+        core_v1.list_namespaced_service.return_value.items = []
+        core_v1.list_namespaced_persistent_volume_claim.return_value.items = []
+        networking_v1.list_namespaced_ingress.return_value.items = []
+        stations = [{"slug": d.metadata.labels["station"],
+                     "stream_url": "https://s.example/live",
+                     "transcode_enabled": True} for d in deployments]
+        with patch("controller.fetch_stations", return_value=stations), \
+                patch("controller.ensure_listing_deployment"), \
+                patch("controller.ensure_listing_ingress"):
+            controller.sync_once(core_v1, apps_v1, networking_v1)
+        return [c.kwargs["name"] for c in
+                apps_v1.replace_namespaced_deployment.call_args_list]
+
+    def _labelled(self, slug, image, env=()):
+        dep = self._deployment(slug, image, env)
+        dep.metadata.labels = {"app": "live-stream", "station": slug}
+        return dep
+
+    def test_parse_image_overrides(self):
+        self.assertEqual(
+            controller.parse_image_overrides(
+                " radio-a=img:canary , bad slug=x,radio-b=,=img,radio-c=i:2"),
+            {"radio-a": "img:canary", "radio-c": "i:2"})
+        self.assertEqual(controller.parse_image_overrides(""), {})
+
+    def test_override_pins_the_canary_image(self):
+        with patch.object(controller, "STREAMER_IMAGE_OVERRIDES",
+                          {"radio-a": "img:canary"}):
+            canary = controller.build_deployment_spec("radio-a", "https://s")
+            other = controller.build_deployment_spec("radio-b", "https://s")
+        container = canary.spec.template.spec.containers[0]
+        self.assertEqual(container.image, "img:canary")
+        env = {e.name: e.value for e in container.env}
+        self.assertEqual(env["IMAGE_TAG"], "canary")
+        self.assertEqual(other.spec.template.spec.containers[0].image,
+                         controller.STREAMER_IMAGE)
+
+    def test_sync_keeps_a_canary_and_rolls_it_back(self):
+        deps = [self._labelled("radio-a", "img:canary"),
+                self._labelled("radio-b", controller.STREAMER_IMAGE)]
+        with patch.object(controller, "STREAMER_IMAGE_OVERRIDES",
+                          {"radio-a": "img:canary"}):
+            self.assertEqual(self._sync(deps), [])
+        # Override removed: the canary returns to the fleet image.
+        with patch.object(controller, "STREAMER_IMAGE_OVERRIDES", {}):
+            self.assertEqual(self._sync(deps), ["live-stream-radio-a"])
+
+    def test_tunables_are_forwarded_and_rolled_out(self):
+        with patch.dict(os.environ, {"FFMPEG_INPUT_RECONNECT": "restart"}):
+            dep = controller.build_deployment_spec("radio-a", "https://s")
+            env = {e.name: e.value
+                   for e in dep.spec.template.spec.containers[0].env}
+            self.assertEqual(env["FFMPEG_INPUT_RECONNECT"], "restart")
+            stale = self._labelled("radio-a", controller.STREAMER_IMAGE)
+            fresh = self._labelled("radio-b", controller.STREAMER_IMAGE,
+                                   [("FFMPEG_INPUT_RECONNECT", "restart")])
+            self.assertEqual(self._sync([stale, fresh]),
+                             ["live-stream-radio-a"])
+
+    def test_unset_tunables_are_not_forwarded(self):
+        with patch.dict(os.environ, {"FFMPEG_INPUT_RECONNECT": ""}):
+            dep = controller.build_deployment_spec("radio-a", "https://s")
+            names = [e.name for e in dep.spec.template.spec.containers[0].env]
+            self.assertNotIn("FFMPEG_INPUT_RECONNECT", names)
+            pod = self._labelled("radio-a", controller.STREAMER_IMAGE)
+            self.assertEqual(self._sync([pod]), [])
+
 if __name__ == "__main__":
     unittest.main()
 

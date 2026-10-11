@@ -20,7 +20,7 @@ class StationsNowPlayingHistoryAdmin(SuperAppModelAdmin):
     search_fields = ['station__title', 'song__name']
     autocomplete_fields = ['station', 'song']
     readonly_fields = [
-        'timestamp', 'station', 'song', 'listeners',
+        'timestamp', 'song_started_at', 'station', 'song', 'listeners',
         'start_epoch', 'end_timestamp', 'end_epoch',
         'id3_timestamp', 'scraper_timestamp', 'timestamp_source',
     ]
@@ -32,7 +32,7 @@ class StationsNowPlayingHistoryAdmin(SuperAppModelAdmin):
 
     fieldsets = (
         (_("Basic Information"), {
-            'fields': ('station', 'song', 'timestamp', 'listeners')
+            'fields': ('station', 'song', 'timestamp', 'song_started_at', 'listeners')
         }),
         (_("Segment & Timestamps"), {
             'fields': ('start_epoch', 'end_timestamp', 'end_epoch'),

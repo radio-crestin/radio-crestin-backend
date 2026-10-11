@@ -68,7 +68,7 @@ class Stations(models.Model):
     id3_metadata_delay_offset = models.FloatField(
         _("ID3 Metadata Delay Offset (seconds)"),
         default=0.0,
-        help_text=_("Time offset to shift ID3 metadata timing (positive = delay, negative = advance)"),
+        help_text=_("Seconds the stream's ID3/ICY title arrives after the audio change. Positive: the title arrives late, so the song is dated earlier by this much. Negative: the title arrives early, so the song is dated later. Applied to the API history and to the HLS playlist tags alike. Keep it within ±30: songs are never dated more than 45 s before they are reported."),
     )
     config_version = models.PositiveIntegerField(
         _("Config Version"),

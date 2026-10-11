@@ -18,43 +18,63 @@ SEGMENT_DURATION="${SEGMENT_DURATION:-6}"
 # even at the worst point of the rotation. The playlist grows to ~20 KB
 # (from ~12 KB at the old 65-entry / 6.5-min window); listeners poll it every
 # ~6s, so this raises playlist egress ~1.7x — an accepted cost for the DVR-
-# grade 10-min live buffer. On-disk retention is unaffected (see below): it is
-# driven by the 1h DVR window, which already dwarfs any live-window size.
+# grade 10-min live buffer. playlist_rewriter renders index.m3u8 as the newest
+# HLS_LIST_SIZE segments of its history; ffmpeg's own live.m3u8 (same size)
+# only feeds the rewriter.
 HLS_WINDOW_SECONDS="${HLS_WINDOW_SECONDS:-660}"
 HLS_LIST_SIZE="${HLS_LIST_SIZE:-$((HLS_WINDOW_SECONDS / SEGMENT_DURATION))}"
 # DVR playlist window served at /dvr.m3u8 — apps switch to it only when the
 # user rewinds ("seek back up to 1h"). Built by playlist_rewriter.py from
-# the same segment set: 3600s / 6s = 600 entries. ~32 MB/h per station at
-# 64k HE-AAC in MPEG-TS (~37 MB on disk incl. the delete margin) — well
-# within the per-station 200Mi emptyDir limit set by the stream controller.
-DVR_WINDOW_SECONDS="${DVR_WINDOW_SECONDS:-3600}"
-DVR_LIST_SIZE="${DVR_LIST_SIZE:-$((DVR_WINDOW_SECONDS / SEGMENT_DURATION))}"
-# ffmpeg deletes a segment once it falls HLS_DELETE_THRESHOLD entries behind
-# its own live playlist, so the threshold must cover the entire DVR window
-# plus a margin for lagging clients / CDN cache misses. It is derived from the
-# DVR and live sizes, so the on-disk total stays constant regardless of the
-# live-window size: 600 - 110 + 100 = 590 → 110+590 = 700 segments ≈ 70 min on
-# disk. That 70 min comfortably exceeds the 11-min live window, so a client
-# playing at the tail of the live playlist is never at risk of a 404.
+# its segment history: 3600s / 6s = 600 entries.
+#
+# Retention: ffmpeg deletes nothing (no delete_segments; with it ffmpeg kept
+# only about one live window of old files, ~22 min, whatever the threshold).
+# The rewriter drops a segment from both playlists once it is older than the
+# DVR window + 5 min, and cleanup.sh deletes the file 5 min after that
+# (DVR window + 10 min), so a listed segment is never deleted under a
+# player. ~700 files ≈ 37 MB at 64k HE-AAC in MPEG-TS — well within the
+# per-station 200Mi emptyDir limit set by the stream controller.
 # Epoch-prefixed segment names stay globally unique, so long retention is
 # safe across ffmpeg restarts (no name collisions).
-HLS_DELETE_THRESHOLD="${HLS_DELETE_THRESHOLD:-$((DVR_LIST_SIZE - HLS_LIST_SIZE + 100))}"
+DVR_WINDOW_SECONDS="${DVR_WINDOW_SECONDS:-3600}"
+DVR_LIST_SIZE="${DVR_LIST_SIZE:-$((DVR_WINDOW_SECONDS / SEGMENT_DURATION))}"
+# How ffmpeg handles a broken source connection:
+#   inprocess  (default) reconnect inside the running ffmpeg. A reconnect
+#              burst that replays audio already received leaves the PDT
+#              ahead by the replayed length until the next run
+#              (PostHog pdt_stamp kind=replay).
+#   restart    end the run; ffmpeg_loop starts a new one 2 s later. The
+#              rewriter dates each new run exactly and withholds replayed
+#              segments, at the cost of one EXT-X-DISCONTINUITY per
+#              interruption. Set on the controller once telemetry says so.
+FFMPEG_INPUT_RECONNECT="${FFMPEG_INPUT_RECONNECT:-inprocess}"
+case "$FFMPEG_INPUT_RECONNECT" in
+    inprocess|restart) ;;
+    *)
+        echo "WARNING: unknown FFMPEG_INPUT_RECONNECT=$FFMPEG_INPUT_RECONNECT, using inprocess"
+        FFMPEG_INPUT_RECONNECT=inprocess
+        ;;
+esac
 
 # Exported so child processes (stream_monitor, playlist_rewriter, cleanup.sh)
 # always see the effective values instead of falling back to their own defaults.
-export SEGMENT_DURATION HLS_WINDOW_SECONDS HLS_LIST_SIZE HLS_DELETE_THRESHOLD
+export SEGMENT_DURATION HLS_WINDOW_SECONDS HLS_LIST_SIZE
 export DVR_WINDOW_SECONDS DVR_LIST_SIZE
 
 echo "Station: $STATION_SLUG"
 echo "Stream:  $STREAM_URL"
-echo "HLS:     HE-AAC v1 64k, ${SEGMENT_DURATION}s segments, ${HLS_LIST_SIZE} live / ${DVR_LIST_SIZE} DVR entries, ${HLS_DELETE_THRESHOLD} retained past live window"
+echo "HLS:     HE-AAC v1 64k, ${SEGMENT_DURATION}s segments, ${HLS_LIST_SIZE} live / ${DVR_LIST_SIZE} DVR entries, input reconnect: ${FFMPEG_INPUT_RECONNECT}"
+
+# shellcheck source=supervisor.sh
+. /app/scripts/supervisor.sh
 
 # Fire a pod-startup event so PostHog timelines line up with restarts.
-python3 /app/scripts/report_event.py pod_started \
+report_event pod_started \
     --prop segment_duration="$SEGMENT_DURATION" \
     --prop hls_list_size="$HLS_LIST_SIZE" \
     --prop dvr_list_size="$DVR_LIST_SIZE" \
-    --prop hls_delete_threshold="$HLS_DELETE_THRESHOLD" >/dev/null 2>&1 &
+    --prop dvr_window_seconds="$DVR_WINDOW_SECONDS" \
+    --prop ffmpeg_input_reconnect="$FFMPEG_INPUT_RECONNECT"
 
 # Directory layout:
 #   /data/hls/aac/live.m3u8                FFmpeg-managed live playlist
@@ -73,40 +93,28 @@ echo "Starting NGINX..."
 nginx -c /tmp/nginx/nginx.conf -g 'daemon off;' &
 NGINX_PID=$!
 
-echo "Starting health server..."
-python3 /app/scripts/health_server.py &
-HEALTH_PID=$!
+# Every helper runs under `supervise` (supervisor.sh): it is restarted
+# whenever it exits, with backoff, and each exit is reported to PostHog
+# (helper_exit). SIGTERM to a supervise subshell stops its helper.
+HELPER_PIDS=()
+start_helper() {   # start_helper NAME CMD...
+    echo "Starting $1..."
+    supervise "$@" &
+    HELPER_PIDS+=($!)
+}
+start_helper health_server python3 /app/scripts/health_server.py
+start_helper metadata_monitor python3 /app/scripts/metadata_monitor.py
+start_helper scraper_engine python3 /app/scripts/scraper_engine.py
+start_helper playlist_rewriter python3 /app/scripts/playlist_rewriter.py
+start_helper log_monitor python3 /app/scripts/log_monitor.py
+start_helper stream_monitor python3 /app/scripts/stream_monitor.py
+start_helper segment_cleanup sh /app/scripts/cleanup.sh
 
-echo "Starting metadata monitor..."
-python3 /app/scripts/metadata_monitor.py &
-METADATA_PID=$!
-
-echo "Starting scraper engine..."
-python3 /app/scripts/scraper_engine.py &
-SCRAPER_PID=$!
-
-echo "Starting playlist rewriter..."
-python3 /app/scripts/playlist_rewriter.py &
-PLAYLIST_REWRITER_PID=$!
-
-echo "Starting log monitor..."
-python3 /app/scripts/log_monitor.py &
-LOG_MONITOR_PID=$!
-
-echo "Starting stream monitor..."
-python3 /app/scripts/stream_monitor.py &
-STREAM_MONITOR_PID=$!
-
-echo "Starting segment cleanup (window-aware orphan sweep)..."
-sh /app/scripts/cleanup.sh &
-CLEANUP_PID=$!
-
+FFMPEG_LOOP_PID=""
 cleanup() {
     echo "Shutting down gracefully..."
-    kill -TERM "$FFMPEG_LOOP_PID" 2>/dev/null || true
-    kill -TERM "$FFMPEG_PID" 2>/dev/null || true
-    kill -TERM "$METADATA_PID" "$SCRAPER_PID" "$PLAYLIST_REWRITER_PID" "$LOG_MONITOR_PID" "$STREAM_MONITOR_PID" "$CLEANUP_PID" 2>/dev/null || true
-    kill -TERM "$HEALTH_PID" 2>/dev/null || true
+    # ffmpeg_loop and each supervise subshell stop their own child on TERM.
+    kill -TERM "$FFMPEG_LOOP_PID" "${HELPER_PIDS[@]}" 2>/dev/null || true
     sleep 5
     kill -TERM "$NGINX_PID" 2>/dev/null || true
     wait
@@ -120,18 +128,25 @@ trap cleanup SIGTERM SIGINT
 #
 # Key flags:
 #   -hls_time         — target segment duration
-#   -hls_list_size    — number of segments in the playlist (sliding window)
-#   -hls_flags delete_segments — auto-delete old segments outside the window
+#   -hls_list_size    — number of segments in live.m3u8 (sliding window;
+#                       only playlist_rewriter reads it)
 #   -hls_segment_type mpegts   — MPEG-TS container
 #   -hls_segment_filename      — segment naming pattern
+# No delete_segments: retention is the rewriter's and cleanup.sh's job.
 #
-FFMPEG_RETRY_DELAY=10
-# Liveness no longer restarts the pod during an upstream outage, so this loop
-# is the only recovery: cap the wait so audio resumes within a minute.
-FFMPEG_MAX_RETRY_DELAY=60
-# A run this long was healthy: the next failure starts the backoff over.
-FFMPEG_HEALTHY_RUN=60
 FFMPEG_PID=""
+if [ "$FFMPEG_INPUT_RECONNECT" = restart ]; then
+    # Any read error or 10 s (µs) without data ends the run.
+    FFMPEG_INPUT_OPTS=(-rw_timeout 10000000)
+else
+    # Reconnect in-process; -rw_timeout turns a silent connection into a
+    # reconnect after 10 s instead of waiting for the server to reset it
+    # (45 s measured) or forever (black-holed TCP).
+    FFMPEG_INPUT_OPTS=(
+        -reconnect 1 -reconnect_streamed 1 -reconnect_on_network_error 1
+        -reconnect_delay_max 4 -rw_timeout 10000000
+    )
+fi
 
 start_ffmpeg() {
     # Per-invocation segment-name prefix. Three uniqueness layers stack so
@@ -150,28 +165,26 @@ start_ffmpeg() {
     echo "Starting FFmpeg (HLS, ${SEGMENT_DURATION}s, ${HLS_LIST_SIZE} segments, prefix=${SEGMENT_PREFIX})..."
     # Mirrors the old backend_hls_streaming flag set:
     #   - HE-AAC v1 64k (libfdk_aac aac_he)        same encoder/bitrate as legacy clients tuned for
-    #   - hls_flags program_date_time              ffmpeg writes PDT natively; playlist_generator
-    #                                              passes PDT lines through unchanged
-    #   - hls_start_number_source epoch            EXT-X-MEDIA-SEQUENCE = wallclock seconds, so it
-    #                                              keeps advancing across ffmpeg restarts (default
-    #                                              resets to 0 → players see sequence go backward
-    #                                              and play stale CDN-cached segments)
+    #   - hls_flags program_date_time              ffmpeg's PDT (muxer start + media time) stays in
+    #                                              live.m3u8 for diagnosis only; playlist_rewriter
+    #                                              stamps wall-clock PDT itself
+    #   - hls_start_number_source epoch            the first MEDIA-SEQUENCE of a pod = wallclock
+    #                                              seconds, so it advances across pod replacements;
+    #                                              within a pod the rewriter keeps it contiguous
     #   - abort_on empty_output_stream             die fast on persistent input loss; bash
     #                                              ffmpeg_loop restarts with backoff
     # Kept from the new pipeline (improvements over legacy):
-    #   - +temp_file                               atomic playlist writes (live.m3u8.tmp → rename)
+    #   - +temp_file                               atomic writes: a segment's mtime is when its
+    #                                              last sample arrived (the rewriter's clock)
     #   - ${slug}-${boot}-%d.ts                    counter naming, prefixed
     #                                              per-station + per-restart so segments stay
     #                                              globally unique on a shared CDN. Replaces
     #                                              the previous `-strftime 1 %s.ts` scheme,
     #                                              which collided whenever two segments wrote
     #                                              in the same epoch second.
-    #   - input -reconnect flags                   transient input flap recovery without exiting
-    #   - -rw_timeout 15s                          a stalled input socket errors out instead of
-    #                                              hanging forever (liveness no longer catches it)
+    #   - FFMPEG_INPUT_OPTS                        input reconnect policy (FFMPEG_INPUT_RECONNECT)
     ffmpeg -loglevel warning \
-        -reconnect 1 -reconnect_streamed 1 -reconnect_on_network_error 1 \
-        -reconnect_delay_max 4 -rw_timeout 15000000 \
+        "${FFMPEG_INPUT_OPTS[@]}" \
         -fflags +genpts+discardcorrupt -max_delay 5000000 \
         -i "$STREAM_URL" -y \
         -map 0:a:0 -c:a libfdk_aac -profile:a aac_he -b:a 64k \
@@ -182,8 +195,7 @@ start_ffmpeg() {
             -hls_init_time "$SEGMENT_DURATION" \
             -hls_time "$SEGMENT_DURATION" \
             -hls_list_size "$HLS_LIST_SIZE" \
-            -hls_delete_threshold "$HLS_DELETE_THRESHOLD" \
-            -hls_flags delete_segments+independent_segments+split_by_time+program_date_time+omit_endlist+temp_file \
+            -hls_flags independent_segments+split_by_time+program_date_time+omit_endlist+temp_file \
             -hls_start_number_source epoch \
             -hls_segment_type mpegts \
             -hls_segment_options 'mpegts_flags=+initial_discontinuity' \
@@ -193,41 +205,13 @@ start_ffmpeg() {
     echo "FFmpeg started (PID $FFMPEG_PID)"
 }
 
-ffmpeg_loop() {
-    local delay=$FFMPEG_RETRY_DELAY
-    local restarts=0
-    local started_at
-    local ran_for
-    while true; do
-        started_at=$(date +%s)
-        start_ffmpeg
-        local exit_code=0
-        wait "$FFMPEG_PID" || exit_code=$?
-        ran_for=$(( $(date +%s) - started_at ))
-        restarts=$((restarts + 1))
-        if [ "$ran_for" -ge "$FFMPEG_HEALTHY_RUN" ]; then
-            delay=$FFMPEG_RETRY_DELAY
-        fi
-        echo "ffmpeg_loop: ffmpeg exited (code=${exit_code}, ran=${ran_for}s, restart_count=${restarts}); retrying in ${delay}s"
-        # Fire-and-forget event to PostHog. Errors here must never break the supervisor.
-        python3 /app/scripts/report_event.py ffmpeg_exit \
-            --prop exit_code="$exit_code" \
-            --prop ran_for="$ran_for" \
-            --prop restart_count="$restarts" \
-            --prop retry_delay="$delay" >/dev/null 2>&1 &
-        sleep "$delay"
-        delay=$((delay * 2))
-        if [ "$delay" -gt "$FFMPEG_MAX_RETRY_DELAY" ]; then
-            delay=$FFMPEG_MAX_RETRY_DELAY
-        fi
-    done
-}
-
 ffmpeg_loop &
 FFMPEG_LOOP_PID=$!
 
-# Exit (and let the kubelet restart the container) when any process that
-# listeners depend on dies; the liveness probe only checks NGINX answers.
-wait -n "$NGINX_PID" "$HEALTH_PID" "$PLAYLIST_REWRITER_PID" "$FFMPEG_LOOP_PID" || true
+# Exit (and let the kubelet restart the container) when NGINX or a
+# supervision loop dies; the liveness probe only checks NGINX answers.
+# Helpers and ffmpeg restart in place under their loops, which never exit
+# on their own.
+wait -n "$NGINX_PID" "$FFMPEG_LOOP_PID" "${HELPER_PIDS[@]}" || true
 echo "Critical process exited, shutting down..."
 cleanup

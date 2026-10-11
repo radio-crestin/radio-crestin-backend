@@ -1,10 +1,13 @@
 import json
+import time
+from email.utils import parsedate_to_datetime
 from unittest.mock import patch
 
 from django.core.cache import cache
 from django.test import RequestFactory, SimpleTestCase, override_settings
+from django.utils.http import http_date
 
-from superapp.apps.graphql.rest_api import HttpMethod, RestApiEndpoint
+from superapp.apps.graphql.rest_api import CachePolicy, HttpMethod, RestApiEndpoint
 from superapp.apps.graphql.rest_handler import GraphQLRestApiView
 
 LOCMEM_CACHE = {
@@ -113,6 +116,25 @@ class RestResponseCacheTests(SimpleTestCase):
 
         self.assertEqual(execute.call_count, 2)
 
+    def test_errors_are_never_sent_as_cacheable(self):
+        """A transient failure must not be kept by Django's page cache or
+        the CDN either, even where a real answer would be immutable."""
+        failing = {'data': None, 'errors': [{'message': 'boom'}]}
+        immutable = 'public, max-age=2592000, immutable'
+        settled = CachePolicy(immutable, 60, 'settled')
+        views = (
+            build_view(cache_policy=lambda request: settled),
+            build_view(cache_control=immutable),
+        )
+        for view in views:
+            with patch.object(
+                GraphQLRestApiView, '_execute_graphql', return_value=failing
+            ):
+                response = self.call(view, timestamp='100')
+
+            self.assertEqual(response['Cache-Control'], 'no-store')
+            self.assertFalse(getattr(response, '_public_cacheable', False))
+
     def test_cache_control_headers_are_applied_to_cached_responses(self):
         view = build_view(cache_control='public, max-age=60')
         with patch.object(
@@ -132,3 +154,32 @@ class RestResponseCacheTests(SimpleTestCase):
             view._handle_request(self.factory.post('/api/v1/things', {'a': '1'}))
 
         self.assertEqual(execute.call_count, 2)
+
+    def test_last_modified_is_when_the_body_was_generated(self):
+        view = build_view()
+        before = int(time.time())
+        with patch.object(
+            GraphQLRestApiView, '_execute_graphql', return_value={'data': {'things': []}}
+        ):
+            response = self.call(view, timestamp='100')
+
+        generated = parsedate_to_datetime(response['Last-Modified']).timestamp()
+        self.assertGreaterEqual(generated, before)
+        self.assertLessEqual(generated, time.time())
+
+    def test_cached_response_keeps_its_generation_time(self):
+        """A body served from Redis was generated before now; clients use
+        Last-Modified to tell whether it was computed after its data settled."""
+        view = build_view()
+        request = self.factory.get('/api/v1/things', {'timestamp': '100'})
+        key = view._response_cache_key(request, view.endpoint_config.policy_for(request))
+        generated_at = time.time() - 40
+        body = {'data': {'things': [1]}}
+        cache.set(key, {'body': body, 'generated_at': generated_at}, 10)
+
+        with patch.object(GraphQLRestApiView, '_execute_graphql') as execute:
+            response = view._handle_request(request)
+
+        execute.assert_not_called()
+        self.assertEqual(json.loads(response.content), body)
+        self.assertEqual(response['Last-Modified'], http_date(generated_at))

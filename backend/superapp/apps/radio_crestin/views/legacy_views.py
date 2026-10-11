@@ -427,11 +427,11 @@ def api_schema_view(request):
             "/api/v1/stations-metadata": {
                 "get": {
                     "summary": "Get station metadata (lightweight)",
-                    "description": "Returns lightweight station metadata (uptime + now_playing only). Much smaller payload than `/api/v1/stations`. Use `changes_from_timestamp` for efficient polling (only returns stations that changed).",
+                    "description": "Returns lightweight station metadata (uptime + now_playing only). Much smaller payload than `/api/v1/stations`. Use `changes_from_timestamp` for efficient polling (only returns stations that changed). `now_playing.timestamp` is when the current song started. Songs are dated by their start and reported up to 45 s later, so an answer for a `timestamp` less than 60 s old can still change: it is sent with `Cache-Control: public, max-age=60`, older ones with `public, max-age=2592000, immutable`. A response carrying `errors` is sent with `no-store`. `Last-Modified` is when the response was generated.",
                     "operationId": "getStationsMetadata",
                     "parameters": [
                         {"name": "timestamp", "in": "query", "description": "Unix timestamp for cache control and historical lookup. Omit to auto-redirect with current timestamp.", "schema": {"type": "integer"}},
-                        {"name": "changes_from_timestamp", "in": "query", "description": "Only return stations whose metadata changed after this timestamp. For polling every 30s, set to `timestamp - 30`.", "schema": {"type": "integer"}},
+                        {"name": "changes_from_timestamp", "in": "query", "description": "Only return stations whose metadata changed after this timestamp (the server looks back 60 s further, to include songs reported after they started). For polling every 30s, set to `timestamp - 30`.", "schema": {"type": "integer"}},
                         {"name": "station_slugs", "in": "query", "description": "Comma-separated list of station slugs to include. Only these stations will be returned.", "schema": {"type": "string"}, "example": "aripi-spre-cer,radio-vocea-evangheliei"},
                         {"name": "exclude_station_slugs", "in": "query", "description": "Comma-separated list of station slugs to exclude. These stations will be omitted from results.", "schema": {"type": "string"}, "example": "radio-trinitas"},
                     ],
@@ -461,7 +461,7 @@ def api_schema_view(request):
             "/api/v1/stations-metadata-history": {
                 "get": {
                     "summary": "Get station metadata history",
-                    "description": "Returns historical metadata snapshots for a specific station within a time range. Maximum range is 24 hours. Defaults: `from_timestamp` = now - 1 hour, `to_timestamp` = now.",
+                    "description": "Returns historical metadata snapshots for a specific station within a time range. Maximum range is 24 hours. Defaults: `from_timestamp` = now - 1 hour, `to_timestamp` = now. Each entry is a song change and its `timestamp` is when the song started; a song already playing when the range begins is not listed. A range with an explicit `from_timestamp` and a `to_timestamp` more than 60 s old is final (`Cache-Control: public, max-age=2592000, immutable`); other ranges are sent with `public, max-age=60`. A response carrying `errors` is sent with `no-store`. `Last-Modified` is when the response was generated.",
                     "operationId": "getStationsMetadataHistory",
                     "parameters": [
                         {"name": "station_slug", "in": "query", "required": True, "description": "Station slug identifier", "schema": {"type": "string"}, "example": "aripi-spre-cer"},

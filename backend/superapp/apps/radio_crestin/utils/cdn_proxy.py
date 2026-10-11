@@ -67,3 +67,12 @@ def proxy_image_url(
         params["max_age"] = max_age
 
     return f"{CDN_BASE_URL}/?{urlencode(params)}"
+
+
+def metadata_song_thumbnail_url(url: str | None) -> str | None:
+    """A song thumbnail as /stations-metadata and its history serve it.
+
+    Streaming pods copy this URL into the HLS playlist, so the song a client
+    learns from the playlist must name the very image the API names.
+    """
+    return proxy_image_url(url, width=250, format="webp")

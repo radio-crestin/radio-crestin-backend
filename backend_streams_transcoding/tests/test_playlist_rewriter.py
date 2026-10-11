@@ -80,6 +80,57 @@ class TestEarliestPDT(unittest.TestCase):
         self.assertIsNotNone(ep)
 
 
+class TestDaterangeAttributeValues(unittest.TestCase):
+    """AVPlayer rejects the whole playlist (-12642 "Empty or blank
+    attribute value") over one X-ARTIST="" — seen in production on 5 of
+    43 stations at once — so no attribute may carry an empty or broken
+    quoted string."""
+
+    def _line(self, song: dict) -> str | None:
+        return playlist_rewriter._daterange_for_song(
+            song, end_at=song["started_at"] + 60)
+
+    def test_empty_artist_is_left_out(self):
+        line = self._line(_song(1700000000, "laurentiu serban  nu dispera",
+                                artist=""))
+        self.assertIn('X-TITLE="laurentiu serban nu dispera"', line)
+        self.assertNotIn("X-ARTIST", line)
+        self.assertNotIn('=""', line)
+
+    def test_blank_values_are_left_out(self):
+        line = self._line({"started_at": 1700000000, "title": "T",
+                           "artist": " \t ", "thumbnail_url": "  "})
+        self.assertNotIn("X-ARTIST", line)
+        self.assertNotIn("X-THUMBNAIL-URL", line)
+        self.assertNotIn('=""', line)
+
+    def test_empty_title_falls_back_to_the_raw_title(self):
+        line = self._line({"started_at": 1700000000, "title": "",
+                           "raw": "Artist - Song", "artist": ""})
+        self.assertIn('X-TITLE="Artist - Song"', line)
+
+    def test_no_title_and_no_artist_emits_nothing(self):
+        self.assertIsNone(self._line(
+            {"started_at": 1700000000, "title": " ", "raw": "", "artist": ""}))
+
+    def test_quotes_and_line_breaks_cannot_break_the_tag(self):
+        line = self._line(_song(1700000000, 'Say "Amen"\r\nnow',
+                                artist='A "B"'))
+        self.assertIn("X-TITLE=\"Say 'Amen' now\"", line)
+        self.assertIn("X-ARTIST=\"A 'B'\"", line)
+        self.assertNotIn("\n", line)
+        self.assertNotIn("\r", line)
+
+    def test_enhanced_playlist_has_no_empty_attribute(self):
+        t = 1700000000
+        raw = _make_playlist(t, count=5)
+        songs = [_song(t + 5, "no-artist", artist=""),
+                 _song(t + 20, "current")]
+        out = playlist_rewriter.enhance(raw, songs)
+        self.assertIn('X-TITLE="no-artist"', out)
+        self.assertNotIn('=""', out)
+
+
 class TestEnhance(unittest.TestCase):
     def test_current_song_alone_is_not_emitted_as_daterange(self):
         # Only one song known → no successor → no DATERANGE for it. The
@@ -151,11 +202,14 @@ class TestEnhance(unittest.TestCase):
         self.assertIn("#EXT-X-VERSION:6", out)
         self.assertNotIn("#EXT-X-VERSION:3", out)
 
-    def test_no_songs_passes_through_unchanged(self):
+    def test_no_songs_only_adds_the_start_hint(self):
+        # Without metadata the only change is the EXT-X-START join hint,
+        # 3 target durations from the live edge (RFC 8216 4.3.5.2).
         t = 1700000000
         raw = _make_playlist(t, count=3)
         out = playlist_rewriter.enhance(raw, [])
-        self.assertEqual(raw, out)
+        self.assertEqual(
+            out.replace("#EXT-X-START:TIME-OFFSET=-18\n", ""), raw)
 
 
 class TestImmutableAttributes(unittest.TestCase):
@@ -197,6 +251,25 @@ class TestImmutableAttributes(unittest.TestCase):
         self.assertIsNotNone(b_in_1)
         self.assertIsNotNone(b_in_2)
         self.assertEqual(b_in_1, b_in_2)
+
+    def test_songs_starting_in_the_same_second_keep_their_own_ranges(self):
+        # A reconnect burst delivers several titles within milliseconds.
+        # Each song instance needs its own ID: with whole-second IDs the
+        # second song was published under the first one's ID (different
+        # attributes) as soon as the first left the window.
+        t = 1700000000
+        songs = [_song(t + 5.242, "burst-A"), _song(t + 5.249, "burst-B"),
+                 _song(t + 30, "current")]
+        out1 = playlist_rewriter.enhance(_make_playlist(t, count=5), songs)
+        out2 = playlist_rewriter.enhance(_make_playlist(t + 12, count=5),
+                                         songs)
+        ranges1 = _dateranges(out1)
+        ranges2 = _dateranges(out2)
+        self.assertEqual(len(ranges1), 2)
+        self.assertEqual(set(ranges2), {r for r in ranges1
+                                         if 'X-TITLE="burst-B"' in ranges1[r]})
+        for rid, line in ranges2.items():
+            self.assertEqual(line, ranges1[rid])
 
     def test_current_song_never_emitted_with_or_without_successor(self):
         # The "current" song is always the largest-START-DATE entry.
@@ -274,7 +347,8 @@ class TestMetadataChangedMarker(unittest.TestCase):
         raw = _make_playlist(t, count=5)
         out = playlist_rewriter.enhance(raw, [])
         self.assertNotIn("#EXT-X-RC-METADATA-CHANGED", out)
-        self.assertEqual(raw, out)
+        self.assertEqual(
+            out.replace("#EXT-X-START:TIME-OFFSET=-18\n", ""), raw)
 
     def test_marker_absent_when_all_songs_lack_started_at(self):
         # _current_song_started_at filters out started_at <= 0; if
@@ -334,6 +408,15 @@ class TestMetadataChangedMarker(unittest.TestCase):
         first_segment_idx = next(i for i, l in enumerate(lines)
                                  if l.endswith(".ts"))
         self.assertLess(marker_idx, first_segment_idx)
+
+
+def _dateranges(playlist: str) -> dict[str, str]:
+    """EXT-X-DATERANGE lines by ID."""
+    out = {}
+    for line in playlist.split("\n"):
+        if line.startswith("#EXT-X-DATERANGE:"):
+            out[line.split('ID="', 1)[1].split('"', 1)[0]] = line
+    return out
 
 
 def _extract_marker(playlist: str) -> str | None:

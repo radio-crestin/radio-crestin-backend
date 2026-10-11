@@ -1,155 +1,340 @@
-"""
-Regression tests for metadata_monitor's FFmpeg child handling.
+"""metadata_monitor: song start = detection - delay offset, atomic
+index.json, and a reader heartbeat with a watchdog."""
 
-Reproduces the 2026-10 leak in live-stream-sos-ploiesti: a StreamTitle in
-Windows-1250 (not UTF-8) made the strict UTF-8 stderr reader raise, the
-retry loop started a new FFmpeg without stopping the old one, and every
-reconnect hit the same title again. 50-112 silencedetect FFmpegs piled up
-in one burst until the pod was OOM-killed at 384Mi.
-"""
-
+import json
 import os
-import subprocess
 import sys
 import tempfile
-import time
+import unittest
 from pathlib import Path
-from types import SimpleNamespace
 from unittest import mock
 
-import pytest
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(_ROOT, "live_streaming", "scripts"))
+sys.path.insert(0, os.path.join(_ROOT, "tools"))
 
-sys.path.insert(0, os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "live_streaming", "scripts",
-))
+import hls_watch  # noqa: E402
+import metadata_monitor as mm  # noqa: E402
+import playlist_rewriter as pr  # noqa: E402
 
-import metadata_monitor  # noqa: E402
-
-CP1250_TITLE = "Corul Bisericii - Cântări de laudă şi închinare"
-
-
-def _fake_ffmpeg(title_bytes: bytes) -> list[str]:
-    """A stand-in FFmpeg: prints one StreamTitle line, then keeps streaming."""
-    script = (
-        "import sys, time\n"
-        f"sys.stderr.buffer.write(b'    StreamTitle     : ' + {title_bytes!r} + b'\\n')\n"
-        "sys.stderr.flush()\n"
-        "time.sleep(60)\n"
-    )
-    return [sys.executable, "-c", script]
+UPDATE = "[http @ 0x7f8] Metadata update for StreamTitle: {}"
 
 
-@pytest.fixture(autouse=True)
-def metadata_dir(monkeypatch):
-    with tempfile.TemporaryDirectory() as tmp:
-        monkeypatch.setattr(metadata_monitor, "METADATA_DIR", Path(tmp))
-        monkeypatch.setattr(metadata_monitor, "INDEX_PATH", Path(tmp) / "index.json")
-        monkeypatch.setattr(metadata_monitor, "FFMPEG_STOP_TIMEOUT", 1)
-        monkeypatch.setitem(metadata_monitor._current_song, "raw", "")
-        yield
+class FakeProc:
+    def __init__(self, lines=(), returncode=None):
+        self.stderr = [(line + "\n").encode() for line in lines]
+        self.returncode = returncode
+        self.killed = False
+
+    def poll(self):
+        return self.returncode
+
+    def kill(self):
+        self.killed = True
 
 
-@pytest.fixture
-def spawned():
-    """Every child Popen started, so a test can check none is left running."""
-    children = []
-    real_popen = subprocess.Popen
+class MonitorFixture(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        root = Path(self.tmp.name)
+        self.patches = [
+            mock.patch.object(mm, "METADATA_DIR", root),
+            mock.patch.object(mm, "INDEX_PATH", root / "index.json"),
+            mock.patch.object(mm, "STATION_CONFIG_PATH",
+                              root / "station.json"),
+            mock.patch.object(mm, "_current_song", dict(
+                title="", artist="", raw="", started_at=0,
+                started_at_iso="")),
+            mock.patch.object(mm, "_song_history", []),
+            mock.patch.object(mm, "_reader_alive_at", 0.0),
+            mock.patch.object(mm, "_current_proc", None),
+        ]
+        for p in self.patches:
+            p.start()
+        self.root = root
 
-    def tracking_popen(*args, **kwargs):
-        child = real_popen(*args, **kwargs)
-        children.append(child)
-        return child
+    def tearDown(self):
+        for p in reversed(self.patches):
+            p.stop()
+        self.tmp.cleanup()
 
-    with mock.patch.object(metadata_monitor.subprocess, "Popen", tracking_popen):
-        yield children
-    for child in children:
-        if child.poll() is None:
-            child.kill()
-            child.wait()
+    def feed(self, lines, now):
+        with mock.patch.object(mm.time, "time", return_value=now):
+            mm._monitor_ffmpeg_output(FakeProc(lines))
 
-
-def _running(children):
-    return [c for c in children if c.poll() is None]
-
-
-class _StopLoop(Exception):
-    pass
-
-
-def _run_retry_loop(fake_cmd, restarts):
-    """Run the real retry loop with fake_cmd as FFmpeg, for `restarts` rounds."""
-    real_popen = metadata_monitor.subprocess.Popen
-    rounds = []
-
-    def fake_sleep(_seconds):
-        rounds.append(1)
-        if len(rounds) >= restarts:
-            raise _StopLoop
-
-    with mock.patch.object(
-        metadata_monitor.subprocess, "Popen",
-        lambda _cmd, *a, **kw: real_popen(fake_cmd, *a, **kw),
-    ), mock.patch.object(
-        metadata_monitor, "time", SimpleNamespace(time=time.time, sleep=fake_sleep)
-    ):
-        with pytest.raises(_StopLoop):
-            metadata_monitor._run_metadata_extractor()
+    def index(self):
+        return json.loads(mm.INDEX_PATH.read_text())
 
 
-class TestNoChildLeak:
-    def test_retry_burst_leaves_no_ffmpeg_running(self, spawned):
-        # The 2026-10 burst: every reconnect hit the same cp1250 title, the
-        # reader raised, and the loop started a new FFmpeg on top of the
-        # old one. Now each round's child must be gone before the next.
-        bad_title = CP1250_TITLE.encode("cp1250")
-        with mock.patch.object(
-            metadata_monitor, "_on_song_change", side_effect=RuntimeError("boom")
-        ):
-            _run_retry_loop(_fake_ffmpeg(bad_title), restarts=5)
-        assert len(spawned) == 5
-        assert _running(spawned) == []
+class SongStartTests(MonitorFixture):
+    def test_started_at_is_detection_minus_offset(self):
+        mm.STATION_CONFIG_PATH.write_text(json.dumps(
+            {"id3_metadata_delay_offset": 10, "config_version": 3}))
+        self.feed([UPDATE.format("Artist - Song")], now=1_000.0)
+        current = self.index()["current"]
+        self.assertEqual(current["raw"], "Artist - Song")
+        self.assertEqual(current["started_at"], 990.0)
 
-    def test_parse_error_stops_and_reaps_child(self, spawned):
-        cmd = _fake_ffmpeg(b"Artist - Song")
-        with mock.patch.object(
-            metadata_monitor, "_on_song_change", side_effect=RuntimeError("boom")
-        ):
-            with pytest.raises(RuntimeError):
-                metadata_monitor._run_ffmpeg_once(cmd)
-        assert _running(spawned) == []
+    def test_negative_offset_dates_later(self):
+        mm.STATION_CONFIG_PATH.write_text(json.dumps(
+            {"id3_metadata_delay_offset": -10}))
+        self.feed([UPDATE.format("Artist - Song")], now=1_000.0)
+        self.assertEqual(self.index()["current"]["started_at"], 1_010.0)
 
-    def test_cp1250_title_is_parsed_not_raised(self, spawned):
-        # The original trigger: Romanian diacritics in Windows-1250.
-        cmd = _fake_ffmpeg(CP1250_TITLE.encode("cp1250"))
-        with mock.patch.object(
-            metadata_monitor, "_on_song_change", side_effect=SystemExit
-        ) as on_song_change:
-            with pytest.raises(SystemExit):
-                metadata_monitor._run_ffmpeg_once(cmd)
-        on_song_change.assert_called_once()
-        assert on_song_change.call_args.args[0] == CP1250_TITLE
-        assert _running(spawned) == []
+    def test_offset_is_zero_without_station_config(self):
+        self.feed([UPDATE.format("Artist - Song")], now=1_000.0)
+        self.assertEqual(self.index()["current"]["started_at"], 1_000.0)
+        mm.STATION_CONFIG_PATH.write_text("{not json")
+        self.assertEqual(mm._load_delay_offset(), 0.0)
 
-    def test_child_that_ignores_sigterm_is_killed(self, spawned):
-        script = (
-            "import signal, sys, time\n"
-            "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
-            "sys.stderr.write('    StreamTitle     : Artist - Song\\n')\n"
-            "sys.stderr.flush()\n"
-            "time.sleep(60)\n"
-        )
-        with mock.patch.object(
-            metadata_monitor, "_on_song_change", side_effect=RuntimeError("boom")
-        ):
-            with pytest.raises(RuntimeError):
-                metadata_monitor._run_ffmpeg_once([sys.executable, "-c", script])
-        assert _running(spawned) == []
+    def test_reannounced_title_is_not_a_song_change(self):
+        # Every (re)connect re-announces the current title; dating it again
+        # would invent a boundary (new EPOCH, a DATERANGE for the old one).
+        self.feed([UPDATE.format("A - One")], now=1_000.0)
+        self.feed(["    StreamTitle     : A - One",
+                   UPDATE.format("A - One")], now=1_500.0)
+        index = self.index()
+        self.assertEqual(index["current"]["started_at"], 1_000.0)
+        self.assertEqual(index["recent"], [])
+        self.feed([UPDATE.format("B - Two")], now=1_600.0)
+        index = self.index()
+        self.assertEqual(index["current"]["started_at"], 1_600.0)
+        self.assertEqual(index["recent"][0]["ended_at"], 1_600.0)
+
+    def test_progress_and_garbage_lines_are_not_titles(self):
+        self.feed(["progress=continue", "out_time_us=6321633",
+                   "out_time=00:00:06.321633", "bitrate=N/A",
+                   "    StreamTitle     : ChannelElement 3.1 missing",
+                   UPDATE.format("")], now=1_000.0)
+        self.assertFalse(mm.INDEX_PATH.exists())
+        self.assertEqual(mm._current_song["raw"], "")
 
 
-class TestDecodeLine:
-    def test_utf8_kept(self):
-        assert metadata_monitor._decode_line("Cântări".encode()) == "Cântări"
+class HeartbeatTests(MonitorFixture):
+    def test_heartbeat_follows_media_time_not_lines(self):
+        # ffmpeg keeps printing progress while the source is stalled, with
+        # an unchanged out_time (measured on ffmpeg 9): only an advance
+        # proves that media arrives.
+        stalled = FakeProc(["out_time_us=5000000", "progress=continue",
+                            "out_time_us=5000000", "progress=continue"])
+        clock = iter([100.0, 200.0])
+        with mock.patch.object(mm.time, "time",
+                               side_effect=lambda: next(clock)):
+            mm._monitor_ffmpeg_output(stalled)
+        self.assertEqual(mm._reader_alive_at, 100.0)
 
-    def test_cp1250_fallback(self):
-        assert metadata_monitor._decode_line(CP1250_TITLE.encode("cp1250")) == CP1250_TITLE
+        flowing = FakeProc(["out_time_us=1", "out_time_us=2"])
+        clock = iter([300.0, 305.0])
+        with mock.patch.object(mm.time, "time",
+                               side_effect=lambda: next(clock)):
+            mm._monitor_ffmpeg_output(flowing)
+        self.assertEqual(mm._reader_alive_at, 305.0)
+
+    def test_media_time_parsing(self):
+        self.assertEqual(mm.progress_media_time("out_time_us=42"), 42)
+        self.assertEqual(mm.progress_media_time("out_time_ms=42"), 42)
+        self.assertIsNone(mm.progress_media_time("out_time_us=N/A"))
+        self.assertIsNone(mm.progress_media_time("progress=continue"))
+
+    def test_watchdog_kills_a_silent_reader(self):
+        proc = FakeProc()
+        mm._current_proc = proc
+        mm._reader_alive_at = 1_000.0
+        self.assertFalse(mm._watchdog_tick(1_000.0 + mm.READER_STALL_TIMEOUT))
+        self.assertFalse(proc.killed)
+        self.assertTrue(
+            mm._watchdog_tick(1_000.0 + mm.READER_STALL_TIMEOUT + 1))
+        self.assertTrue(proc.killed)
+
+    def test_watchdog_leaves_an_exited_reader_alone(self):
+        proc = FakeProc(returncode=1)
+        mm._current_proc = proc
+        mm._reader_alive_at = 0.0
+        self.assertFalse(mm._watchdog_tick(10_000.0))
+        self.assertFalse(proc.killed)
+
+    def test_index_carries_the_heartbeat(self):
+        mm._reader_alive_at = 1_234.5
+        mm._save_index()
+        self.assertEqual(self.index()["monitor_alive_at"], 1_234.5)
+
+
+class AtomicWriteTests(MonitorFixture):
+    def test_index_is_replaced_never_written_in_place(self):
+        seen = []
+        real_replace = os.replace
+
+        def replace(src, dst):
+            # The temp file is complete before it becomes index.json.
+            seen.append((Path(dst), json.loads(Path(src).read_text())))
+            real_replace(src, dst)
+
+        with mock.patch.object(mm.os, "replace", side_effect=replace):
+            mm._save_index()
+        self.assertEqual(seen[0][0], mm.INDEX_PATH)
+        self.assertIn("current", seen[0][1])
+        self.assertEqual(sorted(p.name for p in self.root.iterdir()),
+                         ["index.json"])
+
+    def test_slot_files_are_written_atomically(self):
+        with mock.patch.object(mm.os, "replace",
+                               wraps=os.replace) as replace:
+            self.feed([UPDATE.format("A - One")], now=1_000.0)
+            self.feed([UPDATE.format("B - Two")], now=1_200.0)
+        targets = [Path(c.args[1]).name for c in replace.call_args_list]
+        self.assertIn("00-15.json", targets)  # 1970-01-01 00:16:40
+
+
+class RecentSongsTests(unittest.TestCase):
+    """index.json lists every ended song whose EXT-X-DATERANGE may still map
+    to a dvr.m3u8 segment, however many that is."""
+
+    def test_songs_are_kept_by_age_not_by_count(self):
+        now = 100_000.0
+        # A song every 2 min for 80 min, oldest first.
+        history = [{"raw": f"A - {i}", "started_at": now - 120 * (i + 1),
+                    "ended_at": now - 120 * i} for i in range(40, 0, -1)]
+        recent = mm.recent_songs(history, now)
+        self.assertGreater(len(recent), 20)
+        self.assertEqual(recent, [s for s in reversed(history)
+                                  if s["ended_at"]
+                                  > now - mm.RECENT_SONGS_MAX_AGE])
+        self.assertEqual(recent[0]["raw"], "A - 1")
+
+    def test_window_outlives_the_rewriters_dvr_trim(self):
+        # Both follow DVR_WINDOW_SECONDS; the monitor must keep a song at
+        # least as long as the rewriter keeps a segment it overlaps.
+        self.assertGreater(mm.RECENT_SONGS_MAX_AGE, pr.DVR_MAX_AGE)
+
+
+class DvrDaterangeRetentionTests(MonitorFixture):
+    """The real monitor, rewriter and canary checker over 75 minutes of a
+    station changing songs 30 times an hour: dvr.m3u8 (600 segments, one
+    hour) never drops a DATERANGE that still maps to a listed segment."""
+
+    def setUp(self):
+        super().setUp()
+        segments = self.root / "aac"
+        segments.mkdir()
+        for name, value in (
+                ("SEGMENTS_DIR", segments),
+                ("FFMPEG_PLAYLIST", segments / "live.m3u8"),
+                ("ENHANCED_PLAYLIST", segments / "index.m3u8"),
+                ("DVR_PLAYLIST", segments / "dvr.m3u8"),
+                ("DVR_HISTORY_PATH", segments / "dvr_history.json"),
+                ("METADATA_PATH", mm.INDEX_PATH),
+                ("NOW_PLAYING_PATH", self.root / "now_playing.json")):
+            patch = mock.patch.object(pr, name, value)
+            patch.start()
+            self.addCleanup(patch.stop)
+        patch = mock.patch.object(pr.posthog_reporter, "capture_event")
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def test_no_daterange_is_removed_while_mapped(self):
+        start, song_every = 1_800_000_000.0, 120.0
+        checker = hls_watch.PlaylistChecker()
+        history = pr._new_history()
+        clock = [start]
+        names, problems, next_song, song = [], [], start, 0
+        with mock.patch.object(mm.time, "time", side_effect=lambda: clock[0]):
+            for i in range(750):
+                clock[0] = start + 6 * (i + 1)
+                while next_song <= clock[0]:
+                    song += 1
+                    mm._on_title(f"Artist {song} - Song {song}", next_song)
+                    next_song += song_every
+                mm._save_index()  # the heartbeat
+                names.append(self._segment(i, clock[0]))
+                live = names[-110:]
+                pr._publish(history, self._live(live, len(names) - len(live)),
+                            pr._load_songs(), clock[0] + 0.5)
+                if pr.DVR_PLAYLIST.exists():  # the boot is anchored
+                    problems += checker.feed(pr.DVR_PLAYLIST.read_text(),
+                                             None)
+        dvr = hls_watch.parse(pr.DVR_PLAYLIST.read_text())
+        self.assertEqual(len(dvr.segments), pr.DVR_LIST_SIZE)
+        self.assertGreater(len(dvr.dateranges), 20)
+        self.assertEqual(problems, [])
+
+    def _segment(self, i, mtime):
+        path = pr.SEGMENTS_DIR / f"st-1-{i}.ts"
+        path.write_bytes(b"\0")
+        os.utime(path, (mtime, mtime))
+        return path.name
+
+    @staticmethod
+    def _live(names, first_seq):
+        lines = ["#EXTM3U", "#EXT-X-VERSION:3", "#EXT-X-TARGETDURATION:6",
+                 f"#EXT-X-MEDIA-SEQUENCE:{first_seq}"]
+        for name in names:
+            lines += ["#EXTINF:6.000000,", name]
+        return "\n".join(lines) + "\n"
+
+
+class RestartTests(MonitorFixture):
+    """A restarted monitor (supervised restart, or a container restart that
+    keeps the data volume) continues the song timeline."""
+
+    def _previous_process(self):
+        for i, at in enumerate((1_000.0, 1_120.0, 1_240.0)):
+            mm._on_title(f"A - Song {i}", at)
+        return self.index()
+
+    def _new_process(self):
+        mm._current_song.update(title="", artist="", raw="", started_at=0,
+                                started_at_iso="")
+        mm._song_history.clear()
+
+    def test_restart_continues_the_timeline(self):
+        with mock.patch.object(mm.time, "time", return_value=1_300.0):
+            before = self._previous_process()
+            self._new_process()
+            mm._restore_state()
+            mm._save_index()  # the heartbeat's first write
+            index = self.index()
+            self.assertEqual(index["current"], before["current"])
+            self.assertEqual(index["recent"], before["recent"])
+            # ffmpeg re-announces the current title when it connects.
+            mm._on_title("A - Song 2", 1_330.0)
+        index = self.index()
+        self.assertEqual(index["current"]["started_at"], 1_240.0)
+        self.assertEqual(index["recent"], before["recent"])
+
+    def test_main_restores_before_the_heartbeat_starts(self):
+        with mock.patch.object(mm.time, "time", return_value=1_300.0):
+            self._previous_process()
+        self._new_process()
+        current_when_started = []
+
+        def thread(target, daemon):
+            current_when_started.append(mm._current_song["raw"])
+            return mock.Mock()
+
+        with mock.patch.object(mm, "STREAM_URL", "http://source"), \
+                mock.patch.object(mm.threading, "Thread", side_effect=thread), \
+                mock.patch.object(mm, "_run_metadata_extractor"):
+            mm.main()
+        self.assertEqual(current_when_started, ["A - Song 2"] * 2)
+
+    def test_unusable_index_starts_empty(self):
+        for text in ("{not json", "[]", json.dumps({"current": 3}),
+                     json.dumps({"current": {"raw": "A - B"}})):
+            mm.INDEX_PATH.write_text(text)
+            mm._restore_state()
+            self.assertEqual(mm._current_song["raw"], "", text)
+            self.assertEqual(mm._song_history, [], text)
+
+
+class CommandTests(unittest.TestCase):
+    def test_reader_times_out_and_reports_progress(self):
+        cmd = mm._ffmpeg_command()
+        self.assertEqual(cmd[cmd.index("-rw_timeout") + 1], "10000000")
+        self.assertIn("-reconnect_on_network_error", cmd)
+        self.assertEqual(cmd[cmd.index("-progress") + 1], "pipe:2")
+        self.assertIn("-nostats", cmd)
+        self.assertLess(cmd.index("-rw_timeout"), cmd.index("-i"))
+
+
+if __name__ == "__main__":
+    unittest.main()

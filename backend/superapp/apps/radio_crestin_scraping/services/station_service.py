@@ -9,6 +9,9 @@ from superapp.apps.radio_crestin.models import (
     Stations, StationsNowPlaying, StationsNowPlayingHistory,
     Songs, Artists, Posts
 )
+from superapp.apps.radio_crestin.services.history_timeline import (
+    stamp_history_row,
+)
 from ..utils.data_types import (
     StationNowPlayingData,
     StationRssFeedData, SongData
@@ -56,6 +59,14 @@ class StationService:
     def upsert_station_now_playing(station_id: int, data: StationNowPlayingData, dirty_metadata: bool = True) -> bool:
         """Upsert station now playing data"""
         try:
+            # Lock the station row for the whole transaction: it serialises
+            # writers of this station, so the history row below is placed
+            # after the newest one (history_timeline.stamp_history_row).
+            # FOR NO KEY UPDATE, so inserts that only reference the station
+            # do not wait for it.
+            Stations.objects.select_for_update(no_key=True).filter(
+                id=station_id).values_list('id', flat=True).first()
+
             # Get or create song if we have song data
             song = None
             if data.current_song and (data.current_song.name or data.current_song.artist):
@@ -81,17 +92,24 @@ class StationService:
             # Write history when metadata changes (song or listener count)
             new_song_id = song.id if song else None
             new_listeners = data.listeners
-            now_timestamp = data.timestamp or timezone.now()
 
-            metadata_changed = (
+            song_changed = (
                 created
                 or (previous['song_id'] if previous else None) != new_song_id
+            )
+            listeners_changed = (
+                created
                 or (previous['listeners'] if previous else None) != new_listeners
             )
-            if metadata_changed:
+            if song_changed or listeners_changed:
+                # A scrape has no stream position, so a song is dated when it
+                # was first seen; a listener-count row keeps its song's start.
+                now = timezone.now()
+                stamp = stamp_history_row(station_id, now, now, song_changed)
                 StationsNowPlayingHistory.objects.create(
                     station_id=station_id,
-                    timestamp=now_timestamp,
+                    timestamp=stamp.timestamp,
+                    song_started_at=stamp.song_started_at,
                     song=song,
                     listeners=new_listeners,
                 )
