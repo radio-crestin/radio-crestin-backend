@@ -275,6 +275,9 @@ class GraphQLRestApiView(View):
             if 'public' in policy.header.lower():
                 response._public_cacheable = True
 
+        # Flag for BoundedUpdateCacheMiddleware (graphql/cache_middleware.py).
+        if not policy.page_cacheable:
+            response._skip_page_cache = True
 
         # Add extra headers
         for header, value in self.endpoint_config.extra_headers.items():

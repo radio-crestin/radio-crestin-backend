@@ -197,10 +197,10 @@ class StationLockModeTests(TransactionTestCase):
         real_newest_row = history_timeline._newest_row
         errors = []
 
-        def paused(station_id):
+        def paused(*args):
             locked.set()
             release.wait(timeout=5)
-            return real_newest_row(station_id)
+            return real_newest_row(*args)
 
         def writer():
             try:
@@ -247,8 +247,8 @@ def _newest_row_read_by_both():
     readers_lock = threading.Lock()
     second_reader = threading.Event()
 
-    def newest_row(station_id):
-        row = real_newest_row(station_id)
+    def newest_row(station_id, now):
+        row = real_newest_row(station_id, now)
         with readers_lock:
             readers.append(station_id)
             first = len(readers) == 1

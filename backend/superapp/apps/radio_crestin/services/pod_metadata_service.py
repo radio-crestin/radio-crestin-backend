@@ -6,7 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from superapp.apps.radio_crestin.services.history_timeline import (
-    stamp_history_row,
+    place_report,
 )
 from superapp.apps.radio_crestin.services.song_text import clean_song_text
 from superapp.apps.radio_crestin.models import (
@@ -77,39 +77,20 @@ class PodMetadataService:
         ).values('song_id', 'listeners', 'timestamp').first()
 
         new_song_id = song.id if song else None
-        song_changed = previous is None or previous['song_id'] != new_song_id
-        listeners_changed = (
-            previous is None or previous['listeners'] != input.listeners
-        )
-
-        # A song change is dated by when it started in the stream. A
-        # listener-count change is a measurement taken now; dating it by the
-        # song start would back-date it by minutes.
-        if song_changed:
-            event_ts = scraper_ts or id3_ts or now
-        else:
-            event_ts = now
+        # A song change is dated by when it started in the stream.
+        placed = place_report(station.id, previous, new_song_id,
+                              input.listeners, scraper_ts or id3_ts or now, now)
+        stamp = placed.history
 
         # Resolve thumbnail: prefer input, fallback to song's stored thumbnail
         thumbnail_url = input.thumbnail_url
         if not thumbnail_url and song and song.thumbnail_url:
             thumbnail_url = song.thumbnail_url
 
-        stamp = None
-        if song_changed or listeners_changed:
-            stamp = stamp_history_row(station.id, event_ts, now, song_changed)
-
-        # now_playing.timestamp keeps meaning "when the current song
-        # started": it moves only when the song changes.
-        if song_changed:
-            np_timestamp = stamp.song_started_at
-        else:
-            np_timestamp = previous['timestamp']
-
         now_playing, _ = StationsNowPlaying.objects.update_or_create(
             station_id=station.id,
             defaults={
-                'timestamp': np_timestamp,
+                'timestamp': placed.song_started_at,
                 'song': song,
                 'listeners': input.listeners,
                 'thumbnail_url': thumbnail_url,
@@ -122,9 +103,7 @@ class PodMetadataService:
             StationsNowPlayingHistory.objects.create(
                 station_id=station.id,
                 timestamp=stamp.timestamp,
-                # Without an earlier history row, now_playing still knows
-                # when the continuing song started.
-                song_started_at=stamp.song_started_at or np_timestamp,
+                song_started_at=stamp.song_started_at,
                 song=song,
                 listeners=input.listeners,
                 id3_timestamp=id3_ts,

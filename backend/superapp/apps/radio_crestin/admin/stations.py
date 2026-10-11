@@ -289,18 +289,20 @@ class StationsAdmin(SuperAppModelAdmin):
                         '<div class="p-2.5 bg-gray-100 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">'
                         '<strong class="text-gray-900 dark:text-white">{}</strong><br>'
                         '<small class="text-gray-600 dark:text-gray-400">Listeners: {}</small><br>'
-                        '<small class="text-gray-600 dark:text-gray-400">Updated: {}</small>'
+                        '<small class="text-gray-600 dark:text-gray-400">{} {}</small>'
                         '</div>',
                         song_info,
                         now_playing.listeners or 0,
+                        _("Started:"),
                         now_playing.timestamp.strftime('%Y-%m-%d %H:%M:%S')
                     )
                 else:
                     return format_html(
                         '<div class="p-2.5 bg-yellow-100 dark:bg-yellow-900 rounded border border-yellow-200 dark:border-yellow-700">'
                         '<span class="text-yellow-800 dark:text-yellow-200">No song information available</span><br>'
-                        '<small class="text-yellow-700 dark:text-yellow-300">Updated: {}</small>'
+                        '<small class="text-yellow-700 dark:text-yellow-300">{} {}</small>'
                         '</div>',
+                        _("Started:"),
                         now_playing.timestamp.strftime('%Y-%m-%d %H:%M:%S')
                     )
             except Exception:

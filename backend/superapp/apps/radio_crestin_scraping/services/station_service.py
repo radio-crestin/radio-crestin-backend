@@ -1,4 +1,5 @@
 import logging
+from dataclasses import replace
 from typing import List, Optional, Dict, Any
 
 from django.conf import settings
@@ -10,8 +11,9 @@ from superapp.apps.radio_crestin.models import (
     Songs, Artists, Posts
 )
 from superapp.apps.radio_crestin.services.history_timeline import (
-    stamp_history_row,
+    place_report,
 )
+from superapp.apps.radio_crestin.services.song_text import clean_song_text
 from ..utils.data_types import (
     StationNowPlayingData,
     StationRssFeedData, SongData
@@ -69,19 +71,27 @@ class StationService:
 
             # Get or create song if we have song data
             song = None
-            if data.current_song and (data.current_song.name or data.current_song.artist):
-                song = StationService._upsert_song(data.current_song, dirty_metadata)
+            current_song = StationService._clean_song(data.current_song, station_id)
+            if current_song and (current_song.name or current_song.artist):
+                song = StationService._upsert_song(current_song, dirty_metadata)
 
             # Capture previous state before update (1 indexed single-row SELECT)
             previous = StationsNowPlaying.objects.filter(
                 station_id=station_id
-            ).values('song_id', 'listeners').first()
+            ).values('song_id', 'listeners', 'timestamp').first()
+
+            # A scrape has no stream position, so a song is dated when it was
+            # first seen. `data.timestamp` is only when this scrape ran.
+            now = timezone.now()
+            placed = place_report(station_id, previous,
+                                  song.id if song else None, data.listeners,
+                                  now, now)
 
             # Upsert station now playing record
             now_playing, created = StationsNowPlaying.objects.update_or_create(
                 station_id=station_id,
                 defaults={
-                    'timestamp': data.timestamp or timezone.now(),
+                    'timestamp': placed.song_started_at,
                     'song': song,
                     'listeners': data.listeners,
                     'raw_data': data.raw_data,
@@ -90,28 +100,13 @@ class StationService:
             )
 
             # Write history when metadata changes (song or listener count)
-            new_song_id = song.id if song else None
-            new_listeners = data.listeners
-
-            song_changed = (
-                created
-                or (previous['song_id'] if previous else None) != new_song_id
-            )
-            listeners_changed = (
-                created
-                or (previous['listeners'] if previous else None) != new_listeners
-            )
-            if song_changed or listeners_changed:
-                # A scrape has no stream position, so a song is dated when it
-                # was first seen; a listener-count row keeps its song's start.
-                now = timezone.now()
-                stamp = stamp_history_row(station_id, now, now, song_changed)
+            if placed.history is not None:
                 StationsNowPlayingHistory.objects.create(
                     station_id=station_id,
-                    timestamp=stamp.timestamp,
-                    song_started_at=stamp.song_started_at,
+                    timestamp=placed.history.timestamp,
+                    song_started_at=placed.history.song_started_at,
                     song=song,
-                    listeners=new_listeners,
+                    listeners=data.listeners,
                 )
 
             # Update station's latest_station_now_playing reference
@@ -189,6 +184,17 @@ class StationService:
                 raise
             logger.error(f"Error upserting posts for station {station_id}: {error}")
             return False
+
+    @staticmethod
+    def _clean_song(song_data: Optional[SongData], station_id: int) -> Optional[SongData]:
+        """`song_data` without names that are not song text (song_text.py)."""
+        if song_data is None:
+            return None
+        name = clean_song_text(song_data.name)
+        if song_data.name and name is None:
+            logger.warning("Ignoring non-title %r scraped for station %s",
+                           song_data.name, station_id)
+        return replace(song_data, name=name, artist=clean_song_text(song_data.artist))
 
     @staticmethod
     def _upsert_song(song_data: SongData, dirty_metadata: bool = True) -> Optional[Songs]:

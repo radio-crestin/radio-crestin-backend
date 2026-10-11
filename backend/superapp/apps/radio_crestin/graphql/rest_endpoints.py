@@ -51,6 +51,7 @@ METADATA_SETTLE_SECONDS = 60
 METADATA_UNSETTLED_MAX_AGE = 60
 # Redis keeps an unsettled answer only long enough to collapse a burst of
 # identical requests, so an edge refetch sees the rows ingested since.
+# Django's page cache would keep it for its max-age instead, so it skips it.
 METADATA_UNSETTLED_REDIS_TTL = 5
 METADATA_SETTLED_CACHE_CONTROL = "public, max-age=2592000, immutable"
 # Redis keeps settled answers this long: their data is final, the TTL only
@@ -68,6 +69,7 @@ UNSETTLED_METADATA_POLICY = CachePolicy(
     header=f"public, max-age={METADATA_UNSETTLED_MAX_AGE}",
     ttl=METADATA_UNSETTLED_REDIS_TTL,
     key="unsettled",
+    page_cacheable=False,
 )
 
 

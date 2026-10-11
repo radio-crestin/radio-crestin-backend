@@ -18,11 +18,14 @@ class CachePolicy:
     Redis lifetime of the rendered response (0 disables it). `key` separates
     Redis entries computed under different policies, so a response computed
     while its data could still change is never served under a policy that
-    promises it cannot.
+    promises it cannot. `page_cacheable=False` keeps Django's site-wide page
+    cache from storing the response: it keys on the URL alone and keeps a
+    page up to CACHE_MIDDLEWARE_MAX_SECONDS, longer than a short `ttl`.
     """
     header: Optional[str]
     ttl: int
     key: str = ""
+    page_cacheable: bool = True
 
 
 class HttpMethod(Enum):

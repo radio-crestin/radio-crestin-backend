@@ -56,3 +56,12 @@ class BoundedPageCacheTests(SimpleTestCase):
         request = cache_miss('/api/v1/stations')
         BoundedUpdateCacheMiddleware(lambda r: HttpResponse('x'))(request)
         self.assertEqual(cache._expire_info, {})
+
+    def test_response_flagged_by_its_view_is_not_cached(self):
+        def short_lived_view(request):
+            response = immutable_view(request)
+            response._skip_page_cache = True
+            return response
+
+        BoundedUpdateCacheMiddleware(short_lived_view)(cache_miss('/api/v1/stations-metadata'))
+        self.assertEqual(cache._expire_info, {})

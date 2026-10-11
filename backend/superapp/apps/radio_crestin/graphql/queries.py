@@ -18,6 +18,7 @@ from ..models import Stations, StationGroups, StationStreams, StationPlaylistIte
 from ..models import StationsNowPlayingHistory
 from ..services import AutocompleteService
 from ..utils.cdn_proxy import metadata_song_thumbnail_url, proxy_image_url
+from .rest_endpoints import METADATA_SETTLE_SECONDS
 
 
 # How far a changes_from_timestamp diff looks back: a row is dated at most
@@ -721,7 +722,11 @@ class Query:
             # Latest history per station via LATERAL JOIN (O(n_stations))
             history_by_station = _latest_history_per_station(station_ids, as_of_dt)
 
-            is_near_now = (now - as_of_dt).total_seconds() <= 120
+            # Near-now means not yet settled: a settled answer is cached as
+            # immutable, so it must not carry counts taken now.
+            is_near_now = (
+                (now - as_of_dt).total_seconds() < METADATA_SETTLE_SECONDS
+            )
             internal_counts = (
                 ListenerAnalyticsService.get_batch_listener_counts(
                     station_ids, minutes=1,

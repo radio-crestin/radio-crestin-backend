@@ -10,6 +10,7 @@
   were written after the client's previous diff but dated inside it.
 """
 
+import time
 from datetime import datetime, timedelta, timezone as dt_timezone
 from email.utils import parsedate_to_datetime
 from unittest.mock import patch
@@ -26,6 +27,7 @@ from ..models import (
     Artists, Songs, StationStreams, StationsNowPlaying,
     StationsNowPlayingHistory,
 )
+from ..services.listener_analytics_service import ListenerAnalyticsService
 from ..services.history_timeline import (
     HISTORY_TIMESTAMP_STEP, METADATA_BACKDATE_LIMIT, stamp_history_row,
 )
@@ -90,6 +92,18 @@ class StationsMetadataCachePolicyTests(TestCase):
             120)
         self.assertLess(rest_endpoints.UNSETTLED_METADATA_POLICY.ttl,
                         rest_endpoints.METADATA_UNSETTLED_MAX_AGE)
+
+    @override_settings(CACHES=LOCMEM_CACHE)
+    def test_no_server_cache_outlives_the_unsettled_redis_ttl(self):
+        # Django's page cache stores a page for its max-age (60 s here),
+        # which would serve the unsettled answer long after Redis dropped it.
+        cache.clear()
+        self._get(timestamp=_epoch(timezone.now()) - 10)
+        ttl = rest_endpoints.UNSETTLED_METADATA_POLICY.ttl
+        lifetimes = [expiry - time.time()
+                     for expiry in cache._expire_info.values()]
+        self.assertTrue(lifetimes)
+        self.assertLessEqual(max(lifetimes), ttl)
 
     def test_diff_requests_follow_the_same_policy(self):
         ts = _epoch(timezone.now()) - 10
@@ -168,9 +182,9 @@ class StationsMetadataLateRowTests(TestCase):
         first, name = self._name_at(t)
         self.assertEqual(name, 'Old Song')
         self.assertEqual(first['Cache-Control'], 'public, max-age=60')
-        # Redis keeps the unsettled answer at most 5 s and the CDN at most
-        # 60 s, both gone by the time a listener 2 minutes behind asks.
-        cache.clear()
+        # No cache is cleared here: the unsettled answer is kept under its
+        # own key, so neither the endpoint's cache nor Django's page cache
+        # (keyed on the URL alone) may hand it to the settled reader.
         # The new song started 2 s before T and was ingested after the
         # first request (the back-dated row the CDN used to freeze out).
         StationsNowPlayingHistory.objects.create(
@@ -328,6 +342,25 @@ class HistoryStampTests(TestCase):
         second = stamp_history_row(self.station.id, started, now, True)
         self.assertGreater(second.song_started_at, first.song_started_at)
 
+    def test_far_future_row_does_not_freeze_the_station(self):
+        # Ordering after a row dated tomorrow would hide every new row
+        # from `<= T` lookups until tomorrow.
+        now = timezone.now()
+        self._row(stamp_history_row(self.station.id, now, now, True))
+        StationsNowPlayingHistory.objects.create(
+            station=self.station, timestamp=now + timedelta(days=1))
+        started = now + timedelta(seconds=1)
+        stamp = stamp_history_row(self.station.id, started, now, True)
+        self.assertEqual(stamp.timestamp, started)
+
+    def test_row_within_the_future_limit_still_orders_new_rows(self):
+        now = timezone.now()
+        ahead = self._row(stamp_history_row(
+            self.station.id, now + timedelta(seconds=30), now, True))
+        stamp = stamp_history_row(self.station.id, now, now, False)
+        self.assertEqual(stamp.timestamp,
+                         ahead.timestamp + HISTORY_TIMESTAMP_STEP)
+
     def test_song_change_ordered_after_a_later_row_keeps_its_start(self):
         now = timezone.now()
         self._row(stamp_history_row(
@@ -406,6 +439,15 @@ class PodReportTimelineTests(TestCase):
         diff = self._now_playing_at(t, changes_from_timestamp=_epoch(start) + 25)
         self.assertEqual(diff['timestamp'], _at(start))
         self.assertEqual(diff['listeners'], 4)
+
+    def test_song_announced_ahead_of_its_audio_shows_as_started_now(self):
+        now = timezone.now()
+        ahead = now + timedelta(seconds=30)
+        with reported_at(now):
+            report('pod-station', 'Song A', started=ahead)
+        np = StationsNowPlaying.objects.get(station__slug='pod-station')
+        self.assertEqual(np.timestamp, now)
+        self.assertEqual(self._history()[-1].timestamp, ahead)
 
     def test_listener_report_between_song_change_and_its_report(self):
         """The old song's listener row lands after the new song began.
@@ -513,14 +555,74 @@ class ScrapedHistoryTests(TestCase):
                 listeners=listeners, raw_data={}, error=[],
             ))
 
+    def _history(self):
+        return list(StationsNowPlayingHistory.objects.filter(
+            station=self.station).order_by('timestamp', 'id'))
+
+    def _now_playing(self):
+        return StationsNowPlaying.objects.get(station=self.station)
+
     def test_listener_only_scrape_keeps_the_song_start(self):
         self._scrape('Song A', listeners=3)
         self._scrape('Song A', listeners=4)
-        first, second = StationsNowPlayingHistory.objects.filter(
-            station=self.station).order_by('timestamp', 'id')
+        first, second = self._history()
         self.assertEqual(first.song_started_at, first.timestamp)
         self.assertGreater(second.timestamp, first.timestamp)
         self.assertEqual(second.song_started_at, first.timestamp)
+
+    def test_now_playing_timestamp_is_the_song_start(self):
+        """A scrape's own timestamp never moves now_playing.timestamp."""
+        self._scrape('Song A', listeners=3)
+        started = self._now_playing().timestamp
+        self._scrape('Song A', listeners=3)
+        self._scrape('Song A', listeners=4)
+        self.assertEqual(self._now_playing().timestamp, started)
+        self._scrape('Song B', listeners=4)
+        self.assertEqual(self._now_playing().timestamp,
+                         self._history()[-1].song_started_at)
+        self.assertGreater(self._now_playing().timestamp, started)
+
+    def test_ffmpeg_message_is_not_stored_as_a_song(self):
+        self._scrape('[aac @ 0x55d5c8a3e2c0] ChannelElement 3.1 missing', 1)
+        self.assertFalse(
+            Songs.objects.filter(name__icontains='ChannelElement').exists())
+        self._scrape('  Real   Song ', 1)
+        self.assertEqual(self._now_playing().song.name, 'Real Song')
+
+
+@override_settings(CACHES=DUMMY_CACHE)
+class NearNowListenersTests(TestCase):
+    """Counts taken now only go into answers that can still change: a
+    settled answer is cached as immutable."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.station = make_station('listeners-station')
+        StationsNowPlayingHistory.objects.create(
+            station=cls.station, listeners=3,
+            timestamp=timezone.now() - timedelta(minutes=10))
+
+    def _get(self, seconds_ago):
+        live_counts = {self.station.id: 7}
+        with patch.object(ListenerAnalyticsService, 'get_batch_listener_counts',
+                          return_value=live_counts):
+            return self.client.get('/api/v1/stations-metadata', {
+                'timestamp': _epoch(timezone.now()) - seconds_ago,
+                'station_slugs': 'listeners-station'})
+
+    def _listeners(self, response):
+        return now_playing_of(response, 'listeners-station')['listeners']
+
+    def test_settled_answer_has_no_live_counts(self):
+        response = self._get(METADATA_SETTLE_SECONDS + 10)
+        self.assertEqual(response['Cache-Control'],
+                         'public, max-age=2592000, immutable')
+        self.assertEqual(self._listeners(response), 3)
+
+    def test_unsettled_answer_adds_live_counts(self):
+        response = self._get(10)
+        self.assertEqual(response['Cache-Control'], 'public, max-age=60')
+        self.assertEqual(self._listeners(response), 3 + 7)
 
 
 @override_settings(CACHES=DUMMY_CACHE)
