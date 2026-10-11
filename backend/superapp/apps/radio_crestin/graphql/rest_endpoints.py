@@ -8,7 +8,7 @@ import json
 from django.utils import timezone
 from typing import Dict, Any, Optional
 
-from superapp.apps.graphql.rest_api import RestApiEndpoint, HttpMethod
+from superapp.apps.graphql.rest_api import CachePolicy, RestApiEndpoint, HttpMethod
 from ..constants import (
     STATIONS_GRAPHQL_QUERY,
     REVIEWS_GRAPHQL_QUERY,
@@ -26,6 +26,81 @@ def rounded_timestamp(window_seconds: int = 10) -> int:
     10-second window; pass a smaller window for faster-polling endpoints.
     """
     return int(timezone.now().timestamp() // window_seconds) * window_seconds
+
+
+# Now-playing history rows are back-dated: a song change is dated by when the
+# song started in the stream and written a few seconds later (2.6-14.8 s
+# measured; services/history_timeline.py caps it at METADATA_BACKDATE_LIMIT,
+# 45 s). An answer for `?timestamp=T` can therefore still change until
+# T + METADATA_SETTLE_SECONDS (the cap plus 15 s for transactions in flight
+# and clock skew between web pods). Only then may it be cached as immutable.
+#
+# The CDN must keep honouring these headers: Cloudflare's Cache Rule for
+# api.radiocrestin.ro/api/v1/stations-metadata* has to use the origin's
+# Cache-Control ("respect origin"), or the 5 s answers get frozen again. The
+# edge also appends `no-store` to the client-facing Cache-Control after
+# caching (a "Modify response header" Transform Rule or the Browser Cache TTL
+# setting); clients must not read caching hints from that header.
+METADATA_SETTLE_SECONDS = 60
+# Lifetime of an answer for a window that can still change: long enough to
+# collapse a burst of identical requests, short enough that a row ingested
+# after the first request shows up a few seconds later.
+METADATA_UNSETTLED_MAX_AGE = 5
+METADATA_SETTLED_CACHE_CONTROL = "public, max-age=2592000, immutable"
+# Redis keeps settled answers this long: their data is final, the TTL only
+# bounds memory.
+METADATA_SETTLED_REDIS_TTL = 60
+
+# The keys keep the two policies' Redis entries apart, so an answer computed
+# while its data could still change is never served as a settled one.
+SETTLED_METADATA_POLICY = CachePolicy(
+    header=METADATA_SETTLED_CACHE_CONTROL,
+    ttl=METADATA_SETTLED_REDIS_TTL,
+    key="settled",
+)
+UNSETTLED_METADATA_POLICY = CachePolicy(
+    header=f"public, max-age={METADATA_UNSETTLED_MAX_AGE}",
+    ttl=METADATA_UNSETTLED_MAX_AGE,
+    key="unsettled",
+)
+
+
+def _requested_timestamp(request, *params: str) -> Optional[int]:
+    """The first present timestamp parameter, or None when the request
+    means "now" (absent, unparsable, or 0, which the resolvers read as now).
+    """
+    raw = next((request.GET.get(p) for p in params if request.GET.get(p)), None)
+    try:
+        requested = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return requested if requested > 0 else None
+
+
+def _policy_as_of(requested: Optional[int]) -> CachePolicy:
+    """Settled once no history row dated at or before `requested` can still
+    be written; a request that means "now" is never settled."""
+    settle_point = timezone.now().timestamp() - METADATA_SETTLE_SECONDS
+    if requested is not None and requested <= settle_point:
+        return SETTLED_METADATA_POLICY
+    return UNSETTLED_METADATA_POLICY
+
+
+def stations_metadata_cache_policy(request) -> CachePolicy:
+    """/stations-metadata: keyed on `timestamp` (legacy `_t`), which bounds
+    every row the answer reads, diff requests included."""
+    return _policy_as_of(_requested_timestamp(request, 'timestamp', '_t'))
+
+
+def history_cache_policy(request) -> CachePolicy:
+    """/stations-metadata-history: keyed on `to_timestamp`.
+
+    Without `from_timestamp` the range starts an hour before now and moves
+    with the clock, so that answer never settles.
+    """
+    if _requested_timestamp(request, 'from_timestamp') is None:
+        return UNSETTLED_METADATA_POLICY
+    return _policy_as_of(_requested_timestamp(request, 'to_timestamp'))
 
 
 def parse_slug_filters(request) -> Dict[str, Any]:
@@ -425,10 +500,9 @@ class StationsMetadataApiEndpoint(RestApiEndpoint):
     graphql_query = STATIONS_METADATA_GRAPHQL_QUERY
     method = HttpMethod.GET
     name = "api_v1_stations_metadata"
-    cache_control = "public, max-age=2592000, immutable"
-    # Matches the 10s timestamp window below. This is the most-polled endpoint,
-    # so it benefits the most from collapsing a window into one execution.
-    cache_ttl = 10
+    # Cache-Control and the Redis TTL are decided per request: a window is
+    # immutable only once it has settled.
+    cache_policy = staticmethod(stations_metadata_cache_policy)
     cors_enabled = True
 
     @staticmethod
@@ -486,9 +560,9 @@ class StationsMetadataHistoryApiEndpoint(RestApiEndpoint):
     graphql_query = STATIONS_METADATA_HISTORY_GRAPHQL_QUERY
     method = HttpMethod.GET
     name = "api_v1_stations_metadata_history"
-    cache_control = "public, max-age=60"
-    # Pure history over a closed time range — the answer never changes.
-    cache_ttl = 60
+    # A range ending in the last METADATA_SETTLE_SECONDS can still gain
+    # back-dated rows; only settled ranges are final.
+    cache_policy = staticmethod(history_cache_policy)
     cors_enabled = True
 
     @staticmethod

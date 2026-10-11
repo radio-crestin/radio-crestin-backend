@@ -574,6 +574,14 @@ class ReportStationMetadataResponse:
     message: str
     song_id: Optional[int] = None
     thumbnail_url: Optional[str] = None
+    # The song exactly as /stations-metadata serves it (names after
+    # server-side cleaning, the proxied thumbnail) and the history timestamp
+    # it was filed under; pods put the song in the HLS playlist.
+    song_title: Optional[str] = None
+    song_artist: Optional[str] = None
+    song_artist_id: Optional[int] = None
+    song_thumbnail_url: Optional[str] = None
+    history_timestamp: Optional[datetime] = None
 
 
 # --- Streaming Pod Config Query Types ---

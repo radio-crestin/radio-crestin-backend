@@ -10,6 +10,21 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 
+@dataclass(frozen=True)
+class CachePolicy:
+    """How long one response may be reused, decided per request.
+
+    `header` is the Cache-Control sent to browsers and the CDN; `ttl` is the
+    Redis lifetime of the rendered response (0 disables it). `key` separates
+    Redis entries computed under different policies, so a response computed
+    while its data could still change is never served under a policy that
+    promises it cannot.
+    """
+    header: Optional[str]
+    ttl: int
+    key: str = ""
+
+
 class HttpMethod(Enum):
     """Supported HTTP methods for REST API endpoints"""
     GET = "GET"
@@ -39,6 +54,10 @@ class RestApiEndpoint:
     cors_origins: str = "*"  # Allowed CORS origins
     cors_methods: Optional[List[str]] = None  # Allowed CORS methods
     
+    # Per-request override of cache_control/cache_ttl: (request) -> CachePolicy.
+    # For endpoints whose answer for one URL can still change for a while.
+    cache_policy: Optional[Callable] = None
+
     # Request/Response transformers
     pre_processor: Optional[Callable] = None  # Pre-process request before GraphQL execution
     post_processor: Optional[Callable] = None  # Post-process GraphQL response
@@ -47,6 +66,12 @@ class RestApiEndpoint:
     # Additional headers
     extra_headers: Dict[str, str] = field(default_factory=dict)
     
+    def policy_for(self, request) -> CachePolicy:
+        """The cache policy that applies to this request."""
+        if self.cache_policy is not None:
+            return self.cache_policy(request)
+        return CachePolicy(header=self.cache_control, ttl=self.cache_ttl)
+
     def __post_init__(self):
         """Validate and set defaults"""
         if self.name is None:
@@ -107,6 +132,8 @@ class RestApiRegistry:
             config_kwargs['cors_methods'] = endpoint_class.cors_methods
         if hasattr(endpoint_class, 'extra_headers'):
             config_kwargs['extra_headers'] = endpoint_class.extra_headers
+        if hasattr(endpoint_class, 'cache_policy'):
+            config_kwargs['cache_policy'] = endpoint_class.cache_policy
             
         # Method attributes
         if hasattr(endpoint_class, 'pre_processor'):

@@ -402,6 +402,11 @@ class Mutation:
                 message=f"Metadata reported for station {input.station_slug}",
                 song_id=result.get('song_id'),
                 thumbnail_url=result.get('thumbnail_url'),
+                song_title=result.get('song_title'),
+                song_artist=result.get('song_artist'),
+                song_artist_id=result.get('song_artist_id'),
+                song_thumbnail_url=result.get('song_thumbnail_url'),
+                history_timestamp=result.get('history_timestamp'),
             )
         except Stations.DoesNotExist:
             return ReportStationMetadataResponse(

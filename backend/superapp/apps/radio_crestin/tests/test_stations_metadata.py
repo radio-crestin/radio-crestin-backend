@@ -49,12 +49,15 @@ class StationsMetadataPerformanceTests(TestCase):
             station.save()
             cls.stations.append(station)
 
-        # Create history records — start from 1 hour ago to avoid edge cases
+        # Create history records 30 min, 1.5 h, ... 4.5 h ago: half an hour
+        # away from the history endpoint's default one-hour window edge,
+        # which a row exactly 1 h old fell out of when the request crossed a
+        # second boundary.
         for station in cls.stations:
             for j in range(5):
                 StationsNowPlayingHistory.objects.create(
                     station=station,
-                    timestamp=now - timedelta(hours=j + 1),
+                    timestamp=now - timedelta(hours=j + 1) + timedelta(minutes=30),
                     song=cls.songs[(station.id + j) % 10],
                     listeners=station.id * 10 + j,
                 )
@@ -259,7 +262,7 @@ class StationsMetadataPerformanceTests(TestCase):
         data = response.json()
         history = data['data']['stations_metadata_history']
         self.assertEqual(history['station_slug'], 'station-0')
-        # Should have the 1 record from 1 hour ago
+        # Should have the record from 30 minutes ago
         self.assertGreaterEqual(history['count'], 1)
 
     def test_metadata_history_24h_limit(self):

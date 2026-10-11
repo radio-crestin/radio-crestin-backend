@@ -34,7 +34,7 @@ class GetStationsQuery:
             # Optimized prefetch for station_streams ordered by order field
             Prefetch(
                 'station_streams',
-                queryset=StationStreams.objects.order_by('order').select_related()
+                queryset=StationStreams.objects.filter(enabled=True).order_by('order').select_related()
             ),
             # Prefetch posts without slicing - the custom resolver will handle limiting
             Prefetch(
@@ -80,7 +80,7 @@ def get_optimized_stations_queryset():
     ).prefetch_related(
         Prefetch(
             'station_streams',
-            queryset=StationStreams.objects.order_by('order')
+            queryset=StationStreams.objects.filter(enabled=True).order_by('order')
         ),
         Prefetch(
             'posts', 

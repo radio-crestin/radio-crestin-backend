@@ -66,6 +66,40 @@ EGRESS_PROXY_SIDECAR = "egress-proxy"
 SLUG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*[a-z0-9]$")
 LABEL_APP = "live-stream"
 
+
+def parse_image_overrides(spec: str) -> dict[str, str]:
+    """`slug=image,slug=image` → {slug: image}; malformed items are skipped."""
+    overrides = {}
+    for item in spec.split(","):
+        slug, sep, image = item.strip().partition("=")
+        if sep and SLUG_PATTERN.match(slug.strip()) and image.strip():
+            overrides[slug.strip()] = image.strip()
+        elif item.strip():
+            log.warning("Ignoring STREAMER_IMAGE_OVERRIDES item %r", item)
+    return overrides
+
+
+# Canary rollouts: pin a few stations to another streamer image (e.g.
+# "radio-a=ghcr.io/...:canary"). Every other station runs STREAMER_IMAGE;
+# the sync loop keeps both in place, so a canary survives reconciliation.
+STREAMER_IMAGE_OVERRIDES = parse_image_overrides(
+    os.environ.get("STREAMER_IMAGE_OVERRIDES", ""))
+# Streamer settings forwarded to every station pod when set on the
+# controller. A change rolls the pods like an image update (in batches).
+# FFMPEG_INPUT_RECONNECT: "inprocess" (pod default) or "restart" (see
+# live_streaming/scripts/entrypoint.sh).
+STREAMER_TUNABLES = ("FFMPEG_INPUT_RECONNECT",)
+
+
+def streamer_image(slug: str) -> str:
+    return STREAMER_IMAGE_OVERRIDES.get(slug, STREAMER_IMAGE)
+
+
+def streamer_tunables() -> dict[str, str]:
+    """The tunables set on the controller, as the pods should get them."""
+    return {name: os.environ[name] for name in STREAMER_TUNABLES
+            if os.environ.get(name)}
+
 # GraphQL query to fetch stations (disabled=False is applied server-side by default)
 # We fetch transcode_enabled to filter client-side
 STATIONS_QUERY = """
@@ -235,6 +269,14 @@ def desired_egress_proxy() -> tuple[str, str]:
     return (EGRESS_PROXY_SECRET, EGRESS_PROXY_SIDECAR_IMAGE) if EGRESS_PROXY_SECRET else ("", "")
 
 
+def tunables_of(deployment: client.V1Deployment) -> dict[str, str]:
+    """The STREAMER_TUNABLES a Deployment's streamer container is set to."""
+    containers = deployment.spec.template.spec.containers or []
+    env = (containers[0].env or []) if containers else []
+    return {e.name: e.value for e in env
+            if e.name in STREAMER_TUNABLES and e.value}
+
+
 def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
     """Build Deployment spec for a station streamer with fast restart on failure."""
     labels = {"app": LABEL_APP, "station": slug}
@@ -279,7 +321,7 @@ def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
                     containers=[
                         client.V1Container(
                             name="streamer",
-                            image=STREAMER_IMAGE,
+                            image=streamer_image(slug),
                             image_pull_policy="Always",
                             env=[
                                 client.V1EnvVar(name="STATION_SLUG", value=slug),
@@ -289,7 +331,9 @@ def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
                                 client.V1EnvVar(name="DJANGO_API_URL", value=DJANGO_API_URL),
                                 client.V1EnvVar(name="POSTHOG_API_KEY", value=POSTHOG_API_KEY),
                                 client.V1EnvVar(name="POSTHOG_HOST", value=POSTHOG_HOST),
-                                client.V1EnvVar(name="IMAGE_TAG", value=STREAMER_IMAGE.rsplit(":", 1)[-1]),
+                                client.V1EnvVar(name="IMAGE_TAG", value=streamer_image(slug).rsplit(":", 1)[-1]),
+                                *(client.V1EnvVar(name=name, value=value)
+                                  for name, value in streamer_tunables().items()),
                                 *_egress_proxy_env(),
                             ],
                             ports=[client.V1ContainerPort(container_port=8080)],
@@ -899,7 +943,9 @@ def sync_once(
         if current_url != desired_map[slug]:
             log.info("Stream URL changed for %s: %r -> %r", slug, current_url, desired_map[slug])
             to_update_url.add(slug)
-        elif current_image != STREAMER_IMAGE or egress_proxy_of(dep) != desired_egress_proxy():
+        elif (current_image != streamer_image(slug)
+              or egress_proxy_of(dep) != desired_egress_proxy()
+              or tunables_of(dep) != streamer_tunables()):
             to_update_image.add(slug)
 
     to_update = to_update_url | to_update_image
@@ -994,6 +1040,10 @@ def main():
     log.info("GraphQL endpoint: %s", GRAPHQL_ENDPOINT)
     log.info("Namespace: %s", NAMESPACE)
     log.info("Streamer image: %s", STREAMER_IMAGE)
+    for slug, image in sorted(STREAMER_IMAGE_OVERRIDES.items()):
+        log.info("Streamer image override: %s -> %s", slug, image)
+    if streamer_tunables():
+        log.info("Streamer tunables: %s", streamer_tunables())
     log.info("Sync interval: %ds", SYNC_INTERVAL)
 
     # Load K8s config (in-cluster when running in pod)

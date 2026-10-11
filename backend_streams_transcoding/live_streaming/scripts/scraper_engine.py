@@ -12,6 +12,13 @@ Triggered by the station's configured timestamp source:
 
 Polls config_version from Django to detect admin changes and reload config.
 
+Files under /data/metadata (all written atomically):
+  - index.json        read only; metadata_monitor is its single writer.
+  - station.json      the config metadata_monitor needs (the delay offset).
+  - now_playing.json  the song Django accepted for the current ICY song
+                      instance; playlist_rewriter turns it into the X-*
+                      hints of EXT-X-RC-METADATA-CHANGED.
+
 Memory-efficient: no heavy frameworks, minimal allocations, single-threaded.
 """
 
@@ -20,6 +27,8 @@ import os
 import re
 import time
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from http.client import HTTPConnection, HTTPSConnection
 from pathlib import Path
 import urllib.error
@@ -27,12 +36,15 @@ import urllib.request
 from urllib.parse import urlparse
 
 import posthog_reporter
+import song_titles
 
 STATION_SLUG = os.environ.get("STATION_SLUG", "")
 DJANGO_GRAPHQL_URL = os.environ.get("DJANGO_GRAPHQL_URL", "http://web:8080/v1/graphql")
 STREAMING_API_KEY = os.environ.get("STREAMING_POD_API_KEY", "")
 
 METADATA_INDEX = Path("/data/metadata/index.json")
+STATION_CONFIG_PATH = Path("/data/metadata/station.json")
+NOW_PLAYING_PATH = Path("/data/metadata/now_playing.json")
 ID3_TRIGGER = Path("/data/id3_trigger")
 CONFIG_POLL_INTERVAL = 60
 
@@ -40,10 +52,20 @@ CONFIG_POLL_INTERVAL = 60
 _config = None
 _config_version = 0
 _last_song_raw = ""
+# (raw, started_at, song_id) of the song instance now_playing.json holds.
+_now_playing_key = None
 
 
 def _parse_graphql_response(status: int, raw: bytes) -> dict:
     """Parse a GraphQL HTTP response body into its ``data`` payload.
+
+    See _parse_graphql_body(); this drops the errors.
+    """
+    return _parse_graphql_body(status, raw)[0]
+
+
+def _parse_graphql_body(status: int, raw: bytes) -> tuple[dict, list]:
+    """Parse a GraphQL HTTP response body into ``(data, errors)``.
 
     Returns ``{}`` (instead of raising) when the upstream returns a non-2xx
     status or a body that isn't valid JSON. Django behind nginx can answer with
@@ -54,9 +76,9 @@ def _parse_graphql_response(status: int, raw: bytes) -> dict:
     """
     if status >= 400:
         print(f"scraper: graphql HTTP {status}: {raw[:200]!r}", flush=True)
-        return {}
+        return {}, []
     if not raw or not raw.strip():
-        return {}
+        return {}, []
     try:
         data = json.loads(raw)
     except (json.JSONDecodeError, ValueError):
@@ -64,16 +86,22 @@ def _parse_graphql_response(status: int, raw: bytes) -> dict:
             f"scraper: graphql non-JSON response (HTTP {status}): {raw[:200]!r}",
             flush=True,
         )
-        return {}
+        return {}, []
     if not isinstance(data, dict):
-        return {}
+        return {}, []
+    errors = data.get("errors")
     # GraphQL returns {"data": null, "errors": [...]} on failure — `or {}` lets
     # callers always do data.get(...) without a guard.
-    return data.get("data") or {}
+    return data.get("data") or {}, errors if isinstance(errors, list) else []
 
 
 def _graphql_request(query: str, variables: dict = None) -> dict:
     """Execute a GraphQL query/mutation against Django."""
+    return _graphql_call(query, variables)[0]
+
+
+def _graphql_call(query: str, variables: dict = None) -> tuple[dict, list]:
+    """Execute a GraphQL query/mutation; ``(data, errors)``."""
     parsed = urlparse(DJANGO_GRAPHQL_URL)
     body = json.dumps({"query": query, "variables": variables or {}}).encode()
     headers = {
@@ -103,11 +131,11 @@ def _graphql_request(query: str, variables: dict = None) -> dict:
             resp = conn.getresponse()
         raw = resp.read()
         conn.close()
-        return _parse_graphql_response(resp.status, raw)
+        return _parse_graphql_body(resp.status, raw)
     except Exception as e:
         print(f"scraper: graphql error: {e}", flush=True)
         posthog_reporter.capture_exception(e, context={"component": "scraper_engine.graphql"})
-        return {}
+        return {}, []
 
 
 def _fetch_config() -> dict:
@@ -142,25 +170,52 @@ def _fetch_config() -> dict:
     return {}
 
 
-def _report_metadata(song_title, song_artist, thumbnail_url=None, listeners=None,
-                     raw_title="", timestamp_source="scraper",
-                     id3_ts=None, scraper_ts=None, dirty=True):
-    """Report scraped metadata back to Django."""
-    query = """
-    mutation ($input: ReportStationMetadataInput!) {
-        report_station_metadata(input: $input) {
-            ... on ReportStationMetadataResponse {
+# The song as Django stored it, for the playlist hint. Requested only while
+# Django knows the fields: a pod may start before the Django release that
+# adds them, and an unknown field fails the whole mutation at validation
+# (nothing executes).
+_REPORT_FIELDS = """
                 success
                 message
                 song_id
-                thumbnail_url
-            }
-            ... on OperationInfo {
-                messages { message kind field }
-            }
-        }
-    }
+                thumbnail_url"""
+_REPORT_SONG_FIELDS = """
+                song_title
+                song_artist
+                song_artist_id
+                song_thumbnail_url
+                history_timestamp"""
+# After Django rejected them, ask again this much later (Django may have
+# been deployed meanwhile; the pod is not restarted for that).
+SONG_FIELDS_RETRY_INTERVAL = 3600
+_song_fields_retry_at = 0.0
+
+
+def _report_mutation(song_fields: bool) -> str:
+    fields = _REPORT_FIELDS + (_REPORT_SONG_FIELDS if song_fields else "")
+    return f"""
+    mutation ($input: ReportStationMetadataInput!) {{
+        report_station_metadata(input: $input) {{
+            ... on ReportStationMetadataResponse {{{fields}
+            }}
+            ... on OperationInfo {{
+                messages {{ message kind field }}
+            }}
+        }}
+    }}
     """
+
+
+def _unknown_field_error(errors: list) -> bool:
+    return any("Cannot query field" in str(e.get("message", ""))
+               for e in errors if isinstance(e, dict))
+
+
+def _report_metadata(song_title, song_artist, thumbnail_url=None, listeners=None,
+                     raw_title="", timestamp_source="scraper",
+                     id3_ts=None, scraper_ts=None, dirty=True):
+    """Report scraped metadata back to Django; the response dict."""
+    global _song_fields_retry_at
     variables = {
         "input": {
             "station_slug": STATION_SLUG,
@@ -175,42 +230,77 @@ def _report_metadata(song_title, song_artist, thumbnail_url=None, listeners=None
             "dirty_metadata": dirty,
         }
     }
-    data = _graphql_request(query, variables)
-    result = data.get("report_station_metadata", {})
-
-    # Update local metadata index with song_id and thumbnail from Django
-    if result.get("success"):
-        _update_local_metadata(
-            song_id=result.get("song_id"),
-            thumbnail_url=result.get("thumbnail_url"),
-            station_id=_config.get("station_id") if _config else None,
-        )
-
-    return result
+    song_fields = time.time() >= _song_fields_retry_at
+    data, errors = _graphql_call(_report_mutation(song_fields), variables)
+    if not data and song_fields and _unknown_field_error(errors):
+        print("scraper: Django predates the song fields of "
+              "ReportStationMetadataResponse; reporting without them",
+              flush=True)
+        _song_fields_retry_at = time.time() + SONG_FIELDS_RETRY_INTERVAL
+        data, errors = _graphql_call(_report_mutation(False), variables)
+    return data.get("report_station_metadata") or {}
 
 
-def _update_local_metadata(song_id=None, thumbnail_url=None, station_id=None):
-    """Update the local index.json with song_id and thumbnail from Django response."""
+def _write_json_atomic(path: Path, data) -> None:
+    """tmp + os.replace: readers never see a partial file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    with open(tmp, "w") as f:
+        json.dump(data, f)
+    os.replace(tmp, path)
+
+
+def _write_station_config(config: dict) -> None:
+    """Hand metadata_monitor the config it needs to date songs: it subtracts
+    id3_metadata_delay_offset from every ICY detection."""
     try:
-        with open(METADATA_INDEX, "r") as f:
-            data = json.load(f)
-        changed = False
-        cur = data.get("current", {})
-        if song_id and cur:
-            cur["song_id"] = song_id
-            changed = True
-        if thumbnail_url and cur:
-            cur["thumbnail_url"] = thumbnail_url
-            changed = True
-        if station_id and cur:
-            cur["station_id"] = station_id
-            changed = True
-        if changed:
-            data["current"] = cur
-            with open(METADATA_INDEX, "w") as f:
-                json.dump(data, f, indent=1)
-    except (FileNotFoundError, json.JSONDecodeError):
-        pass
+        _write_json_atomic(STATION_CONFIG_PATH, {
+            "id3_metadata_delay_offset":
+                float(config.get("id3_metadata_delay_offset") or 0),
+            "config_version": config.get("config_version", 0),
+        })
+    except (OSError, TypeError, ValueError) as e:
+        print(f"scraper: station.json write error: {e}", flush=True)
+
+
+def _remember_report(icy, response: dict, now: float) -> None:
+    """Publish the accepted song for the playlist hints, or withdraw them.
+
+    `icy` is the ICY song instance (index.json `current`) that dated the
+    report, or None when it was dated otherwise: then the reported song is
+    not known to be the song that started at the playlist's EPOCH, and any
+    previous hint is removed. Only the song as Django returned it is
+    written, so the hint equals what the API serves.
+    """
+    global _now_playing_key
+    song_id = response.get("song_id")
+    if icy is None or not song_id:
+        _now_playing_key = None
+        try:
+            NOW_PLAYING_PATH.unlink()
+        except FileNotFoundError:
+            pass
+        except OSError as e:
+            print(f"scraper: now_playing.json remove error: {e}", flush=True)
+        return
+    key = (icy.raw, icy.started_at, song_id)
+    if key == _now_playing_key:
+        return
+    try:
+        _write_json_atomic(NOW_PLAYING_PATH, {
+            "raw": icy.raw,
+            "started_at": icy.started_at,
+            "title": response.get("song_title"),
+            "artist": response.get("song_artist"),
+            "song_id": song_id,
+            "song_artist_id": response.get("song_artist_id"),
+            "song_thumbnail_url": response.get("song_thumbnail_url"),
+            "history_timestamp": response.get("history_timestamp"),
+            "reported_at": now,
+        })
+        _now_playing_key = key
+    except OSError as e:
+        print(f"scraper: now_playing.json write error: {e}", flush=True)
 
 
 def _http_get(url: str, timeout: int = 5) -> str:
@@ -415,8 +505,9 @@ def _run_scrapers(scrapers_config: list) -> dict:
         # Some upstream APIs (e.g. Shoutcast servers populating `songtitle`
         # with a numeric song-id, Icecast variants with int `title` fields)
         # return non-string values. Coerce once at the boundary so every
-        # downstream string operation is safe.
-        raw_title = str(raw_result["raw_title"]).strip()
+        # downstream string operation is safe; placeholders ("-", "N/A")
+        # and ffmpeg/decoder messages are not titles at all.
+        raw_title = song_titles.clean_title(raw_result["raw_title"])
         if not raw_title:
             continue
 
@@ -457,28 +548,159 @@ def _check_trigger(trigger_path: Path) -> str:
         return ""
 
 
-def _get_id3_song() -> str:
-    """Read current song from metadata_monitor's index.json."""
-    try:
-        with open(METADATA_INDEX, "r") as f:
-            data = json.load(f)
-        return data.get("current", {}).get("raw", "")
-    except (FileNotFoundError, json.JSONDecodeError):
-        return ""
+@dataclass(frozen=True)
+class IcySong:
+    """metadata_monitor's current song: its raw ICY title and wall-clock
+    start (offset-corrected)."""
+
+    raw: str
+    started_at: float
 
 
-def _get_id3_started_at() -> float:
-    """Read the stream-accurate started_at epoch from metadata_monitor."""
+def _get_icy_current() -> IcySong | None:
+    """The current song of index.json, read once so title and start belong
+    to the same song instance."""
     try:
         with open(METADATA_INDEX, "r") as f:
-            data = json.load(f)
-        return data.get("current", {}).get("started_at", 0)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return 0
+            current = json.load(f).get("current") or {}
+    except (FileNotFoundError, json.JSONDecodeError, AttributeError):
+        return None
+    raw = current.get("raw") or ""
+    if not raw:
+        return None
+    try:
+        started_at = float(current.get("started_at") or 0)
+    except (TypeError, ValueError):
+        started_at = 0.0
+    return IcySong(raw, started_at)
+
+
+@dataclass(frozen=True)
+class Dating:
+    """The timestamp of one scraper-mode report and where it came from.
+
+    `icy` is the ICY song instance whose start dates the reported song, or
+    None when the song is dated by the scrape. `scrape_dated_change` marks a
+    song change dated by the scrape although an earlier change exists to
+    compare with (the rate is reported to PostHog).
+    """
+
+    timestamp: float
+    song_changed: bool
+    icy: IcySong | None
+    scrape_dated_change: bool = False
+
+
+class ReportClock:
+    """Dates scraper-mode reports.
+
+    A song change is dated by the ICY start whenever ICY changed since the
+    last reported song change, even when the scraped title differs from the
+    ICY title (sources format the same song differently, and a scrape can
+    lag the stream by a whole interval): the API row then lands at the
+    playlist's EPOCH instead of up to one scrape interval later. Only when
+    ICY did not change (a static or missing ICY title) is the song dated by
+    the scrape that first saw it. An unchanged song resends the timestamp of
+    its change; Django dates listener-count updates itself.
+
+    The first report has nothing to compare ICY with and is dated by the
+    scrape.
+    """
+
+    def __init__(self):
+        self._raw: str | None = None
+        self._dating: Dating | None = None
+        self._icy_seen: IcySong | None = None
+
+    def date(self, raw_title: str, icy: IcySong | None,
+             now: float) -> Dating:
+        if self._dating is not None and raw_title == self._raw:
+            return Dating(self._dating.timestamp, False, self._dating.icy)
+        first = self._dating is None
+        icy_changed = (not first and icy is not None and icy.started_at > 0
+                       and icy != self._icy_seen)
+        if icy_changed:
+            dating = Dating(icy.started_at, True, icy)
+        else:
+            dating = Dating(now, True, None, scrape_dated_change=not first)
+        self._raw, self._dating, self._icy_seen = raw_title, dating, icy
+        return dating
+
+
+def _iso(epoch: float) -> str:
+    return datetime.fromtimestamp(epoch, tz=timezone.utc).isoformat()
+
+
+def _icy_result(raw: str) -> dict:
+    """A report built from the ICY title alone (no scraper answered)."""
+    artist, title = "", raw
+    if " - " in raw:
+        artist, title = (part.strip() for part in raw.split(" - ", 1))
+    return {"title": title, "artist": artist, "raw_title": raw, "dirty": True}
+
+
+def _send_report(result: dict, timestamp_source: str, id3_ts=None,
+                 scraper_ts=None) -> dict:
+    response = _report_metadata(
+        song_title=result.get("title"),
+        song_artist=result.get("artist"),
+        thumbnail_url=result.get("thumbnail_url"),
+        listeners=result.get("listeners"),
+        raw_title=result.get("raw_title", ""),
+        timestamp_source=timestamp_source,
+        id3_ts=id3_ts,
+        scraper_ts=scraper_ts,
+        dirty=result.get("dirty", True),
+    )
+    if response.get("success"):
+        print(f"scraper: reported '{result.get('artist', '')} - "
+              f"{result.get('title', '')}'", flush=True)
+    return response
+
+
+def _report_icy_change(icy: IcySong, now: float) -> None:
+    """id3_metadata mode: ICY announced a new song. It is dated by its ICY
+    start, which metadata_monitor already corrected by the delay offset."""
+    result = _run_scrapers(_config.get("scrapers", [])) or _icy_result(icy.raw)
+    if icy.started_at > 0:
+        epoch = icy.started_at
+    else:  # no ICY start known: the detection is now
+        epoch = now - float(_config.get("id3_metadata_delay_offset") or 0)
+    response = _send_report(result, "id3_metadata", id3_ts=_iso(epoch))
+    if response.get("success"):
+        _remember_report(icy if icy.started_at > 0 else None, response, now)
+
+
+def _scrape_and_report(clock: ReportClock, timestamp_source: str,
+                       now: float) -> None:
+    """Scraper mode: one periodic scrape and its report."""
+    icy = _get_icy_current()
+    result = _run_scrapers(_config.get("scrapers", []))
+    if not result and icy is not None:
+        result = _icy_result(icy.raw)
+    if not result:
+        return
+    dating = clock.date(result["raw_title"], icy, now)
+    if dating.scrape_dated_change:
+        posthog_reporter.capture_event("scrape_dated_song_change", {
+            "timestamp_source": timestamp_source,
+            "icy_known": icy is not None and icy.started_at > 0,
+        })
+    response = _send_report(result, timestamp_source,
+                            scraper_ts=_iso(dating.timestamp))
+    if response.get("success"):
+        _remember_report(dating.icy, response, now)
+
+
+def _load_config(config: dict) -> None:
+    global _config, _config_version
+    _config = config
+    _config_version = config.get("config_version", 0)
+    _write_station_config(config)
 
 
 def main():
-    global _config, _config_version, _last_song_raw
+    global _last_song_raw
 
     if not STATION_SLUG:
         print("scraper: STATION_SLUG not set, exiting", flush=True)
@@ -488,12 +710,12 @@ def main():
 
     # Wait for Django to be available
     while not _config:
-        _config = _fetch_config()
-        if not _config:
+        config = _fetch_config()
+        if not config:
             print("scraper: waiting for Django config...", flush=True)
             time.sleep(10)
             continue
-        _config_version = _config.get("config_version", 0)
+        _load_config(config)
         print(f"scraper: loaded config v{_config_version}, "
               f"source={_config.get('metadata_timestamp_source')}, "
               f"interval={_config.get('metadata_scrape_interval')}s, "
@@ -503,6 +725,7 @@ def main():
     last_config_check = time.time()
     ts_source = _config.get("metadata_timestamp_source", "scraper")
     interval = _config.get("metadata_scrape_interval", 30)
+    clock = ReportClock()
 
     while True:
         now = time.time()
@@ -511,86 +734,23 @@ def main():
         if now - last_config_check > CONFIG_POLL_INTERVAL:
             new_config = _fetch_config()
             if new_config and new_config.get("config_version", 0) > _config_version:
-                _config = new_config
-                _config_version = new_config["config_version"]
+                _load_config(new_config)
                 ts_source = _config.get("metadata_timestamp_source", "scraper")
                 interval = _config.get("metadata_scrape_interval", 30)
                 print(f"scraper: config updated to v{_config_version}", flush=True)
             last_config_check = now
 
-        should_scrape = False
-        id3_ts = None
-        scraper_ts = None
-
         if ts_source == "id3_metadata":
-            current_raw = _get_id3_song()
-            if current_raw and current_raw != _last_song_raw:
-                _last_song_raw = current_raw
-                should_scrape = True
-                # Use stream-accurate timestamp from metadata_monitor
-                stream_epoch = _get_id3_started_at()
-                if stream_epoch > 0:
-                    offset = _config.get("id3_metadata_delay_offset", 0)
-                    id3_epoch = stream_epoch - offset
-                else:
-                    offset = _config.get("id3_metadata_delay_offset", 0)
-                    id3_epoch = now - offset
-                from datetime import datetime, timezone as dt_tz
-                id3_ts = datetime.fromtimestamp(id3_epoch, tz=dt_tz.utc).isoformat()
-                print(f"scraper: id3 trigger: {current_raw}", flush=True)
-
+            icy = _get_icy_current()
+            if icy is not None and icy.raw != _last_song_raw:
+                _last_song_raw = icy.raw
+                print(f"scraper: id3 trigger: {icy.raw}", flush=True)
+                _report_icy_change(icy, now)
+            time.sleep(2)  # Poll id3 changes
         else:  # scraper (periodic) — also catches any unknown/legacy ts_source
             if now - last_scrape_time >= interval:
-                should_scrape = True
-                from datetime import datetime, timezone as dt_tz
-                # Use the stream-accurate timestamp from metadata_monitor
-                # if available (when FFmpeg ICY metadata detected the song)
-                stream_epoch = _get_id3_started_at()
-                if stream_epoch > 0:
-                    scraper_ts = datetime.fromtimestamp(stream_epoch, tz=dt_tz.utc).isoformat()
-                else:
-                    scraper_ts = datetime.fromtimestamp(now, tz=dt_tz.utc).isoformat()
-
-        if should_scrape:
-            scrapers = _config.get("scrapers", [])
-            result = _run_scrapers(scrapers)
-
-            # Fallback: if external scrapers returned nothing, use ICY metadata
-            if not result:
-                icy_song = _get_id3_song()
-                if icy_song:
-                    artist, title = "", icy_song
-                    if " - " in icy_song:
-                        parts = icy_song.split(" - ", 1)
-                        artist, title = parts[0].strip(), parts[1].strip()
-                    result = {
-                        "title": title,
-                        "artist": artist,
-                        "raw_title": icy_song,
-                        "dirty": True,
-                    }
-
-            if result:
-                resp = _report_metadata(
-                    song_title=result.get("title"),
-                    song_artist=result.get("artist"),
-                    thumbnail_url=result.get("thumbnail_url"),
-                    listeners=result.get("listeners"),
-                    raw_title=result.get("raw_title", ""),
-                    timestamp_source=ts_source,
-                    id3_ts=id3_ts,
-                    scraper_ts=scraper_ts,
-                    dirty=result.get("dirty", True),
-                )
-                if resp.get("success"):
-                    print(f"scraper: reported '{result.get('artist', '')} - {result.get('title', '')}'", flush=True)
-
-            last_scrape_time = now
-
-        # Sleep interval depends on timestamp source
-        if ts_source == "id3_metadata":
-            time.sleep(2)  # Poll id3 changes
-        else:
+                _scrape_and_report(clock, ts_source, now)
+                last_scrape_time = now
             time.sleep(min(interval, 5))  # Don't sleep longer than 5s for responsiveness
 
 

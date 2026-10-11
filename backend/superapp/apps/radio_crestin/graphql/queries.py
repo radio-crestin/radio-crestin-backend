@@ -17,7 +17,14 @@ from .types import (
 from ..models import Stations, StationGroups, StationStreams, StationPlaylistItems, Posts, StationToStationGroup, Artists, Songs
 from ..models import StationsNowPlayingHistory
 from ..services import AutocompleteService
-from ..utils.cdn_proxy import proxy_image_url
+from ..utils.cdn_proxy import metadata_song_thumbnail_url, proxy_image_url
+
+
+# How far a changes_from_timestamp diff looks back: a row is dated at most
+# METADATA_BACKDATE_LIMIT (45 s, services/history_timeline.py) before it is
+# written and T is at most 2 s in the future, so a row a client's previous
+# diff (C', T'=C] missed is dated after C - 47 s. 60 s adds margin.
+CHANGES_LOOKBACK_SECONDS = 60
 
 
 @strawberry.input
@@ -31,6 +38,9 @@ def _latest_history_per_station(station_ids, as_of_dt):
 
     This is O(n_stations) via index seeks on idx_snph_station_ts,
     instead of O(n_history_rows) with DISTINCT ON or correlated subqueries.
+    Rows sharing a timestamp (written before history_timeline kept
+    timestamps strictly increasing) resolve to the newest insert, so the
+    answer is deterministic.
     Returns a dict {station_id: StationsNowPlayingHistory}.
     """
     if not station_ids:
@@ -45,7 +55,7 @@ def _latest_history_per_station(station_ids, as_of_dt):
             FROM stations_now_playing_history snph
             WHERE snph.station_id = sid.station_id
               AND snph.timestamp <= %s
-            ORDER BY snph.timestamp DESC
+            ORDER BY snph.timestamp DESC, snph.id DESC
             LIMIT 1
         ) h
     """
@@ -78,13 +88,13 @@ def _stations_base_queryset():
         # Prefetch station streams ordered by order field
         Prefetch(
             'station_streams',
-            queryset=StationStreams.objects.order_by('order', 'id')
+            queryset=StationStreams.objects.filter(enabled=True).order_by('order', 'id')
         ),
         # Prefetch managed playlist items NEWEST-FIRST (highest
         # playlist_item_order, ties by highest id): apps display the newest
         # item at the top and start playback with it.
-        # Unlike station_streams (not enabled-filtered here), we exclude
-        # disabled items so clients never receive an item an editor turned off.
+        # Like station_streams, disabled items are excluded so clients never
+        # receive an item an editor turned off.
         Prefetch(
             'playlist_items',
             queryset=StationPlaylistItems.objects.filter(enabled=True).order_by('-playlist_item_order', '-id')
@@ -365,7 +375,10 @@ class Query:
                 'latest_station_now_playing__song',
                 'latest_station_now_playing__song__artist'
             ).prefetch_related(
-                'station_streams',
+                Prefetch(
+                    'station_streams',
+                    queryset=StationStreams.objects.filter(enabled=True).order_by('order', 'id'),
+                ),
                 # Exclude disabled playlist items so they never reach clients.
                 Prefetch(
                     'playlist_items',
@@ -572,7 +585,7 @@ class Query:
             return StationMetadataSongType(
                 id=song.id,
                 name=song.name,
-                thumbnail_url=proxy_image_url(song.thumbnail_url, width=250, format="webp") if hasattr(song, 'thumbnail_url') else None,
+                thumbnail_url=metadata_song_thumbnail_url(song.thumbnail_url) if hasattr(song, 'thumbnail_url') else None,
                 artist=artist,
             )
 
@@ -603,9 +616,11 @@ class Query:
 
             now_playing = None
             if np_override is not None:
-                # Use historical record
+                # Use historical record. Its song start, not the row's own
+                # timestamp: a listener-count row is dated when the count
+                # changed, but now_playing.timestamp means "song started".
                 now_playing = StationMetadataNowPlayingType(
-                    timestamp=np_override.timestamp.isoformat(),
+                    timestamp=np_override.song_start.isoformat(),
                     listeners=_combined_listeners(np_override.listeners),
                     song=_build_song_type(np_override.song),
                 )
@@ -634,11 +649,16 @@ class Query:
         if exclude_station_slugs:
             station_exclude['slug__in'] = exclude_station_slugs
 
-        # Mode 1: changes_from_timestamp — only return stations with changes
+        # Mode 1: changes_from_timestamp — only return stations with changes.
+        # A song-change row is dated by the song start and written up to
+        # METADATA_BACKDATE_LIMIT later, so it can land inside a window a
+        # client already fetched. Looking back CHANGES_LOOKBACK_SECONDS makes
+        # every such row show up in the client's next diff; clients merge
+        # full station objects, so repeating an unchanged station is harmless.
         if changes_from_timestamp is not None:
             changes_from_dt = datetime.fromtimestamp(
                 changes_from_timestamp, tz=dt_tz.utc
-            )
+            ) - timedelta(seconds=CHANGES_LOOKBACK_SECONDS)
 
             # Query 1: index-only scan on idx_snph_ts_station
             changed_ids = set(
@@ -787,12 +807,21 @@ class Query:
                 station=station,
                 timestamp__gte=from_dt,
                 timestamp__lte=to_dt,
-            ).select_related('song', 'song__artist').order_by('timestamp')
+            ).select_related('song', 'song__artist').order_by('timestamp', 'id')
         )
 
-        # Deduplicate: keep only entries where song changed from the previous entry
+        # Deduplicate: keep only entries where song changed from the previous
+        # entry. Query 3 seeds the comparison with the song playing when the
+        # range begins, so a song that continues into the range (its
+        # listener-count rows) is never reported as starting inside it.
         deduplicated = []
-        prev_song_id = None
+        prev_song_id = (
+            StationsNowPlayingHistory.objects.filter(
+                station=station, timestamp__lt=from_dt,
+            ).order_by('-timestamp', '-id')
+            .values_list('song_id', flat=True)
+            .first()
+        )
         for r in records:
             current_song_id = r.song_id
             if current_song_id != prev_song_id:
@@ -812,13 +841,13 @@ class Query:
             return StationMetadataSongType(
                 id=song.id,
                 name=song.name,
-                thumbnail_url=proxy_image_url(song.thumbnail_url, width=250, format="webp") if hasattr(song, 'thumbnail_url') else None,
+                thumbnail_url=metadata_song_thumbnail_url(song.thumbnail_url) if hasattr(song, 'thumbnail_url') else None,
                 artist=artist,
             )
 
         history = [
             StationMetadataHistoryEntryType(
-                timestamp=r.timestamp.isoformat(),
+                timestamp=r.song_start.isoformat(),
                 listeners=r.listeners,
                 song=_build_song(r.song),
             )
