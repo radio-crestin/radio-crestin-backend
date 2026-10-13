@@ -1,5 +1,6 @@
 from .artists import Artists
 from .songs import Songs
+from .song_thumbnail_checks import SongThumbnailChecks
 from .station_groups import StationGroups
 from .station_metadata_fetch_categories import StationMetadataFetchCategories
 from .station_to_station_group import StationToStationGroup
@@ -20,6 +21,7 @@ from .session_recording import SessionRecordingConfig, SessionRecordingOverride
 __all__ = [
     'Artists',
     'Songs',
+    'SongThumbnailChecks',
     'StationGroups',
     'StationMetadataFetchCategories',
     'StationToStationGroup',

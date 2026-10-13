@@ -21,6 +21,7 @@ from .helpers import (
 )
 
 POD_KEY = 'test-pod-key'
+ARIPI_LOGO = 'https://pictures.aripisprecer.ro/general/na.png'
 REPORT_MUTATION = '''
 mutation Report($input: ReportStationMetadataInput!) {
   report_station_metadata(input: $input) {
@@ -45,6 +46,27 @@ class PodReportCleaningTests(TestCase):
         self.assertIsNone(result['song_artist'])
         self.assertFalse(
             Songs.objects.filter(name__icontains='ChannelElement').exists())
+
+    def test_station_logo_is_not_shown_for_another_station(self):
+        """A song is shared by the stations playing it: a logo stored on
+        it showed Aripi Spre Cer's logo for Radio Armonia's song."""
+        make_station('aripi-spre-cer')
+        report('aripi-spre-cer', 'Tu ma inalti', artist='Continental',
+               thumbnail_url=ARIPI_LOGO)
+        result = report('garbage-station', 'Tu ma inalti',
+                        artist='Continental')
+        self.assertIsNone(Songs.objects.get(id=result['song_id']).thumbnail_url)
+        self.assertIsNone(result['song_thumbnail_url'])
+        self.assertIsNone(result['thumbnail_url'])
+
+    def test_station_logo_does_not_replace_a_cover(self):
+        cover = 'https://pictures.aripisprecer.ro/general/az_42798_Diana.png'
+        report('garbage-station', 'Cover Song', thumbnail_url=cover)
+        result = report('garbage-station', 'Cover Song',
+                        thumbnail_url=ARIPI_LOGO)
+        self.assertEqual(
+            Songs.objects.get(id=result['song_id']).thumbnail_url, cover)
+        self.assertEqual(result['thumbnail_url'], cover)
 
     def test_report_returns_what_was_stored(self):
         started = timezone.now() - timedelta(seconds=4)

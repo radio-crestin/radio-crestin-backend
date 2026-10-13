@@ -6,9 +6,11 @@ Radio Crestin Celery tasks.
 from .delete_stale_listening_sessions import delete_stale_listening_sessions
 from .delete_old_anonymous_users import delete_old_anonymous_users
 from .delete_old_now_playing_history import delete_old_now_playing_history
+from .check_song_thumbnail import check_song_thumbnail
 
 __all__ = [
     'delete_stale_listening_sessions',
     'delete_old_anonymous_users',
     'delete_old_now_playing_history',
+    'check_song_thumbnail',
 ]

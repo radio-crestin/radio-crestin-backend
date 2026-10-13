@@ -9,6 +9,9 @@ from superapp.apps.radio_crestin.services.history_timeline import (
     place_report,
 )
 from superapp.apps.radio_crestin.services.song_text import clean_song_text
+from superapp.apps.radio_crestin.services.song_thumbnail import (
+    check_song_thumbnail_later, screen_song_thumbnail_url,
+)
 from superapp.apps.radio_crestin.models import (
     Stations, StationsNowPlaying, StationsNowPlayingHistory,
     Songs, Artists,
@@ -44,6 +47,7 @@ class PodMetadataService:
         if input.song_title and song_title is None:
             logger.warning("Ignoring non-title %r reported for %s",
                            input.song_title, input.station_slug)
+        song_thumbnail_url = screen_song_thumbnail_url(input.thumbnail_url)
 
         # Upsert artist
         artist = None
@@ -59,13 +63,14 @@ class PodMetadataService:
             song_defaults = {
                 'dirty_metadata': input.dirty_metadata,
             }
-            if input.thumbnail_url:
-                song_defaults['thumbnail_url'] = input.thumbnail_url
+            if song_thumbnail_url:
+                song_defaults['thumbnail_url'] = song_thumbnail_url
             song, _ = Songs.objects.update_or_create(
                 name=song_title,
                 artist=artist,
                 defaults=song_defaults,
             )
+            check_song_thumbnail_later(song.thumbnail_url)
 
         now = timezone.now()
         id3_ts = _parse_iso_timestamp(input.id3_timestamp)
@@ -83,7 +88,7 @@ class PodMetadataService:
         stamp = placed.history
 
         # Resolve thumbnail: prefer input, fallback to song's stored thumbnail
-        thumbnail_url = input.thumbnail_url
+        thumbnail_url = song_thumbnail_url
         if not thumbnail_url and song and song.thumbnail_url:
             thumbnail_url = song.thumbnail_url
 
