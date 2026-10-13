@@ -1,0 +1,26 @@
+{
+  "id": "b2b3c24b-ec3d-4c80-a2ab-38e4f856b1ec",
+  "projectId": "radio-crestin-backend",
+  "nodeId": "iosif-laptop-local-ce27e3",
+  "runner": "host",
+  "kind": "coordinator",
+  "managerId": "p-radio-crestin-backend",
+  "state": "idle",
+  "title": "radio-crestin-backend manager",
+  "cwd": "/Users/iosif/Documents/Projects/radio-crestin-backend",
+  "startedAt": "2026-10-13T13:44:11.520Z",
+  "ports": [],
+  "previews": [],
+  "claudeAccount": {
+    "id": "_-ujeuRK227sDeFb",
+    "since": "2026-10-13T13:44:11.532Z"
+  },
+  "model": "claude-opus-5-5",
+  "effort": "medium",
+  "resumeCommand": "cd /Users/iosif/Documents/Projects/radio-crestin-backend && claude --resume b2b3c24b-ec3d-4c80-a2ab-38e4f856b1ec",
+  "costUsd": 0.6658652,
+  "context": {
+    "tokens": 42778,
+    "window": 1000000
+  }
+}
