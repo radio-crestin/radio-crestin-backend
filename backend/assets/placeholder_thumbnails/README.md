@@ -16,4 +16,5 @@ re-saved or resized copy: only identical bytes match.
 | `aripisprecer_music_note.jpg` | Aripi Spre Cer, generic music note |
 | `crestinaudio.png` | CrestinAudio.ro logo, via Aripi Spre Cer |
 | `radio_de_cuvant_radio_co.png` | radio.co station logo of Radio de Cuvânt |
+| `radio_de_cuvant_cuvantul.png` | Radio de Cuvânt "Cuvântul" image, under a radio.co URL per sermon |
 | `radiofiladelfia_no_cover.jpg` | Radio Filadelfia, `no_cover_image.jpg` |
