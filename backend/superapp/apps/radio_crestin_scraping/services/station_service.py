@@ -14,6 +14,9 @@ from superapp.apps.radio_crestin.services.history_timeline import (
     place_report,
 )
 from superapp.apps.radio_crestin.services.song_text import clean_song_text
+from superapp.apps.radio_crestin.services.song_thumbnail import (
+    clean_song_thumbnail_url,
+)
 from ..utils.data_types import (
     StationNowPlayingData,
     StationRssFeedData, SongData
@@ -187,14 +190,17 @@ class StationService:
 
     @staticmethod
     def _clean_song(song_data: Optional[SongData], station_id: int) -> Optional[SongData]:
-        """`song_data` without names that are not song text (song_text.py)."""
+        """`song_data` without names that are not song text (song_text.py)
+        and without a station logo as its thumbnail (song_thumbnail.py)."""
         if song_data is None:
             return None
         name = clean_song_text(song_data.name)
         if song_data.name and name is None:
             logger.warning("Ignoring non-title %r scraped for station %s",
                            song_data.name, station_id)
-        return replace(song_data, name=name, artist=clean_song_text(song_data.artist))
+        return replace(
+            song_data, name=name, artist=clean_song_text(song_data.artist),
+            thumbnail_url=clean_song_thumbnail_url(song_data.thumbnail_url))
 
     @staticmethod
     def _upsert_song(song_data: SongData, dirty_metadata: bool = True) -> Optional[Songs]:

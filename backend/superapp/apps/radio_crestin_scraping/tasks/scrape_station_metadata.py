@@ -8,6 +8,10 @@ from celery import shared_task
 from django.utils import timezone
 from django.conf import settings
 
+from superapp.apps.radio_crestin.services.song_thumbnail import (
+    is_placeholder_song_thumbnail,
+)
+
 from ..scrapers.factory import ScraperFactory
 from ..services.station_service import StationService
 from .utils import run_scraper, merge_metadata_results
@@ -198,8 +202,9 @@ def scrape_station_metadata(station_id: int) -> Dict[str, Any]:
 
                     # Validate thumbnail_value and clean up invalid aripisprecer.ro thumbnails
                     if thumbnail_value:
-                        # Check for na.png from aripisprecer.ro
-                        if 'na.png' in thumbnail_value and 'aripisprecer.ro' in thumbnail_value:
+                        # A station logo sent in place of a cover; checked
+                        # here so it is not downloaded for the hash below.
+                        if is_placeholder_song_thumbnail(thumbnail_value):
                             thumbnail_value = ''
                         # Check if thumbnail is the same as reference colinde thumbnail by comparing image hashes
                         elif 'aripisprecer.ro' in thumbnail_value:
