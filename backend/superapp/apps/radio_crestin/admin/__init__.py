@@ -6,6 +6,7 @@ from .reviews import ReviewsAdmin
 from .session_recording import SessionRecordingConfigAdmin, SessionRecordingOverrideAdmin
 from .share_links import ShareLinkAdmin, ShareLinkVisitAdmin
 from .songs import SongsAdmin
+from .song_thumbnail_checks import SongThumbnailChecksAdmin
 from .station_groups import StationGroupsAdmin
 from .station_metadata_fetch_categories import StationMetadataFetchCategoriesAdmin
 from .station_playlist_items import StationPlaylistItemsAdmin
@@ -28,6 +29,7 @@ __all__ = [
     'ShareLinkAdmin',
     'ShareLinkVisitAdmin',
     'SongsAdmin',
+    'SongThumbnailChecksAdmin',
     'StationGroupsAdmin',
     'StationMetadataFetchCategoriesAdmin',
     'StationPlaylistItemsAdmin',

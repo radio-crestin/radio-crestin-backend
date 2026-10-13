@@ -15,7 +15,7 @@ from superapp.apps.radio_crestin.services.history_timeline import (
 )
 from superapp.apps.radio_crestin.services.song_text import clean_song_text
 from superapp.apps.radio_crestin.services.song_thumbnail import (
-    clean_song_thumbnail_url,
+    check_song_thumbnail_later, screen_song_thumbnail_url,
 )
 from ..utils.data_types import (
     StationNowPlayingData,
@@ -77,6 +77,8 @@ class StationService:
             current_song = StationService._clean_song(data.current_song, station_id)
             if current_song and (current_song.name or current_song.artist):
                 song = StationService._upsert_song(current_song, dirty_metadata)
+                if song:
+                    check_song_thumbnail_later(song.thumbnail_url)
 
             # Capture previous state before update (1 indexed single-row SELECT)
             previous = StationsNowPlaying.objects.filter(
@@ -200,7 +202,7 @@ class StationService:
                            song_data.name, station_id)
         return replace(
             song_data, name=name, artist=clean_song_text(song_data.artist),
-            thumbnail_url=clean_song_thumbnail_url(song_data.thumbnail_url))
+            thumbnail_url=screen_song_thumbnail_url(song_data.thumbnail_url))
 
     @staticmethod
     def _upsert_song(song_data: SongData, dirty_metadata: bool = True) -> Optional[Songs]:

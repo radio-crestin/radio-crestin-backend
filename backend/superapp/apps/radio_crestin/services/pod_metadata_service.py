@@ -10,7 +10,7 @@ from superapp.apps.radio_crestin.services.history_timeline import (
 )
 from superapp.apps.radio_crestin.services.song_text import clean_song_text
 from superapp.apps.radio_crestin.services.song_thumbnail import (
-    clean_song_thumbnail_url,
+    check_song_thumbnail_later, screen_song_thumbnail_url,
 )
 from superapp.apps.radio_crestin.models import (
     Stations, StationsNowPlaying, StationsNowPlayingHistory,
@@ -47,7 +47,7 @@ class PodMetadataService:
         if input.song_title and song_title is None:
             logger.warning("Ignoring non-title %r reported for %s",
                            input.song_title, input.station_slug)
-        song_thumbnail_url = clean_song_thumbnail_url(input.thumbnail_url)
+        song_thumbnail_url = screen_song_thumbnail_url(input.thumbnail_url)
 
         # Upsert artist
         artist = None
@@ -70,6 +70,7 @@ class PodMetadataService:
                 artist=artist,
                 defaults=song_defaults,
             )
+            check_song_thumbnail_later(song.thumbnail_url)
 
         now = timezone.now()
         id3_ts = _parse_iso_timestamp(input.id3_timestamp)
