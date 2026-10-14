@@ -456,5 +456,106 @@ class TestCurrentSongStartedAt(unittest.TestCase):
         )
 
 
+class TestOffsetVariant(unittest.TestCase):
+    """index-2m.m3u8 / index-5m.m3u8 are index.m3u8 with a deeper
+    EXT-X-START. The app loads them by name instead of index.m3u8 plus a
+    seek and trusts them to start that far behind live, so the names, the
+    offsets and "every other byte equals index.m3u8" are a contract."""
+
+    T = 1700000000
+
+    def _index(self, count: int = 110, extinf: str = "6.000000") -> str:
+        """index.m3u8 as enhance() renders it: `count` segments of `extinf`
+        seconds, with a past song's DATERANGE and the current song's
+        marker."""
+        raw = _make_playlist(self.T, count=count).replace(
+            "#EXTINF:6.000000,", f"#EXTINF:{extinf},")
+        return playlist_rewriter.enhance(
+            raw, [_song(self.T + 5, "past"), _song(self.T + 100, "current")])
+
+    def _start(self, playlist: str) -> str:
+        lines = [l for l in playlist.split("\n")
+                 if l.startswith("#EXT-X-START:")]
+        self.assertEqual(len(lines), 1)
+        return lines[0]
+
+    def test_names_and_offsets_match_the_app(self):
+        pr = playlist_rewriter
+        self.assertEqual(pr.INDEX_2M_PLAYLIST,
+                         pr.ENHANCED_PLAYLIST.with_name("index-2m.m3u8"))
+        self.assertEqual(pr.INDEX_5M_PLAYLIST,
+                         pr.ENHANCED_PLAYLIST.with_name("index-5m.m3u8"))
+        self.assertEqual((pr.INDEX_2M_OFFSET, pr.INDEX_5M_OFFSET), (120, 300))
+
+    def test_only_the_start_line_differs_from_index(self):
+        index = self._index()
+        self.assertEqual(self._start(index), "#EXT-X-START:TIME-OFFSET=-18")
+        for offset in (120, 300):
+            variant = playlist_rewriter._offset_variant(index, offset)
+            start = f"#EXT-X-START:TIME-OFFSET=-{offset}"
+            self.assertEqual(self._start(variant), start)
+            self.assertEqual(
+                variant.replace(start, "#EXT-X-START:TIME-OFFSET=-18"),
+                index)
+
+    def test_short_window_clamps_to_leave_the_trailing_margin(self):
+        # 180 s window: a start more than 105 s back would sit within 75 s
+        # of the oldest segment, which slides out of the playlist first.
+        index = self._index(count=30)
+        for offset in (120, 300):
+            self.assertEqual(
+                self._start(playlist_rewriter._offset_variant(index, offset)),
+                "#EXT-X-START:TIME-OFFSET=-105")
+        # 240 s window: only the 5-minute variant is clamped.
+        index = self._index(count=40)
+        self.assertEqual(
+            self._start(playlist_rewriter._offset_variant(index, 120)),
+            "#EXT-X-START:TIME-OFFSET=-120")
+        self.assertEqual(
+            self._start(playlist_rewriter._offset_variant(index, 300)),
+            "#EXT-X-START:TIME-OFFSET=-165")
+
+    def test_clamp_rounds_down_to_whole_seconds(self):
+        # 25 x 5.99 s = 149.75 s: 74.75 s of room, never rounded up.
+        index = self._index(count=25, extinf="5.990000")
+        self.assertEqual(
+            self._start(playlist_rewriter._offset_variant(index, 120)),
+            "#EXT-X-START:TIME-OFFSET=-74")
+
+    def test_too_short_a_window_falls_back_to_index(self):
+        # 90 s window: 15 s of room is less than index.m3u8's own 18 s
+        # (3 target durations), so the variant is index.m3u8 itself.
+        index = self._index(count=15)
+        for offset in (120, 300):
+            self.assertEqual(
+                playlist_rewriter._offset_variant(index, offset), index)
+        # 96 s window: 21 s of room is still at least the default.
+        self.assertEqual(
+            self._start(playlist_rewriter._offset_variant(
+                self._index(count=16), 120)),
+            "#EXT-X-START:TIME-OFFSET=-21")
+
+    def test_replaces_a_start_the_source_carried(self):
+        raw = _make_playlist(self.T, count=110).replace(
+            "#EXT-X-TARGETDURATION:6\n",
+            "#EXT-X-TARGETDURATION:6\n"
+            "#EXT-X-START:TIME-OFFSET=-30,PRECISE=YES\n")
+        index = playlist_rewriter.enhance(raw, [])
+        variant = playlist_rewriter._offset_variant(index, 120)
+        self.assertEqual(self._start(variant),
+                         "#EXT-X-START:TIME-OFFSET=-120")
+        self.assertEqual(
+            variant.replace("#EXT-X-START:TIME-OFFSET=-120",
+                            "#EXT-X-START:TIME-OFFSET=-30,PRECISE=YES"),
+            index)
+
+    def test_refuses_a_playlist_without_a_start_line(self):
+        # Served unchanged it would start near live, under an app that
+        # does not seek because it expects a start 2 minutes back.
+        with self.assertRaises(ValueError):
+            playlist_rewriter._offset_variant(
+                _make_playlist(self.T, count=110), 120)
+
+
 if __name__ == "__main__":
     unittest.main()

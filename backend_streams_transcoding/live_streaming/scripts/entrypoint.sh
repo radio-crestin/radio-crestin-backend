@@ -20,7 +20,9 @@ SEGMENT_DURATION="${SEGMENT_DURATION:-6}"
 # ~6s, so this raises playlist egress ~1.7x — an accepted cost for the DVR-
 # grade 10-min live buffer. playlist_rewriter renders index.m3u8 as the newest
 # HLS_LIST_SIZE segments of its history; ffmpeg's own live.m3u8 (same size)
-# only feeds the rewriter.
+# only feeds the rewriter. /index-2m.m3u8 and /index-5m.m3u8 are the same
+# window with EXT-X-START 2 / 5 min behind live (for apps that play that far
+# behind), polled instead of index.m3u8, so egress stays the same.
 HLS_WINDOW_SECONDS="${HLS_WINDOW_SECONDS:-660}"
 HLS_LIST_SIZE="${HLS_LIST_SIZE:-$((HLS_WINDOW_SECONDS / SEGMENT_DURATION))}"
 # DVR playlist window served at /dvr.m3u8 — apps switch to it only when the

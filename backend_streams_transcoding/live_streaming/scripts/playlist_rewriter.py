@@ -1,17 +1,25 @@
 """
-HLS playlist rewriter: renders the two public playlists from ffmpeg's
+HLS playlist rewriter: renders the public playlists from ffmpeg's
 live.m3u8, re-stamped with wall-clock EXT-X-PROGRAM-DATE-TIME, and injects
 song metadata from /data/metadata/index.json (EXT-X-DATERANGE,
 EXT-X-RC-METADATA-CHANGED) plus an EXT-X-START near-live join hint:
 
-  index.m3u8  the live playlist: the newest LIVE_LIST_SIZE published
-              segments (what normal listeners poll every ~6 s).
-  dvr.m3u8    the DVR variant: up to DVR_LIST_SIZE published segments
-              (1 hour). Apps request it only when the user rewinds, so the
-              ~6x larger playlist doesn't multiply steady-state egress.
+  index.m3u8     the live playlist: the newest LIVE_LIST_SIZE published
+                 segments (what normal listeners poll every ~6 s).
+  index-2m.m3u8  index.m3u8 byte for byte except EXT-X-START, which is
+  index-5m.m3u8  2 / 5 minutes behind live (clamped to the window, see
+                 _offset_variant). Apps that play that far behind live
+                 load one instead of index.m3u8 plus a seek, so the player
+                 starts there without first downloading segments at the
+                 near-live start. Same segments and URIs as index.m3u8, so
+                 segment caching and egress are shared.
+  dvr.m3u8       the DVR variant: up to DVR_LIST_SIZE published segments
+                 (1 hour). Apps request it only when the user rewinds, so
+                 the ~6x larger playlist doesn't multiply steady-state
+                 egress.
 
-Both are windows over one persisted segment history (dvr_history.json),
-not copies of live.m3u8:
+index.m3u8 and dvr.m3u8 are windows over one persisted segment history
+(dvr_history.json), not copies of live.m3u8:
 
   * Every segment gets a wall-clock PDT once, when it first appears
     (wallclock_pdt), and keeps it in every later version of either
@@ -40,8 +48,8 @@ Contract for clients (C-1, C-2):
     mapped to the segment containing it and that segment's PDT; integrating
     a playhead across segments in the PDT domain (first PDT + position)
     drifts behind by every jump crossed.
-  * index.m3u8 and dvr.m3u8 are rewritten only when their bytes change, so
-    the Last-Modified nginx serves is when the content last changed (a new
+  * Every playlist is rewritten only when its bytes change, so the
+    Last-Modified nginx serves is when the content last changed (a new
     segment or new metadata), not a metadata heartbeat.
 
 Why separate files instead of rewriting live.m3u8 in place:
@@ -78,6 +86,9 @@ SEGMENTS_DIR = Path("/data/hls/aac")
 FFMPEG_PLAYLIST = SEGMENTS_DIR / "live.m3u8"
 ENHANCED_PLAYLIST = SEGMENTS_DIR / "index.m3u8"
 DVR_PLAYLIST = SEGMENTS_DIR / "dvr.m3u8"
+# index.m3u8 with EXT-X-START INDEX_2M_OFFSET / INDEX_5M_OFFSET behind live.
+INDEX_2M_PLAYLIST = SEGMENTS_DIR / "index-2m.m3u8"
+INDEX_5M_PLAYLIST = SEGMENTS_DIR / "index-5m.m3u8"
 # On the data volume next to the segments, so the stamps survive rewriter
 # restarts (and pod restarts with USE_PVC); cleanup.sh only sweeps *.ts.
 DVR_HISTORY_PATH = SEGMENTS_DIR / "dvr_history.json"
@@ -105,6 +116,16 @@ LIVE_LIST_SIZE = int(os.environ.get("HLS_LIST_SIZE", "110"))
 DVR_MAX_AGE = int(os.environ.get("DVR_WINDOW_SECONDS", "3600")) + 300
 # EXT-X-START distance from the live edge, in target durations.
 START_OFFSET_SEGMENTS = 3
+# EXT-X-START distance of index-2m.m3u8 / index-5m.m3u8, in seconds: the
+# offsets the app plays behind live by default and on a car, unstable or
+# slow connection (its seek_mode_manager).
+INDEX_2M_OFFSET = 120
+INDEX_5M_OFFSET = 300
+# Those variants start at least this long after the oldest segment they
+# list (mirrors the app's _dvrTrailingSafetyMargin): the window slides by a
+# segment every few seconds, so a start near its head would leave the
+# playlist before the player got going.
+VARIANT_TRAILING_MARGIN = 75
 
 
 # Tags that belong to the segment after them (RFC 8216 4.3.2). The header
@@ -488,6 +509,32 @@ def _rounded_extinf(extinf: str) -> int:
     return int(_extinf_seconds(extinf) + 0.5)
 
 
+def _offset_variant(index: str, offset: int) -> str:
+    """index.m3u8's text with its EXT-X-START line replaced by one `offset`
+    seconds behind live.
+
+    The offset is clamped, in whole seconds rounded down, to leave
+    VARIANT_TRAILING_MARGIN of the window before the start. Should that be
+    less than index.m3u8's own START_OFFSET_SEGMENTS target durations (a
+    window of about 1.5 minutes, after a pod start or a long outage), the
+    variant is index.m3u8 unchanged: players start where index.m3u8 starts.
+    """
+    window = sum(_extinf_seconds(line) for line in index.split("\n")
+                 if line.startswith("#EXTINF:"))
+    offset = min(offset, int(window) - VARIANT_TRAILING_MARGIN)
+    if offset < START_OFFSET_SEGMENTS * _target_duration_of(index):
+        return index
+    variant, replaced = re.subn(r"^#EXT-X-START:.*$",
+                                f"#EXT-X-START:TIME-OFFSET=-{offset}",
+                                index, count=1, flags=re.MULTILINE)
+    if not replaced:
+        # Every index.m3u8 _publish renders has one (enhance() adds it).
+        # Serving the text unchanged would start apps near live while they
+        # rely on the variant to start behind live.
+        raise ValueError("index.m3u8 has no EXT-X-START line")
+    return variant
+
+
 def _parse_live_playlist(raw: str) -> tuple[dict, list[dict]]:
     """Parse ffmpeg's live.m3u8 into (header, segments).
 
@@ -555,11 +602,12 @@ def _segment_mtime(name: str) -> float | None:
 #   pub_seq  contiguous media sequence of published entries (both playlists),
 #   disc     discontinuity sequence number: +1 at each new ffmpeg boot and
 #            after withheld entries.
-# Both public playlists are windows over the published entries: index.m3u8
-# the newest LIVE_LIST_SIZE, dvr.m3u8 the newest DVR_LIST_SIZE. A segment's
-# PDT, media sequence and discontinuity number are fixed when it is first
-# published, so every playlist that lists it agrees (RFC 8216 6.2.1/6.2.2),
-# including across ffmpeg restarts and rewriter restarts.
+# Both playlists are windows over the published entries: index.m3u8 (and
+# its offset variants) the newest LIVE_LIST_SIZE, dvr.m3u8 the newest
+# DVR_LIST_SIZE. A segment's PDT, media sequence and discontinuity number
+# are fixed when it is first published, so every playlist that lists it
+# agrees (RFC 8216 6.2.1/6.2.2), including across ffmpeg restarts and
+# rewriter restarts.
 # Next to the entries:
 #   high_water       per boot still in live.m3u8 or history, the newest
 #                    ffmpeg sequence number ever stamped (survives trimming)
@@ -859,9 +907,26 @@ def write_if_changed(path: Path, content: str) -> bool:
     return True
 
 
+def _publish_offset_variants(index: str, now: float) -> None:
+    """Write index-2m.m3u8 and index-5m.m3u8 from index.m3u8's text.
+
+    Runs after index.m3u8 and dvr.m3u8 are written, and a failure is only
+    reported, so it never holds those back. A variant that failed is
+    removed: nginx then answers 404 and apps fall back to index.m3u8 plus a
+    seek, where a stale copy would stop advancing under its listeners.
+    """
+    for path, offset in ((INDEX_2M_PLAYLIST, INDEX_2M_OFFSET),
+                         (INDEX_5M_PLAYLIST, INDEX_5M_OFFSET)):
+        try:
+            write_if_changed(path, _offset_variant(index, offset))
+        except Exception as error:
+            _report_error(error, now)
+            path.unlink(missing_ok=True)
+
+
 def _publish(history: dict, raw: str, songs: list[dict], now: float,
              now_playing: dict | None = None) -> bool:
-    """Stamp new segments and render both playlists from the history.
+    """Stamp new segments and render every playlist from the history.
 
     Returns True when every segment of `raw` was stamped (it may have been
     trimmed since), i.e. nothing is waiting for a boot anchor and the next
@@ -884,17 +949,20 @@ def _publish(history: dict, raw: str, songs: list[dict], now: float,
     target = history["target_duration"]
     if published:
         live = published[-LIVE_LIST_SIZE:]
-        write_if_changed(ENHANCED_PLAYLIST, enhance(
-            _render_media_playlist(live, header, target), songs,
-            now_playing))
+        index = enhance(_render_media_playlist(live, header, target), songs,
+                        now_playing)
+        write_if_changed(ENHANCED_PLAYLIST, index)
         write_if_changed(DVR_PLAYLIST, enhance(
             _render_media_playlist(published, header, target), songs,
             now_playing))
+        _publish_offset_variants(index, now)
     else:
         # Everything expired (a long outage): serve no playlist rather than
         # one whose segments cleanup.sh deletes.
         ENHANCED_PLAYLIST.unlink(missing_ok=True)
         DVR_PLAYLIST.unlink(missing_ok=True)
+        INDEX_2M_PLAYLIST.unlink(missing_ok=True)
+        INDEX_5M_PLAYLIST.unlink(missing_ok=True)
     return not any(_pending(s, history["high_water"]) for s in segments)
 
 

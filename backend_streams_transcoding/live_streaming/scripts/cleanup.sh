@@ -2,7 +2,7 @@
 # Segment retention. ffmpeg deletes nothing (no delete_segments), so this
 # sweep is the only thing that removes segment files.
 #
-# playlist_rewriter drops a segment from both playlists once its file (or
+# playlist_rewriter drops a segment from every playlist once its file (or
 # its PDT) is older than the DVR window + 5 min; this sweep deletes the file
 # 5 min after that (DVR window + 10 min, by mtime). A player that fetched a playlist just
 # before a segment left it can therefore still download that segment, and

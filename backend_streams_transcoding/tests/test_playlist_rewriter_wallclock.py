@@ -44,11 +44,14 @@ class RewriterFixture(unittest.TestCase):
         root = Path(self.tmp.name)
         self.saved = {k: getattr(pr, k) for k in (
             "SEGMENTS_DIR", "FFMPEG_PLAYLIST", "ENHANCED_PLAYLIST",
-            "DVR_PLAYLIST", "DVR_HISTORY_PATH", "METADATA_PATH")}
+            "DVR_PLAYLIST", "INDEX_2M_PLAYLIST", "INDEX_5M_PLAYLIST",
+            "DVR_HISTORY_PATH", "METADATA_PATH")}
         pr.SEGMENTS_DIR = root
         pr.FFMPEG_PLAYLIST = root / "live.m3u8"
         pr.ENHANCED_PLAYLIST = root / "index.m3u8"
         pr.DVR_PLAYLIST = root / "dvr.m3u8"
+        pr.INDEX_2M_PLAYLIST = root / "index-2m.m3u8"
+        pr.INDEX_5M_PLAYLIST = root / "index-5m.m3u8"
         pr.DVR_HISTORY_PATH = root / "dvr_history.json"
         pr.METADATA_PATH = root / "index.json"
         self.root = root
@@ -249,8 +252,12 @@ class LastModifiedTests(RewriterFixture):
 
     OLD = 1_000_000_000.0  # any time before a real write
 
+    def _playlists(self):
+        return (pr.ENHANCED_PLAYLIST, pr.DVR_PLAYLIST, pr.INDEX_2M_PLAYLIST,
+                pr.INDEX_5M_PLAYLIST)
+
     def _age_playlists(self):
-        for path in (pr.ENHANCED_PLAYLIST, pr.DVR_PLAYLIST):
+        for path in self._playlists():
             os.utime(path, (self.OLD, self.OLD))
 
     def test_identical_render_keeps_the_mtime(self):
@@ -260,7 +267,7 @@ class LastModifiedTests(RewriterFixture):
         self.publish(names, 100, T + 25, songs)
         self._age_playlists()
         self.publish(names, 100, T + 26, songs)
-        for path in (pr.ENHANCED_PLAYLIST, pr.DVR_PLAYLIST):
+        for path in self._playlists():
             self.assertEqual(path.stat().st_mtime, self.OLD)
 
     def test_new_segment_or_metadata_rewrites(self):
@@ -530,7 +537,7 @@ class TargetDurationTests(RewriterFixture):
 class LongOutageTests(RewriterFixture):
     """ffmpeg's last live.m3u8 stays on disk through an outage. Once all of
     it has expired from history it must not be stamped again (a PostHog
-    event and a history write every second), and neither playlist may keep
+    event and a history write every second), and no playlist may keep
     listing segments cleanup.sh deletes."""
 
     def test_expired_segments_are_never_restamped(self):
@@ -538,7 +545,10 @@ class LongOutageTests(RewriterFixture):
         names = [self.segment(100, 100 + i, T - 6 * (109 - i))
                  for i in range(110)]
         self.publish(names, 100, T + 1)
-        self.assertTrue(pr.ENHANCED_PLAYLIST.exists())
+        playlists = (pr.ENHANCED_PLAYLIST, pr.DVR_PLAYLIST,
+                     pr.INDEX_2M_PLAYLIST, pr.INDEX_5M_PLAYLIST)
+        for path in playlists:
+            self.assertTrue(path.exists(), path.name)
         with mock.patch.object(pr.posthog_reporter, "capture_event",
                                lambda *a, **k: events.append(a)):
             for later in (3905, 3906, 4000):
@@ -547,8 +557,8 @@ class LongOutageTests(RewriterFixture):
             self.assertTrue(self.publish(names, 100, T + 4001))
         self.assertEqual(events, [])
         self.assertEqual(self.history["entries"], [])
-        self.assertFalse(pr.ENHANCED_PLAYLIST.exists())
-        self.assertFalse(pr.DVR_PLAYLIST.exists())
+        for path in playlists:
+            self.assertFalse(path.exists(), path.name)
 
     def test_the_next_boot_is_published_after_the_outage(self):
         old = [self.segment(100, 100 + i, T + 6 * (i + 1)) for i in range(4)]
@@ -559,6 +569,104 @@ class LongOutageTests(RewriterFixture):
         self.publish(new, 900, start + 13)
         self.assertEqual(hs.playlist_uris(pr.ENHANCED_PLAYLIST.read_text()),
                          new)
+
+
+class OffsetVariantPublishTests(RewriterFixture):
+    """index-2m.m3u8 / index-5m.m3u8 are rendered from the exact index.m3u8
+    text of the same pass, after index.m3u8 and dvr.m3u8, and never at
+    their expense: every client that does not ask for a variant (old app
+    versions, the web player) keeps getting exactly those two."""
+
+    SONGS = [
+        {"started_at": T + 3, "raw": "a - b", "title": "b", "artist": "a"},
+        {"started_at": T + 200, "raw": "a - c", "title": "c", "artist": "a"},
+    ]
+    DEFAULT_START = "#EXT-X-START:TIME-OFFSET=-18\n"
+
+    def _segments(self, count=70):
+        """`count` paced segments of boot 100: a 420 s window, room for
+        both offsets."""
+        return [self.segment(100, 100 + i, T + 6 * (i + 1))
+                for i in range(count)]
+
+    def _publish_all(self, names):
+        self.assertTrue(self.publish(names, 100, T + 6 * len(names) + 1,
+                                     self.SONGS))
+
+    def _variant_of(self, index, offset):
+        self.assertIn(self.DEFAULT_START, index)
+        return index.replace(self.DEFAULT_START,
+                             f"#EXT-X-START:TIME-OFFSET=-{offset}\n")
+
+    def test_variants_are_index_with_a_deeper_start(self):
+        self._publish_all(self._segments())
+        index = pr.ENHANCED_PLAYLIST.read_text()
+        self.assertEqual(pr.INDEX_2M_PLAYLIST.read_text(),
+                         self._variant_of(index, 120))
+        self.assertEqual(pr.INDEX_5M_PLAYLIST.read_text(),
+                         self._variant_of(index, 300))
+
+    def test_index_and_dvr_are_the_same_as_without_variants(self):
+        names = self._segments()
+        with mock.patch.object(pr, "_publish_offset_variants"):
+            self._publish_all(names)
+        self.assertFalse(pr.INDEX_2M_PLAYLIST.exists())
+        before = {path: path.read_text()
+                  for path in (pr.ENHANCED_PLAYLIST, pr.DVR_PLAYLIST)}
+        for path in (*before, pr.DVR_HISTORY_PATH):
+            path.unlink()
+        self.history = pr._new_history()
+        self._publish_all(names)
+        for path, text in before.items():
+            self.assertEqual(path.read_text(), text, path.name)
+
+    def test_variants_are_written_after_index_and_dvr(self):
+        written = []
+        real = pr.write_atomic
+
+        def write_atomic(path, content):
+            written.append(path.name)
+            real(path, content)
+
+        with mock.patch.object(pr, "write_atomic", write_atomic):
+            self._publish_all(self._segments())
+        self.assertEqual(written, ["dvr_history.json", "index.m3u8",
+                                   "dvr.m3u8", "index-2m.m3u8",
+                                   "index-5m.m3u8"])
+
+    def test_a_failing_variant_never_holds_back_index_and_dvr(self):
+        names = self._segments()
+        self._publish_all(names)
+        names.append(self.segment(100, 100 + len(names),
+                                  T + 6 * (len(names) + 1)))
+        real = pr._offset_variant
+        reported = []
+
+        def offset_variant(index, offset):
+            if offset == pr.INDEX_2M_OFFSET:
+                raise RuntimeError("variant bug")
+            return real(index, offset)
+
+        with mock.patch.object(pr, "_offset_variant", offset_variant), \
+                mock.patch.object(pr, "_last_error_report", ("", 0.0)), \
+                mock.patch.object(pr.posthog_reporter, "capture_exception",
+                                  lambda e, context=None:
+                                  reported.append(str(e))):
+            self._publish_all(names)
+        self.assertEqual(reported, ["variant bug"])
+        index = pr.ENHANCED_PLAYLIST.read_text()
+        self.assertIn(names[-1], index)
+        self.assertIn(names[-1], pr.DVR_PLAYLIST.read_text())
+        self.assertEqual(pr.INDEX_5M_PLAYLIST.read_text(),
+                         self._variant_of(index, 300))
+        # A stale copy would stop advancing under its listeners; without
+        # the file nginx answers 404 and apps fall back to index.m3u8.
+        self.assertFalse(pr.INDEX_2M_PLAYLIST.exists())
+        # The next pass brings it back.
+        self.assertTrue(self.publish(names, 100, T + 6 * len(names) + 2,
+                                     self.SONGS))
+        self.assertEqual(pr.INDEX_2M_PLAYLIST.read_text(),
+                         self._variant_of(index, 120))
 
 
 if __name__ == "__main__":
