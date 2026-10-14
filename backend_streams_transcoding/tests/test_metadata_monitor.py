@@ -277,6 +277,8 @@ class DvrDaterangeRetentionTests(MonitorFixture):
                 ("FFMPEG_PLAYLIST", segments / "live.m3u8"),
                 ("ENHANCED_PLAYLIST", segments / "index.m3u8"),
                 ("DVR_PLAYLIST", segments / "dvr.m3u8"),
+                ("INDEX_2M_PLAYLIST", segments / "index-2m.m3u8"),
+                ("INDEX_5M_PLAYLIST", segments / "index-5m.m3u8"),
                 ("DVR_HISTORY_PATH", segments / "dvr_history.json"),
                 ("METADATA_PATH", mm.INDEX_PATH),
                 ("NOW_PLAYING_PATH", self.root / "now_playing.json")):
