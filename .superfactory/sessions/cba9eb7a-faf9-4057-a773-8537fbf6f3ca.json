@@ -1,0 +1,27 @@
+{
+  "id": "cba9eb7a-faf9-4057-a773-8537fbf6f3ca",
+  "projectId": "radio-crestin-backend",
+  "taskId": "T-001",
+  "nodeId": "iosif-laptop-local-ce27e3",
+  "runner": "host",
+  "kind": "task",
+  "state": "running",
+  "title": "T-001 Merge and deploy PR #105 (song-thumbnail-logos)",
+  "cwd": "/Users/iosif/Documents/Projects/radio-crestin-backend/.superfactory/worktrees/T-001",
+  "branch": "sf/T-001-merge-and-deploy-pr-105-song-t",
+  "startedAt": "2026-10-13T13:39:31.387Z",
+  "ports": [],
+  "previews": [],
+  "claudeAccount": {
+    "id": "_-ujeuRK227sDeFb",
+    "since": "2026-10-13T13:39:31.405Z"
+  },
+  "model": "claude-opus-5-5",
+  "effort": "medium",
+  "resumeCommand": "cd /Users/iosif/Documents/Projects/radio-crestin-backend/.superfactory/worktrees/T-001 && claude --resume cba9eb7a-faf9-4057-a773-8537fbf6f3ca",
+  "costUsd": 14.722196600000006,
+  "context": {
+    "tokens": 134696,
+    "window": 1000000
+  }
+}
