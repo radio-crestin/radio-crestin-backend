@@ -50,9 +50,17 @@ DVR_LIST_SIZE="${DVR_LIST_SIZE:-$((DVR_WINDOW_SECONDS / SEGMENT_DURATION))}"
 #              rewriter dates each new run exactly and withholds replayed
 #              segments, at the cost of one EXT-X-DISCONTINUITY per
 #              interruption. Set on the controller once telemetry says so.
+#   relay      input_relay.py owns the connection and pipes the audio to
+#              ffmpeg; a reconnect drops the server's burst of audio the
+#              stream already had, so nothing is published twice (Icecast's
+#              connect burst replayed 4 s on the Calea Spre Cer mounts,
+#              which inprocess published). An upstream the relay cannot
+#              read (a playlist, an ICY status line...) falls back to
+#              inprocess (see ffmpeg_input_mode). The controller's
+#              FFMPEG_INPUT_RELAY_STATIONS gives relay to a few stations.
 FFMPEG_INPUT_RECONNECT="${FFMPEG_INPUT_RECONNECT:-inprocess}"
 case "$FFMPEG_INPUT_RECONNECT" in
-    inprocess|restart) ;;
+    inprocess|restart|relay) ;;
     *)
         echo "WARNING: unknown FFMPEG_INPUT_RECONNECT=$FFMPEG_INPUT_RECONNECT, using inprocess"
         FFMPEG_INPUT_RECONNECT=inprocess
@@ -142,7 +150,8 @@ if [ "$FFMPEG_INPUT_RECONNECT" = restart ]; then
     # Any read error or 10 s (µs) without data ends the run.
     FFMPEG_INPUT_OPTS=(-rw_timeout 10000000)
 else
-    # Reconnect in-process; -rw_timeout turns a silent connection into a
+    # Reconnect in-process (also relay's fallback; fed by the relay, ffmpeg
+    # reads a pipe); -rw_timeout turns a silent connection into a
     # reconnect after 10 s instead of waiting for the server to reset it
     # (45 s measured) or forever (black-holed TCP).
     FFMPEG_INPUT_OPTS=(
@@ -186,26 +195,47 @@ start_ffmpeg() {
     #                                              which collided whenever two segments wrote
     #                                              in the same epoch second.
     #   - FFMPEG_INPUT_OPTS                        input reconnect policy (FFMPEG_INPUT_RECONNECT)
-    ffmpeg -loglevel warning \
-        "${FFMPEG_INPUT_OPTS[@]}" \
-        -fflags +genpts+discardcorrupt -max_delay 5000000 \
-        -i "$STREAM_URL" -y \
-        -map 0:a:0 -c:a libfdk_aac -profile:a aac_he -b:a 64k \
-        -flags +global_header -async 1 -ac 2 -ar 44100 \
-        -bufsize 30000000 -sc_threshold 0 \
-        -abort_on empty_output_stream \
-        -f hls \
-            -hls_init_time "$SEGMENT_DURATION" \
-            -hls_time "$SEGMENT_DURATION" \
-            -hls_list_size "$HLS_LIST_SIZE" \
-            -hls_flags independent_segments+split_by_time+program_date_time+omit_endlist+temp_file \
-            -hls_start_number_source epoch \
-            -hls_segment_type mpegts \
-            -hls_segment_options 'mpegts_flags=+initial_discontinuity' \
-            -hls_segment_filename "/data/hls/aac/${SEGMENT_PREFIX}-%d.ts" \
-            '/data/hls/aac/live.m3u8' &
-    FFMPEG_PID=$!
-    echo "FFmpeg started (PID $FFMPEG_PID)"
+    local mode input relay_out
+    mode=$(ffmpeg_input_mode)
+    FFMPEG_INPUT_MODE=$mode
+    if [ "$mode" = relay ]; then
+        input=(-i pipe:0)
+    else
+        input=("${FFMPEG_INPUT_OPTS[@]}" -i "$STREAM_URL")
+    fi
+    local args=(
+        -loglevel warning
+        -fflags +genpts+discardcorrupt -max_delay 5000000
+        "${input[@]}" -y
+        -map 0:a:0 -c:a libfdk_aac -profile:a aac_he -b:a 64k
+        -flags +global_header -async 1 -ac 2 -ar 44100
+        -bufsize 30000000 -sc_threshold 0
+        -abort_on empty_output_stream
+        -f hls
+            -hls_init_time "$SEGMENT_DURATION"
+            -hls_time "$SEGMENT_DURATION"
+            -hls_list_size "$HLS_LIST_SIZE"
+            -hls_flags independent_segments+split_by_time+program_date_time+omit_endlist+temp_file
+            -hls_start_number_source epoch
+            -hls_segment_type mpegts
+            -hls_segment_options 'mpegts_flags=+initial_discontinuity'
+            -hls_segment_filename "/data/hls/aac/${SEGMENT_PREFIX}-%d.ts"
+            '/data/hls/aac/live.m3u8'
+    )
+    if [ "$mode" = relay ]; then
+        # The relay is this shell's child, not part of ffmpeg's job, so
+        # ffmpeg_loop gets ffmpeg's own exit code and can stop the relay
+        # first. The relay ends as soon as ffmpeg has (it watches the pipe).
+        exec {relay_out}< <(exec python3 /app/scripts/input_relay.py "$STREAM_URL")
+        RELAY_PID=$!
+        ffmpeg "${args[@]}" <&"$relay_out" {relay_out}<&- &
+        FFMPEG_PID=$!
+        exec {relay_out}<&-
+    else
+        ffmpeg "${args[@]}" &
+        FFMPEG_PID=$!
+    fi
+    echo "FFmpeg started (PID $FFMPEG_PID, input: $mode${RELAY_PID:+, relay PID $RELAY_PID})"
 }
 
 ffmpeg_loop &

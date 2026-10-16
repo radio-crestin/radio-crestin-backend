@@ -590,6 +590,47 @@ class TestCanaryAndTunables(unittest.TestCase):
             self.assertEqual(self._sync([stale, fresh]),
                              ["live-stream-radio-a"])
 
+    def test_parse_station_list(self):
+        self.assertEqual(
+            controller.parse_station_list(
+                " radio-a, radio-b\nradio-c,,Bad_Slug radio-a "),
+            {"radio-a", "radio-b", "radio-c"})
+        self.assertEqual(controller.parse_station_list(""), frozenset())
+        self.assertEqual(controller.parse_station_list(" , "), frozenset())
+
+    def _input_mode(self, slug):
+        dep = controller.build_deployment_spec(slug, "https://s")
+        env = {e.name: e.value
+               for e in dep.spec.template.spec.containers[0].env}
+        # The list itself stays on the controller.
+        self.assertNotIn("FFMPEG_INPUT_RELAY_STATIONS", env)
+        return env.get("FFMPEG_INPUT_RECONNECT")
+
+    def test_relay_stations_alone_get_relay(self):
+        with patch.object(controller, "RELAY_STATIONS",
+                          frozenset({"radio-a"})):
+            with patch.dict(os.environ, {"FFMPEG_INPUT_RECONNECT": ""}):
+                self.assertEqual(self._input_mode("radio-a"), "relay")
+                self.assertIsNone(self._input_mode("radio-b"))
+            with patch.dict(os.environ, {"FFMPEG_INPUT_RECONNECT": "restart"}):
+                self.assertEqual(self._input_mode("radio-a"), "relay")
+                self.assertEqual(self._input_mode("radio-b"), "restart")
+
+    def test_relay_list_changes_roll_only_those_stations(self):
+        relay = [("FFMPEG_INPUT_RECONNECT", "relay")]
+        deps = [self._labelled("radio-a", controller.STREAMER_IMAGE, relay),
+                self._labelled("radio-b", controller.STREAMER_IMAGE)]
+        with patch.dict(os.environ, {"FFMPEG_INPUT_RECONNECT": ""}):
+            with patch.object(controller, "RELAY_STATIONS",
+                              frozenset({"radio-a"})):
+                self.assertEqual(self._sync(deps), [])
+            with patch.object(controller, "RELAY_STATIONS",
+                              frozenset({"radio-a", "radio-b"})):
+                self.assertEqual(self._sync(deps), ["live-stream-radio-b"])
+            # Emptied: the canary goes back to the default, nobody else moves.
+            with patch.object(controller, "RELAY_STATIONS", frozenset()):
+                self.assertEqual(self._sync(deps), ["live-stream-radio-a"])
+
     def test_unset_tunables_are_not_forwarded(self):
         with patch.dict(os.environ, {"FFMPEG_INPUT_RECONNECT": ""}):
             dep = controller.build_deployment_spec("radio-a", "https://s")

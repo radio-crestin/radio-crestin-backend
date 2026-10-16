@@ -100,6 +100,18 @@ def parse_image_overrides(spec: str) -> dict[str, str]:
     return overrides
 
 
+def parse_station_list(spec: str) -> frozenset[str]:
+    """`slug,slug` (commas or whitespace) → the slugs; malformed items are
+    skipped."""
+    slugs = set()
+    for item in re.split(r"[\s,]+", spec):
+        if SLUG_PATTERN.match(item):
+            slugs.add(item)
+        elif item:
+            log.warning("Ignoring FFMPEG_INPUT_RELAY_STATIONS item %r", item)
+    return frozenset(slugs)
+
+
 # Canary rollouts: pin a few stations to another streamer image (e.g.
 # "radio-a=ghcr.io/...:canary"). Every other station runs STREAMER_IMAGE;
 # the sync loop keeps both in place, so a canary survives reconciliation.
@@ -107,19 +119,32 @@ STREAMER_IMAGE_OVERRIDES = parse_image_overrides(
     os.environ.get("STREAMER_IMAGE_OVERRIDES", ""))
 # Streamer settings forwarded to every station pod when set on the
 # controller. A change rolls the pods like an image update (in batches).
-# FFMPEG_INPUT_RECONNECT: "inprocess" (pod default) or "restart" (see
-# live_streaming/scripts/entrypoint.sh).
+# FFMPEG_INPUT_RECONNECT: "inprocess" (pod default), "restart" or "relay"
+# (see live_streaming/scripts/entrypoint.sh).
 STREAMER_TUNABLES = ("FFMPEG_INPUT_RECONNECT",)
+# Relay canary: these stations get FFMPEG_INPUT_RECONNECT=relay whatever the
+# controller's own value. Only the stations entering or leaving the list
+# restart; an empty list leaves every station on the controller's value.
+RELAY_STATIONS = parse_station_list(
+    os.environ.get("FFMPEG_INPUT_RELAY_STATIONS", ""))
 
 
 def streamer_image(slug: str) -> str:
     return STREAMER_IMAGE_OVERRIDES.get(slug, STREAMER_IMAGE)
 
 
-def streamer_tunables() -> dict[str, str]:
-    """The tunables set on the controller, as the pods should get them."""
+def fleet_tunables() -> dict[str, str]:
+    """The tunables set on the controller, as every pod gets them."""
     return {name: os.environ[name] for name in STREAMER_TUNABLES
             if os.environ.get(name)}
+
+
+def streamer_tunables(slug: str) -> dict[str, str]:
+    """The tunables station `slug`'s pod should get."""
+    tunables = fleet_tunables()
+    if slug in RELAY_STATIONS:
+        tunables["FFMPEG_INPUT_RECONNECT"] = "relay"
+    return tunables
 
 # GraphQL query to fetch stations (disabled=False is applied server-side by default)
 # We fetch transcode_enabled to filter client-side
@@ -363,7 +388,7 @@ def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
                                 client.V1EnvVar(name="POSTHOG_HOST", value=POSTHOG_HOST),
                                 client.V1EnvVar(name="IMAGE_TAG", value=streamer_image(slug).rsplit(":", 1)[-1]),
                                 *(client.V1EnvVar(name=name, value=value)
-                                  for name, value in streamer_tunables().items()),
+                                  for name, value in streamer_tunables(slug).items()),
                                 *_egress_proxy_env(),
                             ],
                             ports=[client.V1ContainerPort(container_port=8080)],
@@ -978,7 +1003,7 @@ def sync_once(
         elif (current_image != streamer_image(slug)
               or egress_proxy_of(dep) != desired_egress_proxy()
               or resources_of(dep) != desired_resources()
-              or tunables_of(dep) != streamer_tunables()):
+              or tunables_of(dep) != streamer_tunables(slug)):
             to_update_image.add(slug)
 
     to_update = to_update_url | to_update_image
@@ -1075,8 +1100,10 @@ def main():
     log.info("Streamer image: %s", STREAMER_IMAGE)
     for slug, image in sorted(STREAMER_IMAGE_OVERRIDES.items()):
         log.info("Streamer image override: %s -> %s", slug, image)
-    if streamer_tunables():
-        log.info("Streamer tunables: %s", streamer_tunables())
+    if fleet_tunables():
+        log.info("Streamer tunables: %s", fleet_tunables())
+    if RELAY_STATIONS:
+        log.info("Relay stations: %s", ", ".join(sorted(RELAY_STATIONS)))
     log.info("Sync interval: %ds", SYNC_INTERVAL)
 
     # Load K8s config (in-cluster when running in pod)

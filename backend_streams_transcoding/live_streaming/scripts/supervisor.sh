@@ -4,7 +4,8 @@
 # report_event). Defines functions only.
 #
 #   ffmpeg_loop          run start_ffmpeg (defined by the caller; it must
-#                        start ffmpeg in the background and set FFMPEG_PID)
+#                        start ffmpeg in the background and set FFMPEG_PID,
+#                        and RELAY_PID when input_relay.py feeds ffmpeg)
 #                        forever, with backoff between runs
 #   supervise NAME CMD   run CMD forever, with the same backoff
 #
@@ -23,6 +24,22 @@ HELPER_RETRY_DELAY="${HELPER_RETRY_DELAY:-2}"
 HELPER_MAX_RETRY_DELAY="${HELPER_MAX_RETRY_DELAY:-30}"
 SCRIPTS_DIR="${SCRIPTS_DIR:-/app/scripts}"
 FFMPEG_PID="${FFMPEG_PID:-}"
+RELAY_PID="${RELAY_PID:-}"
+# Left by input_relay.py when it cannot read the upstream (a playlist, an
+# ICY status line...) and ffmpeg may.
+export RELAY_UNSUPPORTED_FLAG="${RELAY_UNSUPPORTED_FLAG:-/tmp/input_relay_unsupported}"
+
+# ffmpeg_input_mode: how the next ffmpeg run reads the station
+# (FFMPEG_INPUT_RECONNECT), where relay falls back to inprocess once the
+# relay found an upstream only ffmpeg can read: it leaves
+# RELAY_UNSUPPORTED_FLAG behind for the container's life.
+ffmpeg_input_mode() {
+    local mode="${FFMPEG_INPUT_RECONNECT:-inprocess}"
+    if [ "$mode" = relay ] && [ -e "$RELAY_UNSUPPORTED_FLAG" ]; then
+        mode=inprocess
+    fi
+    echo "$mode"
+}
 
 # next_retry_delay DELAY MAX: DELAY doubled, at most MAX.
 next_retry_delay() {
@@ -50,24 +67,41 @@ stop_child() {
 
 ffmpeg_loop() {
     local delay=$FFMPEG_RETRY_DELAY restarts=0 started_at ran_for exit_code
-    trap 'stop_child "$FFMPEG_PID"; exit 0' TERM
+    local relay_code
+    # The relay first: ffmpeg waiting on a silent pipe ignores SIGTERM
+    # until its input ends.
+    trap 'stop_child "$RELAY_PID"; stop_child "$FFMPEG_PID"; exit 0' TERM
     while true; do
         started_at=$(date +%s)
+        RELAY_PID=""
         start_ffmpeg
         exit_code=0
         # `wait PID || true; code=$?` always yielded 0; keep the real code.
         wait "$FFMPEG_PID" || exit_code=$?
+        relay_code=""
+        if [ -n "$RELAY_PID" ]; then
+            # The relay ends with ffmpeg (or ended first, the upstream lost).
+            relay_code=0
+            wait "$RELAY_PID" || relay_code=$?
+        fi
         ran_for=$(( $(date +%s) - started_at ))
         restarts=$(( restarts + 1 ))
         if [ "$ran_for" -ge "$FFMPEG_STABLE_RUN" ]; then
             delay=$FFMPEG_RETRY_DELAY
         fi
-        echo "ffmpeg_loop: ffmpeg exited (code=${exit_code}, ran=${ran_for}s, restart_count=${restarts}); retrying in ${delay}s"
+        echo "ffmpeg_loop: ffmpeg exited (code=${exit_code}${RELAY_PID:+, relay=$relay_code}, ran=${ran_for}s, restart_count=${restarts}); retrying in ${delay}s"
         report_event ffmpeg_exit \
             --prop exit_code="$exit_code" \
             --prop ran_for="$ran_for" \
             --prop restart_count="$restarts" \
-            --prop retry_delay="$delay"
+            --prop retry_delay="$delay" \
+            --prop input_mode="${FFMPEG_INPUT_MODE:-}" \
+            ${RELAY_PID:+--prop "relay_exit_code=$relay_code"}
+        if [ -n "$RELAY_PID" ] && [ -e "$RELAY_UNSUPPORTED_FLAG" ]; then
+            # Once: the next runs are inprocess.
+            report_event relay_unsupported \
+                --prop reason="$(cat "$RELAY_UNSUPPORTED_FLAG")"
+        fi
         backoff_sleep "$delay"
         delay=$(next_retry_delay "$delay" "$FFMPEG_MAX_RETRY_DELAY")
     done
