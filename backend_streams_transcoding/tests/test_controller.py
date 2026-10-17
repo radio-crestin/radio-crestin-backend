@@ -631,6 +631,49 @@ class TestCanaryAndTunables(unittest.TestCase):
             with patch.object(controller, "RELAY_STATIONS", frozenset()):
                 self.assertEqual(self._sync(deps), ["live-stream-radio-a"])
 
+    def _streamer_env(self, slug):
+        dep = controller.build_deployment_spec(slug, "https://s")
+        env = {e.name: e.value
+               for e in dep.spec.template.spec.containers[0].env}
+        self.assertNotIn("STREAM_SINGLE_INPUT_STATIONS", env)
+        return env
+
+    def test_single_input_stations_get_it_with_the_relay(self):
+        with patch.object(controller, "SINGLE_INPUT_STATIONS",
+                          frozenset({"radio-a"})), \
+                patch.dict(os.environ, {"FFMPEG_INPUT_RECONNECT": "",
+                                        "STREAM_SINGLE_INPUT": ""}):
+            env = self._streamer_env("radio-a")
+            self.assertEqual(env["STREAM_SINGLE_INPUT"], "1")
+            self.assertEqual(env["FFMPEG_INPUT_RECONNECT"], "relay")
+            other = self._streamer_env("radio-b")
+            self.assertNotIn("STREAM_SINGLE_INPUT", other)
+            self.assertNotIn("FFMPEG_INPUT_RECONNECT", other)
+
+    def test_single_input_for_every_station(self):
+        with patch.dict(os.environ, {"FFMPEG_INPUT_RECONNECT": "relay",
+                                     "STREAM_SINGLE_INPUT": "1"}):
+            env = self._streamer_env("radio-b")
+            self.assertEqual(env["STREAM_SINGLE_INPUT"], "1")
+
+    def test_single_input_list_changes_roll_only_those_stations(self):
+        relay = [("FFMPEG_INPUT_RECONNECT", "relay")]
+        single = relay + [("STREAM_SINGLE_INPUT", "1")]
+        deps = [self._labelled("radio-a", controller.STREAMER_IMAGE, single),
+                self._labelled("radio-b", controller.STREAMER_IMAGE, relay)]
+        with patch.dict(os.environ, {"FFMPEG_INPUT_RECONNECT": "relay",
+                                     "STREAM_SINGLE_INPUT": ""}):
+            with patch.object(controller, "SINGLE_INPUT_STATIONS",
+                              frozenset({"radio-a"})):
+                self.assertEqual(self._sync(deps), [])
+            with patch.object(controller, "SINGLE_INPUT_STATIONS",
+                              frozenset({"radio-a", "radio-b"})):
+                self.assertEqual(self._sync(deps), ["live-stream-radio-b"])
+            # Rollback: emptied, only the canary moves.
+            with patch.object(controller, "SINGLE_INPUT_STATIONS",
+                              frozenset()):
+                self.assertEqual(self._sync(deps), ["live-stream-radio-a"])
+
     def test_unset_tunables_are_not_forwarded(self):
         with patch.dict(os.environ, {"FFMPEG_INPUT_RECONNECT": ""}):
             dep = controller.build_deployment_spec("radio-a", "https://s")

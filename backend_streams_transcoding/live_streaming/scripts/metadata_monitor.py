@@ -23,6 +23,14 @@ them describe the same instant. Song starts only move forward: a new song
 starts at least MIN_SONG_SECONDS after the current one.
 
 Runs as a background process alongside the main FFmpeg transcoder.
+
+With STREAM_SINGLE_INPUT=1 (and the relay as ffmpeg's input) it opens no
+connection of its own: input_relay.py reads the titles on the transcoder's
+connection and sends them here over METADATA_EVENTS_SOCKET, with when audio
+last flowed (the heartbeat), and the transcoder's own silencedetect output
+writes SILENCE_LOG. Once the relay cannot give titles (or cannot read the
+upstream at all) it leaves a flag, and the monitor runs its own FFmpeg as
+without STREAM_SINGLE_INPUT.
 """
 
 import json
@@ -30,6 +38,7 @@ import math
 import os
 import re
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -47,6 +56,25 @@ FFMPEG_STOP_TIMEOUT = 5  # seconds between SIGTERM and SIGKILL
 # {"id3_metadata_delay_offset": float, "config_version": int}, written by
 # scraper_engine from the station's Django config.
 STATION_CONFIG_PATH = METADATA_DIR / "station.json"
+
+# STREAM_SINGLE_INPUT (see the module docstring); the paths are shared with
+# input_relay.py and entrypoint.sh.
+def single_input_enabled(environ=os.environ) -> bool:
+    """STREAM_SINGLE_INPUT=1 counts only with the relay as ffmpeg's input."""
+    return (environ.get("STREAM_SINGLE_INPUT") == "1"
+            and environ.get("FFMPEG_INPUT_RECONNECT") == "relay")
+
+
+SINGLE_INPUT = single_input_enabled()
+EVENTS_SOCKET = os.environ.get(
+    "METADATA_EVENTS_SOCKET", "/tmp/metadata_monitor.sock")
+SILENCE_LOG = os.environ.get("SILENCE_LOG", "/tmp/silencedetect.log")
+# Left by input_relay.py: it cannot read the upstream (ffmpeg reads it
+# itself), or cannot give its titles.
+RELAY_FALLBACK_FLAGS = (
+    os.environ.get("RELAY_UNSUPPORTED_FLAG", "/tmp/input_relay_unsupported"),
+    os.environ.get("RELAY_NO_TITLES_FLAG", "/tmp/input_relay_no_titles"),
+)
 
 # ffmpeg reports its progress (media time) this often, in seconds.
 PROGRESS_PERIOD = 5
@@ -84,6 +112,8 @@ RESTORE_MAX_GAP = 120
 _PROGRESS_LINE = re.compile(r"^[a-z][a-z0-9_]*=")
 _MEDIA_TIME = re.compile(r"^out_time_(?:us|ms)=(\d+)$")
 _SILENCE = re.compile(r"silencedetect.*silence_start:\s*([\d.]+)")
+# ametadata's lines in SILENCE_LOG.
+_SILENCE_LOG_START = re.compile(r"^lavfi\.silence_start=(-?[\d.]+)")
 
 # Current song state
 _current_song = {
@@ -469,6 +499,111 @@ def _run_metadata_extractor():
         time.sleep(5)
 
 
+def relay_fallback_reason() -> str | None:
+    """Why the titles must come over the monitor's own connection, once
+    input_relay.py has said so; None while it gives them."""
+    for path in RELAY_FALLBACK_FLAGS:
+        try:
+            with open(path, "r") as f:
+                return f.read().strip() or path
+        except OSError:
+            continue
+    return None
+
+
+class SilenceLog:
+    """New silence starts in SILENCE_LOG, which every transcoder run
+    rewrites from the start."""
+
+    def __init__(self, path: str = SILENCE_LOG):
+        self.path = path
+        self._inode = None
+        self._offset = 0
+
+    def new_starts(self) -> list[float]:
+        try:
+            with open(self.path, "rb") as f:
+                stat = os.fstat(f.fileno())
+                if stat.st_ino != self._inode or stat.st_size < self._offset:
+                    self._inode, self._offset = stat.st_ino, 0
+                f.seek(self._offset)
+                data = f.read()
+        except OSError:
+            return []
+        complete = data[:data.rfind(b"\n") + 1]
+        self._offset += len(complete)
+        starts = []
+        for line in complete.decode("ascii", errors="replace").splitlines():
+            m = _SILENCE_LOG_START.match(line.strip())
+            if m:
+                starts.append(float(m.group(1)))
+        return starts
+
+
+def on_relay_state(state: dict, alive_at: float) -> float:
+    """One message from input_relay.py: its title is handled like one read
+    by the monitor's own FFmpeg, dated when the relay read it. Returns the
+    heartbeat (when audio last flowed), never moved back."""
+    audio_at = state.get("audio_at")
+    if isinstance(audio_at, (int, float)) and audio_at > alive_at:
+        alive_at = audio_at
+    raw, title_at = state.get("title"), state.get("title_at")
+    title = song_titles.clean_title(raw) if isinstance(raw, str) else None
+    if title is not None and isinstance(title_at, (int, float)):
+        _on_title(title, title_at)
+    return alive_at
+
+
+def _listen_to_relay(sock: socket.socket) -> str:
+    """Titles, heartbeat and silences from the relay and the transcoder,
+    until the relay leaves a fallback flag; returns its reason."""
+    global _reader_alive_at
+    silences = SilenceLog(SILENCE_LOG)
+    while True:
+        reason = relay_fallback_reason()
+        if reason:
+            return reason
+        try:
+            message = sock.recv(65536)
+        except socket.timeout:
+            message = None
+        if message:
+            try:
+                state = json.loads(message)
+            except ValueError:
+                state = None
+            if isinstance(state, dict):
+                with _lock:
+                    alive_at = _reader_alive_at
+                _reader_alive_at = on_relay_state(state, alive_at)
+        for _ in silences.new_starts():
+            _on_silence(time.time(), 0)
+
+
+def _relay_socket() -> socket.socket:
+    try:
+        os.unlink(EVENTS_SOCKET)
+    except FileNotFoundError:
+        pass
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+    sock.bind(EVENTS_SOCKET)
+    sock.settimeout(1)
+    return sock
+
+
+def _run_single_input() -> None:
+    """STREAM_SINGLE_INPUT: no connection of the monitor's own while the
+    relay gives the titles."""
+    print("metadata: titles from input_relay (single input)", flush=True)
+    sock = _relay_socket()
+    try:
+        reason = _listen_to_relay(sock)
+    finally:
+        sock.close()
+    print(f"metadata: the relay gives no titles ({reason}); reading them "
+          "over a connection of the monitor's own", flush=True)
+
+
 def _watchdog_tick(now: float) -> bool:
     """Kill the reader's ffmpeg when the stream stopped delivering media.
     Returns True when it did."""
@@ -517,6 +652,8 @@ def main():
     for target in (_periodic_index_update, _watchdog):
         threading.Thread(target=target, daemon=True).start()
 
+    if SINGLE_INPUT:
+        _run_single_input()  # returns when the relay cannot give titles
     # Run the metadata extractor (blocks)
     _run_metadata_extractor()
 

@@ -67,6 +67,21 @@ case "$FFMPEG_INPUT_RECONNECT" in
         ;;
 esac
 
+# STREAM_SINGLE_INPUT=1 (with relay): one upstream connection per pod
+# instead of two. The relay also reads the ICY titles and hands them to
+# metadata_monitor, and the transcoder detects silence itself (a second,
+# null output writing SILENCE_LOG), so the monitor runs no FFmpeg of its
+# own. Where the relay cannot give titles, the monitor falls back to its
+# own connection (see metadata_monitor.py). The controller's
+# STREAM_SINGLE_INPUT_STATIONS gives it to a few stations.
+STREAM_SINGLE_INPUT="${STREAM_SINGLE_INPUT:-0}"
+if [ "$STREAM_SINGLE_INPUT" = 1 ] && [ "$FFMPEG_INPUT_RECONNECT" != relay ]; then
+    echo "WARNING: STREAM_SINGLE_INPUT=1 needs FFMPEG_INPUT_RECONNECT=relay; ignored"
+    STREAM_SINGLE_INPUT=0
+fi
+export STREAM_SINGLE_INPUT FFMPEG_INPUT_RECONNECT
+export SILENCE_LOG="${SILENCE_LOG:-/tmp/silencedetect.log}"
+
 # Exported so child processes (stream_monitor, playlist_rewriter, cleanup.sh)
 # always see the effective values instead of falling back to their own defaults.
 export SEGMENT_DURATION HLS_WINDOW_SECONDS HLS_LIST_SIZE
@@ -74,7 +89,7 @@ export DVR_WINDOW_SECONDS DVR_LIST_SIZE
 
 echo "Station: $STATION_SLUG"
 echo "Stream:  $STREAM_URL"
-echo "HLS:     HE-AAC v1 64k, ${SEGMENT_DURATION}s segments, ${HLS_LIST_SIZE} live / ${DVR_LIST_SIZE} DVR entries, input reconnect: ${FFMPEG_INPUT_RECONNECT}"
+echo "HLS:     HE-AAC v1 64k, ${SEGMENT_DURATION}s segments, ${HLS_LIST_SIZE} live / ${DVR_LIST_SIZE} DVR entries, input reconnect: ${FFMPEG_INPUT_RECONNECT}, single input: ${STREAM_SINGLE_INPUT}"
 
 # shellcheck source=supervisor.sh
 . /app/scripts/supervisor.sh
@@ -85,7 +100,8 @@ report_event pod_started \
     --prop hls_list_size="$HLS_LIST_SIZE" \
     --prop dvr_list_size="$DVR_LIST_SIZE" \
     --prop dvr_window_seconds="$DVR_WINDOW_SECONDS" \
-    --prop ffmpeg_input_reconnect="$FFMPEG_INPUT_RECONNECT"
+    --prop ffmpeg_input_reconnect="$FFMPEG_INPUT_RECONNECT" \
+    --prop stream_single_input="$STREAM_SINGLE_INPUT"
 
 # Directory layout:
 #   /data/hls/aac/live.m3u8                FFmpeg-managed live playlist
@@ -222,6 +238,16 @@ start_ffmpeg() {
             -hls_segment_filename "/data/hls/aac/${SEGMENT_PREFIX}-%d.ts"
             '/data/hls/aac/live.m3u8'
     )
+    if [ "$mode" = relay ] && [ "$STREAM_SINGLE_INPUT" = 1 ]; then
+        # metadata_monitor's silence detection, on the audio this ffmpeg
+        # already decodes (it used to decode a second download): silence
+        # starts go to SILENCE_LOG, unbuffered, rewritten every run.
+        args+=(
+            -map 0:a:0
+            -af "silencedetect=noise=-40dB:d=1.5,ametadata=mode=print:key=lavfi.silence_start:file=${SILENCE_LOG}:direct=1"
+            -f null -
+        )
+    fi
     if [ "$mode" = relay ]; then
         # The relay is this shell's child, not part of ffmpeg's job, so
         # ffmpeg_loop gets ffmpeg's own exit code and can stop the relay
