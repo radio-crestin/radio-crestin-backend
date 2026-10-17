@@ -17,6 +17,16 @@ ffmpeg reads one continuous stream. When it does not (the source kept going
 while the connection was down) the gap is real: everything is forwarded,
 as before, and the playlist rewriter dates the gap.
 
+With STREAM_SINGLE_INPUT=1 the relay is also the pod's only reader of the
+station's titles: it asks for ICY metadata (Icy-MetaData: 1), takes the
+metadata blocks out of the audio (ffmpeg and the history see exactly the
+audio they did without them) and sends metadata_monitor each StreamTitle,
+with when it was read, over a unix datagram socket. When it cannot (no
+icy-metaint header, a block that is not ICY metadata, a server that answers
+the request in a way only ffmpeg reads) it writes RELAY_NO_TITLES_FLAG,
+goes on without metadata, and metadata_monitor reads the titles over its
+own connection, as without the flag.
+
 Usage: input_relay.py URL   (audio on stdout, log lines on stderr)
 
 An unreachable upstream (a refused or silent connection, HTTP 404 while
@@ -34,7 +44,9 @@ RELAY_UNSUPPORTED_FLAG and the next runs let ffmpeg read the URL itself.
 """
 
 import http.client
+import json
 import os
+import re
 import select
 import socket
 import ssl
@@ -90,6 +102,17 @@ READ_SIZE = 64 * 1024
 UNSUPPORTED_EXIT = 3
 UNSUPPORTED_FLAG = os.environ.get(
     "RELAY_UNSUPPORTED_FLAG", "/tmp/input_relay_unsupported")
+# STREAM_SINGLE_INPUT: the titles come over the relay's connection.
+SINGLE_INPUT = os.environ.get("STREAM_SINGLE_INPUT") == "1"
+# metadata_monitor's socket, and the flag that sends it back to its own
+# connection for the container's life.
+MONITOR_SOCKET = os.environ.get(
+    "METADATA_EVENTS_SOCKET", "/tmp/metadata_monitor.sock")
+NO_TITLES_FLAG = os.environ.get(
+    "RELAY_NO_TITLES_FLAG", "/tmp/input_relay_no_titles")
+# The monitor hears the stream's state at least this often while audio
+# flows (its stall check, and a restarted monitor learns the title).
+HEARTBEAT_SECONDS = 5.0
 # What ffmpeg sends; some servers answer other clients differently.
 USER_AGENT = "Lavf/61.7.100"
 # Playlists (HLS, PLS) need ffmpeg's own protocols.
@@ -256,6 +279,125 @@ def _common_prefix(a, b) -> int:
     return same
 
 
+_ICY_FIELD = re.compile(rb"(\w+)='(.*?)';(?=\w+='|\s*$)", re.S)
+_ICY_START = re.compile(rb"[A-Za-z]\w*='")
+
+
+def parse_icy_metadata(block: bytes):
+    """The fields of one ICY metadata block ({b"StreamTitle": b"..."}),
+    or None when the block is not ICY metadata (the stream is out of
+    step). Values may hold quotes; a field ends at "';" before the next
+    field or the end."""
+    text = block.rstrip(b"\0")
+    if not text:
+        return {}
+    if b"\0" in text or not _ICY_START.match(text):
+        return None
+    fields = {key: value for key, value in _ICY_FIELD.findall(text)}
+    return fields or None
+
+
+def decode_title(raw: bytes) -> str:
+    """Stations send titles in UTF-8 or Windows-1250 (ş, ţ: many Romanian
+    ones), as metadata_monitor decodes ffmpeg's lines."""
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("cp1250", errors="replace")
+
+
+class IcyDemuxer:
+    """Splits an ICY stream into its audio and its metadata blocks. Pure.
+
+    After every `metaint` bytes of audio comes one length byte (x16 bytes)
+    and that much metadata; 0 means none. Reads split anywhere. A block
+    that is not metadata means the stream is out of step: `out_of_step`
+    says why, and the rest of that read is left out (what comes after it
+    can no longer be told apart)."""
+
+    def __init__(self, metaint: int):
+        self.metaint = metaint
+        self._audio_left = metaint
+        # Bytes of the current metadata block still to come, while in one.
+        self._meta_left = None
+        self._meta = bytearray()
+        self.out_of_step = None
+
+    def feed(self, data: bytes):
+        """(audio, [metadata fields]) in `data`."""
+        audio = bytearray()
+        blocks = []
+        view = memoryview(data)
+        while view and self.out_of_step is None:
+            if self._meta_left is None and self._audio_left:
+                n = min(self._audio_left, len(view))
+                audio += view[:n]
+                self._audio_left -= n
+                view = view[n:]
+            elif self._meta_left is None:
+                self._meta_left = view[0] * 16
+                view = view[1:]
+                self._end_block_if_done(blocks)
+            else:
+                n = min(self._meta_left, len(view))
+                self._meta += view[:n]
+                self._meta_left -= n
+                view = view[n:]
+                self._end_block_if_done(blocks)
+        view.release()
+        return bytes(audio), blocks
+
+    def _end_block_if_done(self, blocks):
+        if self._meta_left:
+            return
+        if self._meta:
+            fields = parse_icy_metadata(bytes(self._meta))
+            if fields is None:
+                self.out_of_step = (
+                    f"a {len(self._meta)}-byte metadata block that is not "
+                    f"ICY metadata ({bytes(self._meta[:24])!r})")
+                return
+            blocks.append(fields)
+        self._meta = bytearray()
+        self._meta_left = None
+        self._audio_left = self.metaint
+
+
+class MonitorChannel:
+    """Tells metadata_monitor the stream's state: the latest title, when it
+    was read, and when audio last went to ffmpeg. Best effort: while the
+    monitor is not listening a message is lost, and the next one (at least
+    every HEARTBEAT_SECONDS while audio flows) carries the same state."""
+
+    def __init__(self, path: str = MONITOR_SOCKET):
+        self.path = path
+        self.title = None
+        self.title_at = None
+        self.audio_at = None
+        self._sent_at = 0.0
+        self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        self._socket.setblocking(False)
+
+    def title_read(self, title: str, at: float):
+        if title != self.title:
+            self.title, self.title_at = title, at
+            self.send()
+
+    def audio_sent(self, at: float):
+        self.audio_at = at
+        if at - self._sent_at >= HEARTBEAT_SECONDS:
+            self.send()
+
+    def send(self):
+        self._sent_at = time.time()
+        message = json.dumps({"title": self.title, "title_at": self.title_at,
+                              "audio_at": self.audio_at}).encode()
+        try:
+            self._socket.sendto(message, self.path)
+        except OSError:
+            pass  # no monitor yet, or busy: the next heartbeat repeats it
+
+
 class Unsupported(Exception):
     """An upstream only ffmpeg's own input can read."""
 
@@ -292,11 +434,12 @@ def _unsupported_reason(e: BaseException):
     return None
 
 
-def _open(url: str):
+def _open(url: str, icy: bool = False):
     """The upstream response. Proxies come from the environment (the egress
     sidecar), as for ffmpeg, and like ffmpeg it does not verify
     certificates (some stations' chains are broken) and offers OpenSSL's
-    default ciphers, not Python's narrower list."""
+    default ciphers, not Python's narrower list. `icy` asks for the titles
+    interleaved with the audio."""
     parts = urllib.parse.urlsplit(url)
     if parts.username is not None or parts.password is not None:
         # urllib would take them for the host; ffmpeg sends them.
@@ -307,10 +450,10 @@ def _open(url: str):
     context.set_ciphers("DEFAULT")
     opener = urllib.request.build_opener(
         urllib.request.HTTPSHandler(context=context))
-    # No Icy-MetaData: the audio comes without interleaved titles
-    # (metadata_monitor reads those over its own connection).
-    request = urllib.request.Request(
-        url, headers={"User-Agent": USER_AGENT, "Accept": "*/*"})
+    headers = {"User-Agent": USER_AGENT, "Accept": "*/*"}
+    if icy:
+        headers["Icy-MetaData"] = "1"
+    request = urllib.request.Request(url, headers=headers)
     response = opener.open(request, timeout=READ_TIMEOUT)
     ctype = (response.headers.get("Content-Type") or "").split(";")[0]
     if ctype.strip().lower() in PLAYLIST_TYPES:
@@ -327,7 +470,7 @@ def _kbps(response):
 
 
 class Relay:
-    def __init__(self, url: str, audio):
+    def __init__(self, url: str, audio, monitor: MonitorChannel = None):
         self.url = url
         self.audio = audio
         self.trimmer = ReplayTrimmer()
@@ -336,6 +479,14 @@ class Relay:
         # dropped does not end the silence.
         self.audio_at = None
         self._quiet_logged_at = float("-inf")
+        # STREAM_SINGLE_INPUT: the titles go to the monitor, while ICY
+        # metadata works on this upstream.
+        self.monitor = monitor
+        self.icy = monitor is not None and not os.path.exists(NO_TITLES_FLAG)
+        # Titles read in bytes the trimmer has not placed yet (a reconnect's
+        # burst): they go out once those bytes are forwarded or dropped, so
+        # a title is never dated before its audio reaches ffmpeg.
+        self.pending_titles = []
 
     def run(self) -> int:
         """Relays until ffmpeg is gone (BrokenPipeError) or the upstream is
@@ -345,11 +496,16 @@ class Relay:
         while True:
             reason = None
             try:
-                response = _open(self.url)
+                response = _open(self.url, icy=self.icy)
             except (OSError, http.client.HTTPException, ValueError,
                     Unsupported) as e:
                 if not self.forwarded:
                     reason = _unsupported_reason(e)
+                if reason and self.icy:
+                    # Maybe the answer to Icy-MetaData only: without it.
+                    self._titles_unavailable(
+                        f"asking for ICY metadata failed ({reason})")
+                    continue
                 unsupported = unsupported + 1 if reason else 0
                 self._attempt_failed(failures, f"connect failed ({_describe(e)})")
             except Exception as e:  # noqa: BLE001 - a bug must not end the stream
@@ -393,6 +549,9 @@ class Relay:
         _log(f"unexpected {_describe(e)}, reconnecting")
         if posthog_reporter is not None:
             posthog_reporter.capture_exception(e, {"component": "input_relay"})
+        if self.icy:
+            # Maybe the new metadata path: titles must never cost audio.
+            self._titles_unavailable(f"unexpected {_describe(e)}")
 
     def _pump(self, response) -> bool:
         """Forwards one connection until it ends. Whether it did not fail:
@@ -403,6 +562,7 @@ class Relay:
         else:
             _log(f"connected ({response.headers.get('Content-Type')})")
         connected_at = time.monotonic()
+        demuxer = self._demuxer(response)
         gave_audio = timed_out = False
         # Without audio until this connection's first bytes; reported once
         # they are placed (a connection that gave nothing is not).
@@ -418,10 +578,17 @@ class Relay:
                 if reconnect and not gave_audio:
                     silent_s = now - self.audio_at
                 gave_audio = True
+                if demuxer:
+                    data = self._take_titles(demuxer, data)
                 self._write(self.trimmer.feed(data))
+                self._send_titles_once_placed()
+                if demuxer and demuxer.out_of_step:
+                    self._titles_unavailable(demuxer.out_of_step)
+                    break  # the next connection comes without metadata
                 if self.trimmer.holding and (
                         now - connected_at >= PLACE_SECONDS):
                     self._write(self.trimmer.give_up())
+                    self._send_titles_once_placed()
                 if not reported and not self.trimmer.placing:
                     reported = True
                     self._report_reconnect(silent_s, response)
@@ -431,6 +598,7 @@ class Relay:
             timed_out = isinstance(e, (socket.timeout, TimeoutError))
             _log(f"{_describe(e)}, reconnecting")
         self._write(self.trimmer.connection_ended())
+        self._send_titles_once_placed()
         if not reported and gave_audio:
             self._report_reconnect(silent_s, response)
         return gave_audio and (
@@ -442,6 +610,52 @@ class Relay:
             self.audio.flush()
             self.forwarded += len(chunk)
             self.audio_at = time.monotonic()
+            if self.monitor:
+                self.monitor.audio_sent(time.time())
+
+    def _demuxer(self, response):
+        """The ICY demuxer for this connection, or None without metadata."""
+        if not self.icy:
+            return None
+        try:
+            metaint = int(response.headers.get("icy-metaint") or 0)
+        except ValueError:
+            metaint = 0
+        if metaint <= 0:
+            self._titles_unavailable("no icy-metaint header")
+            return None
+        return IcyDemuxer(metaint)
+
+    def _take_titles(self, demuxer: IcyDemuxer, data: bytes) -> bytes:
+        """The audio in `data`; its titles wait in pending_titles."""
+        audio, blocks = demuxer.feed(data)
+        for fields in blocks:
+            title = fields.get(b"StreamTitle")
+            if title is not None:
+                self.pending_titles.append(decode_title(title))
+        return audio
+
+    def _send_titles_once_placed(self):
+        if self.pending_titles and not self.trimmer.placing:
+            now = time.time()
+            for title in self.pending_titles:
+                self.monitor.title_read(title, now)
+            self.pending_titles.clear()
+
+    def _titles_unavailable(self, reason: str):
+        """The monitor reads the titles over its own connection from now
+        on (for the container's life), and the relay asks for none."""
+        self.icy = False
+        _log(f"no titles from this upstream ({reason}); metadata_monitor "
+             "reads them itself")
+        try:
+            with open(NO_TITLES_FLAG, "w") as f:
+                f.write(reason + "\n")
+        except OSError as e:
+            _log(f"could not write {NO_TITLES_FLAG} ({e})")
+        if posthog_reporter is not None:
+            posthog_reporter.capture_event("relay_titles_unavailable",
+                                           {"reason": reason})
 
     def _report_reconnect(self, silent_s: float, response):
         trimmed = self.trimmer.trimmed
@@ -492,8 +706,9 @@ def main(argv) -> int:
     sys.stdout = sys.stderr
     threading.Thread(target=_exit_with_ffmpeg, args=(audio.fileno(),),
                      daemon=True).start()
+    monitor = MonitorChannel() if SINGLE_INPUT else None
     try:
-        return Relay(argv[1], audio).run()
+        return Relay(argv[1], audio, monitor).run()
     except BrokenPipeError:
         return 0
 

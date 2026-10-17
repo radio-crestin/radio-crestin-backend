@@ -177,14 +177,161 @@ class ReplayTrimmerTests(unittest.TestCase):
         self.assertEqual(out, span(200_000, 100))
 
 
+def icy_stream(audio, metaint, titles):
+    """`audio` as an ICY server sends it: `titles` maps a block number
+    (1-based) to its title; the other blocks are empty."""
+    out = bytearray()
+    for block, at in enumerate(range(0, len(audio), metaint), start=1):
+        out += audio[at:at + metaint]
+        if at + metaint > len(audio):
+            break
+        title = titles.get(block)
+        if title is None:
+            out += b"\0"
+        else:
+            meta = b"StreamTitle='" + title + b"';"
+            meta += b"\0" * (-len(meta) % 16)
+            out += bytes([len(meta) // 16]) + meta
+    return bytes(out)
+
+
+def demux(stream, metaint, chunk):
+    demuxer = ir.IcyDemuxer(metaint)
+    audio, titles = bytearray(), []
+    for i in range(0, len(stream), chunk):
+        a, blocks = demuxer.feed(stream[i:i + chunk])
+        audio += a
+        titles += [b[b"StreamTitle"] for b in blocks if b"StreamTitle" in b]
+    return bytes(audio), titles, demuxer
+
+
+class IcyDemuxerTests(unittest.TestCase):
+    TITLES = {1: b"Artist - First", 3: b"Artist - Second",
+              4: b"Other - Third"}
+
+    def test_audio_and_titles_whatever_the_reads(self):
+        audio = span(0, 400)
+        stream = icy_stream(audio, 37, self.TITLES)
+        for chunk in (1, 2, 3, 16, 37, 38, 39, 100, len(stream)):
+            with self.subTest(chunk=chunk):
+                out, titles, demuxer = demux(stream, 37, chunk)
+                self.assertEqual(out, audio[:len(out)])
+                self.assertEqual(len(out), len(audio))
+                self.assertEqual(titles, [b"Artist - First",
+                                          b"Artist - Second",
+                                          b"Other - Third"])
+                self.assertIsNone(demuxer.out_of_step)
+
+    def test_empty_blocks_carry_no_title(self):
+        out, titles, _ = demux(icy_stream(span(0, 300), 50, {}), 50, 7)
+        self.assertEqual(out, span(0, 300))
+        self.assertEqual(titles, [])
+
+    def test_several_blocks_in_one_read(self):
+        stream = icy_stream(span(0, 64), 8, {1: b"A - 1", 2: b"B - 2"})
+        _, titles, _ = demux(stream, 8, len(stream))
+        self.assertEqual(titles, [b"A - 1", b"B - 2"])
+
+    def test_a_block_that_is_not_metadata_is_out_of_step(self):
+        audio = span(0, 100)
+        stream = (audio[:20] + b"\x02" + b"\xff\xfb" * 16 + audio[20:])
+        demuxer = ir.IcyDemuxer(20)
+        out, blocks = demuxer.feed(stream)
+        self.assertEqual(out, audio[:20])
+        self.assertEqual(blocks, [])
+        self.assertIn("not ICY metadata", demuxer.out_of_step)
+        self.assertEqual(demuxer.feed(audio), (b"", []))
+
+    def test_fields(self):
+        parse = ir.parse_icy_metadata
+        self.assertEqual(parse(b"StreamTitle='A - B';StreamUrl='';\0\0"),
+                         {b"StreamTitle": b"A - B", b"StreamUrl": b""})
+        self.assertEqual(parse(b"StreamTitle='Don't Stop';\0"),
+                         {b"StreamTitle": b"Don't Stop"})
+        self.assertEqual(parse(b"StreamTitle='It's ok';x';StreamUrl='u';"),
+                         {b"StreamTitle": b"It's ok';x", b"StreamUrl": b"u"})
+        self.assertEqual(parse(b"\0" * 16), {})
+        self.assertIsNone(parse(b"\xff\xfb\x90\x00" * 4))
+        self.assertIsNone(parse(b"StreamTitle='A'\0junk"))
+
+    def test_titles_in_windows_1250(self):
+        self.assertEqual(ir.decode_title("Cântări şi ţară".encode("cp1250")),
+                         "Cântări şi ţară")
+        self.assertEqual(ir.decode_title("Cântări".encode()), "Cântări")
+
+    def test_reconnect_burst_is_dropped_whatever_the_metadata_phase(self):
+        """Each connection counts metaint from its own start: the trimmer
+        must see the audio without the blocks to find the repeat."""
+        trimmer = ir.ReplayTrimmer(history_bytes=64 * 1024, anchor_bytes=1024)
+        first, _, _ = demux(icy_stream(span(0, 20_000), 1000, {1: b"A"}),
+                            1000, 4096)
+        self.assertEqual(trimmer.feed(first), span(0, 20_000))
+        trimmer.reconnected()
+        # The burst starts 3500 bytes back, so the blocks fall elsewhere.
+        burst = icy_stream(span(16_500, 6000), 1000, {1: b"A"})
+        audio, _, _ = demux(burst, 1000, 4096)
+        out = trimmer.feed(audio) + trimmer.connection_ended()
+        self.assertEqual(out, span(20_000, 2500))
+        self.assertEqual(trimmer.trimmed, 3500)
+
+
+class MonitorChannelTests(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.mkdtemp(dir="/tmp")
+        self.addCleanup(lambda: __import__("shutil").rmtree(tmp))
+        self.path = os.path.join(tmp, "m.sock")
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        self.sock.bind(self.path)
+        self.sock.settimeout(1)
+        self.addCleanup(self.sock.close)
+
+    def recv(self):
+        return __import__("json").loads(self.sock.recv(65536))
+
+    def test_a_new_title_goes_out_at_once_a_repeat_does_not(self):
+        channel = ir.MonitorChannel(self.path)
+        channel.title_read("A - 1", 100.0)
+        self.assertEqual(self.recv(), {"title": "A - 1", "title_at": 100.0,
+                                       "audio_at": None})
+        channel.title_read("A - 1", 105.0)
+        self.sock.settimeout(0.2)
+        with self.assertRaises(socket.timeout):
+            self.sock.recv(65536)
+
+    def test_heartbeat_carries_the_title(self):
+        channel = ir.MonitorChannel(self.path)
+        channel.title_read("A - 1", 100.0)
+        self.recv()
+        channel.audio_sent(time.time() + ir.HEARTBEAT_SECONDS)
+        state = self.recv()
+        self.assertEqual(state["title"], "A - 1")
+        self.assertEqual(state["title_at"], 100.0)
+        self.assertIsNotNone(state["audio_at"])
+
+    def test_no_monitor_is_not_an_error(self):
+        channel = ir.MonitorChannel(self.path + ".missing")
+        channel.title_read("A - 1", 100.0)
+        channel.audio_sent(time.time() + 60)
+
+
 class Source:
     """A station's source and its server: audio produced at a steady rate,
     each new listener first gets a burst of the newest queued bytes."""
 
     def __init__(self, rate=64_000, burst=16_000, ctype="audio/mpeg",
                  chunked=False, body_limit=None, status_line=None,
-                 status_lines=None):
+                 status_lines=None, metaint=None, title=b"Artist - Song",
+                 icy_status_line=None, bad_block_at=None):
         self.rate, self.burst, self.ctype = rate, burst, ctype
+        # ICY: to a request with Icy-MetaData: 1, `metaint` audio bytes
+        # between metadata blocks (the title on a connection's first block
+        # and on a change). `bad_block_at`: that block (counted on the
+        # first connection) is not metadata. `icy_status_line` answers
+        # Icy-MetaData requests only.
+        self.metaint, self.title = metaint, title
+        self.icy_status_line = icy_status_line
+        self.bad_block_at = bad_block_at
+        self.icy_requests = []  # per connection: asked for metadata?
         self.chunked = chunked
         self.body_limit = body_limit
         # Sent instead of a response, to the first `status_lines`
@@ -223,14 +370,49 @@ class Source:
                     self.produced += int(self.rate * step)
                     self.cond.notify_all()
 
+    def _icy(self, data, state):
+        """`data` with metadata blocks every metaint bytes."""
+        out = bytearray()
+        while data:
+            n = min(state["left"], len(data))
+            out += data[:n]
+            data = data[n:]
+            state["left"] -= n
+            if state["left"]:
+                break
+            state["blocks"] += 1
+            if state["blocks"] == state["bad_at"]:
+                out += b"\x02" + b"\xff\xfb" * 16  # audio, not metadata
+            elif self.title != state["sent"]:
+                meta = b"StreamTitle='" + self.title + b"';StreamUrl='';"
+                meta += b"\0" * (-len(meta) % 16)
+                out += bytes([len(meta) // 16]) + meta
+                state["sent"] = self.title
+            else:
+                out += b"\0"
+            state["left"] = self.metaint
+        return bytes(out)
+
     def serve(self, handler):
         self.connections += 1
+        icy = handler.headers.get("Icy-MetaData") == "1"
+        self.icy_requests.append(icy)
         if self.status_line and (self.status_lines is None
                                  or self.connections <= self.status_lines):
             handler.wfile.write(self.status_line + b"\r\n\r\n")
             return
+        if icy and self.icy_status_line:
+            handler.wfile.write(self.icy_status_line + b"\r\n\r\n")
+            return
+        icy_state = None
+        if icy and self.metaint:
+            icy_state = {"left": self.metaint, "sent": None, "blocks": 0,
+                         "bad_at": self.bad_block_at
+                         if self.connections == 1 else None}
         handler.send_response(200)
         handler.send_header("Content-Type", self.ctype)
+        if icy_state:
+            handler.send_header("icy-metaint", str(self.metaint))
         if self.chunked:
             handler.send_header("Transfer-Encoding", "chunked")
         handler.end_headers()
@@ -251,13 +433,16 @@ class Source:
                 data = span(pos, end - pos)
                 if self.body_limit is not None:
                     data = data[:self.body_limit - sent]
+                audio_len = len(data)
+                if icy_state:
+                    data = self._icy(data, icy_state)
                 if self.chunked:
                     handler.wfile.write(b"%x\r\n%s\r\n" % (len(data), data))
                 else:
                     handler.wfile.write(data)
                 handler.wfile.flush()
                 pos = end
-                sent += len(data)
+                sent += audio_len
                 if self.body_limit is not None and sent >= self.body_limit:
                     return
         except OSError:
@@ -474,11 +659,11 @@ class RelayProcessTests(unittest.TestCase):
         real_open = ir._open
         calls = []
 
-        def flaky_open(url):
+        def flaky_open(url, **kwargs):
             calls.append(url)
             if len(calls) == 1:
                 raise RuntimeError("a bug")
-            return real_open(url)
+            return real_open(url, **kwargs)
 
         class Pipe:  # ffmpeg's end: gone once the test is done
             closed = False
@@ -526,6 +711,136 @@ class RelayProcessTests(unittest.TestCase):
         started = time.monotonic()
         self.assertEqual(proc.wait(10), 0)
         self.assertLess(time.monotonic() - started, 0.9)
+
+
+class SingleInputRelayTests(RelayProcessTests):
+    """STREAM_SINGLE_INPUT: the relay reads the titles too."""
+
+    def setUp(self):
+        super().setUp()
+        # AF_UNIX paths are short on macOS: not under TMPDIR.
+        sock_dir = tempfile.mkdtemp(dir="/tmp")
+        self.addCleanup(lambda: __import__("shutil").rmtree(sock_dir))
+        self.sock_path = os.path.join(sock_dir, "m.sock")
+        self.no_titles = os.path.join(self.tmp.name, "no_titles")
+        self.env.update(STREAM_SINGLE_INPUT="1",
+                        METADATA_EVENTS_SOCKET=self.sock_path,
+                        RELAY_NO_TITLES_FLAG=self.no_titles)
+        self.monitor = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        self.monitor.bind(self.sock_path)
+        self.monitor.settimeout(0.2)
+        self.addCleanup(self.monitor.close)
+        self.states = []
+
+    def received(self):
+        while True:
+            try:
+                self.states.append(
+                    __import__("json").loads(self.monitor.recv(65536)))
+            except socket.timeout:
+                return self.states
+
+    def titles(self):
+        seen = []
+        for state in self.received():
+            if state["title"] and (not seen or seen[-1] != state["title"]):
+                seen.append(state["title"])
+        return seen
+
+    def test_titles_go_to_the_monitor_and_out_of_the_audio(self):
+        src = Source(metaint=1000, title="Artist - Şir".encode("cp1250"))
+        self.addCleanup(src.close)
+        proc = self.start(src.url)
+        self.wait_for(lambda: len(self.output()) > 30_000)
+        src.title = b"Artist - Next"
+        self.wait_for(lambda: "Artist - Next" in self.titles())
+        self.stop(proc)
+        self.assertEqual(self.titles(), ["Artist - Şir", "Artist - Next"])
+        self.assertTrue(src.icy_requests[0])
+        self.assert_contiguous(self.output())
+        self.assertTrue(any(s["audio_at"] for s in self.states))
+        self.assertFalse(os.path.exists(self.no_titles))
+
+    def test_source_stall_with_metadata_drops_the_burst(self):
+        self.run_source_stall(metaint=1000)
+        self.assertEqual(self.titles(), ["Artist - Song"])
+
+    def test_no_metaint_header_leaves_the_titles_to_the_monitor(self):
+        src = Source()  # answers Icy-MetaData without metadata
+        self.addCleanup(src.close)
+        proc = self.start(src.url)
+        self.wait_for(lambda: len(self.output()) > 30_000)
+        self.stop(proc)
+        self.assert_contiguous(self.output())
+        with open(self.no_titles) as f:
+            self.assertIn("no icy-metaint", f.read())
+
+    def test_metadata_out_of_step_reconnects_without_it(self):
+        src = Source(metaint=1000, bad_block_at=5)
+        self.addCleanup(src.close)
+        proc = self.start(src.url)
+        self.wait_for(lambda: len(self.output()) > 60_000)
+        log = self.stop(proc)
+        self.assertIn("not ICY metadata", log)
+        with open(self.no_titles) as f:
+            self.assertIn("not ICY metadata", f.read())
+        self.assertEqual(src.icy_requests[:2], [True, False])
+        self.assert_contiguous(self.output())
+
+    def test_server_that_answers_icy_requests_badly_keeps_the_relay(self):
+        src = Source(metaint=1000,
+                     icy_status_line=b"ICY 200 OK\r\nicy-name: test")
+        self.addCleanup(src.close)
+        proc = self.start(src.url)
+        self.wait_for(lambda: len(self.output()) > 30_000)
+        self.assertIsNone(proc.poll())
+        self.stop(proc)
+        self.assertFalse(os.path.exists(self.flag))  # not left to ffmpeg
+        self.assertTrue(os.path.exists(self.no_titles))
+        self.assertEqual(src.icy_requests[:2], [True, False])
+
+    def test_a_bug_in_the_metadata_path_costs_titles_not_audio(self):
+        src = Source(metaint=1000)
+        self.addCleanup(src.close)
+
+        class Pipe:
+            closed = False
+
+            def write(self, data):
+                if self.closed:
+                    raise BrokenPipeError
+
+            def flush(self):
+                pass
+
+        pipe = Pipe()
+        relay = ir.Relay(src.url, pipe, ir.MonitorChannel(self.sock_path))
+        with unittest.mock.patch.object(ir, "NO_TITLES_FLAG", self.no_titles), \
+                unittest.mock.patch.object(ir, "posthog_reporter", None), \
+                unittest.mock.patch.object(ir.IcyDemuxer, "feed",
+                                           side_effect=RuntimeError("a bug")):
+            relay.icy = True
+            thread = threading.Thread(
+                target=lambda: self._run_to_broken_pipe(relay), daemon=True)
+            thread.start()
+            self.wait_for(lambda: relay.forwarded > 20_000)
+            pipe.closed = True
+            thread.join(5)
+        self.assertFalse(relay.icy)
+        with open(self.no_titles) as f:
+            self.assertIn("a bug", f.read())
+        self.assertEqual(src.icy_requests[:2], [True, False])
+
+    def test_titles_flag_from_an_earlier_run_asks_for_none(self):
+        with open(self.no_titles, "w") as f:
+            f.write("earlier\n")
+        src = Source(metaint=1000)
+        self.addCleanup(src.close)
+        proc = self.start(src.url)
+        self.wait_for(lambda: len(self.output()) > 30_000)
+        self.stop(proc)
+        self.assertEqual(set(src.icy_requests), {False})
+        self.assert_contiguous(self.output())
 
 
 if __name__ == "__main__":

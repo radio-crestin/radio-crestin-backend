@@ -108,7 +108,7 @@ def parse_station_list(spec: str) -> frozenset[str]:
         if SLUG_PATTERN.match(item):
             slugs.add(item)
         elif item:
-            log.warning("Ignoring FFMPEG_INPUT_RELAY_STATIONS item %r", item)
+            log.warning("Ignoring station list item %r", item)
     return frozenset(slugs)
 
 
@@ -119,14 +119,19 @@ STREAMER_IMAGE_OVERRIDES = parse_image_overrides(
     os.environ.get("STREAMER_IMAGE_OVERRIDES", ""))
 # Streamer settings forwarded to every station pod when set on the
 # controller. A change rolls the pods like an image update (in batches).
-# FFMPEG_INPUT_RECONNECT: "inprocess" (pod default), "restart" or "relay"
+# FFMPEG_INPUT_RECONNECT: "inprocess" (pod default), "restart" or "relay";
+# STREAM_SINGLE_INPUT: "1" for one upstream connection per pod, with relay
 # (see live_streaming/scripts/entrypoint.sh).
-STREAMER_TUNABLES = ("FFMPEG_INPUT_RECONNECT",)
+STREAMER_TUNABLES = ("FFMPEG_INPUT_RECONNECT", "STREAM_SINGLE_INPUT")
 # Relay canary: these stations get FFMPEG_INPUT_RECONNECT=relay whatever the
 # controller's own value. Only the stations entering or leaving the list
 # restart; an empty list leaves every station on the controller's value.
 RELAY_STATIONS = parse_station_list(
     os.environ.get("FFMPEG_INPUT_RELAY_STATIONS", ""))
+# Single-input canary: these stations get STREAM_SINGLE_INPUT=1 (and the
+# relay it needs) whatever the controller's own values, the same way.
+SINGLE_INPUT_STATIONS = parse_station_list(
+    os.environ.get("STREAM_SINGLE_INPUT_STATIONS", ""))
 
 
 def streamer_image(slug: str) -> str:
@@ -142,8 +147,10 @@ def fleet_tunables() -> dict[str, str]:
 def streamer_tunables(slug: str) -> dict[str, str]:
     """The tunables station `slug`'s pod should get."""
     tunables = fleet_tunables()
-    if slug in RELAY_STATIONS:
+    if slug in RELAY_STATIONS or slug in SINGLE_INPUT_STATIONS:
         tunables["FFMPEG_INPUT_RECONNECT"] = "relay"
+    if slug in SINGLE_INPUT_STATIONS:
+        tunables["STREAM_SINGLE_INPUT"] = "1"
     return tunables
 
 # GraphQL query to fetch stations (disabled=False is applied server-side by default)
@@ -1104,6 +1111,9 @@ def main():
         log.info("Streamer tunables: %s", fleet_tunables())
     if RELAY_STATIONS:
         log.info("Relay stations: %s", ", ".join(sorted(RELAY_STATIONS)))
+    if SINGLE_INPUT_STATIONS:
+        log.info("Single-input stations: %s",
+                 ", ".join(sorted(SINGLE_INPUT_STATIONS)))
     log.info("Sync interval: %ds", SYNC_INTERVAL)
 
     # Load K8s config (in-cluster when running in pod)
