@@ -12,6 +12,7 @@ import tempfile
 import threading
 import time
 import unittest
+import unittest.mock
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -397,9 +398,11 @@ class RelayProcessTests(unittest.TestCase):
         src = Source(body_limit=2000)
         self.addCleanup(src.close)
         proc = self.start(src.url)
-        self.assertEqual(proc.wait(10), 1)
-        self.assertEqual(src.connections, 3)
-        self.assertIn("giving up", proc.stderr.read().decode())
+        time.sleep(3)
+        self.assertIsNone(proc.poll())
+        # 0.2, 0.4, then 0.4 s apart: a few attempts, not a storm.
+        self.assertLessEqual(src.connections, 10)
+        self.stop(proc)
 
     def test_playlist_upstream_is_left_to_ffmpeg(self):
         src = Source(ctype="application/vnd.apple.mpegurl")
@@ -432,17 +435,84 @@ class RelayProcessTests(unittest.TestCase):
         self.assertFalse(os.path.exists(self.flag))
         self.stop(proc)
 
-    def test_gives_up_when_the_upstream_stays_down(self):
+    def test_never_gives_up_while_the_upstream_is_down(self):
         with socket.socket() as s:  # a port nothing listens on
             s.bind(("127.0.0.1", 0))
             port = s.getsockname()[1]
         proc = self.start(f"http://127.0.0.1:{port}/radio.mp3")
-        started = time.monotonic()
-        self.assertEqual(proc.wait(10), 1)
-        # Immediate first attempt, then 0.2 and 0.4 s.
-        self.assertLess(time.monotonic() - started, 5)
-        self.assertIn("giving up", proc.stderr.read().decode())
+        time.sleep(3)  # 0.2, 0.4, 0.4... s apart: many attempts
+        self.assertIsNone(proc.poll(), "the relay gave up: ffmpeg would end")
+        log = self.stop(proc)
+        # The first failures one by one, then one line a minute.
+        self.assertEqual(log.count("connect failed"), ir.LOGGED_FAILURES)
         self.assertFalse(os.path.exists(self.flag))
+
+    def test_back_within_a_retry_delay_after_an_outage(self):
+        """HTTP 404 while the station's encoder reconnects to its server
+        (radio-levi, radio-antiohia on 2026-10-17): same relay, same pipe,
+        and audio again at most one retry delay after the mount is back."""
+        src = Source(status_line=b"HTTP/1.0 404 Not Found", status_lines=0)
+        self.addCleanup(src.close)
+        proc = self.start(src.url)
+        self.wait_for(lambda: len(self.output()) > 50_000)
+        src.connections = 0
+        src.status_lines = 6  # the mount is gone for the next 6 attempts
+        src.silent_until = time.monotonic() + 1.5  # ends this connection
+        self.wait_for(lambda: src.connections >= 6)
+        back_at = time.monotonic()
+        before = len(self.output())
+        self.wait_for(lambda: len(self.output()) > before + 20_000)
+        self.assertLess(time.monotonic() - back_at, 2)
+        self.assertIsNone(proc.poll())
+        log = self.stop(proc)
+        self.assertIn("HTTP 404", log)
+        self.assertRegex(log, r"reconnected after \d\.\d s without audio")
+
+    def test_an_unexpected_error_does_not_end_the_relay(self):
+        src = Source()
+        self.addCleanup(src.close)
+        real_open = ir._open
+        calls = []
+
+        def flaky_open(url):
+            calls.append(url)
+            if len(calls) == 1:
+                raise RuntimeError("a bug")
+            return real_open(url)
+
+        class Pipe:  # ffmpeg's end: gone once the test is done
+            closed = False
+
+            def write(self, data):
+                if self.closed:
+                    raise BrokenPipeError
+
+            def flush(self):
+                pass
+
+        pipe = Pipe()
+        relay = ir.Relay(src.url, pipe)
+        result = []
+        with unittest.mock.patch.object(ir, "_open", flaky_open), \
+                unittest.mock.patch.object(ir, "posthog_reporter", None):
+            thread = threading.Thread(
+                target=lambda: result.append(self._run_to_broken_pipe(relay)),
+                daemon=True)
+            thread.start()
+            self.wait_for(lambda: relay.forwarded > 20_000)
+            self.assertTrue(thread.is_alive())
+            pipe.closed = True
+            thread.join(5)
+        self.assertEqual(result, ["broken pipe"])
+        self.assertGreaterEqual(len(calls), 2)
+
+    @staticmethod
+    def _run_to_broken_pipe(relay):
+        try:
+            relay.run()
+        except BrokenPipeError:
+            return "broken pipe"
+        return "returned"
 
     def test_exits_as_soon_as_ffmpeg_is_gone(self):
         src = Source()

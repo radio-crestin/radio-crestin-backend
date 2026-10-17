@@ -19,10 +19,17 @@ as before, and the playlist rewriter dates the gap.
 
 Usage: input_relay.py URL   (audio on stdout, log lines on stderr)
 
-Exit codes: 0 ffmpeg closed the pipe, 1 the upstream stayed unreachable
-(ffmpeg then ends and ffmpeg_loop restarts both), 2 usage, 3 the relay
-cannot read this upstream but ffmpeg may (a playlist, an ICY status line,
-a TLS setup or URL it does not support, on every attempt): it writes
+An unreachable upstream (a refused or silent connection, HTTP 404 while
+the station's encoder reconnects to its server) is retried for as long as
+it lasts, a few seconds apart at most, and so is an unexpected error: ffmpeg
+waits on the pipe and its run goes on, one continuous stream, when the
+station is back. (The relay used to give up after 3 attempts: ffmpeg then
+ended, and the restart, with its backoff of up to 20 s and a new run in the
+playlist, came on top of the outage.)
+
+Exit codes: 0 ffmpeg closed the pipe, 2 usage, 3 the relay cannot read this
+upstream but ffmpeg may (a playlist, an ICY status line, a TLS setup or URL
+it does not support, on its first UNSUPPORTED_ATTEMPTS attempts): it writes
 RELAY_UNSUPPORTED_FLAG and the next runs let ffmpeg read the URL itself.
 """
 
@@ -45,12 +52,19 @@ except ImportError:  # posthog missing outside the pod
 
 # Like ffmpeg's -rw_timeout: no data for this long ends a connection.
 READ_TIMEOUT = float(os.environ.get("RELAY_READ_TIMEOUT", "10"))
-# Waits before the 2nd and 3rd attempt after a failed one; the 1st is
-# immediate. Then the relay gives up, as ffmpeg does with
-# -reconnect_delay_max 4 (it waits 0, 1 and 3 s; the next wait, 7 s, is
-# past the max).
+# Waits after the 1st, 2nd, ... failed attempt in a row; the last one
+# repeats for as long as the upstream stays down, so the stream is back at
+# most that long after the station. The 1st attempt after a connection
+# that ended is immediate.
 RETRY_DELAYS = tuple(float(s) for s in os.environ.get(
-    "RELAY_RETRY_DELAYS", "1,3").split(",") if s)
+    "RELAY_RETRY_DELAYS", "0.5,1,2").split(",") if s)
+# Only an upstream unreadable on this many attempts in a row, before any
+# audio, is left to ffmpeg (a single odd answer is not).
+UNSUPPORTED_ATTEMPTS = 3
+# Failed attempts logged one by one; then one line a minute while the
+# upstream stays down.
+LOGGED_FAILURES = 3
+QUIET_LOG_SECONDS = 60
 # A connection that gave audio, then went silent for READ_TIMEOUT or
 # lasted this long, did not fail: the retries start over, as ffmpeg's do
 # after a read. So a source frozen for minutes, whose mount answers every
@@ -321,8 +335,11 @@ class Relay:
         # When ffmpeg got its last bytes: a reconnect whose burst was all
         # dropped does not end the silence.
         self.audio_at = None
+        self._quiet_logged_at = float("-inf")
 
     def run(self) -> int:
+        """Relays until ffmpeg is gone (BrokenPipeError) or the upstream is
+        one only ffmpeg reads; never gives up on an unreachable one."""
         failures = 0  # failed attempts in a row
         unsupported = 0  # of them, the latest in a row only ffmpeg may read
         while True:
@@ -334,25 +351,48 @@ class Relay:
                 if not self.forwarded:
                     reason = _unsupported_reason(e)
                 unsupported = unsupported + 1 if reason else 0
-                _log(f"connect failed ({_describe(e)})")
+                self._attempt_failed(failures, f"connect failed ({_describe(e)})")
+            except Exception as e:  # noqa: BLE001 - a bug must not end the stream
+                unsupported = 0
+                self._unexpected(e)
             else:
                 unsupported = 0
                 try:
                     healthy = self._pump(response)
+                except BrokenPipeError:
+                    raise
+                except Exception as e:  # noqa: BLE001
+                    self._unexpected(e)
+                    healthy = False
                 finally:
                     response.close()
                 if healthy:
                     failures = 0
                     continue
-            if failures >= len(RETRY_DELAYS):
-                # On every attempt, so not a passing glitch.
-                if unsupported > failures:
-                    return self._unsupported(reason)
-                _log(f"upstream unreachable after {failures + 1} attempts, "
-                     "giving up")
-                return 1
-            time.sleep(RETRY_DELAYS[failures])
+            # Every attempt so far, so not a passing glitch.
+            if unsupported >= UNSUPPORTED_ATTEMPTS and unsupported > failures:
+                return self._unsupported(reason)
+            time.sleep(RETRY_DELAYS[min(failures, len(RETRY_DELAYS) - 1)])
             failures += 1
+
+    def _attempt_failed(self, failures: int, message: str):
+        """Logs a failed attempt: each of the first ones, then one a minute
+        while the upstream stays down."""
+        now = time.monotonic()
+        if failures < LOGGED_FAILURES:
+            _log(message)
+        elif now - self._quiet_logged_at >= QUIET_LOG_SECONDS:
+            _log(f"{message}; still retrying ({failures + 1} attempts)")
+        else:
+            return
+        self._quiet_logged_at = now
+
+    def _unexpected(self, e: Exception):
+        """An error the relay does not expect: logged and reported, then
+        handled as a failed attempt, so ffmpeg keeps its input."""
+        _log(f"unexpected {_describe(e)}, reconnecting")
+        if posthog_reporter is not None:
+            posthog_reporter.capture_exception(e, {"component": "input_relay"})
 
     def _pump(self, response) -> bool:
         """Forwards one connection until it ends. Whether it did not fail:
