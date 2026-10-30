@@ -12,6 +12,7 @@ Auth: uses X-Streaming-Api-Key (same as scraper_engine / health_server).
 import json
 import os
 import re
+import signal
 import sys
 import threading
 import time
@@ -27,6 +28,12 @@ DJANGO_GRAPHQL_URL = os.environ.get("DJANGO_GRAPHQL_URL", "http://web:8080/v1/gr
 STREAMING_API_KEY = os.environ.get("STREAMING_POD_API_KEY", "")
 
 LOG_FILE = os.environ.get("NGINX_SESSION_LOG", "/tmp/nginx_session_access.log")
+# nginx appends forever: past this size the log is handed over to a fresh file
+# (it lives in the container's writable layer, i.e. on the node's disk).
+LOG_MAX_BYTES = int(os.environ.get("NGINX_SESSION_LOG_MAX_BYTES", str(64 * 1024 * 1024)))
+NGINX_PID_FILE = os.environ.get("NGINX_PID_FILE", "/tmp/nginx/nginx.pid")
+REOPEN_WAIT_SECONDS = 1
+ROTATE_RETRY_SECONDS = 600
 BATCH_INTERVAL = int(os.environ.get("LOG_MONITOR_BATCH_INTERVAL", "10"))
 
 # Regex for the session_access log format defined in nginx.conf
@@ -215,6 +222,29 @@ def _batch_loop():
             print(f"log_monitor: batch error: {e}", flush=True)
 
 
+def _rotate(pos):
+    """Give nginx a fresh log; return the unread rest of the old one.
+
+    Rename the file, then USR1 makes nginx reopen its logs (a new, empty file).
+    Lines nginx wrote before reopening are in the renamed file: read them from
+    `pos`, then delete it. Nothing is lost.
+    """
+    old = LOG_FILE + ".old"
+    os.replace(LOG_FILE, old)
+    try:
+        with open(NGINX_PID_FILE) as handle:
+            os.kill(int(handle.read().strip()), signal.SIGUSR1)
+    except (OSError, ValueError):
+        os.replace(old, LOG_FILE)  # nginx still writes there: keep reading it
+        raise
+    time.sleep(REOPEN_WAIT_SECONDS)
+    with open(old, "r") as f:
+        f.seek(pos)
+        rest = f.read()
+    os.remove(old)
+    return rest
+
+
 def _tail_log():
     """Poll the NGINX session access log for new lines and enqueue events.
 
@@ -232,6 +262,7 @@ def _tail_log():
 
     # Start at the end of the file (only process new lines)
     pos = os.path.getsize(LOG_FILE)
+    rotate_after = 0.0
 
     while _running:
         try:
@@ -247,6 +278,13 @@ def _tail_log():
                 f.seek(pos)
                 new_data = f.read()
                 pos = f.tell()
+            if pos >= LOG_MAX_BYTES and time.monotonic() >= rotate_after:
+                try:
+                    new_data += _rotate(pos)
+                    pos = 0
+                except (OSError, ValueError) as e:
+                    print(f"log_monitor: rotate failed, retrying in {ROTATE_RETRY_SECONDS}s: {e}", flush=True)
+                    rotate_after = time.monotonic() + ROTATE_RETRY_SECONDS
 
             for line in new_data.splitlines():
                 if not line:
