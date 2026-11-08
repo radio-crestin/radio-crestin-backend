@@ -159,8 +159,7 @@ class TestReadOnlyRoot(unittest.TestCase):
         self.assertEqual([m.mount_path for m in container.volume_mounts],
                          ["/data", "/tmp", "/tmp/nginx", "/var/lib/nginx/tmp", "/var/log/nginx"])
         writable = [v for v in pod.volumes if v.name.startswith("writable-")]
-        self.assertEqual(len(writable), 4)
-        self.assertTrue(all(v.empty_dir is not None for v in writable))
+        self.assertEqual([v.empty_dir.size_limit for v in writable], ["256Mi", "16Mi", "64Mi", "16Mi"])
         self.assertTrue(controller.read_only_root_of(dep))
         self.assertFalse(controller.read_only_root_of(self._streamer(False)))
 

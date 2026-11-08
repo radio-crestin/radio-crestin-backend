@@ -29,7 +29,8 @@ STREAMING_API_KEY = os.environ.get("STREAMING_POD_API_KEY", "")
 
 LOG_FILE = os.environ.get("NGINX_SESSION_LOG", "/tmp/nginx_session_access.log")
 # nginx appends forever: past this size the log is handed over to a fresh file
-# (it lives in the container's writable layer, i.e. on the node's disk).
+# (it lives in /tmp, on the node's disk: the container layer, or an emptyDir
+# with a sizeLimit when the controller sets READ_ONLY_ROOT).
 LOG_MAX_BYTES = int(os.environ.get("NGINX_SESSION_LOG_MAX_BYTES", str(64 * 1024 * 1024)))
 NGINX_PID_FILE = os.environ.get("NGINX_PID_FILE", "/tmp/nginx/nginx.pid")
 REOPEN_WAIT_SECONDS = 1

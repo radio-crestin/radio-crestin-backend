@@ -236,18 +236,28 @@ READ_ONLY_ROOT = os.environ.get("READ_ONLY_ROOT", "false").lower() in ("true", "
 # config, pid and session log (/tmp, and /tmp/nginx, which the /tmp emptyDir
 # would otherwise hide), nginx's temp dirs, and the error log nginx opens
 # before it reads its config.
-STREAMER_WRITABLE_PATHS = ("/tmp", "/tmp/nginx", "/var/lib/nginx/tmp", "/var/log/nginx")
-LISTING_WRITABLE_PATHS = ("/tmp",)
+# Path -> emptyDir sizeLimit: a runaway writer gets the pod evicted instead of
+# filling the node. /tmp holds the session log, which log_monitor.py rotates at
+# NGINX_SESSION_LOG_MAX_BYTES (64 MiB; the old file lives on ~1 s while it reads
+# its rest), so 256Mi leaves room for both plus scratch files.
+STREAMER_WRITABLE_PATHS = {
+    "/tmp": os.environ.get("STREAMER_TMP_SIZE_LIMIT", "256Mi"),
+    "/tmp/nginx": "16Mi",
+    "/var/lib/nginx/tmp": "64Mi",
+    "/var/log/nginx": "16Mi",
+}
+LISTING_WRITABLE_PATHS = {"/tmp": "16Mi"}
 
 
-def _writable_volumes(paths: tuple[str, ...]) -> list[client.V1Volume]:
+def _writable_volumes(paths: dict[str, str]) -> list[client.V1Volume]:
     if not READ_ONLY_ROOT:
         return []
-    return [client.V1Volume(name=f"writable-{i}", empty_dir=client.V1EmptyDirVolumeSource())
-            for i, _ in enumerate(paths)]
+    return [client.V1Volume(name=f"writable-{i}",
+                            empty_dir=client.V1EmptyDirVolumeSource(size_limit=limit))
+            for i, limit in enumerate(paths.values())]
 
 
-def _writable_mounts(paths: tuple[str, ...]) -> list[client.V1VolumeMount]:
+def _writable_mounts(paths: dict[str, str]) -> list[client.V1VolumeMount]:
     if not READ_ONLY_ROOT:
         return []
     return [client.V1VolumeMount(name=f"writable-{i}", mount_path=path)
