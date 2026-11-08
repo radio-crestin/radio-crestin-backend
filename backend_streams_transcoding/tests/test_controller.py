@@ -130,6 +130,72 @@ class TestBuildDeploymentSpec(unittest.TestCase):
         self.assertEqual(container.liveness_probe.period_seconds, 10)
 
 
+class TestReadOnlyRoot(unittest.TestCase):
+    """READ_ONLY_ROOT: read-only root filesystem + an emptyDir per writable path,
+    rolled out to existing pods like an image change."""
+
+    def _streamer(self, read_only):
+        with patch.object(controller, "READ_ONLY_ROOT", read_only):
+            return controller.build_deployment_spec("radio-a", "https://s")
+
+    def _listing(self, read_only, existing):
+        apps_v1 = MagicMock()
+        apps_v1.read_namespaced_deployment.return_value = existing
+        with patch.object(controller, "READ_ONLY_ROOT", read_only):
+            controller.ensure_listing_deployment(apps_v1, MagicMock())
+        return apps_v1.replace_namespaced_deployment.call_args
+
+    def test_off_by_default_leaves_the_pods_unchanged(self):
+        pod = self._streamer(False).spec.template.spec
+        self.assertIsNone(pod.containers[0].security_context)
+        self.assertEqual([m.mount_path for m in pod.containers[0].volume_mounts], ["/data"])
+        self.assertEqual([v.name for v in pod.volumes], ["data"])
+
+    def test_streamer_gets_a_read_only_root_and_its_writable_paths(self):
+        dep = self._streamer(True)
+        pod = dep.spec.template.spec
+        container = pod.containers[0]
+        self.assertTrue(container.security_context.read_only_root_filesystem)
+        self.assertEqual([m.mount_path for m in container.volume_mounts],
+                         ["/data", "/tmp", "/tmp/nginx", "/var/lib/nginx/tmp", "/var/log/nginx"])
+        writable = [v for v in pod.volumes if v.name.startswith("writable-")]
+        self.assertEqual(len(writable), 4)
+        self.assertTrue(all(v.empty_dir is not None for v in writable))
+        self.assertTrue(controller.read_only_root_of(dep))
+        self.assertFalse(controller.read_only_root_of(self._streamer(False)))
+
+    def test_switching_it_rolls_the_streamers(self):
+        current = self._streamer(False)
+        current.metadata.labels = {"app": "live-stream", "station": "radio-a"}
+        core_v1, apps_v1, networking_v1 = MagicMock(), MagicMock(), MagicMock()
+        apps_v1.list_namespaced_deployment.return_value.items = [current]
+        stations = [{"slug": "radio-a", "stream_url": "https://s", "transcode_enabled": True}]
+        with patch("controller.fetch_stations", return_value=stations), \
+                patch("controller.ensure_listing_deployment"), \
+                patch("controller.ensure_listing_ingress"), \
+                patch.object(controller, "READ_ONLY_ROOT", True):
+            controller.sync_once(core_v1, apps_v1, networking_v1)
+        body = apps_v1.replace_namespaced_deployment.call_args.kwargs["body"]
+        self.assertTrue(controller.read_only_root_of(body))
+
+    def _new_listing(self, read_only):
+        apps_v1 = MagicMock()
+        apps_v1.read_namespaced_deployment.side_effect = controller.client.ApiException(status=404)
+        with patch.object(controller, "READ_ONLY_ROOT", read_only):
+            controller.ensure_listing_deployment(apps_v1, MagicMock())
+        return apps_v1.create_namespaced_deployment.call_args.kwargs["body"]
+
+    def test_listing_is_replaced_when_it_switches(self):
+        existing = self._new_listing(False)
+        self.assertIsNone(existing.spec.template.spec.volumes)
+        self.assertIsNone(self._listing(False, existing))
+        body = self._listing(True, existing).kwargs["body"]
+        container = body.spec.template.spec.containers[0]
+        self.assertTrue(container.security_context.read_only_root_filesystem)
+        self.assertEqual([m.mount_path for m in container.volume_mounts], ["/tmp"])
+        self.assertEqual([v.name for v in body.spec.template.spec.volumes], ["writable-0"])
+
+
 class TestBuildServiceSpec(unittest.TestCase):
     """Test service spec generation."""
 

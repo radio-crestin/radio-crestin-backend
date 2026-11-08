@@ -228,6 +228,43 @@ def _build_data_volume(slug: str) -> client.V1Volume:
     )
 
 
+# READ_ONLY_ROOT=true: the live-stream and listing containers run with a
+# read-only root filesystem, so a write anywhere but their volumes fails (and a
+# compromise shows). Each path they write gets its own emptyDir.
+READ_ONLY_ROOT = os.environ.get("READ_ONLY_ROOT", "false").lower() in ("true", "1", "yes")
+# Besides /data, the streamer writes: scratch files and nginx's rendered
+# config, pid and session log (/tmp, and /tmp/nginx, which the /tmp emptyDir
+# would otherwise hide), nginx's temp dirs, and the error log nginx opens
+# before it reads its config.
+STREAMER_WRITABLE_PATHS = ("/tmp", "/tmp/nginx", "/var/lib/nginx/tmp", "/var/log/nginx")
+LISTING_WRITABLE_PATHS = ("/tmp",)
+
+
+def _writable_volumes(paths: tuple[str, ...]) -> list[client.V1Volume]:
+    if not READ_ONLY_ROOT:
+        return []
+    return [client.V1Volume(name=f"writable-{i}", empty_dir=client.V1EmptyDirVolumeSource())
+            for i, _ in enumerate(paths)]
+
+
+def _writable_mounts(paths: tuple[str, ...]) -> list[client.V1VolumeMount]:
+    if not READ_ONLY_ROOT:
+        return []
+    return [client.V1VolumeMount(name=f"writable-{i}", mount_path=path)
+            for i, path in enumerate(paths)]
+
+
+def _read_only_root() -> client.V1SecurityContext | None:
+    return client.V1SecurityContext(read_only_root_filesystem=True) if READ_ONLY_ROOT else None
+
+
+def read_only_root_of(deployment: client.V1Deployment) -> bool:
+    """Whether a Deployment's first container has a read-only root filesystem."""
+    containers = deployment.spec.template.spec.containers or []
+    context = containers[0].security_context if containers else None
+    return context is not None and context.read_only_root_filesystem is True
+
+
 def _spread_across_nodes(match_labels: dict) -> list[client.V1TopologySpreadConstraint]:
     """
     Even out pods carrying `match_labels` across the cluster's nodes.
@@ -392,8 +429,10 @@ def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
                                 *_egress_proxy_env(),
                             ],
                             ports=[client.V1ContainerPort(container_port=8080)],
+                            security_context=_read_only_root(),
                             volume_mounts=[
                                 client.V1VolumeMount(name="data", mount_path="/data"),
+                                *_writable_mounts(STREAMER_WRITABLE_PATHS),
                             ],
                             resources=client.V1ResourceRequirements(**STREAMER_RESOURCES),
                             # preStop: sleep to let K8s remove pod from endpoints
@@ -433,7 +472,8 @@ def build_deployment_spec(slug: str, stream_url: str) -> client.V1Deployment:
                         )
                     ],
                     init_containers=_egress_proxy_init_containers(),
-                    volumes=[_build_data_volume(slug), *_egress_proxy_volumes()],
+                    volumes=[_build_data_volume(slug), *_egress_proxy_volumes(),
+                             *_writable_volumes(STREAMER_WRITABLE_PATHS)],
                 ),
             ),
         ),
@@ -568,6 +608,8 @@ def ensure_listing_deployment(
                                 client.V1EnvVar(name="INGRESS_HOST", value=INGRESS_HOST),
                             ],
                             ports=[client.V1ContainerPort(container_port=8080)],
+                            security_context=_read_only_root(),
+                            volume_mounts=_writable_mounts(LISTING_WRITABLE_PATHS) or None,
                             resources=client.V1ResourceRequirements(
                                 requests={"cpu": "5m", "memory": "16Mi"},
                                 limits={"cpu": "50m", "memory": "64Mi"},
@@ -581,6 +623,7 @@ def ensure_listing_deployment(
                     # No egress proxy: the listing only reads the in-cluster web API
                     # (its bare Service name is not in NO_PROXY, so a proxy would
                     # send that call to the internet proxy and fail).
+                    volumes=_writable_volumes(LISTING_WRITABLE_PATHS) or None,
                 ),
             ),
         ),
@@ -608,9 +651,10 @@ def ensure_listing_deployment(
         current_image = ""
         if existing.spec.template.spec.containers:
             current_image = existing.spec.template.spec.containers[0].image
-        if current_image != LISTING_IMAGE or egress_proxy_of(existing) != ("", ""):
-            log.info("Updating listing deployment: image %s -> %s, egress proxy %r -> none", current_image,
-                     LISTING_IMAGE, egress_proxy_of(existing))
+        if (current_image != LISTING_IMAGE or egress_proxy_of(existing) != ("", "")
+                or read_only_root_of(existing) != READ_ONLY_ROOT):
+            log.info("Updating listing deployment: image %s -> %s, egress proxy %r -> none, read-only root %s",
+                     current_image, LISTING_IMAGE, egress_proxy_of(existing), READ_ONLY_ROOT)
             # Replace, not patch: a strategic merge keeps fields the new spec dropped.
             apps_v1.replace_namespaced_deployment(
                 name=LISTING_DEPLOYMENT_NAME, namespace=NAMESPACE, body=deployment,
@@ -1003,7 +1047,8 @@ def sync_once(
         elif (current_image != streamer_image(slug)
               or egress_proxy_of(dep) != desired_egress_proxy()
               or resources_of(dep) != desired_resources()
-              or tunables_of(dep) != streamer_tunables(slug)):
+              or tunables_of(dep) != streamer_tunables(slug)
+              or read_only_root_of(dep) != READ_ONLY_ROOT):
             to_update_image.add(slug)
 
     to_update = to_update_url | to_update_image
@@ -1104,6 +1149,8 @@ def main():
         log.info("Streamer tunables: %s", fleet_tunables())
     if RELAY_STATIONS:
         log.info("Relay stations: %s", ", ".join(sorted(RELAY_STATIONS)))
+    if READ_ONLY_ROOT:
+        log.info("Read-only root filesystem on the live-stream and listing pods")
     log.info("Sync interval: %ds", SYNC_INTERVAL)
 
     # Load K8s config (in-cluster when running in pod)
