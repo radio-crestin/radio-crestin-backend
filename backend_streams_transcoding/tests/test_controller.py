@@ -759,6 +759,26 @@ class TestEgressProxy(unittest.TestCase):
             with patch.object(controller, "EGRESS_PROXY_SIDECAR_IMAGE", "registry.example/sidecar:9.9.9"):
                 self.assertNotEqual(controller.egress_proxy_of(dep), controller.desired_egress_proxy())
 
+    def test_sidecar_probes_start_fast_and_check_readiness_rarely(self):
+        with patch.object(controller, "EGRESS_PROXY_SECRET", self.SECRET):
+            sidecar = controller.build_deployment_spec("radio-a", "https://s.example/live").spec.template.spec.init_containers[0]
+        self.assertEqual((sidecar.startup_probe.period_seconds, sidecar.startup_probe.failure_threshold), (2, 30))
+        self.assertEqual((sidecar.readiness_probe.period_seconds, sidecar.readiness_probe.failure_threshold), (30, 2))
+        self.assertEqual(sidecar.readiness_probe.timeout_seconds, 1)
+
+    def test_old_readiness_period_is_drift(self):
+        with patch.object(controller, "EGRESS_PROXY_SECRET", self.SECRET):
+            dep = controller.build_deployment_spec("radio-a", "https://s.example/live")
+            self.assertEqual(controller.egress_proxy_readiness_period_of(dep),
+                             controller.desired_egress_proxy_readiness_period())
+            dep.spec.template.spec.init_containers[0].readiness_probe.period_seconds = 2
+            self.assertNotEqual(controller.egress_proxy_readiness_period_of(dep),
+                                controller.desired_egress_proxy_readiness_period())
+        with patch.object(controller, "EGRESS_PROXY_SECRET", ""):
+            dep = controller.build_deployment_spec("radio-a", "https://s.example/live")
+            self.assertIsNone(controller.egress_proxy_readiness_period_of(dep))
+            self.assertIsNone(controller.desired_egress_proxy_readiness_period())
+
     def test_old_gost_sidecar_is_drift(self):
         with patch.object(controller, "EGRESS_PROXY_SECRET", self.SECRET):
             dep = controller.build_deployment_spec("radio-a", "https://s.example/live")

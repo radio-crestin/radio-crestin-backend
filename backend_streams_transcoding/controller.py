@@ -63,6 +63,10 @@ EGRESS_PROXY_PORT = 3128  # fixed by squid-sidecar.conf
 EGRESS_PROXY_CA_DIR = "/etc/egress-proxy"
 EGRESS_PROXY_VOLUME = "egress-proxy-ca"
 EGRESS_PROXY_SIDECAR = "egress-proxy"
+# The startup probe checks often for a fast start; the readiness probe runs
+# rarely: each check is a perl exec (~30 ms CPU + a runc exec) in every pod.
+EGRESS_PROXY_STARTUP_PERIOD = 2
+EGRESS_PROXY_READINESS_PERIOD = 30
 
 
 def _resources_from_env(prefix: str, cpu_request: str, memory_request: str,
@@ -310,12 +314,12 @@ def _egress_proxy_env() -> list[client.V1EnvVar]:
             + [client.V1EnvVar(name=name, value_from=no_proxy) for name in ("NO_PROXY", "no_proxy")])
 
 
-def _egress_proxy_probe() -> client.V1Probe:
+def _egress_proxy_probe(period_seconds: int, failure_threshold: int) -> client.V1Probe:
     return client.V1Probe(_exec=client.V1ExecAction(
         # A plain connect: `bash </dev/tcp/...` would look like a reverse shell to Falco.
         command=["perl", "-MIO::Socket::INET", "-e",
                  f"exit !IO::Socket::INET->new(PeerAddr => q(127.0.0.1:{EGRESS_PROXY_PORT}))"]),
-        period_seconds=2, failure_threshold=30)
+        period_seconds=period_seconds, failure_threshold=failure_threshold, timeout_seconds=1)
 
 
 def _egress_proxy_init_containers() -> list[client.V1Container] | None:
@@ -328,8 +332,8 @@ def _egress_proxy_init_containers() -> list[client.V1Container] | None:
         image=EGRESS_PROXY_SIDECAR_IMAGE,
         image_pull_policy="IfNotPresent",
         restart_policy="Always",
-        startup_probe=_egress_proxy_probe(),
-        readiness_probe=_egress_proxy_probe(),
+        startup_probe=_egress_proxy_probe(EGRESS_PROXY_STARTUP_PERIOD, failure_threshold=30),
+        readiness_probe=_egress_proxy_probe(EGRESS_PROXY_READINESS_PERIOD, failure_threshold=2),
         security_context=client.V1SecurityContext(
             run_as_non_root=True, run_as_user=65534, run_as_group=65534,
             read_only_root_filesystem=True, allow_privilege_escalation=False,
@@ -355,6 +359,18 @@ def egress_proxy_of(deployment: client.V1Deployment) -> tuple[str, str]:
     secret = next((v.secret.secret_name for v in pod.volumes or []
                    if v.name == EGRESS_PROXY_VOLUME and v.secret), "")
     return (secret, image) if image and secret else ("", "")
+
+
+def egress_proxy_readiness_period_of(deployment: client.V1Deployment) -> int | None:
+    """Readiness probe period of the egress sidecar; None if there is no sidecar."""
+    sidecar = next((c for c in deployment.spec.template.spec.init_containers or []
+                    if c.name == EGRESS_PROXY_SIDECAR), None)
+    probe = sidecar.readiness_probe if sidecar else None
+    return probe.period_seconds if probe else None
+
+
+def desired_egress_proxy_readiness_period() -> int | None:
+    return EGRESS_PROXY_READINESS_PERIOD if EGRESS_PROXY_SECRET else None
 
 
 def desired_egress_proxy() -> tuple[str, str]:
@@ -1056,6 +1072,7 @@ def sync_once(
             to_update_url.add(slug)
         elif (current_image != streamer_image(slug)
               or egress_proxy_of(dep) != desired_egress_proxy()
+              or egress_proxy_readiness_period_of(dep) != desired_egress_proxy_readiness_period()
               or resources_of(dep) != desired_resources()
               or tunables_of(dep) != streamer_tunables(slug)
               or read_only_root_of(dep) != READ_ONLY_ROOT):
