@@ -41,6 +41,11 @@ class AppUsers(models.Model):
     device_timezone = models.CharField(_("Timezone"), max_length=64, blank=True, null=True)
     device_is_physical = models.BooleanField(_("Is physical device"), blank=True, null=True)
     device_fcm_token = models.TextField(_("FCM push token"), blank=True, null=True)
+    device_push_token_updated_at = models.DateTimeField(_("Push token updated at"), blank=True, null=True)
+    device_country = models.CharField(
+        _("Country"), max_length=2, blank=True, null=True,
+        help_text=_("From Cloudflare's CF-IPCountry header at the last registration."),
+    )
     device_last_ip = models.GenericIPAddressField(_("Last IP address"), blank=True, null=True)
     device_info = models.JSONField(_("Raw device info"), blank=True, null=True)
     device_first_seen_at = models.DateTimeField(_("Device first seen at"), blank=True, null=True)
