@@ -12,7 +12,7 @@ from superapp.apps.admin_portal.admin import SuperAppModelAdmin, SuperAppTabular
 from superapp.apps.admin_portal.sites import superapp_admin_site
 from ..forms.announcement_admin import AnnouncementAdminForm
 from ..models import Announcement, AnnouncementImage, AnnouncementSettings, PushSchedule
-from ..services import announcement_push, announcement_stats
+from ..services import announcement_order, announcement_push, announcement_stats
 
 HTTP_ACTIONS = "action_type == 'external' || action_type == 'in_app_browser'"
 
@@ -50,6 +50,8 @@ class AnnouncementAdmin(SuperAppModelAdmin):
     ordering = ['position', 'id']
     ordering_field = 'position'
     hide_ordering_field = True
+    list_before_template = 'admin/radio_crestin/announcement/list_before.html'
+    MAX_REORDER_ROWS = 1000
     list_filter = ['status', 'placement', 'category', 'push_enabled']
     search_fields = ['title', 'slug']
     autocomplete_fields = [
@@ -120,6 +122,32 @@ class AnnouncementAdmin(SuperAppModelAdmin):
                 ('created_at', 'updated_at'),
             ]}),
         ]
+
+    def changelist_view(self, request, extra_context=None):
+        if request.method == 'POST' and '_save' in request.POST and self.has_change_permission(request):
+            response = self._save_order(request)
+            if response is not None:
+                return response
+        return super().changelist_view(request, extra_context)
+
+    def _save_order(self, request):
+        """The list's Save after a drag: the visible rows, in their new order, take the positions they held.
+
+        The list may be filtered or paged, so Django's own per-row save would give them 0, 1, 2...
+        and collide with the hidden rows. Returns None when the form isn't a plain reorder.
+        """
+        try:
+            total = int(request.POST['form-TOTAL_FORMS'])
+            rows = sorted(
+                (int(request.POST[f'form-{index}-position']), index, int(request.POST[f'form-{index}-id']))
+                for index in range(min(total, self.MAX_REORDER_ROWS))
+            )
+        except (KeyError, ValueError):
+            return None  # let Django's list form report what's wrong
+        moved = announcement_order.reorder([announcement_id for _, _, announcement_id in rows])
+        self.message_user(request, _('Order saved: %(count)s announcements moved.') % {'count': moved},
+                          messages.SUCCESS)
+        return redirect(request.get_full_path())
 
     def get_queryset(self, request):
         return announcement_stats.with_unique_counts(super().get_queryset(request).select_related('category'))
