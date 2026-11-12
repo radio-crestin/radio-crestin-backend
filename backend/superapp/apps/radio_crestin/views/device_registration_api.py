@@ -1,4 +1,3 @@
-import ipaddress
 import json
 
 from django.http import JsonResponse, HttpResponseBadRequest
@@ -8,6 +7,7 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
 from ..models import AppUsers
+from ..utils.client_request import client_country, client_ip, safe_ip
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -28,7 +28,8 @@ class DeviceRegistrationView(View):
 
     The mobile app calls this on every launch, so it's an idempotent
     ``update_or_create`` keyed by ``anonymous_id``. The public IP is taken from
-    the request headers (server-side) and never trusted from the body. The full
+    the request headers (server-side) and never trusted from the body, and so is
+    the country (Cloudflare's CF-IPCountry; kept unchanged when unknown). The full
     payload is stored verbatim in ``device_info``; the mapped keys also populate
     dedicated columns for easy filtering in the admin.
     """
@@ -60,7 +61,7 @@ class DeviceRegistrationView(View):
 
         now = timezone.now()
         defaults = {
-            'device_last_ip': self._safe_ip(self._get_client_ip(request)),
+            'device_last_ip': safe_ip(client_ip(request)),
             'device_last_seen_at': now,
             'device_info': data,
         }
@@ -74,9 +75,15 @@ class DeviceRegistrationView(View):
         if isinstance(is_physical, bool):
             defaults['device_is_physical'] = is_physical
 
-        fcm_token = data.get('fcm_token')
+        country = client_country(request)
+        if country:
+            defaults['device_country'] = country
+
+        fcm_token = str(data.get('fcm_token') or '')
         if fcm_token:
-            defaults['device_fcm_token'] = str(fcm_token)
+            defaults['device_fcm_token'] = fcm_token
+            if fcm_token != self._stored_push_token(device_id):
+                defaults['device_push_token_updated_at'] = now
 
         user, created = AppUsers.objects.update_or_create(
             anonymous_id=device_id,
@@ -94,27 +101,5 @@ class DeviceRegistrationView(View):
         return response
 
     @staticmethod
-    def _safe_ip(value):
-        """Return a normalized IP string, or None if it isn't a valid IP."""
-        try:
-            return str(ipaddress.ip_address(value)) if value else None
-        except ValueError:
-            return None
-
-    @staticmethod
-    def _get_client_ip(request) -> str:
-        """Client IP from proxy headers, mirroring the GraphQL mutation helper.
-
-        Priority: CF-Connecting-IP (Cloudflare) -> X-Real-IP (Nginx) ->
-        X-Forwarded-For (first hop) -> REMOTE_ADDR.
-        """
-        cf_connecting_ip = request.META.get('HTTP_CF_CONNECTING_IP')
-        if cf_connecting_ip:
-            return cf_connecting_ip.strip()
-        x_real_ip = request.META.get('HTTP_X_REAL_IP')
-        if x_real_ip:
-            return x_real_ip.strip()
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            return x_forwarded_for.split(',')[0].strip()
-        return request.META.get('REMOTE_ADDR', '')
+    def _stored_push_token(device_id):
+        return AppUsers.objects.filter(anonymous_id=device_id).values_list('device_fcm_token', flat=True).first()

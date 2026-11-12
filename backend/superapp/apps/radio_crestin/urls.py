@@ -1,6 +1,9 @@
 from django.urls import path, include
 from . import views
-from .views import PodHealthReportView, SessionRecordingView, DeviceRegistrationView, StationPlaylistUpdateView
+from .views import (
+    PodHealthReportView, SessionRecordingView, DeviceRegistrationView, StationPlaylistUpdateView,
+    AnnouncementListView, AnnouncementDetailView, AnnouncementEventsView,
+)
 
 # App-specific URL patterns
 app_name = 'radio_crestin'
@@ -28,4 +31,8 @@ def extend_superapp_urlpatterns(main_urlpatterns):
         path('api/v1/devices/register/', DeviceRegistrationView.as_view(), name='api_v1_device_register'),
         # External playlist update (per-station X-Api-Key, full replace)
         path('api/v1/station-playlist/update', StationPlaylistUpdateView.as_view(), name='api_v1_station_playlist_update'),
+        # Announcements card (website + apps): list targeted per device, one by slug, client events
+        path('api/v1/announcements/', AnnouncementListView.as_view(), name='api_v1_announcements'),
+        path('api/v1/announcements/events/', AnnouncementEventsView.as_view(), name='api_v1_announcement_events'),
+        path('api/v1/announcements/<slug:slug>/', AnnouncementDetailView.as_view(), name='api_v1_announcement_detail'),
     ])
