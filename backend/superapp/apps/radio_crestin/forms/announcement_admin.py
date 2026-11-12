@@ -87,7 +87,7 @@ class AnnouncementAdminForm(forms.ModelForm):
         help_texts = {
             'body_markdown': _(
                 'Inline markdown only: **bold**, *italic*, [link](https://...). About 3 lines fit on the card; '
-                'longer text is cut with an ellipsis.'
+                'longer text is cut with an ellipsis. Optional when the card has a button with a label.'
             ),
             'page_markdown': _(
                 'Full markdown: headings, lists, quotes, images and links. Upload images below and paste their '
@@ -96,12 +96,6 @@ class AnnouncementAdminForm(forms.ModelForm):
             'push_title': _('Plain text. Empty uses the announcement title.'),
             'push_body': _('Plain text. Empty uses the description without markdown.'),
         }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # The card keeps one height for all slides, so an empty description leaves a gap.
-        if 'body_markdown' in self.fields:
-            self.fields['body_markdown'].required = True
 
     def clean_slug(self):
         slug = self.cleaned_data['slug']
@@ -115,11 +109,18 @@ class AnnouncementAdminForm(forms.ModelForm):
         self._check_schedule(data)
         self._check_placement(data)
         self._check_button(data)
+        self._require_body_or_button(data)
         return data
 
     def _require(self, data, field, message):
         if not data.get(field):
             self.add_error(field, message)
+
+    def _require_body_or_button(self, data):
+        """No card is ever empty: without a visible button (an action with a label) it needs a description."""
+        has_button = data.get('action_type') not in (None, ActionType.NONE) and (data.get('action_label') or '').strip()
+        if not (data.get('body_markdown') or '').strip() and not has_button:
+            self.add_error('body_markdown', _('Write a description, or add a button with a label.'))
 
     def _require_icon(self, data):
         if not data.get('icon_name') and not data.get('icon_image'):

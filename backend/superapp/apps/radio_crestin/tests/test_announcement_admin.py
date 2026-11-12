@@ -90,8 +90,23 @@ class AnnouncementFormTests(TestCase):
         self.assertEqual(self.errors(button_color='', button_text_color=''), {})
         self.assertIn('button_color', self.errors(button_color='red'))
 
+    def test_description_is_optional_with_a_labelled_button(self):
+        button = {'action_type': 'external', 'action_url': 'https://chat.whatsapp.com/x', 'body_markdown': ''}
+        self.assertEqual(self.errors(action_label='Primește-l zilnic pe WhatsApp', **button), {})
+        self.assertIn('body_markdown', self.errors(action_label='', button_style='hidden', **button))
+        self.assertIn('body_markdown', self.errors(body_markdown='   '))
+        self.assertEqual(self.errors(body_markdown='Text.'), {})
+
+    def test_the_seeded_whatsapp_announcement_saves_in_the_admin_form(self):
+        from django.forms.models import model_to_dict
+        whatsapp = Announcement.objects.get(slug='whatsapp-versetul-zilei')
+        data = {key: value for key, value in model_to_dict(whatsapp).items() if value is not None}
+        data['starts_at'] = whatsapp.starts_at.strftime('%Y-%m-%d %H:%M:%S')
+        form = AnnouncementAdminForm(data=data, instance=whatsapp)
+        self.assertTrue(form.is_valid(), form.errors)
+
     def test_other_rules(self):
-        self.assertIn('body_markdown', self.errors(body_markdown=''))
+        self.assertIn('body_markdown', self.errors(body_markdown=''))  # neither a body nor a button
         self.assertIn('icon_name', self.errors(icon_name=''))
         self.assertIn('slug', self.errors(slug='events'))
         self.assertIn('stations', self.errors(placement='station'))
