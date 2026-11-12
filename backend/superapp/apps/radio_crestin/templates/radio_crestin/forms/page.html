@@ -89,7 +89,7 @@ on('.pri',function(){if(q.required&&empty(typeof ans[q.id]==='string'?ans[q.id].
 if(last)submit();else{step++;render()}})}
 function results(r){var mine=ans[r.question_id];
 show('<h3>'+esc(T.results_title)+'</h3><p class="hint">'+esc(votes(r.total))+'</p><div class="res">'+r.options.map(function(o){
-return'<div class="row'+(o.label===mine?' me':'')+'"><i data-w="'+o.percent+'"></i><span>'+esc(o.label)+(o.label===mine?'<em class="chip">'+esc(T.your_vote)+'</em>':'')+'</span><b>'+o.percent+'%</b></div>'}).join('')+'</div>'+foot('',T.close));
+return'<div class="row'+(o.label===mine?' me':'')+'"><i data-w="'+o.percent+'"></i><span>'+esc(o.label)+(o.label===mine?'<span class="chip">'+esc(T.your_vote)+'</span>':'')+'</span><b>'+o.percent+'%</b></div>'}).join('')+'</div>'+foot('',T.close));
 requestAnimationFrame(function(){root.querySelectorAll('.row i').forEach(function(i){i.style.width=i.dataset.w+'%'})});on('.pri',function(){msg('close')})}
 function thanks(){done(T.thanks_title,C.thanks_html||esc(T.thanks_body))}
 function fail(text){var e=root.querySelector('.err');if(e)e.textContent=text}
