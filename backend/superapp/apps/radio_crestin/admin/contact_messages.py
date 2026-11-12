@@ -1,6 +1,7 @@
 import unfold.decorators
 from django.contrib import admin, messages
 from django.shortcuts import get_object_or_404, redirect
+from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.html import format_html, format_html_join
 from django.utils.translation import gettext_lazy as _
@@ -132,32 +133,47 @@ class ContactMessageAdmin(SuperAppModelAdmin):
         return (request.user.has_perm('radio_crestin.add_announcement')
                 and (object_id is None or self._is_kind(object_id, ContactKind.ANNOUNCEMENT)))
 
+    def _draft_action(self, request, object_id, *, build, title, explanation, done, open_url_name):
+        """GET asks to confirm; only the POST (CSRF-checked) creates the draft."""
+        message = get_object_or_404(ContactMessage, pk=object_id)
+        change_url = reverse('admin:radio_crestin_contactmessage_change', args=(object_id,))
+        if request.method != 'POST':
+            return TemplateResponse(request, 'admin/radio_crestin/contactmessage/create_draft_confirmation.html', {
+                **self.admin_site.each_context(request), 'opts': self.model._meta,
+                'title': title, 'explanation': explanation, 'message': message, 'change_url': change_url,
+            })
+        try:
+            draft = build(message)
+        except contact_drafts.DraftError as error:
+            messages.error(request, str(error))
+            return redirect(change_url)
+        messages.success(request, done)
+        return redirect(reverse(open_url_name, args=(draft.pk,)))
+
     @unfold.decorators.action(
         description=_('Create draft station'), icon='radio', variant=ActionVariant.PRIMARY,
         permissions=['create_draft_station'],
     )
     def create_draft_station(self, request, object_id):
-        message = get_object_or_404(ContactMessage, pk=object_id)
-        try:
-            station = contact_drafts.create_station(message)
-        except contact_drafts.DraftError as error:
-            messages.error(request, str(error))
-            return redirect(reverse('admin:radio_crestin_contactmessage_change', args=(object_id,)))
-        messages.success(request, _(
-            'Draft station created: disabled and private. Check the stream link, logo and details, then enable it.'
-        ))
-        return redirect(reverse('admin:radio_crestin_stations_change', args=(station.pk,)))
+        return self._draft_action(
+            request, object_id, build=contact_drafts.create_station,
+            title=_('Create draft station'),
+            explanation=_('Creates a disabled, private station from these answers, with the logo if one was sent. '
+                          'Nobody sees it until you enable it.'),
+            done=_('Draft station created: disabled and private. Check the stream link, logo and details, then enable it.'),
+            open_url_name='admin:radio_crestin_stations_change',
+        )
 
     @unfold.decorators.action(
         description=_('Create draft announcement'), icon='campaign', variant=ActionVariant.PRIMARY,
         permissions=['create_draft_announcement'],
     )
     def create_draft_announcement(self, request, object_id):
-        message = get_object_or_404(ContactMessage, pk=object_id)
-        try:
-            announcement = contact_drafts.create_announcement(message)
-        except contact_drafts.DraftError as error:
-            messages.error(request, str(error))
-            return redirect(reverse('admin:radio_crestin_contactmessage_change', args=(object_id,)))
-        messages.success(request, _('Draft announcement created. Review the text, category and dates, then set it to Active.'))
-        return redirect(reverse('admin:radio_crestin_announcement_change', args=(announcement.pk,)))
+        return self._draft_action(
+            request, object_id, build=contact_drafts.create_announcement,
+            title=_('Create draft announcement'),
+            explanation=_('Creates an announcement in Draft status from these answers, with the images if any were '
+                          'sent. Nobody sees it until you set it to Active.'),
+            done=_('Draft announcement created. Review the text, category and dates, then set it to Active.'),
+            open_url_name='admin:radio_crestin_announcement_change',
+        )

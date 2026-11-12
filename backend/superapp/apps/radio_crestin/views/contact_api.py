@@ -74,7 +74,8 @@ class ContactMessageView(View):
 
         ip = safe_ip(client_ip(request))
         email = contact_form.clean_text(post.get('email', '')).lower()[:254]
-        keys = {'ip': ip or '', 'email': email, 'all': 'all'}
+        # Requests without a usable IP share one bucket instead of skipping the limit.
+        keys = {'ip': ip or 'unknown', 'email': email, 'all': 'all'}
         if _over(request, ATTEMPT_RATES, keys, increment=True) or _over(request, SENT_RATES, keys, increment=False):
             return _json({'status': 'rate_limited'}, 429)
 

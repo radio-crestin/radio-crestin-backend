@@ -103,6 +103,15 @@ class DraftAnnouncementTests(TestCase):
 
 @override_settings(CACHES=LOCMEM_CACHE)
 class ContactAdminTests(TestCase):
+    def test_a_cross_site_post_is_refused(self):
+        from django.test import Client
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(get_user_model().objects.create_superuser(email='other@example.com', password='x'))
+        message = station_message()
+        response = client.post(reverse('admin:radio_crestin_contactmessage_create_draft_station', args=(message.pk,)))
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(Stations.objects.exists())
+
     def setUp(self):
         self.client.force_login(get_user_model().objects.create_superuser(email='admin@example.com', password='x'))
 
@@ -123,7 +132,11 @@ class ContactAdminTests(TestCase):
 
     def test_the_buttons_create_drafts_and_open_them(self):
         message = station_message()
-        response = self.client.get(reverse('admin:radio_crestin_contactmessage_create_draft_station', args=(message.pk,)))
+        url = reverse('admin:radio_crestin_contactmessage_create_draft_station', args=(message.pk,))
+        confirmation = self.client.get(url)
+        self.assertContains(confirmation, 'csrfmiddlewaretoken')
+        self.assertFalse(Stations.objects.exists())
+        response = self.client.post(url)
         station = Stations.objects.get()
         self.assertRedirects(response, reverse('admin:radio_crestin_stations_change', args=(station.pk,)),
                              fetch_redirect_response=False)
@@ -131,7 +144,7 @@ class ContactAdminTests(TestCase):
         message = announcement_message()
         page = self.client.get(self.change_url(message)).content.decode()
         self.assertIn('Create draft announcement', page)
-        response = self.client.get(reverse('admin:radio_crestin_contactmessage_create_draft_announcement', args=(message.pk,)))
+        response = self.client.post(reverse('admin:radio_crestin_contactmessage_create_draft_announcement', args=(message.pk,)))
         message.refresh_from_db()
         announcement = message.created_announcement
         self.assertRedirects(response, reverse('admin:radio_crestin_announcement_change', args=(announcement.pk,)),
@@ -139,6 +152,6 @@ class ContactAdminTests(TestCase):
 
     def test_the_station_button_refuses_another_kind(self):
         message = announcement_message()
-        response = self.client.get(reverse('admin:radio_crestin_contactmessage_create_draft_station', args=(message.pk,)))
+        response = self.client.post(reverse('admin:radio_crestin_contactmessage_create_draft_station', args=(message.pk,)))
         self.assertNotEqual(response.status_code, 302)
         self.assertFalse(Stations.objects.exists())
