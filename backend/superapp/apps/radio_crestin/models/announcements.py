@@ -19,7 +19,6 @@ ICON_NAMES = (
 ICON_CHOICES = [(name, name.capitalize()) for name in ICON_NAMES]
 BUTTON_ICON_CHOICES = [('auto', _('Automatic from the action')), ('none', _('No icon'))] + ICON_CHOICES
 
-DEFAULT_ANNOUNCEMENT_COLOR = '#0F6E63'
 
 
 class Placement(models.TextChoices):
@@ -129,11 +128,14 @@ class Announcement(models.Model):
     button_style = models.CharField(_("Style"), max_length=16, choices=ButtonStyle.choices, default=ButtonStyle.FILLED)
     button_color = models.CharField(
         _("Color"), max_length=7, blank=True, default='', validators=[hex_color_validator],
-        help_text=_("Empty uses the category color."),
+        help_text=_("Empty uses the app's and website's default color."),
     )
     button_text_color = models.CharField(
         _("Label color"), max_length=7, blank=True, default='', validators=[hex_color_validator],
-        help_text=_("Empty picks white or black, whichever contrasts more with the button color."),
+        help_text=_(
+            "Empty uses the app's and website's default color; with a button color set, empty picks white "
+            "or black, whichever contrasts more."
+        ),
     )
     button_icon = models.CharField(_("Button icon"), max_length=32, choices=BUTTON_ICON_CHOICES, default='auto')
 
@@ -212,14 +214,6 @@ class Announcement(models.Model):
 
     def __str__(self):
         return self.title
-
-    @property
-    def color(self) -> str:
-        if self.button_color:
-            return self.button_color
-        if self.category_id:
-            return self.category.color
-        return DEFAULT_ANNOUNCEMENT_COLOR
 
     @property
     def is_active(self) -> bool:

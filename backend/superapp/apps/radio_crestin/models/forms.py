@@ -61,7 +61,8 @@ class Form(models.Model):
 
     @property
     def accent(self) -> str:
-        return self.category.color if self.category_id else DEFAULT_FORM_ACCENT
+        # The page is rendered here, so it can't fall back to a client's theme like the card does.
+        return self.category.color if self.category_id and self.category.color else DEFAULT_FORM_ACCENT
 
     @property
     def shows_results(self) -> bool:

@@ -76,18 +76,20 @@ def _action_payload(action_type, url, web_target, intent_uri, fallback_url, stat
 def _button_payload(announcement: Announcement) -> Optional[dict]:
     if announcement.action_type == ActionType.NONE:
         return None
-    color = announcement.color
-    return {
+    # No color set: the key is left out and each client uses its own theme.
+    color = announcement.button_color or None
+    text_color = announcement.button_text_color or (text_color_on(color) if color else None)
+    return _compact({
         'label': announcement.action_label,
         'style': announcement.button_style,
         'color': color,
-        'text_color': announcement.button_text_color or text_color_on(color),
+        'text_color': text_color,
         'icon': announcement.button_icon or 'auto',
         'action': _action_payload(
             announcement.action_type, announcement.action_url, announcement.web_link_target,
             announcement.android_intent_uri, announcement.fallback_url, announcement.station, announcement.form,
         ),
-    }
+    })
 
 
 def _page_payload(announcement: Announcement, absolute_url: AbsoluteUrl, with_body: bool) -> Optional[dict]:
@@ -114,7 +116,10 @@ def _station_slug(station) -> Optional[str]:
 def _category_payload(category) -> Optional[dict]:
     if category is None or not is_public_slug(category.slug):
         return None
-    return {'slug': category.slug, 'name': category.name, 'color': category.color, 'text_color': category.text_color}
+    return _compact({
+        'slug': category.slug, 'name': category.name,
+        'color': category.color or None, 'text_color': category.text_color,
+    })
 
 
 def filters_payload(announcement: Announcement) -> dict:

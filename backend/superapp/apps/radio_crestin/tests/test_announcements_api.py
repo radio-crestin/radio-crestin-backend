@@ -52,8 +52,7 @@ class SeededAnnouncementTests(TestCase):
             'body_markdown': 'Primește un verset biblic **în fiecare zi, la 7:30**, direct pe telefonul tău.',
             'body_html': 'Primește un verset biblic <strong>în fiecare zi, la 7:30</strong>, direct pe telefonul tău.',
             'button': {
-                'label': 'Primește versetul zilei', 'style': 'filled', 'color': '#0F6E63',
-                'text_color': '#FFFFFF', 'icon': 'auto',
+                'label': 'Primește versetul zilei', 'style': 'filled', 'icon': 'auto',
                 'action': {'type': 'external', 'url': 'https://chat.whatsapp.com/I78qjRg1RaI5UKTvEwZdNm',
                            'web_target': 'new_tab'},
             },
@@ -154,12 +153,28 @@ class ListEndpointTests(TestCase):
             '<strong>Live</strong> at <em>19:00</em>, '
             '<a href="https://x.ro/p" target="_blank" rel="noopener noreferrer">program</a>',
         )
-        self.assertEqual(item['button']['text_color'], '#FFEE00')
-        self.assertEqual(item['button']['color'], '#7C3AED')
+        self.assertEqual(item['button']['text_color'], '#FFEE00')  # set explicitly: sent
+        self.assertNotIn('color', item['button'])  # no fallback to the category color
+        self.assertEqual(item['category']['color'], '#7C3AED')
         self.assertEqual(item['button']['action'], {'type': 'page'})
         self.assertEqual(item['page'], {'title': 'Concert'})
         for absent in ('ends_at', 'hide_after_seconds', 'max_impressions'):
             self.assertNotIn(absent, item)
+
+    def test_colors_are_sent_only_when_set(self):
+        plain = AnnouncementCategory.objects.create(slug='plain', name='Simplu')
+        make_announcement('themed', category=plain, action_type='external', action_label='Go',
+                          action_url='https://example.com')
+        make_announcement('painted', action_type='external', action_label='Go', action_url='https://example.com',
+                          button_color='#0F6E63')
+        by_slug = {item['slug']: item for item in items(self.client.get(LIST_URL))}
+
+        self.assertEqual(by_slug['themed']['category'], {'slug': 'plain', 'name': 'Simplu'})
+        self.assertNotIn('color', by_slug['themed']['button'])
+        self.assertNotIn('text_color', by_slug['themed']['button'])
+        # A button color gets its contrast label color unless one is set.
+        self.assertEqual(by_slug['painted']['button']['color'], '#0F6E63')
+        self.assertEqual(by_slug['painted']['button']['text_color'], '#FFFFFF')
 
     def test_absent_blocks_are_left_out(self):
         make_announcement('info', icon_name='info')

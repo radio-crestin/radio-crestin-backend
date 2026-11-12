@@ -118,6 +118,11 @@ class FormPageTests(TestCase):
                          ('{n} vot', '{n} voturi', '{n} de voturi'))
         self.assertTrue(config['open'])
 
+    def test_a_category_without_color_keeps_the_form_default_accent(self):
+        make_poll(category=AnnouncementCategory.objects.create(slug='plain', name='Simplu'))
+        html = self.client.get('/api/v1/forms/morning-poll/page/').content.decode()
+        self.assertIn('--acc:#E91E63', html)
+
     def test_light_is_the_default_and_unknown_themes_fall_back(self):
         make_poll()
         for theme in (None, 'neon'):

@@ -86,6 +86,10 @@ class AnnouncementFormTests(TestCase):
             self.assertIn('slug', self.errors(slug=slug), slug)
         self.assertEqual(self.errors(slug='concert-craciun-2026'), {})
 
+    def test_colors_are_optional_but_must_be_hex(self):
+        self.assertEqual(self.errors(button_color='', button_text_color=''), {})
+        self.assertIn('button_color', self.errors(button_color='red'))
+
     def test_other_rules(self):
         self.assertIn('body_markdown', self.errors(body_markdown=''))
         self.assertIn('icon_name', self.errors(icon_name=''))
