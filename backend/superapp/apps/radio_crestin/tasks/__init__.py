@@ -9,6 +9,7 @@ from .delete_old_now_playing_history import delete_old_now_playing_history
 from .check_song_thumbnail import check_song_thumbnail
 from .send_announcement_push import send_announcement_push, send_scheduled_announcement_pushes
 from .delete_old_announcement_events import delete_old_announcement_events
+from .trigger_web_deploy import trigger_web_deploy
 
 __all__ = [
     'delete_stale_listening_sessions',
@@ -18,4 +19,5 @@ __all__ = [
     'send_announcement_push',
     'send_scheduled_announcement_pushes',
     'delete_old_announcement_events',
+    'trigger_web_deploy',
 ]
