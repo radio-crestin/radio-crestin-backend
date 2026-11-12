@@ -49,13 +49,6 @@ class ButtonStyle(models.TextChoices):
     HIDDEN = 'hidden', _('Hidden (the whole card is tappable)')
 
 
-class SecondaryButtonKind(models.TextChoices):
-    NONE = 'none', _('None')
-    CLOSE = 'close', _('Close (same as the X)')
-    LATER = 'later', _('Later (hide for N days)')
-    ACTION = 'action', _('Own action')
-
-
 class TargetPlatform(models.TextChoices):
     WEB_MOBILE = 'web_mobile', _('Website on phones')
     WEB_DESKTOP = 'web_desktop', _('Website on desktop')
@@ -143,38 +136,6 @@ class Announcement(models.Model):
         help_text=_("Empty picks white or black, whichever contrasts more with the button color."),
     )
     button_icon = models.CharField(_("Button icon"), max_length=32, choices=BUTTON_ICON_CHOICES, default='auto')
-
-    # Secondary button
-    secondary_kind = models.CharField(
-        _("Second button"), max_length=16, choices=SecondaryButtonKind.choices, default=SecondaryButtonKind.NONE,
-    )
-    secondary_label = models.CharField(_("Second button text"), max_length=80, blank=True, default='')
-    secondary_later_days = models.PositiveSmallIntegerField(
-        _("Hide for days"), null=True, blank=True, validators=[MinValueValidator(1)],
-        help_text=_("For \"Later\": how many days the announcement stays hidden on that device."),
-    )
-    secondary_action_type = models.CharField(
-        _("Second button action"), max_length=32, choices=ActionType.choices, default=ActionType.NONE,
-    )
-    secondary_action_url = models.CharField(
-        _("Second button link"), max_length=2000, blank=True, default='', validators=[validate_action_url],
-    )
-    secondary_web_link_target = models.CharField(
-        _("Second button on the website"), max_length=16, choices=WebLinkTarget.choices, default=WebLinkTarget.NEW_TAB,
-    )
-    secondary_android_intent_uri = models.TextField(
-        _("Second button Android intent URI"), blank=True, default='', validators=[validate_intent_uri],
-    )
-    secondary_fallback_url = models.CharField(
-        _("Second button fallback link"), max_length=2000, blank=True, default='', validators=[validate_web_url],
-    )
-    secondary_station = models.ForeignKey(
-        Stations, verbose_name=_("Second button station"), on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='+',
-    )
-    secondary_form = models.ForeignKey(
-        Form, verbose_name=_("Second button form"), on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
-    )
 
     # Page
     page_title = models.CharField(_("Page title"), max_length=200, blank=True, default='')

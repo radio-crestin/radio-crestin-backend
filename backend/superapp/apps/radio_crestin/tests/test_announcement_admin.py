@@ -22,8 +22,7 @@ def form_data(**overrides):
         'slug': 'concert', 'title': 'Concert', 'body_markdown': 'Live **tonight**.', 'icon_name': 'calendar',
         'priority': 0, 'status': 'active',
         'placement': 'home', 'action_type': 'none', 'web_link_target': 'new_tab', 'button_style': 'filled',
-        'button_icon': 'auto', 'secondary_kind': 'none', 'secondary_action_type': 'none',
-        'secondary_web_link_target': 'new_tab', 'dismissible': 'on',
+        'button_icon': 'auto', 'dismissible': 'on',
         'starts_at': '2026-11-12 10:00:00', 'push_schedule': 'manual',
     }
     data.update(overrides)
@@ -61,8 +60,6 @@ class AnnouncementFormTests(TestCase):
             action_type='android_intent', action_label='Open', android_intent_uri='intent://x#Intent;end'))
         self.assertIn('station', self.errors(action_type='station', action_label='Listen'))
         self.assertIn('page_markdown', self.errors(action_type='page', action_label='Read'))
-        self.assertIn('secondary_later_days', self.errors(secondary_kind='later', secondary_label='Later'))
-        self.assertIn('secondary_action_type', self.errors(secondary_kind='action', secondary_label='More'))
 
     def test_links_must_use_safe_schemes(self):
         external = {'action_type': 'external', 'action_label': 'Go'}
@@ -79,11 +76,10 @@ class AnnouncementFormTests(TestCase):
         self.assertIn('fallback_url', self.errors(
             android_intent_uri='intent://x#Intent;end', fallback_url='mailto:a@b.ro', **intent))
 
-    def test_close_button_only_on_cards_that_cannot_be_closed_otherwise(self):
-        close = {'secondary_kind': 'close', 'secondary_label': 'Close'}
-        self.assertIn('secondary_kind', self.errors(**close))
-        self.assertEqual(self.errors(dismissible='', **close), {})
-        self.assertEqual(self.errors(secondary_kind='later', secondary_label='Later', secondary_later_days=3), {})
+    def test_there_is_no_second_button(self):
+        form = AnnouncementAdminForm(data=form_data())
+        for name in ('secondary_kind', 'secondary_label', 'secondary_later_days', 'secondary_action_type'):
+            self.assertNotIn(name, form.fields)
 
     def test_slugs_are_strict(self):
         for slug in ('Concert', 'concert_2026', 'concert 2026', 'a' * 101, 'ciné'):
@@ -120,7 +116,7 @@ class AnnouncementAdminPagesTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Push is not configured')
         self.assertContains(response, 'data-markdown-preview')
-        self.assertContains(response, 'announcement_form.js')
+        self.assertNotContains(response, 'secondary_kind')
         self.assertContains(response, 'Send push notification')
 
     def test_change_page_shows_reach_when_configured(self):

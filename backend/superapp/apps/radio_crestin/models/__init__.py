@@ -21,7 +21,7 @@ from .announcement_categories import AnnouncementCategory
 from .announcement_settings import AnnouncementSettings, RotationMode
 from .announcements import (
     Announcement, AnnouncementImage, AnnouncementStatus, ActionType, ButtonStyle, Placement, PushSchedule,
-    SecondaryButtonKind, TargetPlatform, WebLinkTarget,
+    TargetPlatform, WebLinkTarget,
 )
 from .announcement_events import AnnouncementEvent, AnnouncementEventTarget, AnnouncementEventType
 from .forms import Form, FormKind, FormQuestion, QuestionType
@@ -62,7 +62,6 @@ __all__ = [
     'ButtonStyle',
     'Placement',
     'PushSchedule',
-    'SecondaryButtonKind',
     'TargetPlatform',
     'WebLinkTarget',
     'AnnouncementEvent',

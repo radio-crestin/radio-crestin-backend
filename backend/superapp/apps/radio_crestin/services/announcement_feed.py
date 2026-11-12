@@ -17,7 +17,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from ..models import (
-    ActionType, Announcement, AnnouncementSettings, AnnouncementStatus, Placement, SecondaryButtonKind,
+    ActionType, Announcement, AnnouncementSettings, AnnouncementStatus, Placement,
 )
 from ..models.announcement_categories import text_color_on
 from ..models.announcement_validators import PUBLIC_SLUG_PATTERN
@@ -90,25 +90,6 @@ def _button_payload(announcement: Announcement) -> Optional[dict]:
     }
 
 
-def _secondary_button_payload(announcement: Announcement) -> Optional[dict]:
-    kind = announcement.secondary_kind
-    if kind == SecondaryButtonKind.NONE:
-        return None
-    action = None
-    if kind == SecondaryButtonKind.ACTION:
-        action = _action_payload(
-            announcement.secondary_action_type, announcement.secondary_action_url,
-            announcement.secondary_web_link_target, announcement.secondary_android_intent_uri,
-            announcement.secondary_fallback_url, announcement.secondary_station, announcement.secondary_form,
-        )
-    return _compact({
-        'label': announcement.secondary_label,
-        'kind': kind,
-        'later_days': announcement.secondary_later_days if kind == SecondaryButtonKind.LATER else None,
-        'action': action,
-    })
-
-
 def _page_payload(announcement: Announcement, absolute_url: AbsoluteUrl, with_body: bool) -> Optional[dict]:
     if not (announcement.page_title or announcement.page_markdown or announcement.page_cover_image):
         return None
@@ -172,7 +153,6 @@ def serialize(announcement: Announcement, absolute_url: AbsoluteUrl = lambda url
         'body_markdown': announcement.body_markdown,
         'body_html': announcement_html.body_html(announcement.body_markdown),
         'button': _button_payload(announcement),
-        'secondary_button': _secondary_button_payload(announcement),
         'page': _page_payload(announcement, absolute_url, with_page_body),
         'dismissible': announcement.dismissible,
         'starts_at': iso(announcement.starts_at),
@@ -210,7 +190,7 @@ def _listed(statuses, now: datetime):
         Announcement.objects
         .filter(status__in=statuses, starts_at__lte=now + UPCOMING_WINDOW)
         .filter(Q(ends_at__isnull=True) | Q(ends_at__gt=now))
-        .select_related('category', 'station', 'secondary_station', 'form', 'secondary_form')
+        .select_related('category', 'station', 'form')
         .prefetch_related('stations')
         .order_by('-priority', '-starts_at', '-id')
     )
@@ -222,7 +202,7 @@ def _live(statuses, slug: str, now: datetime) -> Optional[Announcement]:
         Announcement.objects
         .filter(slug=slug, status__in=statuses, starts_at__lte=now)
         .filter(Q(ends_at__isnull=True) | Q(ends_at__gt=now))
-        .select_related('category', 'station', 'secondary_station', 'form', 'secondary_form')
+        .select_related('category', 'station', 'form')
         .prefetch_related('stations')
         .first()
     )

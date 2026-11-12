@@ -15,10 +15,6 @@ from ..models import Announcement, AnnouncementImage, AnnouncementSettings, Push
 from ..services import announcement_push, announcement_stats
 
 HTTP_ACTIONS = "action_type == 'external' || action_type == 'in_app_browser'"
-SECONDARY_ACTION = "secondary_kind == 'action'"
-SECONDARY_HTTP_ACTIONS = (
-    f"{SECONDARY_ACTION} && (secondary_action_type == 'external' || secondary_action_type == 'in_app_browser')"
-)
 
 
 def _percent(rate):
@@ -53,7 +49,7 @@ class AnnouncementAdmin(SuperAppModelAdmin):
     list_filter = ['status', 'placement', 'category', 'push_enabled']
     search_fields = ['title', 'slug']
     autocomplete_fields = [
-        'category', 'station', 'secondary_station', 'stations', 'test_devices', 'form', 'secondary_form',
+        'category', 'station', 'stations', 'test_devices', 'form',
     ]
     readonly_fields = [
         'stats_display', 'events_display', 'push_status_display', 'preview_links_display',
@@ -72,19 +68,10 @@ class AnnouncementAdmin(SuperAppModelAdmin):
         'fallback_url': "action_type == 'android_intent'",
         'station': "action_type == 'station'",
         'form': "action_type == 'form'",
-        'secondary_form': f"{SECONDARY_ACTION} && secondary_action_type == 'form'",
         'button_style': "action_type != 'none'",
         'button_color': "action_type != 'none'",
         'button_text_color': "action_type != 'none'",
         'button_icon': "action_type != 'none'",
-        'secondary_label': "secondary_kind != 'none'",
-        'secondary_later_days': "secondary_kind == 'later'",
-        'secondary_action_type': SECONDARY_ACTION,
-        'secondary_action_url': SECONDARY_HTTP_ACTIONS,
-        'secondary_web_link_target': SECONDARY_HTTP_ACTIONS,
-        'secondary_android_intent_uri': f"{SECONDARY_ACTION} && secondary_action_type == 'android_intent'",
-        'secondary_fallback_url': f"{SECONDARY_ACTION} && secondary_action_type == 'android_intent'",
-        'secondary_station': f"{SECONDARY_ACTION} && secondary_action_type == 'station'",
         'push_schedule': 'push_enabled == true',
         'push_title': 'push_enabled == true',
         'push_body': 'push_enabled == true',
@@ -101,9 +88,6 @@ class AnnouncementAdmin(SuperAppModelAdmin):
                 'action_type', 'action_label', 'action_url', 'web_link_target',
                 'android_intent_uri', 'fallback_url', 'station', 'form',
                 ('button_style', 'button_icon'), ('button_color', 'button_text_color'),
-                'secondary_kind', 'secondary_label', 'secondary_later_days', 'secondary_action_type',
-                'secondary_action_url', 'secondary_web_link_target',
-                'secondary_android_intent_uri', 'secondary_fallback_url', 'secondary_station', 'secondary_form',
                 'page_title', 'page_cover_image', 'page_markdown',
             ]}),
             (_('Schedule & display'), {'classes': ['tab'], 'fields': [

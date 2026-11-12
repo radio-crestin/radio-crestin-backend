@@ -6,7 +6,7 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from unfold.widgets import UnfoldAdminCheckboxSelectMultipleWidget, UnfoldAdminTextareaWidget
 
-from ..models import ActionType, Announcement, ButtonStyle, Placement, SecondaryButtonKind, TargetPlatform
+from ..models import ActionType, Announcement, ButtonStyle, Placement, TargetPlatform
 
 RESERVED_SLUGS = {'events'}  # /api/v1/announcements/events/ is the events endpoint
 LOCALE_PATTERN = re.compile(r'^[a-z]{2,3}([-_][a-z0-9]{2,8})*$', re.IGNORECASE)
@@ -73,9 +73,6 @@ class AnnouncementAdminForm(forms.ModelForm):
         label=_('Languages'), validate_item=LOCALE_PATTERN.match,
         help_text=_('Language codes such as ro, en or hu; ro also matches ro-RO and ro_RO.'),
     )
-    class Media:
-        js = ('radio_crestin/announcements/announcement_form.js',)
-
     class Meta:
         model = Announcement
         # Written by the server: event totals and the push send state.
@@ -113,8 +110,7 @@ class AnnouncementAdminForm(forms.ModelForm):
         self._require_icon(data)
         self._check_schedule(data)
         self._check_placement(data)
-        self._check_primary_button(data)
-        self._check_secondary_button(data)
+        self._check_button(data)
         return data
 
     def _require(self, data, field, message):
@@ -134,40 +130,23 @@ class AnnouncementAdminForm(forms.ModelForm):
         if data.get('placement') == Placement.STATION and not data.get('stations'):
             self.add_error('stations', _('Pick at least one station.'))
 
-    def _check_action(self, data, prefix, action_type, station_field, form_field):
+    def _check_action(self, data, action_type):
         if action_type in (ActionType.EXTERNAL, ActionType.IN_APP_BROWSER):
-            self._require(data, f'{prefix}action_url', _('This action needs a link.'))
+            self._require(data, 'action_url', _('This action needs a link.'))
         elif action_type == ActionType.ANDROID_INTENT:
-            self._require(data, f'{prefix}android_intent_uri', _('This action needs an Android intent URI.'))
-            self._require(data, f'{prefix}fallback_url', _('Websites and iPhones open the fallback link.'))
+            self._require(data, 'android_intent_uri', _('This action needs an Android intent URI.'))
+            self._require(data, 'fallback_url', _('Websites and iPhones open the fallback link.'))
         elif action_type == ActionType.STATION:
-            self._require(data, station_field, _('Pick the station to start.'))
+            self._require(data, 'station', _('Pick the station to start.'))
         elif action_type == ActionType.FORM:
-            self._require(data, form_field, _('Pick the form to open.'))
+            self._require(data, 'form', _('Pick the form to open.'))
         elif action_type == ActionType.PAGE and not (data.get('page_title') or data.get('page_markdown')):
             self.add_error('page_markdown', _('Write the announcement page.'))
 
-    def _check_primary_button(self, data):
+    def _check_button(self, data):
         action_type = data.get('action_type')
         if action_type == ActionType.NONE:
             return
         if data.get('button_style') != ButtonStyle.HIDDEN:
             self._require(data, 'action_label', _('Write the button text, or choose the hidden style.'))
-        self._check_action(data, '', action_type, 'station', 'form')
-
-    def _check_secondary_button(self, data):
-        kind = data.get('secondary_kind')
-        if kind == SecondaryButtonKind.NONE:
-            return
-        if kind == SecondaryButtonKind.CLOSE and data.get('dismissible'):
-            self.add_error('secondary_kind', _(
-                'Cards that can be closed already show a "Hide" button. Pick Later or Own action, '
-                'or turn off "Can be closed".'))
-        self._require(data, 'secondary_label', _('Write the second button text.'))
-        if kind == SecondaryButtonKind.LATER:
-            self._require(data, 'secondary_later_days', _('How many days should it stay hidden?'))
-        if kind == SecondaryButtonKind.ACTION:
-            action_type = data.get('secondary_action_type')
-            if action_type == ActionType.NONE:
-                self.add_error('secondary_action_type', _('Pick what the second button does.'))
-            self._check_action(data, 'secondary_', action_type, 'secondary_station', 'secondary_form')
+        self._check_action(data, action_type)

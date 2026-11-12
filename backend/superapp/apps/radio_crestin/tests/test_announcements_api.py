@@ -142,13 +142,10 @@ class ListEndpointTests(TestCase):
 
     def test_html_and_compact_payload(self):
         category = AnnouncementCategory.objects.get(slug='event')
-        station = make_station('radio-elim')
         make_announcement(
             'concert', category=category, body_markdown='**Live** at *19:00*, [program](https://x.ro/p)',
             action_type='page', action_label='Program', button_style='outline', button_icon='calendar',
             button_text_color='#FFEE00', icon_name='calendar',
-            secondary_kind='action', secondary_label='Listen', secondary_action_type='station',
-            secondary_station=station,
             page_title='Concert', page_markdown='# Program\n\n- 19:00 Opening',
         )
         item = items(self.client.get(LIST_URL))[0]
@@ -160,9 +157,6 @@ class ListEndpointTests(TestCase):
         self.assertEqual(item['button']['text_color'], '#FFEE00')
         self.assertEqual(item['button']['color'], '#7C3AED')
         self.assertEqual(item['button']['action'], {'type': 'page'})
-        self.assertEqual(item['secondary_button'], {
-            'label': 'Listen', 'kind': 'action', 'action': {'type': 'station', 'station_slug': 'radio-elim'},
-        })
         self.assertEqual(item['page'], {'title': 'Concert'})
         for absent in ('ends_at', 'hide_after_seconds', 'max_impressions'):
             self.assertNotIn(absent, item)
@@ -170,19 +164,23 @@ class ListEndpointTests(TestCase):
     def test_absent_blocks_are_left_out(self):
         make_announcement('info', icon_name='info')
         item = items(self.client.get(LIST_URL))[0]
-        for absent in ('button', 'secondary_button', 'page', 'category'):
+        for absent in ('button', 'page', 'category'):
             self.assertNotIn(absent, item)
         self.assertEqual(set(item['filters']), EXPECTED_FILTERS_KEYS)
 
-    def test_hidden_button_and_later_secondary(self):
+    def test_hidden_button(self):
         make_announcement(
             'tap-card', action_type='external', action_url='https://example.com', button_style='hidden',
-            button_color='#FFFFFF', secondary_kind='later', secondary_label='Later', secondary_later_days=3,
+            button_color='#FFFFFF',
         )
         item = items(self.client.get(LIST_URL))[0]
         self.assertEqual(item['button']['style'], 'hidden')
         self.assertEqual(item['button']['text_color'], '#000000')
-        self.assertEqual(item['secondary_button'], {'label': 'Later', 'kind': 'later', 'later_days': 3})
+
+    def test_never_a_second_button(self):
+        make_announcement('one-button', action_type='external', action_label='Go', action_url='https://example.com')
+        self.assertNotIn('secondary_button', self.client.get(LIST_URL).content.decode())
+        self.assertNotIn('secondary_button', self.client.get(f'{LIST_URL}one-button/').content.decode())
 
     def test_only_strict_slugs_are_sent(self):
         # Rows saved before the validator (or around it) are never sent.
