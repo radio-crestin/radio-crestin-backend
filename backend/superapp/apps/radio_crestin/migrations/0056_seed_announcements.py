@@ -10,11 +10,11 @@ CATEGORIES = [
     ('prayer', 'Rugăciune', '#9D174D'),
 ]
 
-# Romanian copy produced with `codex exec` for the announcements design.
+# The website's WhatsApp banner (radiocrestin.ro WhatsAppBibleGroup), verbatim; it had no body text.
 WHATSAPP_SLUG = 'whatsapp-versetul-zilei'
-WHATSAPP_TITLE = 'Versetul zilei pe WhatsApp'
-WHATSAPP_BODY = 'Primește un verset biblic **în fiecare zi, la 7:30**, direct pe telefonul tău.'
-WHATSAPP_BUTTON = 'Primește versetul zilei'
+WHATSAPP_TITLE = 'Versetul Zilei'
+WHATSAPP_BODY = ''
+WHATSAPP_BUTTON = 'Primește-l zilnic pe WhatsApp'
 WHATSAPP_LINK = 'https://chat.whatsapp.com/I78qjRg1RaI5UKTvEwZdNm'
 
 
