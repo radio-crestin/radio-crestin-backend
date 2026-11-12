@@ -5,7 +5,7 @@ from celery import shared_task
 from django.db.models import Q
 from django.utils import timezone
 
-from ..models import Announcement, PushSchedule
+from ..models import Announcement, AnnouncementStatus, PushSchedule
 from ..services import announcement_push
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ def due_scheduled_pushes(now=None):
     return (
         Announcement.objects
         .filter(
-            is_active=True, push_enabled=True, push_schedule=PushSchedule.AT_START,
+            status=AnnouncementStatus.ACTIVE, push_enabled=True, push_schedule=PushSchedule.AT_START,
             push_confirmed_at__isnull=False, push_sent_at__isnull=True, starts_at__lte=now,
         )
         .filter(Q(ends_at__isnull=True) | Q(ends_at__gt=now))

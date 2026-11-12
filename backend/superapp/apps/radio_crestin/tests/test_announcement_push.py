@@ -28,7 +28,7 @@ def make_announcement(**fields):
     defaults = {
         'slug': 'concert', 'title': 'Concert', 'body_markdown': 'Live **tonight** at [19:00](https://x.ro)',
         'category': AnnouncementCategory.objects.get(slug='event'), 'action_type': 'page',
-        'starts_at': timezone.now() - timedelta(minutes=5),
+        'starts_at': timezone.now() - timedelta(minutes=5), 'status': 'active',
     }
     defaults.update(fields)
     return Announcement.objects.create(**defaults)
@@ -70,26 +70,17 @@ class ReachTests(TestCase):
         make_user('de-ro-phone', device_country='DE', device_locale='ro-RO', device_app_version='1.6.2')
         make_user('de-phone', device_country='DE', device_locale='de_DE', device_app_version='1.6.2')
         make_user('old-app', device_country='DE', device_locale='ro_RO', device_app_version='1.5.0')
-        make_user('office', platform='ios', device_country='DE', device_locale='ro', device_app_version='1.7',
-                  device_last_ip='10.1.2.3')
+        make_user('ios-ro', platform='ios', device_country='DE', device_locale='ro', device_app_version='1.7')
         announcement = make_announcement(
             countries_include=['DE'], locales=['ro'], min_app_version='1.6.0', platforms=['android', 'ios', 'web_mobile'],
         )
         devices = {device.id for device in announcement_push.matching_devices(announcement)}
         self.assertEqual(devices, set(AppUsers.objects.filter(
-            anonymous_id__in=['de-ro-phone', 'office']).values_list('id', flat=True)))
+            anonymous_id__in=['de-ro-phone', 'ios-ro']).values_list('id', flat=True)))
 
-        announcement.ip_ranges = ['10.0.0.0/8']
+        announcement.platforms = ['ios']
         announcement.save()
-        self.assertEqual(announcement_push.reach(announcement)['ios'], 1)
-        self.assertEqual(announcement_push.reach(announcement)['android'], 0)
-
-    def test_picked_devices(self):
-        mine = make_user('mine')
-        make_user('other')
-        announcement = make_announcement()
-        announcement.target_devices.add(mine)
-        self.assertEqual(announcement_push.reach(announcement)['total'], 1)
+        self.assertEqual(announcement_push.reach(announcement), {'android': 0, 'ios': 1, 'without_token': 0, 'total': 1})
 
     def test_web_only_announcement_reaches_no_phones(self):
         make_user('a1')
@@ -130,6 +121,23 @@ class SendTests(TestCase):
         fcm = FakeFcm()
         self.send(announcement, fcm)
         self.assertEqual(fcm.messages[0].data, {'type': 'announcement', 'slug': 'concert', 'station_slug': 'vocea'})
+
+    def test_test_send_reaches_only_the_test_devices_and_records_nothing(self):
+        mine = make_user('mine', platform='ios')
+        make_user('someone-else')
+        announcement = make_announcement()
+        announcement.test_devices.add(mine)
+        fcm = FakeFcm()
+        with patch.dict(os.environ, CONFIGURED), \
+                patch.object(announcement_push, '_firebase_app', return_value=object()), \
+                patch.object(messaging, 'send_each_for_multicast', side_effect=fcm), \
+                patch.object(announcement_push, 'track_event') as track_event:
+            result = announcement_push.send_test(announcement)
+        self.assertEqual(fcm.messages[0].tokens, ['token-mine'])
+        self.assertEqual(result['ios'], 1)
+        track_event.assert_not_called()
+        announcement.refresh_from_db()
+        self.assertEqual((announcement.push_sent_at, announcement.push_sent_count), (None, 0))
 
     def test_batches_of_500_counts_cleanup_and_posthog(self):
         AppUsers.objects.bulk_create([

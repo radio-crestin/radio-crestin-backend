@@ -1,8 +1,9 @@
-"""Who sees an announcement: pure functions shared by the list endpoint and push sending.
+"""An announcement's filters as pure functions, used to pick the phones a push goes to.
 
-Every rule that is set must match; an empty rule matches everyone.
+The website and the apps apply the same rules on the device (the list endpoint
+sends the filters with each announcement). Every rule that is set must match;
+an empty rule matches everyone.
 """
-import ipaddress
 import re
 from dataclasses import dataclass, field
 from typing import Optional
@@ -14,13 +15,11 @@ APP_PLATFORMS = ('android', 'ios')
 
 @dataclass(frozen=True)
 class Audience:
-    """The device asking: from the request (list endpoint) or an AppUsers row (push)."""
+    """One device: an AppUsers row for push, or a website visit (with its viewport)."""
     platform: str = ''
     viewport: str = ''
     country: str = ''
     locale: str = ''
-    device_id: str = ''
-    ip: str = ''
     app_version: str = ''
 
 
@@ -30,24 +29,18 @@ class TargetingRules:
     countries_include: frozenset = field(default_factory=frozenset)
     countries_exclude: frozenset = field(default_factory=frozenset)
     locales: tuple = ()
-    device_ids: frozenset = field(default_factory=frozenset)
-    ip_ranges: tuple = ()
-    has_ip_rule: bool = False  # True even when every entry was invalid: then nobody matches.
     min_app_version: str = ''
     max_app_version: str = ''
 
     @classmethod
     def build(cls, *, platforms=(), countries_include=(), countries_exclude=(), locales=(),
-              device_ids=(), ip_ranges=(), min_app_version='', max_app_version=''):
-        """Normalized rules from raw admin lists (case, blanks and invalid IP ranges are cleaned)."""
+              min_app_version='', max_app_version=''):
+        """Normalized rules from raw admin lists (case and blanks are cleaned)."""
         return cls(
             platforms=frozenset(_clean(platforms, str.lower)),
             countries_include=frozenset(_clean(countries_include, str.upper)),
             countries_exclude=frozenset(_clean(countries_exclude, str.upper)),
             locales=tuple(_clean(locales, normalize_locale)),
-            device_ids=frozenset(_clean(device_ids)),
-            ip_ranges=tuple(parse_ip_ranges(ip_ranges)),
-            has_ip_rule=bool(_clean(ip_ranges)),
             min_app_version=(min_app_version or '').strip(),
             max_app_version=(max_app_version or '').strip(),
         )
@@ -60,17 +53,6 @@ def _clean(values, transform=lambda value: value):
 def normalize_locale(locale: str) -> str:
     """'ro_RO' -> 'ro-ro'."""
     return (locale or '').strip().replace('_', '-').lower()
-
-
-def parse_ip_ranges(values):
-    """IP networks from 'IP' or 'CIDR' strings; invalid entries are dropped."""
-    networks = []
-    for value in values or []:
-        try:
-            networks.append(ipaddress.ip_network(str(value).strip(), strict=False))
-        except ValueError:
-            continue
-    return networks
 
 
 def parse_version(version: str) -> Optional[tuple]:
@@ -97,8 +79,6 @@ def matches(rules: TargetingRules, audience: Audience) -> bool:
         _platform_matches(rules.platforms, audience)
         and _country_matches(rules, audience.country)
         and _locale_matches(rules.locales, audience.locale)
-        and _device_matches(rules.device_ids, audience.device_id)
-        and _ip_matches(rules, audience.ip)
         and _app_version_matches(rules, audience)
     )
 
@@ -130,20 +110,6 @@ def _locale_matches(locales, locale) -> bool:
         return True
     locale = normalize_locale(locale)
     return bool(locale) and any(locale == rule or locale.startswith(rule + '-') for rule in locales)
-
-
-def _device_matches(device_ids, device_id) -> bool:
-    return not device_ids or (device_id or '') in device_ids
-
-
-def _ip_matches(rules, ip) -> bool:
-    if not rules.has_ip_rule:
-        return True
-    try:
-        address = ipaddress.ip_address((ip or '').strip())
-    except ValueError:
-        return False
-    return any(address.version == network.version and address in network for network in rules.ip_ranges)
 
 
 def _app_version_matches(rules, audience) -> bool:

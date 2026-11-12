@@ -8,7 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from ..forms.announcement_admin import AnnouncementAdminForm
-from ..models import Announcement, AnnouncementCategory, AnnouncementEvent, AppUsers
+from ..models import Announcement, AnnouncementCategory, AnnouncementEvent, AnnouncementSettings, AppUsers
 from ..services import announcement_push
 from .helpers import make_station
 
@@ -19,7 +19,8 @@ NOT_CONFIGURED = {announcement_push.CREDENTIALS_ENV: ''}
 
 def form_data(**overrides):
     data = {
-        'slug': 'concert', 'title': 'Concert', 'icon_name': 'calendar', 'priority': 0, 'is_active': 'on',
+        'slug': 'concert', 'title': 'Concert', 'body_markdown': 'Live **tonight**.', 'icon_name': 'calendar',
+        'priority': 0, 'status': 'active',
         'placement': 'home', 'action_type': 'none', 'web_link_target': 'new_tab', 'button_style': 'filled',
         'button_icon': 'auto', 'secondary_kind': 'none', 'secondary_action_type': 'none',
         'secondary_web_link_target': 'new_tab', 'dismissible': 'on',
@@ -40,17 +41,16 @@ class AnnouncementFormTests(TestCase):
 
     def test_list_fields_are_split_normalized_and_validated(self):
         form = AnnouncementAdminForm(data=form_data(
-            countries_include='ro, md\nDE', locales='ro\nen_US', ip_ranges='86.120.0.0/16\n10.0.0.1',
-            extra_device_ids='web-1 web-2\nweb-1', platforms=['android', 'web_mobile'],
+            countries_include='ro, md\nDE', countries_exclude='md md', locales='ro\nen_US',
+            platforms=['android', 'web_mobile'],
         ))
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.cleaned_data['countries_include'], ['RO', 'MD', 'DE'])
+        self.assertEqual(form.cleaned_data['countries_exclude'], ['MD'])
         self.assertEqual(form.cleaned_data['locales'], ['ro', 'en_US'])
-        self.assertEqual(form.cleaned_data['extra_device_ids'], ['web-1', 'web-2'])
         self.assertEqual(form.cleaned_data['platforms'], ['android', 'web_mobile'])
 
         self.assertIn('countries_include', self.errors(countries_include='Romania'))
-        self.assertIn('ip_ranges', self.errors(ip_ranges='86.120.0.0/99'))
         self.assertIn('locales', self.errors(locales='ro!'))
 
     def test_button_rules(self):
@@ -64,7 +64,29 @@ class AnnouncementFormTests(TestCase):
         self.assertIn('secondary_later_days', self.errors(secondary_kind='later', secondary_label='Later'))
         self.assertIn('secondary_action_type', self.errors(secondary_kind='action', secondary_label='More'))
 
+    def test_links_must_use_safe_schemes(self):
+        external = {'action_type': 'external', 'action_label': 'Go'}
+        for url in ('https://x.ro', 'http://x.ro/a?b=1', 'mailto:radio@x.ro', 'tel:+40700000000'):
+            self.assertEqual(self.errors(action_url=url, **external), {}, url)
+        for url in ('javascript:alert(1)', 'JavaScript:alert(1)', 'data:text/html,x', 'vbscript:x',
+                    'file:///etc/passwd', 'ftp://x.ro', 'mailto:', 'x.ro'):
+            self.assertIn('action_url', self.errors(action_url=url, **external), url)
+
+        intent = {'action_type': 'android_intent', 'action_label': 'Open'}
+        self.assertEqual(self.errors(android_intent_uri='intent://x#Intent;end', fallback_url='https://x.ro', **intent), {})
+        self.assertIn('android_intent_uri', self.errors(
+            android_intent_uri='javascript:x', fallback_url='https://x.ro', **intent))
+        self.assertIn('fallback_url', self.errors(
+            android_intent_uri='intent://x#Intent;end', fallback_url='mailto:a@b.ro', **intent))
+
+    def test_close_button_only_on_cards_that_cannot_be_closed_otherwise(self):
+        close = {'secondary_kind': 'close', 'secondary_label': 'Close'}
+        self.assertIn('secondary_kind', self.errors(**close))
+        self.assertEqual(self.errors(dismissible='', **close), {})
+        self.assertEqual(self.errors(secondary_kind='later', secondary_label='Later', secondary_later_days=3), {})
+
     def test_other_rules(self):
+        self.assertIn('body_markdown', self.errors(body_markdown=''))
         self.assertIn('icon_name', self.errors(icon_name=''))
         self.assertIn('slug', self.errors(slug='events'))
         self.assertIn('stations', self.errors(placement='station'))
@@ -93,6 +115,7 @@ class AnnouncementAdminPagesTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Push is not configured')
         self.assertContains(response, 'data-markdown-preview')
+        self.assertContains(response, 'announcement_form.js')
         self.assertContains(response, 'Send push notification')
 
     def test_change_page_shows_reach_when_configured(self):
@@ -105,7 +128,7 @@ class AnnouncementAdminPagesTests(TestCase):
         station = make_station('radio-elim')
         data = form_data(
             slug='inside-elim', title='Pray with us', placement='station', stations=[station.pk],
-            platforms=['android', 'ios'], countries_include='ro md', locales='ro', ip_ranges='10.0.0.0/8',
+            platforms=['android', 'ios'], countries_include='ro md', locales='ro',
             category=AnnouncementCategory.objects.get(slug='prayer').pk,
             action_type='station', action_label='Listen now', station=station.pk, button_style='outline',
             **{'images-TOTAL_FORMS': '0', 'images-INITIAL_FORMS': '0',
@@ -118,19 +141,29 @@ class AnnouncementAdminPagesTests(TestCase):
         saved = Announcement.objects.get(slug='inside-elim')
         self.assertEqual(saved.platforms, ['android', 'ios'])
         self.assertEqual(saved.countries_include, ['RO', 'MD'])
-        self.assertEqual(saved.ip_ranges, ['10.0.0.0/8'])
         self.assertEqual(list(saved.stations.values_list('slug', flat=True)), ['radio-elim'])
+
+    def test_preview_links_and_token_rotation(self):
+        settings = AnnouncementSettings.load()
+        response = self.client.get(reverse('admin:radio_crestin_announcement_change', args=(self.announcement.pk,)))
+        self.assertContains(response, settings.website_preview_url)
+        self.assertContains(response, settings.app_preview_url)
+
+        old_token = settings.preview_token
+        self.client.get(reverse('admin:radio_crestin_announcementsettings_rotate_preview_token', args=(settings.pk,)))
+        settings.refresh_from_db()
+        self.assertNotEqual(settings.preview_token, old_token)
 
     def test_category_and_settings_pages_render(self):
         for name in ('announcementcategory', 'announcementsettings'):
             response = self.client.get(reverse(f'admin:radio_crestin_{name}_changelist'))
             self.assertEqual(response.status_code, 200, name)
 
-    def test_device_picker_searches_app_users(self):
+    def test_test_device_picker_searches_app_users(self):
         AppUsers.objects.create(anonymous_id='my-phone', device_model='Pixel 8', device_platform='android',
                                 device_app_version='1.6.2')
         response = self.client.get(reverse('admin:autocomplete'), {
-            'app_label': 'radio_crestin', 'model_name': 'announcement', 'field_name': 'target_devices', 'term': 'pixel',
+            'app_label': 'radio_crestin', 'model_name': 'announcement', 'field_name': 'test_devices', 'term': 'pixel',
         })
         self.assertEqual(response.status_code, 200)
         results = response.json()['results']
@@ -170,6 +203,25 @@ class SendPushActionTests(TestCase):
         self.announcement.refresh_from_db()
         self.assertTrue(self.announcement.push_enabled)
         self.assertIsNotNone(self.announcement.push_confirmed_at)
+
+    def test_test_notification_goes_to_the_picked_devices_only(self):
+        mine = AppUsers.objects.get(anonymous_id='i1')
+        self.announcement.test_devices.add(mine)
+        test_url = reverse('admin:radio_crestin_announcement_send_test_notification', args=(self.announcement.pk,))
+        with patch.dict(os.environ, CONFIGURED), \
+                patch.object(announcement_push, '_deliver', return_value={'sent': 1, 'failed': 0}) as deliver:
+            response = self.client.get(test_url, follow=True)
+        self.assertContains(response, 'Test notification sent to 1 device(s)')
+        devices = list(deliver.call_args.args[1])
+        self.assertEqual([device.token for device in devices], ['t2'])
+        self.announcement.refresh_from_db()
+        self.assertIsNone(self.announcement.push_sent_at)
+
+    def test_test_notification_needs_picked_devices(self):
+        test_url = reverse('admin:radio_crestin_announcement_send_test_notification', args=(self.announcement.pk,))
+        with patch.dict(os.environ, CONFIGURED):
+            response = self.client.get(test_url, follow=True)
+        self.assertContains(response, 'Pick the test devices')
 
     def test_confirming_a_future_start_time_waits_for_the_beat(self):
         Announcement.objects.filter(pk=self.announcement.pk).update(

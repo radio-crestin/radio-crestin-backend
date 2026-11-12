@@ -5,6 +5,7 @@ from django.utils.translation import gettext_lazy as _
 
 from ...storage.config import get_public_storage
 from .announcement_categories import AnnouncementCategory, hex_color_validator
+from .announcement_validators import validate_action_url, validate_intent_uri, validate_web_url
 from .stations import Stations
 from .users import AppUsers
 
@@ -58,6 +59,12 @@ class TargetPlatform(models.TextChoices):
     IOS = 'ios', _('iOS app')
 
 
+class AnnouncementStatus(models.TextChoices):
+    DRAFT = 'draft', _('Draft: not shown')
+    PREVIEW = 'preview', _('Preview: only with the preview link')
+    ACTIVE = 'active', _('Active: shown to everyone it targets')
+
+
 class PushSchedule(models.TextChoices):
     MANUAL = 'manual', _('Send with the "Send push notification" button')
     AT_START = 'at_start', _('Send automatically at the start time')
@@ -70,7 +77,9 @@ class Announcement(models.Model):
         _("Slug"), max_length=120, unique=True,
         help_text=_("Closing is remembered per slug. Change it to show this again to people who closed it."),
     )
-    is_active = models.BooleanField(_("Active"), default=True)
+    status = models.CharField(
+        _("Status"), max_length=16, choices=AnnouncementStatus.choices, default=AnnouncementStatus.DRAFT,
+    )
     priority = models.IntegerField(_("Priority"), default=0, help_text=_("Higher shows first."))
     category = models.ForeignKey(
         AnnouncementCategory, verbose_name=_("Category"), on_delete=models.SET_NULL,
@@ -99,15 +108,19 @@ class Announcement(models.Model):
     # Primary button
     action_type = models.CharField(_("Action"), max_length=32, choices=ActionType.choices, default=ActionType.NONE)
     action_label = models.CharField(_("Button text"), max_length=80, blank=True, default='')
-    action_url = models.URLField(_("Link"), max_length=2000, blank=True, default='')
+    action_url = models.CharField(
+        _("Link"), max_length=2000, blank=True, default='', validators=[validate_action_url],
+        help_text=_("https://..., or mailto: / tel:"),
+    )
     web_link_target = models.CharField(
         _("On the website"), max_length=16, choices=WebLinkTarget.choices, default=WebLinkTarget.NEW_TAB,
     )
     android_intent_uri = models.TextField(
-        _("Android intent URI"), blank=True, default='', help_text=_("For example intent://...#Intent;package=...;end"),
+        _("Android intent URI"), blank=True, default='', validators=[validate_intent_uri],
+        help_text=_("For example intent://...#Intent;package=...;end"),
     )
-    fallback_url = models.URLField(
-        _("Fallback link"), max_length=2000, blank=True, default='',
+    fallback_url = models.CharField(
+        _("Fallback link"), max_length=2000, blank=True, default='', validators=[validate_web_url],
         help_text=_("Opened on the website, on iOS, and when the Android intent fails."),
     )
     station = models.ForeignKey(
@@ -136,12 +149,18 @@ class Announcement(models.Model):
     secondary_action_type = models.CharField(
         _("Second button action"), max_length=32, choices=ActionType.choices, default=ActionType.NONE,
     )
-    secondary_action_url = models.URLField(_("Second button link"), max_length=2000, blank=True, default='')
+    secondary_action_url = models.CharField(
+        _("Second button link"), max_length=2000, blank=True, default='', validators=[validate_action_url],
+    )
     secondary_web_link_target = models.CharField(
         _("Second button on the website"), max_length=16, choices=WebLinkTarget.choices, default=WebLinkTarget.NEW_TAB,
     )
-    secondary_android_intent_uri = models.TextField(_("Second button Android intent URI"), blank=True, default='')
-    secondary_fallback_url = models.URLField(_("Second button fallback link"), max_length=2000, blank=True, default='')
+    secondary_android_intent_uri = models.TextField(
+        _("Second button Android intent URI"), blank=True, default='', validators=[validate_intent_uri],
+    )
+    secondary_fallback_url = models.CharField(
+        _("Second button fallback link"), max_length=2000, blank=True, default='', validators=[validate_web_url],
+    )
     secondary_station = models.ForeignKey(
         Stations, verbose_name=_("Second button station"), on_delete=models.SET_NULL,
         null=True, blank=True, related_name='+',
@@ -169,20 +188,20 @@ class Announcement(models.Model):
         _("Max impressions per device"), null=True, blank=True,
     )
 
-    # Targeting: every rule that is set must match; empty means everyone.
+    # Filters: every rule that is set must match; empty means everyone. Clients evaluate
+    # them for the card (the list is the same for everyone); push sending applies them server-side.
     platforms = models.JSONField(_("Platforms"), default=list, blank=True)
     countries_include = models.JSONField(_("Only in countries"), default=list, blank=True)
     countries_exclude = models.JSONField(_("Except countries"), default=list, blank=True)
     locales = models.JSONField(_("Languages"), default=list, blank=True)
-    target_devices = models.ManyToManyField(
-        AppUsers, verbose_name=_("Devices"), blank=True, related_name='targeted_announcements',
-    )
-    extra_device_ids = models.JSONField(_("Other device IDs"), default=list, blank=True)
-    ip_ranges = models.JSONField(_("IP addresses"), default=list, blank=True)
     min_app_version = models.CharField(_("Min app version"), max_length=32, blank=True, default='')
     max_app_version = models.CharField(_("Max app version"), max_length=32, blank=True, default='')
 
     # Push notification
+    test_devices = models.ManyToManyField(
+        AppUsers, verbose_name=_("Test devices"), blank=True, related_name='test_announcements',
+        help_text=_("Phones that get \"Send a test notification\". Search App Users by device ID or model."),
+    )
     push_enabled = models.BooleanField(_("Also send as notification"), default=False)
     push_schedule = models.CharField(
         _("When"), max_length=16, choices=PushSchedule.choices, default=PushSchedule.MANUAL,
@@ -217,7 +236,7 @@ class Announcement(models.Model):
         verbose_name = _("Announcement")
         verbose_name_plural = _("Announcements")
         indexes = [
-            models.Index(fields=['is_active', 'ends_at'], name='announcement_active_idx'),
+            models.Index(fields=['status', 'ends_at'], name='announcement_status_idx'),
         ]
 
     def __str__(self):
@@ -230,6 +249,10 @@ class Announcement(models.Model):
         if self.category_id:
             return self.category.color
         return DEFAULT_ANNOUNCEMENT_COLOR
+
+    @property
+    def is_active(self) -> bool:
+        return self.status == AnnouncementStatus.ACTIVE
 
     def is_live(self, now=None) -> bool:
         now = now or timezone.now()

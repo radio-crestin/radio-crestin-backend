@@ -24,7 +24,7 @@ class DeviceRegistrationView(View):
         "is_physical_device": true, "fcm_token": "...",
         ... any extra fields (brand, screen size, ABIs, ...) ...
     }
-    Response: { "status": "ok", "created": bool }
+    Response: { "status": "ok", "created": bool, "country": "RO" | null }
 
     The mobile app calls this on every launch, so it's an idempotent
     ``update_or_create`` keyed by ``anonymous_id``. The public IP is taken from
@@ -95,7 +95,8 @@ class DeviceRegistrationView(View):
             user.device_first_seen_at = now
             user.save(update_fields=['device_first_seen_at'])
 
-        response = JsonResponse({'status': 'ok', 'created': created})
+        # The country lets the app evaluate the announcements' country filters.
+        response = JsonResponse({'status': 'ok', 'created': created, 'country': country})
         response['Cache-Control'] = 'no-store'
         response['Access-Control-Allow-Origin'] = '*'
         return response

@@ -1,5 +1,4 @@
 """The announcement edit form: list fields typed one per line, a markdown preview, and the button rules."""
-import ipaddress
 import re
 
 from django import forms
@@ -58,14 +57,6 @@ class ListTextField(forms.CharField):
             raise forms.ValidationError(_('Not valid: %(items)s'), params={'items': ', '.join(invalid)})
 
 
-def _is_ip_or_cidr(value):
-    try:
-        ipaddress.ip_network(value, strict=False)
-        return True
-    except ValueError:
-        return False
-
-
 class AnnouncementAdminForm(forms.ModelForm):
     platforms = forms.MultipleChoiceField(
         label=_('Platforms'), choices=TargetPlatform.choices, required=False,
@@ -82,14 +73,8 @@ class AnnouncementAdminForm(forms.ModelForm):
         label=_('Languages'), validate_item=LOCALE_PATTERN.match,
         help_text=_('Language codes such as ro, en or hu; ro also matches ro-RO and ro_RO.'),
     )
-    extra_device_ids = ListTextField(
-        label=_('Other device IDs'),
-        help_text=_('Pasted IDs, one per line, for example website IDs (radio_crestin_user_id).'),
-    )
-    ip_ranges = ListTextField(
-        label=_('IP addresses'), validate_item=_is_ip_or_cidr,
-        help_text=_('IPs or CIDR ranges, one per line, for example 86.120.0.0/16.'),
-    )
+    class Media:
+        js = ('radio_crestin/announcements/announcement_form.js',)
 
     class Meta:
         model = Announcement
@@ -110,6 +95,12 @@ class AnnouncementAdminForm(forms.ModelForm):
             'push_title': _('Plain text. Empty uses the announcement title.'),
             'push_body': _('Plain text. Empty uses the description without markdown.'),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # The card keeps one height for all slides, so an empty description leaves a gap.
+        if 'body_markdown' in self.fields:
+            self.fields['body_markdown'].required = True
 
     def clean_slug(self):
         slug = self.cleaned_data['slug']
@@ -166,6 +157,10 @@ class AnnouncementAdminForm(forms.ModelForm):
         kind = data.get('secondary_kind')
         if kind == SecondaryButtonKind.NONE:
             return
+        if kind == SecondaryButtonKind.CLOSE and data.get('dismissible'):
+            self.add_error('secondary_kind', _(
+                'Cards that can be closed already show a "Hide" button. Pick Later or Own action, '
+                'or turn off "Can be closed".'))
         self._require(data, 'secondary_label', _('Write the second button text.'))
         if kind == SecondaryButtonKind.LATER:
             self._require(data, 'secondary_later_days', _('How many days should it stay hidden?'))

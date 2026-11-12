@@ -72,8 +72,6 @@ def _candidate_users(rules: TargetingRules):
         users = users.filter(device_country__in=rules.countries_include)
     if rules.countries_exclude:
         users = users.exclude(device_country__in=rules.countries_exclude)
-    if rules.device_ids:
-        users = users.filter(anonymous_id__in=rules.device_ids)
     if rules.locales:
         users = users.filter(_locale_filter(rules.locales))
     return users
@@ -83,13 +81,12 @@ def matching_devices(announcement: Announcement):
     """Every app device the announcement targets, with its push token ('' when it has none)."""
     rules = rules_for(announcement)
     rows = _candidate_users(rules).values_list(
-        'id', 'device_platform', 'device_country', 'device_locale', 'anonymous_id',
-        'device_last_ip', 'device_app_version', 'device_fcm_token',
+        'id', 'device_platform', 'device_country', 'device_locale', 'device_app_version', 'device_fcm_token',
     )
-    for user_id, platform, country, locale, device_id, ip, app_version, token in rows.iterator(chunk_size=2000):
+    for user_id, platform, country, locale, app_version, token in rows.iterator(chunk_size=2000):
         audience = Audience(
             platform=(platform or '').lower(), country=country or '', locale=locale or '',
-            device_id=device_id or '', ip=ip or '', app_version=app_version or '',
+            app_version=app_version or '',
         )
         if matches(rules, audience):
             yield Device(id=user_id, platform=audience.platform, token=(token or '').strip())
@@ -160,17 +157,40 @@ def _batches(items, size=BATCH_SIZE):
         yield items[start:start + size]
 
 
+def picked_test_devices(announcement: Announcement):
+    """The phones picked under "Test devices", with their tokens."""
+    rows = announcement.test_devices.values_list('id', 'device_platform', 'device_fcm_token')
+    for user_id, platform, token in rows:
+        yield Device(id=user_id, platform=(platform or '').lower(), token=(token or '').strip())
+
+
 def send(announcement: Announcement) -> dict:
-    """Sends the notification to every matching device with a token; returns the counts."""
+    """Sends the notification to every device its filters match; records and reports the count."""
+    result = _deliver(announcement, matching_devices(announcement))
+    Announcement.objects.filter(pk=announcement.pk).update(push_sent_at=timezone.now(), push_sent_count=result['sent'])
+    _capture_sent(announcement, result)
+    logger.info('Announcement %s push sent: %s', announcement.slug, result)
+    return result
+
+
+def send_test(announcement: Announcement) -> dict:
+    """Sends the notification to the test devices only; nothing is recorded on the announcement."""
+    result = _deliver(announcement, picked_test_devices(announcement))
+    logger.info('Announcement %s test push sent: %s', announcement.slug, result)
+    return result
+
+
+def _deliver(announcement: Announcement, devices) -> dict:
+    """Sends to each device with a token in batches of 500; clears the tokens FCM no longer knows."""
     from firebase_admin import messaging
 
     if not is_configured():
         raise RuntimeError(f'Push is not configured: {CREDENTIALS_ENV} is missing.')
 
     # One message per token, even when several rows share it.
-    devices = list({device.token: device for device in matching_devices(announcement) if device.token}.values())
+    devices = list({device.token: device for device in devices if device.token}.values())
     app = _firebase_app()
-    sent = {'android': 0, 'ios': 0}
+    sent = {'android': 0, 'ios': 0, 'other': 0}
     failed = 0
     unregistered_tokens = []
 
@@ -178,7 +198,7 @@ def send(announcement: Announcement) -> dict:
         response = messaging.send_each_for_multicast(build_message(announcement, [d.token for d in batch]), app=app)
         for device, result in zip(batch, response.responses):
             if result.success:
-                sent[device.platform] += 1
+                sent[device.platform if device.platform in sent else 'other'] += 1
                 continue
             failed += 1
             if isinstance(result.exception, messaging.UnregisteredError):
@@ -187,17 +207,13 @@ def send(announcement: Announcement) -> dict:
     if unregistered_tokens:
         AppUsers.objects.filter(device_fcm_token__in=unregistered_tokens).update(device_fcm_token=None)
 
-    result = {
-        'sent': sent['android'] + sent['ios'],
+    return {
+        'sent': sum(sent.values()),
         'android': sent['android'],
         'ios': sent['ios'],
         'failed': failed,
         'cleared_tokens': len(unregistered_tokens),
     }
-    Announcement.objects.filter(pk=announcement.pk).update(push_sent_at=timezone.now(), push_sent_count=result['sent'])
-    _capture_sent(announcement, result)
-    logger.info('Announcement %s push sent: %s', announcement.slug, result)
-    return result
 
 
 def _capture_sent(announcement: Announcement, result: dict):

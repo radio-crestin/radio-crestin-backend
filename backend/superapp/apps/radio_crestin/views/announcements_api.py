@@ -1,67 +1,96 @@
 import json
 
-from django.http import JsonResponse
+from django.http import HttpResponse, HttpResponseNotModified, JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from django_ratelimit.core import is_ratelimited
 
 from ..services import announcement_events, announcement_feed
-from ..services.announcement_targeting import Audience
 from ..utils.client_request import client_country, client_ip, safe_ip
 
 
-def _json(data, status=200) -> JsonResponse:
-    response = JsonResponse(data, status=status)
-    # Targeting is per device: never cache at the CDN.
-    response['Cache-Control'] = 'private, no-store'
+# The list is the same for everyone, so Cloudflare may cache it. Never add s-maxage,
+# no-cache or must-revalidate: they turn off Cloudflare's async stale-while-revalidate.
+PUBLIC_CACHE_CONTROL = 'public, max-age=60, stale-while-revalidate=86400, stale-if-error=604800'
+PRIVATE_CACHE_CONTROL = 'private, no-store'
+
+
+def _with_cors(response):
     response['Access-Control-Allow-Origin'] = '*'
     return response
 
 
-def _absolute(request, url):
-    return request.build_absolute_uri(url) if url and url.startswith('/') else url
+def _json(data, status=200) -> JsonResponse:
+    """Per-request answers (events, preview, errors): never cached."""
+    response = JsonResponse(data, status=status, json_dumps_params={'ensure_ascii': False})
+    response['Cache-Control'] = PRIVATE_CACHE_CONTROL
+    return _with_cors(response)
 
 
-def _with_absolute_urls(request, payload: dict) -> dict:
+def _etag_matches(request, etag: str) -> bool:
+    sent = request.META.get('HTTP_IF_NONE_MATCH', '')
+    return sent.strip() == '*' or any(tag.strip().removeprefix('W/') == etag for tag in sent.split(','))
+
+
+def _public(request, rendered) -> HttpResponse:
+    """A cached body with its ETag: 304 when the client already has it."""
+    if _etag_matches(request, rendered.etag):
+        response = HttpResponseNotModified()
+    else:
+        response = HttpResponse(rendered.body, content_type='application/json')
+    response['ETag'] = rendered.etag
+    response['Cache-Control'] = PUBLIC_CACHE_CONTROL
+    # The body already lives in Redis and is dropped on every admin change; the
+    # URL-keyed page cache would keep serving a stale copy (and never answer 304).
+    response._skip_page_cache = True
+    return _with_cors(response)
+
+
+def _absolute_url(request):
     """Local file storage gives relative URLs; clients need absolute ones."""
-    payload = {**payload, 'icon': {**payload['icon'], 'url': _absolute(request, payload['icon']['url'])}}
-    if payload['page']:
-        page = payload['page']
-        payload['page'] = {**page, 'cover_image_url': _absolute(request, page['cover_image_url'])}
-    return payload
+    return lambda url: request.build_absolute_uri(url) if url.startswith('/') else url
 
 
 class AnnouncementListView(View):
-    """GET /api/v1/announcements/?device_id=&platform=web|android|ios&app_version=&locale=&viewport=mobile|desktop"""
+    """GET /api/v1/announcements/ - every listed announcement with its filters, the same for everyone.
+
+    `?preview=<token>` also returns the announcements in Preview, uncached; a wrong token gets 403.
+    """
 
     def get(self, request):
-        params = request.GET
-        audience = Audience(
-            platform=params.get('platform', ''),
-            viewport=params.get('viewport', ''),
-            country=client_country(request) or '',
-            locale=params.get('locale', ''),
-            device_id=params.get('device_id', ''),
-            ip=safe_ip(client_ip(request)) or '',
-            app_version=params.get('app_version', ''),
-        )
-        feed = announcement_feed.announcements_for(audience)
-        feed['announcements'] = [_with_absolute_urls(request, item) for item in feed['announcements']]
-        return _json(feed)
+        if 'preview' in request.GET:
+            if not announcement_feed.is_preview_token(request.GET['preview']):
+                return _json({'error': 'invalid preview token'}, status=403)
+            return _json(announcement_feed.list_payload(
+                _absolute_url(request), statuses=announcement_feed.PREVIEW_STATUSES,
+            ))
+        return _public(request, announcement_feed.public_list(_absolute_url(request)))
 
 
 class AnnouncementDetailView(View):
-    """GET /api/v1/announcements/<slug>/ — active and in its time window, no targeting."""
+    """GET /api/v1/announcements/<slug>/ - one announcement in its time window, with its page body."""
 
     def get(self, request, slug: str):
-        payload = announcement_feed.live_announcement(slug)
-        if payload is None:
-            return _json({'error': 'not found'}, status=404)
-        return _json(_with_absolute_urls(request, payload))
+        if 'preview' in request.GET:
+            if not announcement_feed.is_preview_token(request.GET['preview']):
+                return _json({'error': 'invalid preview token'}, status=403)
+            payload = announcement_feed.detail_payload(
+                slug, _absolute_url(request), statuses=announcement_feed.PREVIEW_STATUSES,
+            )
+            return _json(payload) if payload else _json({'error': 'not found'}, status=404)
+
+        rendered = announcement_feed.public_detail(slug, _absolute_url(request))
+        if rendered is None:
+            response = _json({'error': 'not found'}, status=404)
+            response['Cache-Control'] = PUBLIC_CACHE_CONTROL
+            response._skip_page_cache = True
+            return response
+        return _public(request, rendered)
 
 
-EVENTS_RATE_PER_IP = '60/m'
+# Generous per IP: many phones share one carrier (CGNAT) address.
+EVENTS_RATE_PER_IP = '600/m'
 EVENTS_RATE_PER_DEVICE = '30/m'
 
 
@@ -93,8 +122,10 @@ class AnnouncementEventsView(View):
         if device_id and _over_limit(request, 'announcement-events-device', device_id, EVENTS_RATE_PER_DEVICE):
             return _json({'error': 'rate limited'}, status=429)
 
-        accepted = announcement_events.ingest(payload, country=client_country(request) or '', ip=ip)
-        return _json({'status': 'ok', 'accepted': accepted})
+        country = client_country(request)
+        accepted = announcement_events.ingest(payload, country=country or '', ip=ip)
+        # The country tells the website which country filters apply to it.
+        return _json({'status': 'ok', 'accepted': accepted, 'country': country})
 
     def options(self, request, *args, **kwargs):
         response = _json({})

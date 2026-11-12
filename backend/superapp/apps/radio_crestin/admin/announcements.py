@@ -10,7 +10,7 @@ from django.utils.translation import gettext_lazy as _
 from superapp.apps.admin_portal.admin import SuperAppModelAdmin, SuperAppTabularInline
 from superapp.apps.admin_portal.sites import superapp_admin_site
 from ..forms.announcement_admin import AnnouncementAdminForm
-from ..models import Announcement, AnnouncementImage, PushSchedule
+from ..models import Announcement, AnnouncementImage, AnnouncementSettings, PushSchedule
 from ..services import announcement_push, announcement_stats
 
 HTTP_ACTIONS = "action_type == 'external' || action_type == 'in_app_browser'"
@@ -45,20 +45,21 @@ class AnnouncementAdmin(SuperAppModelAdmin):
     form = AnnouncementAdminForm
     inlines = [AnnouncementImageInline]
     list_display = [
-        'title', 'slug', 'category', 'placement', 'is_active', 'priority', 'starts_at', 'ends_at',
+        'title', 'slug', 'category', 'placement', 'status', 'priority', 'starts_at', 'ends_at',
         'impressions', 'unique_viewers_display', 'unique_clickers_display', 'click_rate_display',
         'dismissals', 'push_sent_count',
     ]
-    list_filter = ['is_active', 'placement', 'category', 'push_enabled']
+    list_filter = ['status', 'placement', 'category', 'push_enabled']
     search_fields = ['title', 'slug']
-    autocomplete_fields = ['category', 'station', 'secondary_station', 'stations', 'target_devices']
+    autocomplete_fields = ['category', 'station', 'secondary_station', 'stations', 'test_devices']
     readonly_fields = [
-        'stats_display', 'events_display', 'push_status_display',
+        'stats_display', 'events_display', 'push_status_display', 'preview_links_display',
         'push_confirmed_at', 'push_sent_at', 'push_sent_count',
         'impressions', 'clicks', 'secondary_clicks', 'dismissals', 'page_views', 'push_opens',
         'created_at', 'updated_at',
     ]
-    actions_detail = ['send_push_notification']
+    actions_detail = ['send_push_notification', 'send_test_notification']
+    MAX_TEST_DEVICES = 50
     conditional_fields = {
         'stations': "placement == 'station'",
         'action_label': "action_type != 'none'",
@@ -88,7 +89,7 @@ class AnnouncementAdmin(SuperAppModelAdmin):
     def get_fieldsets(self, request, obj=None):
         fieldsets = [
             (_('Content'), {'classes': ['tab'], 'fields': [
-                'slug', 'category', ('is_active', 'priority'), 'icon_name', 'icon_image', 'title', 'body_markdown',
+                'slug', 'category', ('status', 'priority'), 'preview_links_display', 'icon_name', 'icon_image', 'title', 'body_markdown',
             ]}),
             (_('Where it shows'), {'classes': ['tab'], 'fields': ['placement', 'stations']}),
             (_('Button & page'), {'classes': ['tab'], 'fields': [
@@ -105,10 +106,11 @@ class AnnouncementAdmin(SuperAppModelAdmin):
             ]}),
             (_('Who sees it'), {'classes': ['tab'], 'fields': [
                 'platforms', 'countries_include', 'countries_exclude', 'locales',
-                'target_devices', 'extra_device_ids', 'ip_ranges', ('min_app_version', 'max_app_version'),
+                ('min_app_version', 'max_app_version'),
             ]}),
             (_('Notification'), {'classes': ['tab'], 'fields': [
                 'push_enabled', 'push_schedule', 'push_title', 'push_body', 'push_image', 'push_status_display',
+                'test_devices',
             ]}),
         ]
         if obj is None:
@@ -208,7 +210,36 @@ class AnnouncementAdmin(SuperAppModelAdmin):
         lines.append(_('Use "Send push notification" at the top of the page to send it.'))
         return format_html_join('', '<div>{}</div>', ((line,) for line in lines))
 
-    # ------------------------------------------------------------ push action
+    @admin.display(description=_('Preview links'))
+    def preview_links_display(self, obj):
+        settings = AnnouncementSettings.load()
+        return format_html(
+            '<div>{}</div><div><a href="{}" target="_blank" rel="noopener">{}</a></div>'
+            '<div><code style="user-select:all">{}</code></div>',
+            _('With the Preview status, it shows only through these links (the token is in Announcement Settings):'),
+            settings.website_preview_url, settings.website_preview_url, settings.app_preview_url,
+        )
+
+    # ------------------------------------------------------------ push actions
+
+    @unfold.decorators.action(description=_('Send a test notification to these devices'), permissions=['change'])
+    def send_test_notification(self, request, object_id):
+        announcement = get_object_or_404(Announcement.objects.select_related('category'), pk=object_id)
+        if not announcement_push.is_configured():
+            messages.error(request, _('Push is not configured: set FIREBASE_SERVICE_ACCOUNT_JSON to send notifications.'))
+            return redirect(self._change_url(object_id))
+        device_count = announcement.test_devices.count()
+        if not device_count:
+            messages.warning(request, _('Pick the test devices in the Notification tab and save first.'))
+        elif device_count > self.MAX_TEST_DEVICES:
+            messages.error(request, _('At most %(max)s test devices.') % {'max': self.MAX_TEST_DEVICES})
+        else:
+            result = announcement_push.send_test(announcement)
+            without_token = device_count - result['sent'] - result['failed']
+            messages.success(request, _(
+                'Test notification sent to %(sent)s device(s); %(failed)s failed; %(without)s without a push token.'
+            ) % {'sent': result['sent'], 'failed': result['failed'], 'without': max(without_token, 0)})
+        return redirect(self._change_url(object_id))
 
     def _change_url(self, object_id):
         return reverse('admin:radio_crestin_announcement_change', args=(object_id,))

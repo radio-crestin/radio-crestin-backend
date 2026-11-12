@@ -63,30 +63,6 @@ class LocaleTests(SimpleTestCase):
         self.assertFalse(matches(rules(locales=['ro-RO']), Audience(locale='ro-MD')))
 
 
-class DeviceTests(SimpleTestCase):
-    def test_device_ids(self):
-        mine = rules(device_ids=['abc', ' web-123 ', ''])
-        self.assertTrue(matches(mine, Audience(device_id='abc')))
-        self.assertTrue(matches(mine, Audience(device_id='web-123')))
-        self.assertFalse(matches(mine, Audience(device_id='other')))
-        self.assertFalse(matches(mine, Audience()))
-
-
-class IpRangeTests(SimpleTestCase):
-    def test_cidr_and_single_ips(self):
-        office = rules(ip_ranges=['86.120.0.0/16', '10.0.0.7', '2001:db8::/32', 'not an ip'])
-        self.assertTrue(matches(office, Audience(ip='86.120.5.4')))
-        self.assertTrue(matches(office, Audience(ip='10.0.0.7')))
-        self.assertTrue(matches(office, Audience(ip='2001:db8::1')))
-        self.assertFalse(matches(office, Audience(ip='86.121.0.1')))
-        self.assertFalse(matches(office, Audience(ip='')))
-        self.assertFalse(matches(office, Audience(ip='garbage')))
-
-    def test_a_list_of_only_invalid_entries_matches_nobody(self):
-        self.assertFalse(matches(rules(ip_ranges=['nope']), Audience(ip='1.2.3.4')))
-        self.assertTrue(matches(rules(ip_ranges=['', '  ']), Audience(ip='1.2.3.4')))
-
-
 class AppVersionTests(SimpleTestCase):
     def test_parse_version(self):
         self.assertEqual(parse_version('1.6.2'), (1, 6, 2))

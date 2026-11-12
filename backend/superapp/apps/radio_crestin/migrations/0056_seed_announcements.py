@@ -10,9 +10,10 @@ CATEGORIES = [
     ('prayer', 'Rugăciune', '#9D174D'),
 ]
 
-# Keeps the website's current WhatsApp card text (WhatsAppBibleGroup).
+# Romanian copy produced with `codex exec` for the announcements design.
 WHATSAPP_SLUG = 'whatsapp-versetul-zilei'
-WHATSAPP_TITLE = 'Versetul zilei pe WhatsApp zilnic la ora 7:30'
+WHATSAPP_TITLE = 'Versetul zilei pe WhatsApp'
+WHATSAPP_BODY = 'Primește un verset biblic **în fiecare zi, la 7:30**, direct pe telefonul tău.'
 WHATSAPP_BUTTON = 'Primește versetul zilei'
 WHATSAPP_LINK = 'https://chat.whatsapp.com/I78qjRg1RaI5UKTvEwZdNm'
 
@@ -39,7 +40,7 @@ def seed(apps, schema_editor):
             'category': categories['community'],
             'icon_name': 'whatsapp',
             'title': WHATSAPP_TITLE,
-            'body_markdown': '',
+            'body_markdown': WHATSAPP_BODY,
             'action_type': 'external',
             'action_label': WHATSAPP_BUTTON,
             'action_url': WHATSAPP_LINK,
