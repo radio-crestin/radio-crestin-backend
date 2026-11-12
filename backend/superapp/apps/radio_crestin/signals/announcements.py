@@ -14,5 +14,6 @@ def invalidate_announcements_cache(sender, **kwargs):
 
 
 @receiver(m2m_changed, sender=Announcement.target_devices.through)
-def invalidate_announcements_cache_on_devices_change(sender, **kwargs):
+@receiver(m2m_changed, sender=Announcement.stations.through)
+def invalidate_announcements_cache_on_m2m_change(sender, **kwargs):
     invalidate_cache()

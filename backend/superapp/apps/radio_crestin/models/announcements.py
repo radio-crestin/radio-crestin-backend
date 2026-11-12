@@ -18,6 +18,11 @@ BUTTON_ICON_CHOICES = [('auto', _('Automatic from the action')), ('none', _('No 
 DEFAULT_ANNOUNCEMENT_COLOR = '#0F6E63'
 
 
+class Placement(models.TextChoices):
+    HOME = 'home', _('Home card')
+    STATION = 'station', _('Inside a station')
+
+
 class ActionType(models.TextChoices):
     NONE = 'none', _('No button')
     EXTERNAL = 'external', _('Link outside the app')
@@ -70,6 +75,13 @@ class Announcement(models.Model):
     category = models.ForeignKey(
         AnnouncementCategory, verbose_name=_("Category"), on_delete=models.SET_NULL,
         null=True, blank=True, related_name='announcements',
+    )
+
+    # Where it shows
+    placement = models.CharField(_("Placement"), max_length=16, choices=Placement.choices, default=Placement.HOME)
+    stations = models.ManyToManyField(
+        Stations, verbose_name=_("Stations"), blank=True, related_name='announcements',
+        help_text=_("For \"Inside a station\": shown while one of these stations is playing."),
     )
 
     # Content

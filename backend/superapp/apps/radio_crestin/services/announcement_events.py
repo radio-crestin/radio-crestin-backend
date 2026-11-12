@@ -71,6 +71,8 @@ def ingest(payload: dict, *, country: str = '', ip: Optional[str] = None) -> int
             type=event['type'],
             position=_position(event.get('position')),
             target=_target(event.get('target')),
+            placement=_text(event.get('placement'), 16),
+            station_slug=_text(event.get('station_slug'), 100),
             occurred_at=_occurred_at(event.get('at')),
             **common,
         )

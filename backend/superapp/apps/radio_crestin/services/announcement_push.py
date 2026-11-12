@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from superapp.apps.posthog_error_tracking.utils import track_event
 from ..models import Announcement, AppUsers
-from .announcement_feed import rules_for
+from .announcement_feed import rules_for, station_slugs
 from .announcement_targeting import APP_PLATFORMS, Audience, TargetingRules, matches
 
 logger = logging.getLogger(__name__)
@@ -126,6 +126,14 @@ def _image_url(announcement: Announcement):
     return url if url.startswith('https://') else None
 
 
+def push_data(announcement: Announcement) -> dict:
+    data = {'type': 'announcement', 'slug': announcement.slug}
+    linked_stations = station_slugs(announcement)
+    if linked_stations:
+        data['station_slug'] = linked_stations[0]
+    return data
+
+
 def build_message(announcement: Announcement, tokens):
     from firebase_admin import messaging
 
@@ -135,7 +143,7 @@ def build_message(announcement: Announcement, tokens):
         notification=messaging.Notification(
             title=notification_title(announcement), body=notification_body(announcement), image=image,
         ),
-        data={'type': 'announcement', 'slug': announcement.slug},
+        data=push_data(announcement),
         android=messaging.AndroidConfig(
             notification=messaging.AndroidNotification(channel_id=ANDROID_CHANNEL_ID),
         ),

@@ -11,6 +11,7 @@ from ..models import Announcement, AnnouncementCategory, AnnouncementEvent, AppU
 from ..services import announcement_push
 from ..tasks.delete_old_announcement_events import delete_old_announcement_events
 from ..tasks.send_announcement_push import send_scheduled_announcement_pushes
+from .helpers import make_station
 
 LOCMEM_CACHE = {'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}}
 CONFIGURED = {announcement_push.CREDENTIALS_ENV: '{"type": "service_account"}'}
@@ -121,6 +122,14 @@ class SendTests(TestCase):
         self.assertIsNone(message.notification.image)
         self.assertEqual(message.data, {'type': 'announcement', 'slug': 'concert'})
         self.assertEqual(message.android.notification.channel_id, 'announcements')
+
+    def test_station_announcement_carries_its_first_station(self):
+        make_user('a1')
+        announcement = make_announcement(placement='station')
+        announcement.stations.add(make_station('vocea', station_order=1.0), make_station('elim', station_order=2.0))
+        fcm = FakeFcm()
+        self.send(announcement, fcm)
+        self.assertEqual(fcm.messages[0].data, {'type': 'announcement', 'slug': 'concert', 'station_slug': 'vocea'})
 
     def test_batches_of_500_counts_cleanup_and_posthog(self):
         AppUsers.objects.bulk_create([

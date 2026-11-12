@@ -20,7 +20,7 @@ from .session_recording import SessionRecordingConfig, SessionRecordingOverride
 from .announcement_categories import AnnouncementCategory
 from .announcement_settings import AnnouncementSettings, RotationMode
 from .announcements import (
-    Announcement, AnnouncementImage, ActionType, ButtonStyle, PushSchedule,
+    Announcement, AnnouncementImage, ActionType, ButtonStyle, Placement, PushSchedule,
     SecondaryButtonKind, TargetPlatform, WebLinkTarget,
 )
 from .announcement_events import AnnouncementEvent, AnnouncementEventTarget, AnnouncementEventType
@@ -57,6 +57,7 @@ __all__ = [
     'AnnouncementImage',
     'ActionType',
     'ButtonStyle',
+    'Placement',
     'PushSchedule',
     'SecondaryButtonKind',
     'TargetPlatform',

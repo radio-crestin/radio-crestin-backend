@@ -194,6 +194,36 @@ class ListEndpointTests(TestCase):
         self.assertIsNone(item['button'])
         self.assertIsNone(item['category'])
 
+    def test_station_announcements_are_listed_alongside_home_ones(self):
+        elim = make_station('radio-elim', station_order=2.0)
+        vocea = make_station('vocea', station_order=1.0)
+        inside = make_announcement('inside', placement='station', priority=9)
+        inside.stations.add(elim, vocea)
+        make_announcement('home')
+        items = {item['slug']: item for item in self.get(platform='android').json()['announcements']}
+        self.assertEqual(items['inside']['placement'], 'station')
+        self.assertEqual(items['inside']['station_slugs'], ['vocea', 'radio-elim'])
+        self.assertEqual(items['home']['placement'], 'home')
+        self.assertEqual(items['home']['station_slugs'], [])
+
+    def test_max_per_load_caps_only_the_home_card(self):
+        settings = AnnouncementSettings.load()
+        settings.max_per_load = 1
+        settings.save()
+        station = make_station('radio-elim')
+        for index in range(3):
+            make_announcement(f'home{index}', priority=index)
+            make_announcement(f'station{index}', placement='station', priority=index).stations.add(station)
+        listed = slugs(self.get())
+        self.assertEqual([slug for slug in listed if slug.startswith('home')], ['home2'])
+        self.assertEqual([slug for slug in listed if slug.startswith('station')], ['station2', 'station1', 'station0'])
+
+    def test_linking_a_station_drops_the_cached_list(self):
+        inside = make_announcement('inside', placement='station')
+        self.assertEqual(self.client.get(LIST_URL).json()['announcements'][0]['station_slugs'], [])
+        inside.stations.add(make_station('radio-elim'))
+        self.assertEqual(self.client.get(LIST_URL).json()['announcements'][0]['station_slugs'], ['radio-elim'])
+
     def test_saving_in_the_admin_drops_the_cached_list(self):
         announcement = make_announcement('cached')
         self.assertEqual(slugs(self.client.get(LIST_URL)), ['cached'])
@@ -235,7 +265,8 @@ class EventsEndpointTests(TestCase):
             'events': [
                 {'slug': 'concert', 'type': 'impression', 'position': 0, 'at': '2026-11-12T10:03:11Z'},
                 {'slug': 'concert', 'type': 'impression', 'position': 0},
-                {'slug': 'concert', 'type': 'clicked', 'position': 0, 'target': 'card'},
+                {'slug': 'concert', 'type': 'clicked', 'position': 0, 'target': 'card',
+                 'placement': 'station', 'station_slug': 'radio-elim'},
                 {'slug': 'concert', 'type': 'dismissed'},
                 {'slug': 'concert', 'type': 'page_viewed'},
                 {'slug': 'concert', 'type': 'secondary_clicked'},
@@ -256,6 +287,7 @@ class EventsEndpointTests(TestCase):
         click = AnnouncementEvent.objects.get(type='clicked')
         self.assertEqual((click.device_id, click.platform, click.locale, click.app_version), ('web-1', 'web', 'ro-RO', ''))
         self.assertEqual((click.country, click.ip, click.target, click.position), ('DE', '86.120.1.2', 'card', 0))
+        self.assertEqual((click.placement, click.station_slug), ('station', 'radio-elim'))
         first = AnnouncementEvent.objects.filter(type='impression', occurred_at__isnull=False).get()
         self.assertEqual(first.occurred_at.isoformat(), '2026-11-12T10:03:11+00:00')
 

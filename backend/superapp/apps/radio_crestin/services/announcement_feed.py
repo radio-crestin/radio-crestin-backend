@@ -7,7 +7,7 @@ from django.db.models import Q
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from ..models import ActionType, Announcement, AnnouncementSettings, SecondaryButtonKind
+from ..models import ActionType, Announcement, AnnouncementSettings, Placement, SecondaryButtonKind
 from ..models.announcement_categories import text_color_on
 from .announcement_targeting import Audience, TargetingRules, matches
 
@@ -100,11 +100,21 @@ def _category_payload(category) -> Optional[dict]:
     return {'slug': category.slug, 'name': category.name, 'color': category.color, 'text_color': category.text_color}
 
 
+def station_slugs(announcement: Announcement) -> list:
+    """The linked stations' slugs in station order; [] for a home announcement."""
+    if announcement.placement != Placement.STATION:
+        return []
+    stations = sorted(announcement.stations.all(), key=lambda station: (station.station_order, station.slug))
+    return [station.slug for station in stations]
+
+
 def serialize(announcement: Announcement) -> dict:
     """One announcement, exactly as the API contract describes it."""
     return {
         'slug': announcement.slug,
         'priority': announcement.priority,
+        'placement': announcement.placement,
+        'station_slugs': station_slugs(announcement),
         'category': _category_payload(announcement.category),
         'icon': {'name': announcement.icon_name or None, 'url': _file_url(announcement.icon_image)},
         'title': announcement.title,
@@ -146,7 +156,7 @@ def _load_active() -> dict:
         .filter(is_active=True)
         .filter(Q(ends_at__isnull=True) | Q(ends_at__gt=now))
         .select_related('category', 'station', 'secondary_station')
-        .prefetch_related('target_devices')
+        .prefetch_related('target_devices', 'stations')
         .order_by('-priority', '-starts_at', '-id')
     )
     entries = []
@@ -175,15 +185,25 @@ def _in_window(payload: dict, now: datetime) -> bool:
 
 
 def announcements_for(audience: Audience) -> dict:
-    """The list response for one device: targeted, in its time window, capped at max_per_load."""
+    """The list response for one device: targeted and in its time window.
+
+    max_per_load caps the home card only; every matching station announcement is
+    returned, since clients show those per playing station.
+    """
     snapshot = active_snapshot()
     now = timezone.now()
     settings = snapshot['settings']
-    visible = [
-        entry['payload'] for entry in snapshot['entries']
-        if _in_window(entry['payload'], now) and matches(TargetingRules.build(**entry['rules']), audience)
-    ]
-    return {'settings': settings, 'announcements': visible[:settings['max_per_load']]}
+    visible, home_count = [], 0
+    for entry in snapshot['entries']:
+        payload = entry['payload']
+        if not _in_window(payload, now) or not matches(TargetingRules.build(**entry['rules']), audience):
+            continue
+        if payload['placement'] == Placement.HOME:
+            if home_count >= settings['max_per_load']:
+                continue
+            home_count += 1
+        visible.append(payload)
+    return {'settings': settings, 'announcements': visible}
 
 
 def live_announcement(slug: str) -> Optional[dict]:

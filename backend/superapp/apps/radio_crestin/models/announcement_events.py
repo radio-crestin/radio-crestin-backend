@@ -41,6 +41,8 @@ class AnnouncementEvent(models.Model):
     country = models.CharField(_("Country"), max_length=2, blank=True, default='')
     ip = models.GenericIPAddressField(_("IP address"), null=True, blank=True)
     position = models.SmallIntegerField(_("Position"), null=True, blank=True)
+    placement = models.CharField(_("Placement"), max_length=16, blank=True, default='')
+    station_slug = models.CharField(_("Station"), max_length=100, blank=True, default='')
     target = models.CharField(
         _("Tapped"), max_length=16, choices=AnnouncementEventTarget.choices, blank=True, default='',
         help_text=_("For clicks: the whole card or the button."),
