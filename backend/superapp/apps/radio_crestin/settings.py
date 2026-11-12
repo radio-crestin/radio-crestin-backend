@@ -128,6 +128,14 @@ def extend_superapp_settings(main_settings):
                     "permission": lambda request: request.user.has_perm("radio_crestin.view_sharelink"),
                 },
                 {
+                    "title": lambda request: _("Contact Messages"),
+                    "icon": "mail",
+                    "link": reverse_lazy("admin:radio_crestin_contactmessage_changelist"),
+                    "badge": "superapp.apps.radio_crestin.admin.contact_messages.new_messages_badge",
+                    "badge_variant": "danger",
+                    "permission": lambda request: request.user.has_perm("radio_crestin.view_contactmessage"),
+                },
+                {
                     "title": lambda request: _("Announcements"),
                     "icon": "campaign",
                     "link": reverse_lazy("admin:radio_crestin_announcement_changelist"),

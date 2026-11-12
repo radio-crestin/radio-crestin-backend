@@ -4,6 +4,7 @@ from .announcement_settings import AnnouncementSettingsAdmin
 from .announcements import AnnouncementAdmin
 from .forms import FormAdmin, FormSubmissionAdmin
 from .artists import ArtistsAdmin
+from .contact_messages import ContactMessageAdmin
 from .listening_sessions import ListeningSessionsAdmin
 from .posts import PostsAdmin
 from .reviews import ReviewsAdmin
@@ -30,6 +31,7 @@ __all__ = [
     'FormAdmin',
     'FormSubmissionAdmin',
     'ArtistsAdmin',
+    'ContactMessageAdmin',
     'ListeningSessionsAdmin',
     'PostsAdmin',
     'ReviewsAdmin',

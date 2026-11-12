@@ -26,6 +26,7 @@ from .announcements import (
 from .announcement_events import AnnouncementEvent, AnnouncementEventTarget, AnnouncementEventType
 from .forms import Form, FormKind, FormQuestion, QuestionType
 from .form_submissions import FormSubmission
+from .contact_messages import ContactImageRole, ContactKind, ContactMessage, ContactMessageImage, ContactStatus
 
 __all__ = [
     'Artists',
@@ -72,4 +73,9 @@ __all__ = [
     'FormQuestion',
     'QuestionType',
     'FormSubmission',
+    'ContactImageRole',
+    'ContactKind',
+    'ContactMessage',
+    'ContactMessageImage',
+    'ContactStatus',
 ]

@@ -3,7 +3,7 @@ from . import views
 from .views import (
     PodHealthReportView, SessionRecordingView, DeviceRegistrationView, StationPlaylistUpdateView,
     AnnouncementListView, AnnouncementDetailView, AnnouncementEventsView,
-    FormPageView, FormResultsView, FormSubmitView,
+    FormPageView, FormResultsView, FormSubmitView, ContactMessageView,
 )
 
 # App-specific URL patterns
@@ -40,4 +40,6 @@ def extend_superapp_urlpatterns(main_urlpatterns):
         path('api/v1/forms/<slug:slug>/page/', FormPageView.as_view(), name='api_v1_form_page'),
         path('api/v1/forms/<slug:slug>/submit/', FormSubmitView.as_view(), name='api_v1_form_submit'),
         path('api/v1/forms/<slug:slug>/results/', FormResultsView.as_view(), name='api_v1_form_results'),
+        # Contact forms on the website: general message, new station, announcement request
+        path('api/v1/contact/', ContactMessageView.as_view(), name='api_v1_contact'),
     ])

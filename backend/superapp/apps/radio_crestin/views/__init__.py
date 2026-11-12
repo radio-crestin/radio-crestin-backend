@@ -14,3 +14,4 @@ from .device_registration_api import DeviceRegistrationView
 from .playlist_update_api import StationPlaylistUpdateView
 from .announcements_api import AnnouncementListView, AnnouncementDetailView, AnnouncementEventsView
 from .forms_api import FormPageView, FormResultsView, FormSubmitView
+from .contact_api import ContactMessageView
