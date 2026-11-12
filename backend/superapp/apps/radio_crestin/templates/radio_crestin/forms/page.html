@@ -27,6 +27,8 @@ h3{font-size:20px;line-height:1.28;margin:0 0 6px}
 .mk{width:20px;height:20px;border-radius:50%;border:2px solid var(--mu);flex:none}.multi .mk{border-radius:6px}
 [aria-pressed=true]{border-color:var(--ink);background:color-mix(in srgb,var(--acc) 12%,transparent)}
 [aria-pressed=true] .mk{border:6px solid var(--acc);background:var(--acc-fg)}
+.multi[aria-pressed=true] .mk{border:2px solid var(--acc);background:var(--acc);display:grid;place-items:center}
+.multi[aria-pressed=true] .mk::after{content:"";width:9px;height:5px;margin-top:-2px;border:2px solid var(--acc-fg);border-top:0;border-right:0;transform:rotate(-45deg)}
 .rate{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.rate button{justify-content:center;font-weight:700;font-size:18px;padding:0}
 .rate button[aria-pressed=true]{background:var(--acc);color:var(--acc-fg)}
 .sc{display:flex;justify-content:space-between;font-size:12px;color:var(--mu);margin-top:6px}
@@ -87,8 +89,8 @@ var field=root.querySelector('input,textarea');if(field)field.oninput=function()
 on('.sec',function(){step--;render()});
 on('.pri',function(){if(q.required&&empty(typeof ans[q.id]==='string'?ans[q.id].trim():ans[q.id])){root.querySelector('.err').textContent=/text/.test(q.type)?T.text_required:T.required;return}
 if(last)submit();else{step++;render()}})}
-function results(r){var mine=ans[r.question_id];
-show('<h3>'+esc(T.results_title)+'</h3><p class="hint">'+esc(votes(r.total))+'</p><div class="res">'+r.options.map(function(o){
+function results(r){var mine=ans[r.question_id],q=Q.filter(function(x){return x.id===r.question_id})[0]||Q[0];
+show('<h3>'+esc(q.text)+'</h3><p class="hint">'+esc(T.results_title+' · '+votes(r.total))+'</p><div class="res">'+r.options.map(function(o){
 return'<div class="row'+(o.label===mine?' me':'')+'"><i data-w="'+o.percent+'"></i><span>'+esc(o.label)+(o.label===mine?'<span class="chip">'+esc(T.your_vote)+'</span>':'')+'</span><b>'+o.percent+'%</b></div>'}).join('')+'</div>'+foot('',T.close));
 requestAnimationFrame(function(){root.querySelectorAll('.row i').forEach(function(i){i.style.width=i.dataset.w+'%'})});on('.pri',function(){msg('close')})}
 function thanks(){done(T.thanks_title,C.thanks_html||esc(T.thanks_body))}
