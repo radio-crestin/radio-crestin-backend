@@ -175,19 +175,57 @@ class FormSubmitTests(TestCase):
         track_event.assert_called_once_with('phone-1', 'form_submitted', {
             'form_slug': 'morning-poll', 'form_kind': 'poll', 'platform': 'android'})
 
+    def repeat(self, **body):
+        response = self.client.post('/api/v1/forms/morning-poll/submit/', json.dumps({
+            'device_id': 'phone-1', 'answers': {str(self.question.id): 'Alt post'}, **body,
+        }), content_type='text/plain')
+        self.assertEqual(response.status_code, 409)
+        return response.json()
+
     def test_one_answer_per_device(self):
         self.submit()
-        repeat = self.submit(answers={str(self.question.id): 'Alt post'})
-        self.assertEqual(repeat.status_code, 409)
-        self.assertEqual(repeat.json()['status'], 'already_submitted')
-        self.assertEqual(repeat.json()['results']['total'], 1)
-        self.assertEqual(repeat.json()['your_answer'], 'Radio Elim')  # the vote that counts, not the new tap
+        repeat = self.repeat()
+        self.assertEqual(repeat['status'], 'already_submitted')
+        self.assertEqual(repeat['results']['total'], 1)
         self.assertEqual(FormSubmission.objects.count(), 1)
+
+    @patch.object(forms_api, 'SUBMIT_RATE_PER_DEVICE', '100/m')
+    def test_a_repeat_shows_the_stored_choice_only_with_the_receipt(self):
+        receipt = self.submit().json()['receipt']
+        self.assertEqual(len(receipt), 22)
+        self.assertNotIn('your_answer', self.repeat())
+        self.assertNotIn('your_answer', self.repeat(receipt='x' * 22))
+        self.assertNotIn('your_answer', self.repeat(receipt=receipt[:-1] + ('A' if receipt[-1] != 'A' else 'B')))
+        self.assertNotIn('your_answer', self.repeat(receipt=['not', 'a', 'string']))
+        # The vote that counts, not the new tap.
+        self.assertEqual(self.repeat(receipt=receipt)['your_answer'], 'Radio Elim')
+
+    def test_a_receipt_only_proves_its_own_submission(self):
+        receipt = self.submit(device_id='phone-1').json()['receipt']
+        self.submit(device_id='phone-2')
+        other = self.client.post('/api/v1/forms/morning-poll/submit/', json.dumps({
+            'device_id': 'phone-2', 'answers': {str(self.question.id): 'Alt post'}, 'receipt': receipt,
+        }), content_type='text/plain').json()
+        self.assertNotIn('your_answer', other)
+
+    def test_receipts_are_not_stored(self):
+        self.submit()
+        self.assertNotIn('receipt', json.dumps(FormSubmission.objects.values().get(), default=str))
 
     def test_a_repeat_on_a_poll_without_results_reveals_nothing(self):
         Form.objects.filter(pk=self.poll.pk).update(show_results=False)
-        self.submit()
-        self.assertEqual(self.submit().json(), {'status': 'already_submitted'})
+        receipt = self.submit().json()['receipt']
+        self.assertEqual(self.repeat(receipt=receipt), {'status': 'already_submitted'})
+
+    def test_text_answers_never_come_back(self):
+        survey, questions = make_survey()
+        answers = {str(questions['how_often'].id): 'Zilnic', str(questions['what'].id): ['Muzică'],
+                   str(questions['rating'].id): 5, str(questions['idea'].id): 'Un text privat'}
+        first = self.submit(slug=survey.slug, answers=answers)
+        repeat = self.submit(slug=survey.slug, answers=answers)
+        self.assertEqual(repeat.status_code, 409)
+        for response in (first, repeat):
+            self.assertNotIn('Un text privat', response.content.decode())
 
     def test_several_answers_when_allowed(self):
         Form.objects.filter(pk=self.poll.pk).update(allow_multiple_submissions=True)
@@ -223,7 +261,7 @@ class FormSubmitTests(TestCase):
             str(questions['how_often'].id): 'Zilnic', str(questions['what'].id): ['Muzică'],
             str(questions['rating'].id): 5,
         })
-        self.assertEqual(response.json(), {'status': 'ok'})
+        self.assertEqual(set(response.json()), {'status', 'receipt'})
 
     @patch.object(forms_api, 'SUBMIT_RATE_PER_DEVICE', '2/m')
     def test_rate_limit_per_device(self):

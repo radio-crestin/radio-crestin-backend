@@ -121,7 +121,7 @@ def _text(value, max_length: int) -> str:
 
 @method_decorator(csrf_exempt, name='dispatch')
 class FormSubmitView(View):
-    """POST /api/v1/forms/<slug>/submit/ with {device_id, platform, app_version, locale, answers}.
+    """POST /api/v1/forms/<slug>/submit/ with {device_id, platform, app_version, locale, answers, receipt?}.
 
     CSRF-exempt: the page runs in an iframe of another site, where cookies can't be relied on.
     """
@@ -159,11 +159,11 @@ class FormSubmitView(View):
             return _json(_compact({
                 'status': 'already_submitted',
                 'results': form_service.poll_results(form),
-                'your_answer': form_service.previous_poll_choice(form, device_id),
+                'your_answer': form_service.previous_poll_choice(form, device_id, payload.get('receipt')),
             }), status=409)
 
         platform = _text(payload.get('platform'), 32)
-        FormSubmission.objects.create(
+        submission = FormSubmission.objects.create(
             form=form, device_id=device_id, platform=platform,
             app_version=_text(payload.get('app_version'), 64), locale=_text(payload.get('locale'), 64),
             country=client_country(request) or '', answers=answers,
@@ -172,7 +172,12 @@ class FormSubmitView(View):
         track_event(device_id, 'form_submitted', {
             'form_slug': form.slug, 'form_kind': form.kind, 'platform': platform,
         })
-        return _json(_compact({'status': 'ok', 'results': form_service.poll_results(form)}))
+        return _json(_compact({
+            'status': 'ok',
+            'results': form_service.poll_results(form),
+            # Kept by the page; shown back on a repeat vote to see the device's own choice again.
+            'receipt': form_service.receipt_for(submission),
+        }))
 
     def options(self, request, *args, **kwargs):
         response = _json({})

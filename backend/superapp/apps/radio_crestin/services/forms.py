@@ -1,6 +1,10 @@
 """Forms: answers checked against the questions, poll results, and what the page script needs."""
+import base64
+import hmac
 from collections import Counter
 from typing import Optional
+
+from django.utils.crypto import salted_hmac
 
 from ..models import Form, FormKind, FormSubmission, QuestionType
 from ..models.forms import CHOICE_TYPES
@@ -103,13 +107,28 @@ def poll_results(form: Form) -> Optional[dict]:
     }
 
 
-def previous_poll_choice(form: Form, device_id: str) -> Optional[str]:
-    """The option this device voted earlier in a poll that shows results (for a repeat vote's 409)."""
-    if not form.shows_results or not device_id:
+RECEIPT_SALT = 'radio_crestin.forms.receipt'
+RECEIPT_LENGTH = 22
+
+
+def receipt_for(submission: FormSubmission) -> str:
+    """Proof that a client made this submission: returned once on submit, never stored, recomputed to check."""
+    digest = salted_hmac(RECEIPT_SALT, f'form:{submission.form_id}:{submission.pk}', algorithm='sha256').digest()
+    return base64.urlsafe_b64encode(digest).decode()[:RECEIPT_LENGTH]
+
+
+def previous_poll_choice(form: Form, device_id: str, receipt: str) -> Optional[str]:
+    """The option this device voted earlier in a poll that shows results (for a repeat vote's 409).
+
+    Device ids aren't secret, so the choice is only returned with the receipt of that very vote.
+    """
+    if not form.shows_results or not device_id or not isinstance(receipt, str) or not receipt:
         return None
     question = form.questions.first()
     submission = FormSubmission.objects.filter(form=form, device_id=device_id).order_by('-created_at').first()
     if question is None or submission is None:
+        return None
+    if not hmac.compare_digest(receipt.encode(), receipt_for(submission).encode()):
         return None
     choice = submission.answers.get(str(question.id))
     return choice if isinstance(choice, str) else None

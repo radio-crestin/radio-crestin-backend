@@ -57,7 +57,7 @@ a{color:var(--ink)}
 (function(){'use strict';
 var C=JSON.parse(document.getElementById('cfg').textContent),T=C.t,Q=C.questions,root=document.getElementById('f');
 var ctx={};new URLSearchParams(location.hash.slice(1)).forEach(function(v,k){ctx[k]=v});
-var key='rc-form-voted:'+C.slug,ans={},step=0,busy=false;
+var key='rc-form-voted:'+C.slug,ans={},rc='',step=0,busy=false;
 function msg(ev){var m={type:'rc-form',event:ev,slug:C.slug,step:step,height:document.documentElement.scrollHeight};
 try{if(window.parent!==window)window.parent.postMessage(m,'*')}catch(e){}
 try{if(window.RadioCrestinForm)window.RadioCrestinForm.postMessage(JSON.stringify(m))}catch(e){}}
@@ -65,15 +65,16 @@ function esc(s){return String(s).replace(/[&<>"']/g,function(c){return'&#'+c.cha
 function fmt(s,o){return s.replace(/\{(\w+)\}/g,function(_,k){return o[k]})}
 function votes(n){var k='few';try{k=new Intl.PluralRules('ro').select(n)}catch(e){}return fmt(k==='one'?T.votes_one:k==='few'?T.votes:T.votes_many,{n:n})}
 function voted(){try{return JSON.parse(localStorage.getItem(key)||'null')}catch(e){return null}}
-function remember(){try{localStorage.setItem(key,JSON.stringify(ans))}catch(e){}}
+function remember(){try{localStorage.setItem(key,JSON.stringify({a:ans,r:rc}))}catch(e){}}
 function show(html){root.innerHTML='<div class="st">'+html+'</div>';msg('step')}
 function on(sel,fn){root.querySelectorAll(sel).forEach(function(el){el.onclick=function(){fn(el)}})}
 function done(title,body){show('<div class="done"><div class="ok">✓</div><h3>'+esc(title)+'</h3><p>'+body+'</p></div>'+foot('',T.close));on('.pri',function(){msg('close')})}
 function foot(back,next,off){return'<div class="ft">'+(back?'<button class="sec">'+esc(back)+'</button>':'')+'<button class="pri"'+(off?' disabled':'')+'>'+esc(next)+'</button></div>'}
 function empty(v){return v===undefined||v===''||(Array.isArray(v)&&!v.length)}
 function body(q){var a=ans[q.id];
-if(q.type==='short_text')return'<input maxlength="2000" placeholder="'+esc(T.text_placeholder)+'" value="'+esc(a||'')+'">';
-if(q.type==='long_text')return'<textarea maxlength="2000" placeholder="'+esc(T.text_placeholder)+'">'+esc(a||'')+'</textarea>';
+var ph=' maxlength="2000" placeholder="'+esc(T.text_placeholder)+'"';
+if(q.type==='short_text')return'<input'+ph+' value="'+esc(a||'')+'">';
+if(q.type==='long_text')return'<textarea'+ph+'>'+esc(a||'')+'</textarea>';
 if(q.type==='rating')return'<div class="rate">'+[1,2,3,4,5].map(function(v){return'<button data-v="'+v+'" aria-pressed="'+(a===v)+'">'+v+'</button>'}).join('')+'</div><div class="sc"><span>'+esc(T.rating_low)+'</span><span>'+esc(T.rating_high)+'</span></div>';
 var opts=q.type==='yes_no'?[[true,T.yes],[false,T.no]]:q.options.map(function(o,i){return[i,o]}),multi=q.type==='multiple_choice';
 return'<div class="opts">'+opts.map(function(o){var v=q.type==='yes_no'?o[0]:q.options[o[0]],on=multi?(a||[]).indexOf(v)>-1:a===v;
@@ -93,17 +94,19 @@ function results(r){var mine=ans[r.question_id],q=Q.filter(function(x){return x.
 show('<h3>'+esc(q.text)+'</h3><p class="hint">'+esc(T.results_title+' · '+votes(r.total))+'</p><div class="res">'+r.options.map(function(o){
 return'<div class="row'+(o.label===mine?' me':'')+'"><i data-w="'+o.percent+'"></i><span>'+esc(o.label)+(o.label===mine?'<span class="chip">'+esc(T.your_vote)+'</span>':'')+'</span><b>'+o.percent+'%</b></div>'}).join('')+'</div>'+foot('',T.close));
 requestAnimationFrame(function(){root.querySelectorAll('.row i').forEach(function(i){i.style.width=i.dataset.w+'%'})});on('.pri',function(){msg('close')})}
+function already(){done(T.already_title,esc(T.already_body))}
+function closed(){done(T.closed_title,esc(T.closed_body))}
 function thanks(){done(T.thanks_title,C.thanks_html||esc(T.thanks_body))}
 function fail(text){var e=root.querySelector('.err');if(e)e.textContent=text}
 function submit(){if(busy)return;busy=true;
-fetch(C.submit_url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device_id:ctx.device_id||'',platform:ctx.platform||'',app_version:ctx.app_version||'',locale:ctx.locale||'',answers:ans})})
+fetch(C.submit_url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device_id:ctx.device_id||'',platform:ctx.platform||'',app_version:ctx.app_version||'',locale:ctx.locale||'',answers:ans,receipt:rc})})
 .then(function(r){return r.json().then(function(d){return[r.status,d]})}).then(function(x){busy=false;var s=x[0],d=x[1];
-if(s===409){ans={};if(d.results&&d.your_answer)ans[d.results.question_id]=d.your_answer}
-if(s===200||s===409){remember();if(s===200)msg('submitted');if(d.results)results(d.results);else if(s===200)thanks();else done(T.already_title,esc(T.already_body))}
-else if(s===410)done(T.closed_title,esc(T.closed_body));else fail(d.code==='too_long'?T.text_too_long:T.error)})
+if(s===409){ans={};if(d.your_answer)ans[d.results.question_id]=d.your_answer}if(d.receipt)rc=d.receipt;
+if(s===200||s===409){remember();if(s===200)msg('submitted');if(d.results)results(d.results);else if(s===200)thanks();else already()}
+else if(s===410)closed();else fail(d.code==='too_long'?T.text_too_long:T.error)})
 .catch(function(){busy=false;fail(T.error)})}
-function start(){if(!C.open)return done(T.closed_title,esc(T.closed_body));
-var prev=voted();if(prev&&!C.multiple){ans=prev;if(C.results)return fetch(C.results_url).then(function(r){return r.json()}).then(results,function(){done(T.already_title,esc(T.already_body))});return done(T.already_title,esc(T.already_body))}
+function start(){if(!C.open)return closed();
+var prev=voted();rc=prev&&prev.r||'';if(prev&&!C.multiple){ans=prev.a||{};if(C.results)return fetch(C.results_url).then(function(r){return r.json()}).then(results,function(){already()});return already()}
 render()}
 if(window.ResizeObserver)new ResizeObserver(function(){msg('resize')}).observe(root);
 start();msg('ready')})();
