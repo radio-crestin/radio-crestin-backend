@@ -54,7 +54,7 @@ class AnnouncementAdmin(SuperAppModelAdmin):
     readonly_fields = [
         'stats_display', 'events_display', 'push_status_display', 'preview_links_display',
         'push_confirmed_at', 'push_sent_at', 'push_sent_count',
-        'impressions', 'clicks', 'secondary_clicks', 'dismissals', 'page_views', 'push_opens',
+        'impressions', 'clicks', 'secondary_clicks', 'dismissals', 'page_views', 'push_opens', 'video_plays',
         'created_at', 'updated_at',
     ]
     actions_detail = ['send_push_notification', 'send_test_notification']
@@ -112,6 +112,7 @@ class AnnouncementAdmin(SuperAppModelAdmin):
             (_('Events'), {'classes': ['tab'], 'fields': [
                 'events_display',
                 ('impressions', 'clicks', 'secondary_clicks'), ('dismissals', 'page_views', 'push_opens'),
+                'video_plays',
                 ('created_at', 'updated_at'),
             ]}),
         ]

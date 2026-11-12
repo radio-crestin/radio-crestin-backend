@@ -26,13 +26,35 @@
       .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>');
   }
 
+  // A paragraph that is only a YouTube link: the facade the clients show (the server checks the same rule).
+  function youtube(text) {
+    var url;
+    try { url = new URL(text.trim()); } catch (e) { return ''; }
+    if (!/^(www\.|m\.|music\.)?(youtube\.com|youtube-nocookie\.com|youtu\.be)$/.test(url.hostname)) return '';
+    var parts = url.pathname.split('/').filter(Boolean);
+    var video = url.hostname.indexOf('youtu.be') > -1 ? parts[0]
+      : parts[0] === 'watch' ? url.searchParams.get('v')
+      : /^(shorts|live|embed)$/.test(parts[0]) ? parts[1] : null;
+    var list = url.searchParams.get('list');
+    if (video && /^[A-Za-z0-9_-]{11}$/.test(video)) {
+      return '<figure class="rc-embed' + (parts[0] === 'shorts' ? ' rc-embed--short' : '') + '">' +
+        '<img src="https://i.ytimg.com/vi/' + video + '/hqdefault.jpg" alt=""><span>▶</span></figure>';
+    }
+    if (parts[0] === 'playlist' && list && /^[A-Za-z0-9_-]{10,64}$/.test(list)) {
+      return '<figure class="rc-embed rc-embed--list"><span>▶</span> YouTube playlist</figure>';
+    }
+    return '';
+  }
+
   function block(markdown) {
     var html = [];
     var list = null;
     var paragraph = [];
 
     function flushParagraph() {
-      if (paragraph.length) html.push('<p>' + inline(paragraph.join(' ')) + '</p>');
+      var embed = paragraph.length === 1 && youtube(paragraph[0].replace(/^<(.*)>$/, '$1'));
+      if (embed) html.push(embed);
+      else if (paragraph.length) html.push('<p>' + inline(paragraph.join(' ')) + '</p>');
       paragraph = [];
     }
     function closeList() {

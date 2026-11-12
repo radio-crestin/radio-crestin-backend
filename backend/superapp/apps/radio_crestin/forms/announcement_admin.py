@@ -77,7 +77,7 @@ class AnnouncementAdminForm(forms.ModelForm):
         model = Announcement
         # Written by the server: event totals and the push send state.
         exclude = [
-            'impressions', 'clicks', 'secondary_clicks', 'dismissals', 'page_views', 'push_opens',
+            'impressions', 'clicks', 'secondary_clicks', 'dismissals', 'page_views', 'push_opens', 'video_plays',
             'push_confirmed_at', 'push_sent_at', 'push_sent_count',
         ]
         widgets = {
@@ -88,6 +88,10 @@ class AnnouncementAdminForm(forms.ModelForm):
             'body_markdown': _(
                 'Inline markdown only: **bold**, *italic*, [link](https://...). About 3 lines fit on the card; '
                 'longer text is cut with an ellipsis.'
+            ),
+            'page_markdown': _(
+                'Full markdown: headings, lists, quotes, images and links. Upload images below and paste their '
+                'markdown. Paste a YouTube link on its own line to embed it.'
             ),
             'push_title': _('Plain text. Empty uses the announcement title.'),
             'push_body': _('Plain text. Empty uses the description without markdown.'),

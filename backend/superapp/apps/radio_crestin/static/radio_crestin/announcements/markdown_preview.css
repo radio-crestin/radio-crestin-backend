@@ -29,3 +29,9 @@
 .announcement-md__preview a { text-decoration: underline; }
 .announcement-md__preview strong { font-weight: 700; }
 .announcement-md__empty { opacity: .45; }
+.announcement-md__preview .rc-embed { position: relative; margin: 0 0 .8em; border-radius: 10px; overflow: hidden; background: #000; aspect-ratio: 16 / 9; }
+.announcement-md__preview .rc-embed--short { aspect-ratio: 9 / 16; max-width: 240px; }
+.announcement-md__preview .rc-embed img { width: 100%; height: 100%; object-fit: cover; border-radius: 0; }
+.announcement-md__preview .rc-embed span { position: absolute; inset: 0; margin: auto; width: 56px; height: 40px; border-radius: 10px; background: #FF0033; color: #fff; display: grid; place-items: center; font-size: 18px; }
+.announcement-md__preview .rc-embed--list { aspect-ratio: auto; padding: 14px 16px 14px 76px; color: #fff; }
+.announcement-md__preview .rc-embed--list span { right: auto; left: 12px; }

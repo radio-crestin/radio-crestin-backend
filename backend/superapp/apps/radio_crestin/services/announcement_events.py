@@ -20,6 +20,7 @@ from django.utils.dateparse import parse_datetime
 
 from ..models import Announcement, AnnouncementEvent, AnnouncementEventTarget, AnnouncementEventType
 from ..models.announcement_events import COUNTER_FIELD_BY_EVENT_TYPE
+from . import youtube_embeds
 
 MAX_EVENTS_PER_REQUEST = 100
 MAX_EVENT_AGE = timedelta(hours=24)
@@ -35,6 +36,7 @@ DEDUPE_SECONDS = {
     AnnouncementEventType.SECONDARY_CLICKED: 60,
     AnnouncementEventType.PAGE_VIEWED: 60,
     AnnouncementEventType.PUSH_OPENED: 60,
+    AnnouncementEventType.VIDEO_PLAY: 60,
 }
 # Used when settings define it (e.g. a separate Redis), otherwise the default cache.
 DEDUPE_CACHE_ALIAS = 'announcement_dedupe'
@@ -48,6 +50,14 @@ def _position(value) -> Optional[int]:
     if isinstance(value, bool) or not isinstance(value, int):
         return None
     return value if -32768 <= value <= 32767 else None
+
+
+def _video_detail(event: dict) -> str:
+    """'youtube:short' for a video_play with a known provider and kind; '' otherwise."""
+    if event.get('type') != AnnouncementEventType.VIDEO_PLAY:
+        return ''
+    provider, kind = event.get('provider'), event.get('kind')
+    return f'{provider}:{kind}' if provider == 'youtube' and kind in youtube_embeds.KINDS else ''
 
 
 def _target(value) -> str:
@@ -131,6 +141,7 @@ def ingest(payload: dict, *, country: str = '', ip: Optional[str] = None) -> int
             target=_target(event.get('target')),
             placement=_text(event.get('placement'), 16),
             station_slug=_text(event.get('station_slug'), 100),
+            detail=_video_detail(event),
             occurred_at=occurred_at,
             **common,
         ))

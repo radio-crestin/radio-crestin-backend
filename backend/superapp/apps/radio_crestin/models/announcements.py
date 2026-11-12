@@ -198,6 +198,7 @@ class Announcement(models.Model):
     dismissals = models.PositiveBigIntegerField(_("Closed"), default=0)
     page_views = models.PositiveBigIntegerField(_("Page views"), default=0)
     push_opens = models.PositiveBigIntegerField(_("Notification opens"), default=0)
+    video_plays = models.PositiveBigIntegerField(_("Video plays"), default=0)
 
     created_at = models.DateTimeField(_("Created at"), auto_now_add=True)
     updated_at = models.DateTimeField(_("Updated at"), auto_now=True)

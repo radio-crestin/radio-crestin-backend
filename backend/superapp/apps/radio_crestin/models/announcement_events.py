@@ -11,6 +11,7 @@ class AnnouncementEventType(models.TextChoices):
     DISMISSED = 'dismissed', _('Closed')
     PAGE_VIEWED = 'page_viewed', _('Page viewed')
     PUSH_OPENED = 'push_opened', _('Notification opened')
+    VIDEO_PLAY = 'video_play', _('Video played')
 
 
 class AnnouncementEventTarget(models.TextChoices):
@@ -26,6 +27,7 @@ COUNTER_FIELD_BY_EVENT_TYPE = {
     AnnouncementEventType.DISMISSED: 'dismissals',
     AnnouncementEventType.PAGE_VIEWED: 'page_views',
     AnnouncementEventType.PUSH_OPENED: 'push_opens',
+    AnnouncementEventType.VIDEO_PLAY: 'video_plays',
 }
 
 
@@ -46,6 +48,9 @@ class AnnouncementEvent(models.Model):
     target = models.CharField(
         _("Tapped"), max_length=16, choices=AnnouncementEventTarget.choices, blank=True, default='',
         help_text=_("For clicks: the whole card or the button."),
+    )
+    detail = models.CharField(
+        _("Detail"), max_length=32, blank=True, default='', help_text=_("For video plays: provider:kind."),
     )
     occurred_at = models.DateTimeField(_("Occurred at (client)"), null=True, blank=True)
     created_at = models.DateTimeField(_("Received at"), auto_now_add=True)
