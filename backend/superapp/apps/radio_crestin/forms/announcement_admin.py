@@ -134,7 +134,7 @@ class AnnouncementAdminForm(forms.ModelForm):
         if data.get('placement') == Placement.STATION and not data.get('stations'):
             self.add_error('stations', _('Pick at least one station.'))
 
-    def _check_action(self, data, prefix, action_type, station_field):
+    def _check_action(self, data, prefix, action_type, station_field, form_field):
         if action_type in (ActionType.EXTERNAL, ActionType.IN_APP_BROWSER):
             self._require(data, f'{prefix}action_url', _('This action needs a link.'))
         elif action_type == ActionType.ANDROID_INTENT:
@@ -142,6 +142,8 @@ class AnnouncementAdminForm(forms.ModelForm):
             self._require(data, f'{prefix}fallback_url', _('Websites and iPhones open the fallback link.'))
         elif action_type == ActionType.STATION:
             self._require(data, station_field, _('Pick the station to start.'))
+        elif action_type == ActionType.FORM:
+            self._require(data, form_field, _('Pick the form to open.'))
         elif action_type == ActionType.PAGE and not (data.get('page_title') or data.get('page_markdown')):
             self.add_error('page_markdown', _('Write the announcement page.'))
 
@@ -151,7 +153,7 @@ class AnnouncementAdminForm(forms.ModelForm):
             return
         if data.get('button_style') != ButtonStyle.HIDDEN:
             self._require(data, 'action_label', _('Write the button text, or choose the hidden style.'))
-        self._check_action(data, '', action_type, 'station')
+        self._check_action(data, '', action_type, 'station', 'form')
 
     def _check_secondary_button(self, data):
         kind = data.get('secondary_kind')
@@ -168,4 +170,4 @@ class AnnouncementAdminForm(forms.ModelForm):
             action_type = data.get('secondary_action_type')
             if action_type == ActionType.NONE:
                 self.add_error('secondary_action_type', _('Pick what the second button does.'))
-            self._check_action(data, 'secondary_', action_type, 'secondary_station')
+            self._check_action(data, 'secondary_', action_type, 'secondary_station', 'secondary_form')

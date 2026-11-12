@@ -61,7 +61,7 @@ def _image_url(file_field, absolute_url: AbsoluteUrl) -> Optional[str]:
     return url if url.lower().startswith(('https://', 'http://')) else None
 
 
-def _action_payload(action_type, url, web_target, intent_uri, fallback_url, station) -> dict:
+def _action_payload(action_type, url, web_target, intent_uri, fallback_url, station, form=None) -> dict:
     return _compact({
         'type': action_type,
         'url': url or None,
@@ -69,6 +69,7 @@ def _action_payload(action_type, url, web_target, intent_uri, fallback_url, stat
         'android_intent_uri': intent_uri or None,
         'fallback_url': fallback_url or None,
         'station_slug': _station_slug(station),
+        'form_slug': form.slug if form and is_public_slug(form.slug) else None,
     })
 
 
@@ -84,7 +85,7 @@ def _button_payload(announcement: Announcement) -> Optional[dict]:
         'icon': announcement.button_icon or 'auto',
         'action': _action_payload(
             announcement.action_type, announcement.action_url, announcement.web_link_target,
-            announcement.android_intent_uri, announcement.fallback_url, announcement.station,
+            announcement.android_intent_uri, announcement.fallback_url, announcement.station, announcement.form,
         ),
     }
 
@@ -98,7 +99,7 @@ def _secondary_button_payload(announcement: Announcement) -> Optional[dict]:
         action = _action_payload(
             announcement.secondary_action_type, announcement.secondary_action_url,
             announcement.secondary_web_link_target, announcement.secondary_android_intent_uri,
-            announcement.secondary_fallback_url, announcement.secondary_station,
+            announcement.secondary_fallback_url, announcement.secondary_station, announcement.secondary_form,
         )
     return _compact({
         'label': announcement.secondary_label,
@@ -209,7 +210,7 @@ def _listed(statuses, now: datetime):
         Announcement.objects
         .filter(status__in=statuses, starts_at__lte=now + UPCOMING_WINDOW)
         .filter(Q(ends_at__isnull=True) | Q(ends_at__gt=now))
-        .select_related('category', 'station', 'secondary_station')
+        .select_related('category', 'station', 'secondary_station', 'form', 'secondary_form')
         .prefetch_related('stations')
         .order_by('-priority', '-starts_at', '-id')
     )
@@ -221,7 +222,7 @@ def _live(statuses, slug: str, now: datetime) -> Optional[Announcement]:
         Announcement.objects
         .filter(slug=slug, status__in=statuses, starts_at__lte=now)
         .filter(Q(ends_at__isnull=True) | Q(ends_at__gt=now))
-        .select_related('category', 'station', 'secondary_station')
+        .select_related('category', 'station', 'secondary_station', 'form', 'secondary_form')
         .prefetch_related('stations')
         .first()
     )

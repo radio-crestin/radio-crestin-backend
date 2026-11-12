@@ -24,6 +24,8 @@ from .announcements import (
     SecondaryButtonKind, TargetPlatform, WebLinkTarget,
 )
 from .announcement_events import AnnouncementEvent, AnnouncementEventTarget, AnnouncementEventType
+from .forms import Form, FormKind, FormQuestion, QuestionType
+from .form_submissions import FormSubmission
 
 __all__ = [
     'Artists',
@@ -66,4 +68,9 @@ __all__ = [
     'AnnouncementEvent',
     'AnnouncementEventTarget',
     'AnnouncementEventType',
+    'Form',
+    'FormKind',
+    'FormQuestion',
+    'QuestionType',
+    'FormSubmission',
 ]

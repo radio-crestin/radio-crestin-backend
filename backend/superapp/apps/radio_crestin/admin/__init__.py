@@ -2,6 +2,7 @@ from .app_users import AppUsersAdmin
 from .announcement_categories import AnnouncementCategoryAdmin
 from .announcement_settings import AnnouncementSettingsAdmin
 from .announcements import AnnouncementAdmin
+from .forms import FormAdmin, FormSubmissionAdmin
 from .artists import ArtistsAdmin
 from .listening_sessions import ListeningSessionsAdmin
 from .posts import PostsAdmin
@@ -26,6 +27,8 @@ __all__ = [
     'AnnouncementCategoryAdmin',
     'AnnouncementSettingsAdmin',
     'AnnouncementAdmin',
+    'FormAdmin',
+    'FormSubmissionAdmin',
     'ArtistsAdmin',
     'ListeningSessionsAdmin',
     'PostsAdmin',

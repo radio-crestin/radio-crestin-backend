@@ -5,6 +5,7 @@ from django.utils.translation import gettext_lazy as _
 
 from ...storage.config import get_public_storage
 from .announcement_categories import AnnouncementCategory, hex_color_validator
+from .forms import Form
 from .announcement_validators import (
     validate_action_url, validate_intent_uri, validate_public_slug, validate_web_url,
 )
@@ -33,6 +34,7 @@ class ActionType(models.TextChoices):
     ANDROID_INTENT = 'android_intent', _('Android intent')
     PAGE = 'page', _('Announcement page')
     STATION = 'station', _('Station')
+    FORM = 'form', _('Form (question, poll or questionnaire)')
 
 
 class WebLinkTarget(models.TextChoices):
@@ -128,6 +130,9 @@ class Announcement(models.Model):
     station = models.ForeignKey(
         Stations, verbose_name=_("Station"), on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
     )
+    form = models.ForeignKey(
+        Form, verbose_name=_("Form"), on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+    )
     button_style = models.CharField(_("Style"), max_length=16, choices=ButtonStyle.choices, default=ButtonStyle.FILLED)
     button_color = models.CharField(
         _("Color"), max_length=7, blank=True, default='', validators=[hex_color_validator],
@@ -166,6 +171,9 @@ class Announcement(models.Model):
     secondary_station = models.ForeignKey(
         Stations, verbose_name=_("Second button station"), on_delete=models.SET_NULL,
         null=True, blank=True, related_name='+',
+    )
+    secondary_form = models.ForeignKey(
+        Form, verbose_name=_("Second button form"), on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
     )
 
     # Page

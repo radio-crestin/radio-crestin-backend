@@ -1,0 +1,56 @@
+{% extends "admin/base_site.html" %}
+{% load i18n unfold %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block content %}
+    <div class="flex flex-col gap-6 max-w-4xl">
+        <div class="flex flex-row flex-wrap gap-2 items-center">
+            <strong>{% blocktrans count counter=total %}{{ counter }} answer{% plural %}{{ counter }} answers{% endblocktrans %}</strong>
+            {% component "unfold/components/button.html" with href=csv_url variant="default" %}{% trans "Export CSV" %}{% endcomponent %}
+            {% component "unfold/components/button.html" with href=change_url variant="default" %}{% trans "Back to the form" %}{% endcomponent %}
+        </div>
+
+        {% for item in stats %}
+            {% component "unfold/components/card.html" with title=item.question.text %}
+                <p class="mb-3 opacity-70">
+                    {% blocktrans count counter=item.answered %}{{ counter }} answered{% plural %}{{ counter }} answered{% endblocktrans %}
+                </p>
+                {% if item.is_text %}
+                    <p class="opacity-70">{% trans "Text answers are listed below." %}</p>
+                {% else %}
+                    <div class="flex flex-col gap-2">
+                        {% for bar in item.bars %}
+                            <div>
+                                <div class="flex justify-between text-sm"><span>{{ bar.label }}</span><span>{{ bar.count }} · {{ bar.percent }}%</span></div>
+                                <div style="height:8px;border-radius:4px;background:rgba(127,127,127,.18);overflow:hidden">
+                                    <div style="height:100%;width:{{ bar.percent }}%;background:#E91E63"></div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endcomponent %}
+        {% endfor %}
+
+        {% if text_page.paginator.count %}
+            {% component "unfold/components/card.html" with title=_("Text answers") %}
+                <div class="flex flex-col gap-3">
+                    {% for created_at, question, answer in text_page %}
+                        <div class="border-b border-base-200 dark:border-base-700 pb-2">
+                            <div class="text-xs opacity-60">{{ created_at|date:"d M Y H:i" }} · {{ question }}</div>
+                            <div style="white-space:pre-wrap">{{ answer }}</div>
+                        </div>
+                    {% endfor %}
+                </div>
+                {% if text_page.has_other_pages %}
+                    <div class="flex flex-row gap-2 mt-4 items-center">
+                        {% if text_page.has_previous %}<a href="?page={{ text_page.previous_page_number }}">{% trans "Previous" %}</a>{% endif %}
+                        <span class="opacity-70">{{ text_page.number }} / {{ text_page.paginator.num_pages }}</span>
+                        {% if text_page.has_next %}<a href="?page={{ text_page.next_page_number }}">{% trans "Next" %}</a>{% endif %}
+                    </div>
+                {% endif %}
+            {% endcomponent %}
+        {% endif %}
+    </div>
+{% endblock %}

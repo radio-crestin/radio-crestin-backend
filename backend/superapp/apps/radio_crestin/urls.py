@@ -3,6 +3,7 @@ from . import views
 from .views import (
     PodHealthReportView, SessionRecordingView, DeviceRegistrationView, StationPlaylistUpdateView,
     AnnouncementListView, AnnouncementDetailView, AnnouncementEventsView,
+    FormPageView, FormResultsView, FormSubmitView,
 )
 
 # App-specific URL patterns
@@ -35,4 +36,8 @@ def extend_superapp_urlpatterns(main_urlpatterns):
         path('api/v1/announcements/', AnnouncementListView.as_view(), name='api_v1_announcements'),
         path('api/v1/announcements/events/', AnnouncementEventsView.as_view(), name='api_v1_announcement_events'),
         path('api/v1/announcements/<slug:slug>/', AnnouncementDetailView.as_view(), name='api_v1_announcement_detail'),
+        # Forms opened from announcements (under /api/: the public ingress routes only /api, /graphql, /health)
+        path('api/v1/forms/<slug:slug>/page/', FormPageView.as_view(), name='api_v1_form_page'),
+        path('api/v1/forms/<slug:slug>/submit/', FormSubmitView.as_view(), name='api_v1_form_submit'),
+        path('api/v1/forms/<slug:slug>/results/', FormResultsView.as_view(), name='api_v1_form_results'),
     ])

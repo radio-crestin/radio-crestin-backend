@@ -52,7 +52,9 @@ class AnnouncementAdmin(SuperAppModelAdmin):
     ]
     list_filter = ['status', 'placement', 'category', 'push_enabled']
     search_fields = ['title', 'slug']
-    autocomplete_fields = ['category', 'station', 'secondary_station', 'stations', 'test_devices']
+    autocomplete_fields = [
+        'category', 'station', 'secondary_station', 'stations', 'test_devices', 'form', 'secondary_form',
+    ]
     readonly_fields = [
         'stats_display', 'events_display', 'push_status_display', 'preview_links_display',
         'push_confirmed_at', 'push_sent_at', 'push_sent_count',
@@ -69,6 +71,8 @@ class AnnouncementAdmin(SuperAppModelAdmin):
         'android_intent_uri': "action_type == 'android_intent'",
         'fallback_url': "action_type == 'android_intent'",
         'station': "action_type == 'station'",
+        'form': "action_type == 'form'",
+        'secondary_form': f"{SECONDARY_ACTION} && secondary_action_type == 'form'",
         'button_style': "action_type != 'none'",
         'button_color': "action_type != 'none'",
         'button_text_color': "action_type != 'none'",
@@ -95,11 +99,11 @@ class AnnouncementAdmin(SuperAppModelAdmin):
             (_('Where it shows'), {'classes': ['tab'], 'fields': ['placement', 'stations']}),
             (_('Button & page'), {'classes': ['tab'], 'fields': [
                 'action_type', 'action_label', 'action_url', 'web_link_target',
-                'android_intent_uri', 'fallback_url', 'station',
+                'android_intent_uri', 'fallback_url', 'station', 'form',
                 ('button_style', 'button_icon'), ('button_color', 'button_text_color'),
                 'secondary_kind', 'secondary_label', 'secondary_later_days', 'secondary_action_type',
                 'secondary_action_url', 'secondary_web_link_target',
-                'secondary_android_intent_uri', 'secondary_fallback_url', 'secondary_station',
+                'secondary_android_intent_uri', 'secondary_fallback_url', 'secondary_station', 'secondary_form',
                 'page_title', 'page_cover_image', 'page_markdown',
             ]}),
             (_('Schedule & display'), {'classes': ['tab'], 'fields': [
