@@ -5,7 +5,9 @@ from django.utils.translation import gettext_lazy as _
 
 from ...storage.config import get_public_storage
 from .announcement_categories import AnnouncementCategory, hex_color_validator
-from .announcement_validators import validate_action_url, validate_intent_uri, validate_web_url
+from .announcement_validators import (
+    validate_action_url, validate_intent_uri, validate_public_slug, validate_web_url,
+)
 from .stations import Stations
 from .users import AppUsers
 
@@ -74,7 +76,7 @@ class Announcement(models.Model):
     """A short message shown in the card above the station list (website and apps)."""
 
     slug = models.SlugField(
-        _("Slug"), max_length=120, unique=True,
+        _("Slug"), max_length=100, unique=True, validators=[validate_public_slug],
         help_text=_("Closing is remembered per slug. Change it to show this again to people who closed it."),
     )
     status = models.CharField(

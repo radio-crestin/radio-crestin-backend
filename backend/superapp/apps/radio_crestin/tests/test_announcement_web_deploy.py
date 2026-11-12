@@ -93,9 +93,25 @@ class TriggerTaskTests(TestCase):
         post.assert_called_once_with(HOOK[web_deploy.HOOK_URL_ENV], timeout=15)
         self.assertIsNone(cache.get(web_deploy.PENDING_KEY))
 
-    def test_network_errors_are_logged_not_raised(self):
-        with patch.dict(os.environ, HOOK), patch('requests.post', side_effect=requests.ConnectionError('down')):
-            self.assertFalse(trigger_web_deploy()['success'])
+    def test_the_hook_url_never_reaches_logs_or_results(self):
+        url = HOOK[web_deploy.HOOK_URL_ENV]
+        error = requests.ConnectionError(f"HTTPSConnectionPool: Max retries exceeded with url: {url}")
+        with patch.dict(os.environ, HOOK), patch('requests.post', side_effect=error), \
+                self.assertLogs('superapp.apps.radio_crestin.tasks.trigger_web_deploy', level='ERROR') as logs:
+            result = trigger_web_deploy()
+        self.assertEqual(result, {'success': False, 'message': 'request failed'})
+        self.assertEqual(logs.output, [
+            'ERROR:superapp.apps.radio_crestin.tasks.trigger_web_deploy:Website deploy hook failed: ConnectionError'])
+        self.assertNotIn('deploy_hooks', str(result) + ''.join(logs.output))
+
+    def test_http_errors_report_only_the_status(self):
+        with patch.dict(os.environ, HOOK), patch('requests.post') as post, \
+                self.assertLogs('superapp.apps.radio_crestin.tasks.trigger_web_deploy', level='ERROR') as logs:
+            post.return_value.ok = False
+            post.return_value.status_code = 500
+            post.return_value.text = f'error for {HOOK[web_deploy.HOOK_URL_ENV]}'
+            self.assertEqual(trigger_web_deploy(), {'success': False, 'message': 'HTTP 500'})
+        self.assertNotIn('deploy_hooks', ''.join(logs.output))
 
     def test_skips_without_a_hook_url(self):
         with patch.dict(os.environ, {web_deploy.HOOK_URL_ENV: ''}), patch('requests.post') as post:

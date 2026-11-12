@@ -97,6 +97,14 @@ class SendTests(TestCase):
             result = announcement_push.send(announcement)
         return result, track_event
 
+    def test_bad_credentials_never_echo_the_key(self):
+        secret = '{"type": "service_account", "private_key": "-----BEGIN PRIVATE KEY-----SECRET"}'
+        with patch.dict(os.environ, {announcement_push.CREDENTIALS_ENV: secret}):
+            with self.assertRaises(RuntimeError) as raised:
+                announcement_push._firebase_app()
+        self.assertNotIn('SECRET', str(raised.exception))
+        self.assertIsNone(raised.exception.__cause__)
+
     def test_not_configured(self):
         with patch.dict(os.environ, {announcement_push.CREDENTIALS_ENV: ''}):
             self.assertFalse(announcement_push.is_configured())

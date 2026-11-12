@@ -2,6 +2,8 @@ from django.core.validators import RegexValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from .announcement_validators import validate_public_slug
+
 hex_color_validator = RegexValidator(
     r'^#[0-9A-Fa-f]{6}$',
     _("Enter a hex color such as #0F6E63."),
@@ -29,7 +31,7 @@ def text_color_on(hex_color: str) -> str:
 class AnnouncementCategory(models.Model):
     """The colored tag shown on an announcement card (Community, Event, ...)."""
 
-    slug = models.SlugField(_("Slug"), max_length=64, unique=True)
+    slug = models.SlugField(_("Slug"), max_length=64, unique=True, validators=[validate_public_slug])
     name = models.CharField(_("Name"), max_length=64, help_text=_("Shown on the tag, in Romanian."))
     color = models.CharField(_("Color"), max_length=7, validators=[hex_color_validator])
     ordering = models.IntegerField(_("Ordering"), default=0)

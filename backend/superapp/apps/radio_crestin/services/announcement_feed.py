@@ -6,6 +6,7 @@ signals in signals/announcements.py whenever something they serve changes.
 """
 import hashlib
 import json
+import re
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone as dt_timezone
@@ -19,6 +20,7 @@ from ..models import (
     ActionType, Announcement, AnnouncementSettings, AnnouncementStatus, Placement, SecondaryButtonKind,
 )
 from ..models.announcement_categories import text_color_on
+from ..models.announcement_validators import PUBLIC_SLUG_PATTERN
 from . import announcement_html
 from .announcement_targeting import TargetingRules
 
@@ -27,6 +29,8 @@ CACHE_SECONDS = 300
 GENERATION_KEY = 'announcements:generation'
 PUBLIC_STATUSES = (AnnouncementStatus.ACTIVE,)
 PREVIEW_STATUSES = (AnnouncementStatus.ACTIVE, AnnouncementStatus.PREVIEW)
+PUBLIC_SLUG_RE = re.compile(PUBLIC_SLUG_PATTERN)
+STATION_SLUG_RE = re.compile(r'^[-a-zA-Z0-9_]+$')  # Django's SlugField alphabet
 
 AbsoluteUrl = Callable[[str], str]
 
@@ -64,7 +68,7 @@ def _action_payload(action_type, url, web_target, intent_uri, fallback_url, stat
         'web_target': web_target if action_type in (ActionType.EXTERNAL, ActionType.IN_APP_BROWSER) else None,
         'android_intent_uri': intent_uri or None,
         'fallback_url': fallback_url or None,
-        'station_slug': station.slug if station else None,
+        'station_slug': _station_slug(station),
     })
 
 
@@ -117,8 +121,16 @@ def _page_payload(announcement: Announcement, absolute_url: AbsoluteUrl, with_bo
     return _compact(page)
 
 
+def is_public_slug(slug: str) -> bool:
+    return bool(PUBLIC_SLUG_RE.match(slug or ''))
+
+
+def _station_slug(station) -> Optional[str]:
+    return station.slug if station and STATION_SLUG_RE.match(station.slug or '') else None
+
+
 def _category_payload(category) -> Optional[dict]:
-    if category is None:
+    if category is None or not is_public_slug(category.slug):
         return None
     return {'slug': category.slug, 'name': category.name, 'color': category.color, 'text_color': category.text_color}
 
@@ -139,7 +151,7 @@ def station_slugs(announcement: Announcement) -> list:
     if announcement.placement != Placement.STATION:
         return []
     stations = sorted(announcement.stations.all(), key=lambda station: (station.station_order, station.slug))
-    return [station.slug for station in stations]
+    return [slug for slug in map(_station_slug, stations) if slug]
 
 
 def serialize(announcement: Announcement, absolute_url: AbsoluteUrl = lambda url: url, *,
@@ -173,7 +185,6 @@ def serialize(announcement: Announcement, absolute_url: AbsoluteUrl = lambda url
 def settings_payload(settings: AnnouncementSettings) -> dict:
     return {
         'rotation_mode': settings.rotation_mode,
-        'autoplay_seconds': settings.autoplay_seconds,
         'max_per_load': settings.max_per_load,
     }
 
@@ -220,11 +231,17 @@ def list_payload(absolute_url: AbsoluteUrl, statuses=PUBLIC_STATUSES) -> dict:
     now = timezone.now()
     return {
         'settings': settings_payload(AnnouncementSettings.load()),
-        'announcements': [serialize(announcement, absolute_url) for announcement in _listed(statuses, now)],
+        # The model validates slugs; anything else (older rows) is never sent.
+        'announcements': [
+            serialize(announcement, absolute_url) for announcement in _listed(statuses, now)
+            if is_public_slug(announcement.slug)
+        ],
     }
 
 
 def detail_payload(slug: str, absolute_url: AbsoluteUrl, statuses=PUBLIC_STATUSES) -> Optional[dict]:
+    if not is_public_slug(slug):
+        return None
     announcement = _live(statuses, slug, timezone.now())
     return serialize(announcement, absolute_url, with_page_body=True) if announcement else None
 

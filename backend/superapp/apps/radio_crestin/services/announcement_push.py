@@ -40,8 +40,13 @@ def _firebase_app():
     try:
         return firebase_admin.get_app(FIREBASE_APP_NAME)
     except ValueError:
+        pass
+    try:
         service_account = json.loads(os.environ[CREDENTIALS_ENV])
         return firebase_admin.initialize_app(credentials.Certificate(service_account), name=FIREBASE_APP_NAME)
+    except Exception as error:
+        # The message could quote the service-account key: report only the error type.
+        raise RuntimeError(f'{CREDENTIALS_ENV} is not a valid service account ({type(error).__name__})') from None
 
 
 # ---------------------------------------------------------------- audience

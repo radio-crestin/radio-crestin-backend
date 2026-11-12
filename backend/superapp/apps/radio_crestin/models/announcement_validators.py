@@ -1,9 +1,15 @@
 """Link checks for announcement buttons: clients open these, so only safe schemes are stored."""
 from django.core.exceptions import ValidationError
-from django.core.validators import URLValidator
+from django.core.validators import RegexValidator, URLValidator
 from django.utils.translation import gettext_lazy as _
 
 _web_url = URLValidator(schemes=['http', 'https'])
+
+PUBLIC_SLUG_PATTERN = r'^[a-z0-9-]{1,100}$'
+# Slugs go into clients' storage keys, CSS selectors and URLs: lowercase letters, digits and dashes only.
+validate_public_slug = RegexValidator(
+    PUBLIC_SLUG_PATTERN, _('Use only lowercase letters, digits and dashes (at most 100).'), code='invalid_slug',
+)
 CONTACT_SCHEMES = ('mailto:', 'tel:')
 
 

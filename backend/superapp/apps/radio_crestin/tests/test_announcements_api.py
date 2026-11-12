@@ -37,7 +37,7 @@ class SeededAnnouncementTests(TestCase):
     def test_whatsapp_announcement_has_the_contract_shape(self):
         body = self.client.get(LIST_URL).json()
 
-        self.assertEqual(body['settings'], {'rotation_mode': 'rotate', 'autoplay_seconds': 8, 'max_per_load': 5})
+        self.assertEqual(body['settings'], {'rotation_mode': 'rotate', 'max_per_load': 5})
         whatsapp = body['announcements'][0]
         starts_at = whatsapp.pop('starts_at')
         self.assertTrue(starts_at.endswith('Z'))
@@ -184,6 +184,18 @@ class ListEndpointTests(TestCase):
         self.assertEqual(item['button']['text_color'], '#000000')
         self.assertEqual(item['secondary_button'], {'label': 'Later', 'kind': 'later', 'later_days': 3})
 
+    def test_only_strict_slugs_are_sent(self):
+        # Rows saved before the validator (or around it) are never sent.
+        make_announcement('Old_Slug')
+        make_announcement('fine', category=AnnouncementCategory.objects.create(slug='Bad Cat', name='x', color='#000000'),
+                          placement='station')
+        Announcement.objects.get(slug='fine').stations.add(make_station('ok-station'), make_station('bad slug!'))
+        listed = items(self.client.get(LIST_URL))
+        self.assertEqual([item['slug'] for item in listed], ['fine'])
+        self.assertNotIn('category', listed[0])
+        self.assertEqual(listed[0]['station_slugs'], ['ok-station'])
+        self.assertEqual(self.client.get(f'{LIST_URL}Old_Slug/').status_code, 404)
+
     def test_station_announcements(self):
         elim = make_station('radio-elim', station_order=2.0)
         vocea = make_station('vocea', station_order=1.0)
@@ -223,9 +235,9 @@ class CacheInvalidationTests(TestCase):
         self.assertEqual(items(self.client.get(LIST_URL))[0]['category']['name'], 'Concert')
 
         settings = AnnouncementSettings.load()
-        settings.autoplay_seconds = 12
+        settings.max_per_load = 3
         settings.save()
-        self.assertEqual(self.client.get(LIST_URL).json()['settings']['autoplay_seconds'], 12)
+        self.assertEqual(self.client.get(LIST_URL).json()['settings']['max_per_load'], 3)
 
         announcement.stations.add(make_station('radio-elim'))
         self.assertEqual(items(self.client.get(LIST_URL))[0]['station_slugs'], ['radio-elim'])

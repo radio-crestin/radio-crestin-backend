@@ -25,10 +25,6 @@ class AnnouncementSettings(models.Model):
     rotation_mode = models.CharField(
         _("Rotation mode"), max_length=16, choices=RotationMode.choices, default=RotationMode.ROTATE,
     )
-    autoplay_seconds = models.PositiveSmallIntegerField(
-        _("Autoplay seconds"), default=8, validators=[MinValueValidator(2), MaxValueValidator(120)],
-        help_text=_("Seconds each announcement stays before the card moves to the next one."),
-    )
     max_per_load = models.PositiveSmallIntegerField(
         _("Max announcements per load"), default=5, validators=[MinValueValidator(1), MaxValueValidator(50)],
     )
@@ -46,7 +42,7 @@ class AnnouncementSettings(models.Model):
         verbose_name_plural = _("Announcement Settings")
 
     def __str__(self):
-        return f"{self.get_rotation_mode_display()} · {self.autoplay_seconds}s · max {self.max_per_load}"
+        return f"{self.get_rotation_mode_display()} · max {self.max_per_load}"
 
     @classmethod
     def load(cls) -> 'AnnouncementSettings':

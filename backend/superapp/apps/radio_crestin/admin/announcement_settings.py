@@ -1,6 +1,8 @@
 import unfold.decorators
 from django.contrib import admin, messages
+from django.http import HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect
+from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
@@ -13,8 +15,8 @@ from ..models.announcement_settings import new_preview_token
 
 @admin.register(AnnouncementSettings, site=superapp_admin_site)
 class AnnouncementSettingsAdmin(SuperAppModelAdmin):
-    list_display = ['__str__', 'rotation_mode', 'autoplay_seconds', 'max_per_load', 'updated_at']
-    fields = ['rotation_mode', 'autoplay_seconds', 'max_per_load', 'preview_links', 'created_at', 'updated_at']
+    list_display = ['__str__', 'rotation_mode', 'max_per_load', 'updated_at']
+    fields = ['rotation_mode', 'max_per_load', 'preview_links', 'created_at', 'updated_at']
     readonly_fields = ['preview_links', 'created_at', 'updated_at']
     actions_detail = ['rotate_preview_token']
 
@@ -39,7 +41,19 @@ class AnnouncementSettingsAdmin(SuperAppModelAdmin):
     @unfold.decorators.action(description=_('Rotate preview token'), permissions=['change'])
     def rotate_preview_token(self, request, object_id):
         settings = get_object_or_404(AnnouncementSettings, pk=object_id)
+        change_url = reverse('admin:radio_crestin_announcementsettings_change', args=(object_id,))
+        if request.method == 'GET':
+            return TemplateResponse(request, 'admin/radio_crestin/confirm_action.html', {
+                **self.admin_site.each_context(request),
+                'opts': self.model._meta,
+                'title': _('Rotate preview token'),
+                'lines': [_('The current preview links stop working right away; share the new ones after.')],
+                'confirm_label': _('Rotate'),
+                'cancel_url': change_url,
+            })
+        if request.method != 'POST':
+            return HttpResponseNotAllowed(['GET', 'POST'])
         settings.preview_token = new_preview_token()
         settings.save(update_fields=['preview_token', 'updated_at'])
         messages.success(request, _('New preview token: the old preview links stopped working.'))
-        return redirect(reverse('admin:radio_crestin_announcementsettings_change', args=(object_id,)))
+        return redirect(change_url)

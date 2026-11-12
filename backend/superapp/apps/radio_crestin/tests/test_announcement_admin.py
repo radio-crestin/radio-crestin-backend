@@ -3,7 +3,7 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase, override_settings
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -85,6 +85,11 @@ class AnnouncementFormTests(TestCase):
         self.assertEqual(self.errors(dismissible='', **close), {})
         self.assertEqual(self.errors(secondary_kind='later', secondary_label='Later', secondary_later_days=3), {})
 
+    def test_slugs_are_strict(self):
+        for slug in ('Concert', 'concert_2026', 'concert 2026', 'a' * 101, 'ciné'):
+            self.assertIn('slug', self.errors(slug=slug), slug)
+        self.assertEqual(self.errors(slug='concert-craciun-2026'), {})
+
     def test_other_rules(self):
         self.assertIn('body_markdown', self.errors(body_markdown=''))
         self.assertIn('icon_name', self.errors(icon_name=''))
@@ -149,8 +154,23 @@ class AnnouncementAdminPagesTests(TestCase):
         self.assertContains(response, settings.website_preview_url)
         self.assertContains(response, settings.app_preview_url)
 
+    def test_rotating_the_token_needs_a_post_with_csrf(self):
+        settings = AnnouncementSettings.load()
         old_token = settings.preview_token
-        self.client.get(reverse('admin:radio_crestin_announcementsettings_rotate_preview_token', args=(settings.pk,)))
+        url = reverse('admin:radio_crestin_announcementsettings_rotate_preview_token', args=(settings.pk,))
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.admin_user)
+
+        confirmation = csrf_client.get(url)
+        self.assertContains(confirmation, 'Rotate preview token')
+        settings.refresh_from_db()
+        self.assertEqual(settings.preview_token, old_token)
+
+        self.assertEqual(csrf_client.post(url, {'confirm': 'yes'}).status_code, 403)
+        settings.refresh_from_db()
+        self.assertEqual(settings.preview_token, old_token)
+
+        csrf_client.post(url, {'confirm': 'yes', 'csrfmiddlewaretoken': csrf_client.cookies['csrftoken'].value})
         settings.refresh_from_db()
         self.assertNotEqual(settings.preview_token, old_token)
 
@@ -174,7 +194,8 @@ class AnnouncementAdminPagesTests(TestCase):
 @override_settings(CACHES=LOCMEM_CACHE)
 class SendPushActionTests(TestCase):
     def setUp(self):
-        self.client.force_login(get_user_model().objects.create_superuser(email='admin@example.com', password='x'))
+        self.admin_user = get_user_model().objects.create_superuser(email='admin@example.com', password='x')
+        self.client.force_login(self.admin_user)
         self.announcement = Announcement.objects.get(slug='whatsapp-versetul-zilei')
         self.url = reverse('admin:radio_crestin_announcement_send_push_notification', args=(self.announcement.pk,))
         AppUsers.objects.create(anonymous_id='a1', device_platform='android', device_fcm_token='t1')
@@ -208,9 +229,18 @@ class SendPushActionTests(TestCase):
         mine = AppUsers.objects.get(anonymous_id='i1')
         self.announcement.test_devices.add(mine)
         test_url = reverse('admin:radio_crestin_announcement_send_test_notification', args=(self.announcement.pk,))
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.admin_user)
         with patch.dict(os.environ, CONFIGURED), \
                 patch.object(announcement_push, '_deliver', return_value={'sent': 1, 'failed': 0}) as deliver:
-            response = self.client.get(test_url, follow=True)
+            confirmation = csrf_client.get(test_url)
+            self.assertContains(confirmation, str(mine))
+            deliver.assert_not_called()
+            self.assertEqual(csrf_client.post(test_url, {'confirm': 'yes'}).status_code, 403)
+            deliver.assert_not_called()
+            response = csrf_client.post(test_url, {
+                'confirm': 'yes', 'csrfmiddlewaretoken': csrf_client.cookies['csrftoken'].value,
+            }, follow=True)
         self.assertContains(response, 'Test notification sent to 1 device(s)')
         devices = list(deliver.call_args.args[1])
         self.assertEqual([device.token for device in devices], ['t2'])

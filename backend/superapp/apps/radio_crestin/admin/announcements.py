@@ -1,5 +1,6 @@
 import unfold.decorators
 from django.contrib import admin, messages
+from django.http import HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
@@ -104,7 +105,9 @@ class AnnouncementAdmin(SuperAppModelAdmin):
             (_('Schedule & display'), {'classes': ['tab'], 'fields': [
                 ('starts_at', 'ends_at'), 'dismissible', 'hide_after_seconds', 'max_impressions',
             ]}),
-            (_('Who sees it'), {'classes': ['tab'], 'fields': [
+            (_('Who sees it'), {'classes': ['tab'], 'description': _(
+                "Everything active is in the public list; filters only decide where it is shown, they don't "
+                "keep it secret. Use the Preview status for unpublished content."), 'fields': [
                 'platforms', 'countries_include', 'countries_exclude', 'locales',
                 ('min_app_version', 'max_app_version'),
             ]}),
@@ -228,12 +231,26 @@ class AnnouncementAdmin(SuperAppModelAdmin):
         if not announcement_push.is_configured():
             messages.error(request, _('Push is not configured: set FIREBASE_SERVICE_ACCOUNT_JSON to send notifications.'))
             return redirect(self._change_url(object_id))
-        device_count = announcement.test_devices.count()
-        if not device_count:
+        if request.method not in ('GET', 'POST'):
+            return HttpResponseNotAllowed(['GET', 'POST'])
+        devices = list(announcement.test_devices.all())
+        if not devices:
             messages.warning(request, _('Pick the test devices in the Notification tab and save first.'))
-        elif device_count > self.MAX_TEST_DEVICES:
+        elif len(devices) > self.MAX_TEST_DEVICES:
             messages.error(request, _('At most %(max)s test devices.') % {'max': self.MAX_TEST_DEVICES})
+        elif request.method == 'GET':
+            return TemplateResponse(request, 'admin/radio_crestin/confirm_action.html', {
+                **self.admin_site.each_context(request),
+                'opts': self.model._meta,
+                'title': _('Send a test notification to these devices'),
+                'lines': [announcement_push.notification_title(announcement),
+                          announcement_push.notification_body(announcement)],
+                'items': [str(device) for device in devices],
+                'confirm_label': _('Send test notification'),
+                'cancel_url': self._change_url(object_id),
+            })
         else:
+            device_count = len(devices)
             result = announcement_push.send_test(announcement)
             without_token = device_count - result['sent'] - result['failed']
             messages.success(request, _(
@@ -250,6 +267,8 @@ class AnnouncementAdmin(SuperAppModelAdmin):
         if not announcement_push.is_configured():
             messages.error(request, _('Push is not configured: set FIREBASE_SERVICE_ACCOUNT_JSON to send notifications.'))
             return redirect(self._change_url(object_id))
+        if request.method not in ('GET', 'POST'):
+            return HttpResponseNotAllowed(['GET', 'POST'])
         if request.method == 'POST' and request.POST.get('confirm') == 'yes':
             return self._confirm_push(request, announcement)
         return self._push_confirmation_page(request, announcement)

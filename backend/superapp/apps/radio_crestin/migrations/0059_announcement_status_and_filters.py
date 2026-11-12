@@ -6,9 +6,16 @@ from django.db import migrations, models
 
 
 def copy_is_active_to_status(apps, schema_editor):
+    """Active stays active, except announcements limited to some devices or IPs: the list is now
+    public, so those become Preview instead of silently showing to everyone."""
     Announcement = apps.get_model('radio_crestin', 'Announcement')
-    Announcement.objects.filter(is_active=True).update(status='active')
     Announcement.objects.filter(is_active=False).update(status='draft')
+    for announcement in Announcement.objects.filter(is_active=True):
+        restricted = (
+            announcement.target_devices.exists() or announcement.extra_device_ids or announcement.ip_ranges
+        )
+        announcement.status = 'preview' if restricted else 'active'
+        announcement.save(update_fields=['status'])
 
 
 def copy_status_to_is_active(apps, schema_editor):
@@ -31,6 +38,12 @@ class Migration(migrations.Migration):
             model_name='announcement',
             name='announcement_active_idx',
         ),
+        migrations.AddField(
+            model_name='announcement',
+            name='status',
+            field=models.CharField(choices=[('draft', 'Draft: not shown'), ('preview', 'Preview: only with the preview link'), ('active', 'Active: shown to everyone it targets')], default='draft', max_length=16, verbose_name='Status'),
+        ),
+        migrations.RunPython(copy_is_active_to_status, copy_status_to_is_active),
         migrations.RemoveField(
             model_name='announcement',
             name='extra_device_ids',
@@ -39,12 +52,6 @@ class Migration(migrations.Migration):
             model_name='announcement',
             name='ip_ranges',
         ),
-        migrations.AddField(
-            model_name='announcement',
-            name='status',
-            field=models.CharField(choices=[('draft', 'Draft: not shown'), ('preview', 'Preview: only with the preview link'), ('active', 'Active: shown to everyone it targets')], default='draft', max_length=16, verbose_name='Status'),
-        ),
-        migrations.RunPython(copy_is_active_to_status, copy_status_to_is_active),
         migrations.RemoveField(
             model_name='announcement',
             name='is_active',
