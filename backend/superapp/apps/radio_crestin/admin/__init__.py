@@ -1,4 +1,7 @@
 from .app_users import AppUsersAdmin
+from .announcement_categories import AnnouncementCategoryAdmin
+from .announcement_settings import AnnouncementSettingsAdmin
+from .announcements import AnnouncementAdmin
 from .artists import ArtistsAdmin
 from .listening_sessions import ListeningSessionsAdmin
 from .posts import PostsAdmin
@@ -20,6 +23,9 @@ from .stations_uptime import StationsUptimeAdmin
 
 __all__ = [
     'AppUsersAdmin',
+    'AnnouncementCategoryAdmin',
+    'AnnouncementSettingsAdmin',
+    'AnnouncementAdmin',
     'ArtistsAdmin',
     'ListeningSessionsAdmin',
     'PostsAdmin',

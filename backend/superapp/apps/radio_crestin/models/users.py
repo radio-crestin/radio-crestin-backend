@@ -58,4 +58,11 @@ class AppUsers(models.Model):
         verbose_name_plural = _("App Users")
 
     def __str__(self):
-        return f"App User {self.anonymous_id or self.email or self.id}"
+        identity = self.anonymous_id or self.email or self.id
+        if not (self.device_model or self.device_platform):
+            return f"App User {identity}"
+        # Device details first, so the announcement device picker can tell phones apart.
+        details = [self.device_model, self.device_platform, self.device_app_version and f"v{self.device_app_version}"]
+        if self.device_last_seen_at:
+            details.append(f"seen {self.device_last_seen_at:%Y-%m-%d}")
+        return " · ".join(str(detail) for detail in details if detail) + f" ({identity})"
