@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 from PIL import Image
 
 from ..models import (
@@ -90,8 +91,9 @@ class DraftAnnouncementTests(TestCase):
         self.assertEqual(announcement.page_markdown, 'Program complet\n\n<https://speranta.ro/concert>')
         self.assertTrue(announcement.page_cover_image)
         self.assertEqual(announcement.images.count(), 1)
-        self.assertEqual(announcement.starts_at.date(), datetime.date(2026, 12, 20))
-        self.assertEqual(announcement.ends_at.astimezone(contact_drafts.LOCAL_TIMEZONE).date(), datetime.date(2026, 12, 24))
+        local = timezone.get_default_timezone()
+        self.assertEqual(announcement.starts_at.astimezone(local).replace(tzinfo=None), datetime.datetime(2026, 12, 20))
+        self.assertEqual(announcement.ends_at.astimezone(local).date(), datetime.date(2026, 12, 24))
 
     def test_a_general_announcement_with_only_a_link(self):
         announcement = contact_drafts.create_announcement(announcement_message(link='https://example.com'))
@@ -126,6 +128,7 @@ class ContactAdminTests(TestCase):
         self.assertIn('&lt;script&gt;alert(1)&lt;/script&gt;', page)
         self.assertNotIn('<script>alert(1)</script>', page)
         self.assertIn('Create draft station', page)
+        self.assertLess(page.index('Station name'), page.index('Where to listen'))
         self.assertNotIn('Create draft announcement', page)
         message.refresh_from_db()
         self.assertEqual(message.status, ContactStatus.IN_PROGRESS)

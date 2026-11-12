@@ -10,7 +10,7 @@ from unfold.enums import ActionVariant
 from superapp.apps.admin_portal.admin import SuperAppModelAdmin
 from superapp.apps.admin_portal.sites import superapp_admin_site
 from ..models import ContactKind, ContactMessage, ContactStatus
-from ..services import contact_drafts
+from ..services import contact_drafts, contact_form
 
 ANSWER_LABELS = {
     'station_name': _('Station name'),
@@ -41,6 +41,20 @@ LINK_ANSWERS = {'website', 'listen_url', 'facebook_url', 'link'}
 def new_messages_badge(request):
     """Sidebar badge: how many messages nobody opened yet."""
     return ContactMessage.objects.filter(status=ContactStatus.NEW).count() or None
+
+
+def _answer_rows(message):
+    """(label, html) per answer, in the order the form asks them; choice codes read as words."""
+    specs = {spec.name: spec for spec in contact_form.FIELDS.get(message.kind, ())}
+    order = list(specs)
+    names = sorted(message.details, key=lambda name: order.index(name) if name in order else len(order))
+    rows = []
+    for name in names:
+        value = message.details[name]
+        if name in specs and specs[name].type == 'choice':
+            value = str(value).replace('_', ' ').capitalize()
+        rows.append((ANSWER_LABELS.get(name, name), _answer_html(name, value)))
+    return rows
 
 
 def _answer_html(name, value):
@@ -83,7 +97,7 @@ class ContactMessageAdmin(SuperAppModelAdmin):
 
     @admin.display(description=_('Answers'))
     def answers_display(self, obj):
-        rows = [(ANSWER_LABELS.get(name, name), _answer_html(name, value)) for name, value in obj.details.items()]
+        rows = _answer_rows(obj)
         if not rows:
             return '-'
         return format_html(

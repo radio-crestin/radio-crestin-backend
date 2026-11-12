@@ -5,7 +5,6 @@ a draft announcement has status Draft. Images move from private storage to the
 public one only here, once an admin chose to use them.
 """
 import datetime
-from zoneinfo import ZoneInfo
 
 from django.core.files.base import ContentFile
 from django.db import transaction
@@ -18,7 +17,6 @@ from ..models import (
     ContactMessage, ContactStatus, Placement, Stations,
 )
 
-LOCAL_TIMEZONE = ZoneInfo('Europe/Bucharest')
 # Romanian button labels (from Codex).
 LINK_BUTTON_LABEL = 'Află mai multe'
 PAGE_BUTTON_LABEL = 'Citește mai mult'
@@ -80,7 +78,8 @@ def create_station(message: ContactMessage) -> Stations:
 
 
 def _local_datetime(iso_date: str, time: datetime.time):
-    return datetime.datetime.combine(datetime.date.fromisoformat(iso_date), time, tzinfo=LOCAL_TIMEZONE)
+    """The date at `time` in the site's time zone, so the admin shows exactly the date that was asked for."""
+    return datetime.datetime.combine(datetime.date.fromisoformat(iso_date), time, tzinfo=timezone.get_default_timezone())
 
 
 def _page_markdown(details: dict) -> str:
