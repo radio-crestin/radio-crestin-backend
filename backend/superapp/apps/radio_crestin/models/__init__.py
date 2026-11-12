@@ -23,7 +23,7 @@ from .announcements import (
     Announcement, AnnouncementImage, ActionType, ButtonStyle, PushSchedule,
     SecondaryButtonKind, TargetPlatform, WebLinkTarget,
 )
-from .announcement_events import AnnouncementEvent, AnnouncementEventType
+from .announcement_events import AnnouncementEvent, AnnouncementEventTarget, AnnouncementEventType
 
 __all__ = [
     'Artists',
@@ -62,5 +62,6 @@ __all__ = [
     'TargetPlatform',
     'WebLinkTarget',
     'AnnouncementEvent',
+    'AnnouncementEventTarget',
     'AnnouncementEventType',
 ]

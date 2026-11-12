@@ -36,6 +36,7 @@ class ButtonStyle(models.TextChoices):
     FILLED = 'filled', _('Filled')
     OUTLINE = 'outline', _('Outlined')
     TEXT = 'text', _('Text link')
+    HIDDEN = 'hidden', _('Hidden (the whole card is tappable)')
 
 
 class SecondaryButtonKind(models.TextChoices):
@@ -104,6 +105,10 @@ class Announcement(models.Model):
     button_color = models.CharField(
         _("Color"), max_length=7, blank=True, default='', validators=[hex_color_validator],
         help_text=_("Empty uses the category color."),
+    )
+    button_text_color = models.CharField(
+        _("Label color"), max_length=7, blank=True, default='', validators=[hex_color_validator],
+        help_text=_("Empty picks white or black, whichever contrasts more with the button color."),
     )
     button_icon = models.CharField(_("Button icon"), max_length=32, choices=BUTTON_ICON_CHOICES, default='auto')
 
@@ -174,6 +179,10 @@ class Announcement(models.Model):
     push_body = models.CharField(_("Notification text"), max_length=240, blank=True, default='')
     push_image = models.ImageField(
         _("Notification image"), storage=get_public_storage, upload_to='announcements/push/', blank=True, null=True,
+    )
+    push_confirmed_at = models.DateTimeField(
+        _("Notification confirmed at"), null=True, blank=True,
+        help_text=_("Set when the send is confirmed; a send at the start time waits for it."),
     )
     push_sent_at = models.DateTimeField(_("Notification sent at"), null=True, blank=True)
     push_sent_count = models.PositiveIntegerField(_("Notification sent to"), default=0)

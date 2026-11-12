@@ -13,6 +13,11 @@ class AnnouncementEventType(models.TextChoices):
     PUSH_OPENED = 'push_opened', _('Notification opened')
 
 
+class AnnouncementEventTarget(models.TextChoices):
+    CARD = 'card', _('Card')
+    BUTTON = 'button', _('Button')
+
+
 # Event type -> the Announcement counter it increments.
 COUNTER_FIELD_BY_EVENT_TYPE = {
     AnnouncementEventType.IMPRESSION: 'impressions',
@@ -36,6 +41,10 @@ class AnnouncementEvent(models.Model):
     country = models.CharField(_("Country"), max_length=2, blank=True, default='')
     ip = models.GenericIPAddressField(_("IP address"), null=True, blank=True)
     position = models.SmallIntegerField(_("Position"), null=True, blank=True)
+    target = models.CharField(
+        _("Tapped"), max_length=16, choices=AnnouncementEventTarget.choices, blank=True, default='',
+        help_text=_("For clicks: the whole card or the button."),
+    )
     occurred_at = models.DateTimeField(_("Occurred at (client)"), null=True, blank=True)
     created_at = models.DateTimeField(_("Received at"), auto_now_add=True)
 
