@@ -117,3 +117,24 @@ watchfiles==1.2.0
 wcwidth==0.8.2
 websockets==17.0.1
 whitenoise==6.9.0
+
+# firebase-admin (announcement push notifications) and the packages it adds, 2026-11-12.
+firebase-admin==7.7.0
+google-api-core==2.30.3
+google-auth==2.62.2
+google-cloud-core==2.8.0
+google-cloud-firestore==2.34.1
+google-cloud-storage==3.17.1
+google-crc32c==1.9.0
+google-resumable-media==2.11.0
+googleapis-common-protos==1.76.0
+grpcio==1.85.1
+grpcio-status==1.85.1
+h2==4.4.1
+hpack==4.2.0
+hyperframe==6.1.0
+msgpack==1.2.4
+proto-plus==1.29.0
+protobuf==7.36.2
+pyasn1==0.6.5
+pyasn1-modules==0.4.2

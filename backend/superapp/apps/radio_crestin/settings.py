@@ -128,6 +128,24 @@ def extend_superapp_settings(main_settings):
                     "permission": lambda request: request.user.has_perm("radio_crestin.view_sharelink"),
                 },
                 {
+                    "title": lambda request: _("Announcements"),
+                    "icon": "campaign",
+                    "link": reverse_lazy("admin:radio_crestin_announcement_changelist"),
+                    "permission": lambda request: request.user.has_perm("radio_crestin.view_announcement"),
+                },
+                {
+                    "title": lambda request: _("Announcement Categories"),
+                    "icon": "label",
+                    "link": reverse_lazy("admin:radio_crestin_announcementcategory_changelist"),
+                    "permission": lambda request: request.user.has_perm("radio_crestin.view_announcementcategory"),
+                },
+                {
+                    "title": lambda request: _("Announcement Settings"),
+                    "icon": "tune",
+                    "link": reverse_lazy("admin:radio_crestin_announcementsettings_changelist"),
+                    "permission": lambda request: request.user.has_perm("radio_crestin.view_announcementsettings"),
+                },
+                {
                     "title": lambda request: _("App Users"),
                     "icon": "people",
                     "link": reverse_lazy("admin:radio_crestin_appusers_changelist"),
@@ -161,5 +179,13 @@ def extend_superapp_settings(main_settings):
             'delete-old-now-playing-history': {
                 'task': 'superapp.apps.radio_crestin.tasks.delete_old_now_playing_history.delete_old_now_playing_history',
                 'schedule': crontab(hour=2, minute=15),  # Daily at 2:15 AM
+            },
+            'delete-old-announcement-events': {
+                'task': 'superapp.apps.radio_crestin.tasks.delete_old_announcement_events.delete_old_announcement_events',
+                'schedule': crontab(hour=2, minute=30),  # Daily at 2:30 AM
+            },
+            'send-scheduled-announcement-pushes': {
+                'task': 'superapp.apps.radio_crestin.tasks.send_announcement_push.send_scheduled_announcement_pushes',
+                'schedule': crontab(minute='*'),  # Every minute
             },
         })
