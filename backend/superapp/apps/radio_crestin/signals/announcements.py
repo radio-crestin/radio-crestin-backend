@@ -8,7 +8,7 @@ from django.db.models.signals import m2m_changed, post_delete, post_save, pre_sa
 from django.dispatch import receiver
 
 from ..models import Announcement, AnnouncementCategory, AnnouncementImage, AnnouncementSettings
-from ..services import web_deploy
+from ..services import announcement_html, web_deploy, youtube_embeds
 from ..services.announcement_feed import invalidate_cache
 
 
@@ -27,6 +27,15 @@ def on_stations_change(sender, instance, action, **kwargs):
     invalidate_cache()
     if isinstance(instance, Announcement) and web_deploy.is_web_visible(instance.status, instance.platforms):
         web_deploy.schedule()
+
+
+@receiver(pre_save, sender=Announcement)
+def store_embed_details(sender, instance, update_fields=None, **kwargs):
+    """Title and thumbnail of each YouTube embed on the page (fetched once per id, then kept)."""
+    if update_fields is not None and 'embed_details' not in update_fields:
+        return  # a partial save that doesn't write them
+    embeds = announcement_html.page_embeds(instance.page_markdown)
+    instance.embed_details = youtube_embeds.details_for(embeds, instance.embed_details or {})
 
 
 @receiver(pre_save, sender=Announcement)

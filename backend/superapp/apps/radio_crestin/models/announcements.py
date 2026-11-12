@@ -149,6 +149,11 @@ class Announcement(models.Model):
         help_text=_("Full markdown: headings, lists, quotes, images and links. Upload images below and paste their markdown."),
     )
 
+    embed_details = models.JSONField(
+        _("Video details"), default=dict, blank=True, editable=False,
+        help_text=_("Titles and thumbnails fetched from YouTube when the page is saved, so the page never waits for it."),
+    )
+
     # Schedule and display
     dismissible = models.BooleanField(_("Can be closed"), default=True)
     starts_at = models.DateTimeField(_("Starts at"), default=timezone.now)

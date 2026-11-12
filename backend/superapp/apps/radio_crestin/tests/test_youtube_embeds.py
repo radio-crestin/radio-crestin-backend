@@ -1,5 +1,8 @@
 import json
 from datetime import timedelta
+from unittest.mock import Mock, patch
+
+import requests
 
 from django.core.cache import cache
 from django.test import SimpleTestCase, TestCase, override_settings
@@ -83,7 +86,7 @@ class PageHtmlEmbedTests(SimpleTestCase):
         html = page_html(f'Intro.\n\nhttps://youtu.be/{VIDEO}?t=90\n\nOutro.')
         self.assertIn(
             f'<figure class="rc-embed" data-provider="youtube" data-kind="video" data-video-id="{VIDEO}" '
-            f'data-start="90"><a href="https://www.youtube.com/watch?v={VIDEO}&amp;t=90s" target="_blank" '
+            f'data-start="90" data-thumbnail="https://i.ytimg.com/vi/{VIDEO}/hqdefault.jpg"><a href="https://www.youtube.com/watch?v={VIDEO}&amp;t=90s" target="_blank" '
             f'rel="noopener noreferrer"><img src="https://i.ytimg.com/vi/{VIDEO}/hqdefault.jpg" '
             f'alt="Miniatură video YouTube" loading="lazy"></a></figure>', html)
         self.assertIn('<p>Intro.</p>', html)
@@ -124,6 +127,124 @@ class PageHtmlEmbedTests(SimpleTestCase):
         html = page_html(f'<figure class="rc-embed" data-provider="youtube" data-kind="video" '
                          f'data-video-id="{VIDEO}"></figure>')
         self.assertIn(f'class="rc-embed" data-provider="youtube" data-kind="video" data-video-id="{VIDEO}"', html)
+
+
+def oembed(**data):
+    response = Mock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = data
+    return response
+
+
+class FetchDetailsTests(SimpleTestCase):
+    def test_title_and_thumbnail(self):
+        with patch('requests.get', return_value=oembed(
+                title='  Way Maker\n(Live)  ', thumbnail_url=f'https://i.ytimg.com/vi/{VIDEO}/hqdefault.jpg')) as get:
+            details = youtube_embeds.fetch_details(Embed('video', video_id=VIDEO))
+        self.assertEqual(details, {'title': 'Way Maker (Live)',
+                                   'thumbnail': f'https://i.ytimg.com/vi/{VIDEO}/hqdefault.jpg'})
+        self.assertEqual(get.call_args.kwargs['params'],
+                         {'url': f'https://www.youtube.com/watch?v={VIDEO}', 'format': 'json'})
+        self.assertLessEqual(get.call_args.kwargs['timeout'], 5)
+
+    def test_failures_give_nothing(self):
+        for error in (requests.Timeout('slow'), requests.ConnectionError('down'), ValueError('not json')):
+            with patch('requests.get', side_effect=error):
+                self.assertEqual(youtube_embeds.fetch_details(Embed('video', video_id=VIDEO)), {}, error)
+
+    def test_only_ytimg_thumbnails_and_capped_titles(self):
+        for bad in ('http://i.ytimg.com/vi/x/hq.jpg', 'https://evil.example/x.jpg',
+                    'https://i.ytimg.com.evil.example/x.jpg', 'javascript:alert(1)', 'https://i.ytimg.com/a"b.jpg'):
+            with patch('requests.get', return_value=oembed(title='T', thumbnail_url=bad)):
+                self.assertEqual(youtube_embeds.fetch_details(Embed('playlist', list_id=LIST)), {'title': 'T'}, bad)
+        with patch('requests.get', return_value=oembed(title='x' * 500)):
+            self.assertEqual(len(youtube_embeds.fetch_details(Embed('video', video_id=VIDEO))['title']), 200)
+
+    def test_known_details_are_not_fetched_again(self):
+        with patch('requests.get') as get:
+            found = youtube_embeds.details_for([Embed('video', video_id=VIDEO)], {VIDEO: {'title': 'Known'}})
+        get.assert_not_called()
+        self.assertEqual(found, {VIDEO: {'title': 'Known'}})
+
+
+class PageHtmlDetailsTests(SimpleTestCase):
+    def test_title_is_escaped_in_data_title_and_alt(self):
+        html = page_html(f'https://youtu.be/{VIDEO}', {VIDEO: {'title': '"Quoted" <script>x</script> & co'}})
+        self.assertIn('data-title="&quot;Quoted&quot; &lt;script&gt;x&lt;/script&gt; &amp; co"', html)
+        self.assertIn('alt="&quot;Quoted&quot; &lt;script&gt;x&lt;/script&gt; &amp; co"', html)
+        self.assertNotIn('<script>', html)
+
+    def test_playlist_thumbnail(self):
+        thumb = 'https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg'
+        html = page_html(f'https://www.youtube.com/playlist?list={LIST}', {LIST: {'title': 'Lista', 'thumbnail': thumb}})
+        self.assertIn(f'data-thumbnail="{thumb}"', html)
+        self.assertIn(f'<img src="{thumb}" alt="Lista" loading="lazy">', html)
+
+    def test_forged_thumbnail_and_title_outside_an_embed_are_dropped(self):
+        html = page_html(f'<figure class="rc-embed" data-provider="youtube" data-video-id="{VIDEO}" '
+                         f'data-thumbnail="https://evil.example/x.jpg"></figure>\n\n'
+                         '<figure data-title="loose" data-thumbnail="https://i.ytimg.com/vi/x/hq.jpg"></figure>')
+        self.assertNotIn('evil.example', html)
+        self.assertNotIn('loose', html)
+        self.assertNotIn('data-thumbnail="https://i.ytimg.com/vi/x/hq.jpg"', html)
+
+
+@override_settings(CACHES=LOCMEM_CACHE)
+class StoredDetailsTests(TestCase):
+    PAGE = (f'Intro.\n\nhttps://www.youtube.com/shorts/{VIDEO}\n\n'
+            f'https://www.youtube.com/playlist?list={LIST}\n\nhttps://youtu.be/{VIDEO}?t=90')
+
+    def setUp(self):
+        cache.clear()
+
+    def make(self, **fields):
+        return Announcement.objects.create(slug='videos', title='Videos', status='active',
+                                           starts_at=timezone.now() - timedelta(hours=1), **fields)
+
+    def test_fetched_on_save_once_per_id_and_served_without_network(self):
+        with patch('requests.get', return_value=oembed(
+                title='Jireh', thumbnail_url='https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg')) as get:
+            announcement = self.make(page_title='Videos', page_markdown=self.PAGE)
+            self.assertEqual(get.call_count, 2)  # one per id: the video (twice on the page) and the list
+            announcement.title = 'Renamed'
+            announcement.save()
+            self.assertEqual(get.call_count, 2)
+        self.assertEqual(set(announcement.embed_details), {VIDEO, LIST})
+
+        with patch('requests.get') as get:
+            page = self.client.get('/api/v1/announcements/videos/').json()['page']
+        get.assert_not_called()
+        self.assertEqual(page['embeds'], [
+            {'url': f'https://www.youtube.com/shorts/{VIDEO}', 'provider': 'youtube', 'kind': 'short',
+             'video_id': VIDEO, 'title': 'Jireh', 'thumbnail': 'https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg'},
+            {'url': f'https://www.youtube.com/playlist?list={LIST}', 'provider': 'youtube', 'kind': 'playlist',
+             'list_id': LIST, 'title': 'Jireh', 'thumbnail': 'https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg'},
+            {'url': f'https://www.youtube.com/watch?v={VIDEO}&t=90s', 'provider': 'youtube', 'kind': 'video',
+             'video_id': VIDEO, 'start': 90, 'title': 'Jireh',
+             'thumbnail': 'https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg'},
+        ])
+        self.assertIn('data-title="Jireh"', page['html'])
+        self.assertNotIn('embeds', self.client.get('/api/v1/announcements/').content.decode())
+
+    def test_a_failed_fetch_is_retried_on_the_next_save(self):
+        with patch('requests.get', side_effect=requests.Timeout('slow')):
+            announcement = self.make(page_markdown=f'https://youtu.be/{VIDEO}')
+        self.assertEqual(announcement.embed_details, {})
+        page = self.client.get('/api/v1/announcements/videos/').json()['page']
+        self.assertEqual(page['embeds'], [{'url': f'https://www.youtube.com/watch?v={VIDEO}', 'provider': 'youtube',
+                                           'kind': 'video', 'video_id': VIDEO,
+                                           'thumbnail': f'https://i.ytimg.com/vi/{VIDEO}/hqdefault.jpg'}])
+        self.assertIn('alt="Miniatură video YouTube"', page['html'])
+        with patch('requests.get', return_value=oembed(title='Now known')):
+            announcement.save()
+        self.assertEqual(announcement.embed_details, {VIDEO: {'title': 'Now known'}})
+
+    def test_removed_embeds_are_forgotten(self):
+        with patch('requests.get', return_value=oembed(title='Old')):
+            announcement = self.make(page_markdown=f'https://youtu.be/{VIDEO}')
+            announcement.page_markdown = 'No videos now.'
+            announcement.save()
+        self.assertEqual(announcement.embed_details, {})
 
 
 @override_settings(CACHES=LOCMEM_CACHE)

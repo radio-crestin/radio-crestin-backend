@@ -20,14 +20,16 @@ PAGE_ATTRIBUTES = {
     **BODY_ATTRIBUTES,
     'img': {'src', 'alt', 'width', 'height', 'loading'},
     # YouTube embeds (figure.rc-embed); each value is checked in _attribute_filter.
-    'figure': {'data-provider', 'data-kind', 'data-video-id', 'data-list-id', 'data-start'},
+    'figure': {
+        'data-provider', 'data-kind', 'data-video-id', 'data-list-id', 'data-start', 'data-title', 'data-thumbnail',
+    },
 }
 PAGE_CLASSES = {'figure': {'rc-embed'}}
 
 _PARAGRAPH_BREAK = re.compile(r'</p>\s*<p>')
 _PARAGRAPH = re.compile(r'<p>(.*?)</p>', re.DOTALL)
 _LINK_ONLY = re.compile(r'^\s*<a href="([^"]*)">([^<]*)</a>\s*$')
-_EMBED_FIGURE = re.compile(r'<figure class="rc-embed"([^>]*)>')
+_FIGURE = re.compile(r'<figure([^>]*)>')
 
 
 def _attribute_filter(tag, attribute, value):
@@ -67,12 +69,22 @@ def _paragraph_url(inner_html: str):
     return text if text and not any(char.isspace() for char in text) else None
 
 
-def _embed_paragraphs(html: str) -> str:
+def _paragraph_embed(match):
+    return youtube_embeds.parse(_paragraph_url(match.group(1)) or '')
+
+
+def _embed_paragraphs(html: str, details: dict) -> str:
     """A paragraph that is only a YouTube URL becomes its placeholder figure."""
     def replace(match):
-        embed = youtube_embeds.parse(_paragraph_url(match.group(1)) or '')
-        return youtube_embeds.figure(embed) if embed else match.group(0)
+        embed = _paragraph_embed(match)
+        return youtube_embeds.figure(embed, details.get(embed.key)) if embed else match.group(0)
     return _PARAGRAPH.sub(replace, html)
+
+
+def page_embeds(markdown_text: str) -> list:
+    """The YouTube embeds the page markdown has, in document order."""
+    html = markdown_lib.markdown(markdown_text or '')
+    return [embed for embed in map(_paragraph_embed, _PARAGRAPH.finditer(html)) if embed]
 
 
 def body_html(markdown_text: str) -> str:
@@ -83,19 +95,26 @@ def body_html(markdown_text: str) -> str:
     return _sanitize(_PARAGRAPH_BREAK.sub('<br>', html), BODY_TAGS, BODY_ATTRIBUTES)
 
 
-def page_html(markdown_text: str) -> str:
-    """The announcement page: also headings, lists, quotes, images, rules and YouTube embeds."""
+def page_html(markdown_text: str, embed_details: dict = None) -> str:
+    """The announcement page: also headings, lists, quotes, images, rules and YouTube embeds.
+
+    embed_details ({video or list id: {title, thumbnail}}) is stored on the announcement when it's saved,
+    so rendering never calls YouTube.
+    """
     if not (markdown_text or '').strip():
         return ''
-    html = _embed_paragraphs(markdown_lib.markdown(markdown_text))
+    html = _embed_paragraphs(markdown_lib.markdown(markdown_text), embed_details or {})
     return _drop_incomplete_embeds(_sanitize(html, PAGE_TAGS, PAGE_ATTRIBUTES, PAGE_CLASSES))
 
 
 def _drop_incomplete_embeds(html: str) -> str:
-    """A figure.rc-embed (say, hand-written) without a provider and a valid id is just a figure."""
+    """Embed attributes stay only on a complete figure.rc-embed (provider and a valid id).
+
+    Any other figure (hand-written, or missing an id) is just a figure.
+    """
     def check(match):
         attributes = match.group(1)
-        complete = 'data-provider="youtube"' in attributes and (
+        complete = 'class="rc-embed"' in attributes and 'data-provider="youtube"' in attributes and (
             'data-video-id=' in attributes or 'data-list-id=' in attributes)
         return match.group(0) if complete else '<figure>'
-    return _EMBED_FIGURE.sub(check, html)
+    return _FIGURE.sub(check, html)

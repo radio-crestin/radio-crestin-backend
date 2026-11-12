@@ -21,7 +21,7 @@ from ..models import (
 )
 from ..models.announcement_categories import text_color_on
 from ..models.announcement_validators import PUBLIC_SLUG_PATTERN
-from . import announcement_html
+from . import announcement_html, youtube_embeds
 from .announcement_targeting import TargetingRules
 
 UPCOMING_WINDOW = timedelta(days=7)
@@ -101,7 +101,12 @@ def _page_payload(announcement: Announcement, absolute_url: AbsoluteUrl, with_bo
     }
     if with_body:
         page['markdown'] = announcement.page_markdown
-        page['html'] = announcement_html.page_html(announcement.page_markdown)
+        page['html'] = announcement_html.page_html(announcement.page_markdown, announcement.embed_details)
+        # The app finds embeds in the markdown, so it gets their titles and thumbnails here.
+        page['embeds'] = [
+            youtube_embeds.api_item(embed, (announcement.embed_details or {}).get(embed.key))
+            for embed in announcement_html.page_embeds(announcement.page_markdown)
+        ]
     return _compact(page)
 
 
