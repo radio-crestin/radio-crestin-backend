@@ -25,7 +25,8 @@ def track_event(user_id, event_name, properties=None):
         properties = {}
     
     try:
-        posthog.capture(user_id, event_name, properties)
+        # posthog 7: capture(event, distinct_id=..., properties=...)
+        posthog.capture(event_name, distinct_id=user_id, properties=properties)
     except Exception as e:
         pass
 
