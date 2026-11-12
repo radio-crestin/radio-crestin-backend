@@ -4,6 +4,7 @@ from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
+from django_ratelimit.core import is_ratelimited
 
 from ..services import announcement_events, announcement_feed
 from ..services.announcement_targeting import Audience
@@ -60,15 +61,27 @@ class AnnouncementDetailView(View):
         return _json(_with_absolute_urls(request, payload))
 
 
+EVENTS_RATE_PER_IP = '60/m'
+EVENTS_RATE_PER_DEVICE = '30/m'
+
+
+def _over_limit(request, group: str, value: str, rate: str) -> bool:
+    return is_ratelimited(request, group=group, key=lambda _group, _request: value, rate=rate, increment=True)
+
+
 @method_decorator(csrf_exempt, name='dispatch')
 class AnnouncementEventsView(View):
     """POST /api/v1/announcements/events/
 
     The body is JSON whatever the Content-Type: the website sends text/plain
-    through navigator.sendBeacon to avoid a CORS preflight.
+    through navigator.sendBeacon to avoid a CORS preflight. Requests over the
+    per-IP or per-device rate get a 429 and nothing is stored.
     """
 
     def post(self, request):
+        ip = safe_ip(client_ip(request))
+        if _over_limit(request, 'announcement-events-ip', ip or '', EVENTS_RATE_PER_IP):
+            return _json({'error': 'rate limited'}, status=429)
         try:
             payload = json.loads((request.body or b'{}').decode('utf-8'))
         except (ValueError, UnicodeDecodeError):
@@ -76,9 +89,11 @@ class AnnouncementEventsView(View):
         if not isinstance(payload, dict):
             return _json({'error': 'expected a json object'}, status=400)
 
-        accepted = announcement_events.ingest(
-            payload, country=client_country(request) or '', ip=safe_ip(client_ip(request)),
-        )
+        device_id = str(payload.get('device_id') or '').strip()
+        if device_id and _over_limit(request, 'announcement-events-device', device_id, EVENTS_RATE_PER_DEVICE):
+            return _json({'error': 'rate limited'}, status=429)
+
+        accepted = announcement_events.ingest(payload, country=client_country(request) or '', ip=ip)
         return _json({'status': 'ok', 'accepted': accepted})
 
     def options(self, request, *args, **kwargs):
