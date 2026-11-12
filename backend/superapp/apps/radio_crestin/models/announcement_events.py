@@ -60,6 +60,13 @@ class AnnouncementEvent(models.Model):
             models.Index(fields=['announcement', 'created_at'], name='announcement_event_ann_idx'),
             models.Index(fields=['created_at'], name='announcement_event_time_idx'),
         ]
+        constraints = [
+            # A device's close counts once per announcement (the events endpoint relies on it).
+            models.UniqueConstraint(
+                fields=['announcement', 'device_id'], condition=models.Q(type='dismissed'),
+                name='announcement_event_one_dismissal',
+            ),
+        ]
 
     def __str__(self):
         return f"{self.type} · {self.announcement_id} · {self.device_id}"

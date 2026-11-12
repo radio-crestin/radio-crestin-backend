@@ -10,7 +10,7 @@ from django.utils import timezone
 from ..models import (
     Announcement, AnnouncementCategory, AnnouncementEvent, AnnouncementSettings, AppUsers,
 )
-from ..services.announcement_events import MAX_EVENTS_PER_REQUEST
+from ..services.announcement_events import MAX_ANNOUNCEMENTS_PER_REQUEST, MAX_EVENTS_PER_REQUEST
 from ..views.announcements_api import EVENTS_RATE_PER_DEVICE, EVENTS_RATE_PER_IP
 from .helpers import make_station
 
@@ -316,14 +316,24 @@ class EventsEndpointTests(TestCase):
         self.assertEqual((event.target, event.position), ('', None))
 
     def test_at_most_100_events_are_read(self):
+        filler = [{'slug': 'concert', 'type': 'not-a-type'}]
+        click = {'slug': 'concert', 'type': 'clicked'}
+        response = self.post({'device_id': 'a', 'events': filler * MAX_EVENTS_PER_REQUEST + [click]})
+        self.assertEqual(response.json()['accepted'], 0)
+        response = self.post({'device_id': 'a', 'events': filler * (MAX_EVENTS_PER_REQUEST - 1) + [click]})
+        self.assertEqual(response.json()['accepted'], 1)
+
+    def test_at_most_10_announcements_per_request(self):
         Announcement.objects.bulk_create([
-            Announcement(slug=f'bulk-{index}', title='bulk') for index in range(MAX_EVENTS_PER_REQUEST + 20)
+            Announcement(slug=f'bulk-{index}', title='bulk') for index in range(MAX_ANNOUNCEMENTS_PER_REQUEST + 2)
         ])
-        events = [{'slug': f'bulk-{index}', 'type': 'impression'} for index in range(MAX_EVENTS_PER_REQUEST + 20)]
+        events = [{'slug': f'bulk-{index}', 'type': 'impression'} for index in range(MAX_ANNOUNCEMENTS_PER_REQUEST + 2)]
         response = self.post({'device_id': 'a', 'events': events})
-        self.assertEqual(response.json()['accepted'], MAX_EVENTS_PER_REQUEST)
-        self.assertEqual(Announcement.objects.filter(slug__startswith='bulk-', impressions=1).count(),
-                         MAX_EVENTS_PER_REQUEST)
+        self.assertEqual(response.json()['accepted'], MAX_ANNOUNCEMENTS_PER_REQUEST)
+        self.assertEqual(
+            set(Announcement.objects.filter(impressions=1).values_list('slug', flat=True)),
+            {f'bulk-{index}' for index in range(MAX_ANNOUNCEMENTS_PER_REQUEST)},
+        )
 
     def test_events_too_old_or_too_far_ahead_are_skipped(self):
         response = self.post({'device_id': 'a', 'events': [
@@ -410,10 +420,24 @@ class EventsDedupeTests(TestCase):
         self.assertEqual(self.counters()['clicks'], 2)
         self.assertEqual(self.counters()['page_views'], 1)
 
-    def test_closing_counts_once_per_device(self):
-        self.assertEqual(self.report('dismissed'), 1)
+    def test_closing_counts_once_per_device_from_the_database(self):
+        self.assertEqual(self.report('dismissed', 'dismissed'), 1)
+        cache.clear()  # no cache key involved: the stored close is what blocks a repeat
         self.assertEqual(self.report('dismissed', seconds_later=30 * 24 * 3600), 0)
-        self.assertEqual(self.counters()['dismissals'], 1)
+        self.assertEqual(self.report('dismissed', device_id='phone-2'), 1)
+        self.assertEqual(self.counters()['dismissals'], 2)
+        self.assertEqual(AnnouncementEvent.objects.filter(type='dismissed').count(), 2)
+
+    def test_the_database_refuses_a_second_close(self):
+        from django.db import IntegrityError, transaction
+        AnnouncementEvent.objects.create(announcement=self.announcement, type='dismissed', device_id='phone-1')
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            AnnouncementEvent.objects.create(announcement=self.announcement, type='dismissed', device_id='phone-1')
+
+    def test_cache_keys_live_at_most_an_hour(self):
+        from ..services.announcement_events import DEDUPE_SECONDS
+        self.assertLessEqual(max(DEDUPE_SECONDS.values()), 3600)
+        self.assertNotIn('dismissed', DEDUPE_SECONDS)
 
 
 @override_settings(CACHES=LOCMEM_CACHE)
