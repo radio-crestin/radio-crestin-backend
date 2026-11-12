@@ -151,7 +151,7 @@ def serialize(announcement: Announcement, absolute_url: AbsoluteUrl = lambda url
     """One announcement as the API sends it; the single endpoint also sends the page body."""
     return _compact({
         'slug': announcement.slug,
-        'priority': announcement.priority,
+        'position': announcement.position,
         'placement': announcement.placement,
         'station_slugs': station_slugs(announcement),
         'category': _category_payload(announcement.category),
@@ -176,6 +176,7 @@ def serialize(announcement: Announcement, absolute_url: AbsoluteUrl = lambda url
 def settings_payload(settings: AnnouncementSettings) -> dict:
     return {
         'rotation_mode': settings.rotation_mode,
+        'autoplay_seconds': settings.autoplay_seconds,
         'max_per_load': settings.max_per_load,
     }
 
@@ -202,7 +203,7 @@ def _listed(statuses, now: datetime):
         .filter(Q(ends_at__isnull=True) | Q(ends_at__gt=now))
         .select_related('category', 'station', 'form')
         .prefetch_related('stations')
-        .order_by('-priority', '-starts_at', '-id')
+        .order_by('position', 'id')
     )
 
 

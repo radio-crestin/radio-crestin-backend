@@ -93,7 +93,7 @@ class EventsEndpointTests(TestCase):
 
     def test_at_most_10_announcements_per_request(self):
         Announcement.objects.bulk_create([
-            Announcement(slug=f'bulk-{index}', title='bulk') for index in range(MAX_ANNOUNCEMENTS_PER_REQUEST + 2)
+            Announcement(slug=f'bulk-{index}', title='bulk', position=100 + index) for index in range(MAX_ANNOUNCEMENTS_PER_REQUEST + 2)
         ])
         events = [{'slug': f'bulk-{index}', 'type': 'impression'} for index in range(MAX_ANNOUNCEMENTS_PER_REQUEST + 2)]
         response = self.post({'device_id': 'a', 'events': events})

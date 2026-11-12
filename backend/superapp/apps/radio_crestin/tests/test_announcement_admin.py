@@ -20,7 +20,7 @@ NOT_CONFIGURED = {announcement_push.CREDENTIALS_ENV: ''}
 def form_data(**overrides):
     data = {
         'slug': 'concert', 'title': 'Concert', 'body_markdown': 'Live **tonight**.', 'icon_name': 'calendar',
-        'priority': 0, 'status': 'active',
+        'status': 'active',
         'placement': 'home', 'action_type': 'none', 'web_link_target': 'new_tab', 'button_style': 'filled',
         'button_icon': 'auto', 'dismissible': 'on',
         'starts_at': '2026-11-12 10:00:00', 'push_schedule': 'manual',

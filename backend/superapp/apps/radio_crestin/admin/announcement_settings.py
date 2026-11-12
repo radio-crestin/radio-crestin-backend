@@ -15,8 +15,8 @@ from ..models.announcement_settings import new_preview_token
 
 @admin.register(AnnouncementSettings, site=superapp_admin_site)
 class AnnouncementSettingsAdmin(SuperAppModelAdmin):
-    list_display = ['__str__', 'rotation_mode', 'max_per_load', 'updated_at']
-    fields = ['rotation_mode', 'max_per_load', 'preview_links', 'created_at', 'updated_at']
+    list_display = ['__str__', 'rotation_mode', 'autoplay_seconds', 'max_per_load', 'updated_at']
+    fields = ['rotation_mode', 'autoplay_seconds', 'max_per_load', 'preview_links', 'created_at', 'updated_at']
     readonly_fields = ['preview_links', 'created_at', 'updated_at']
     actions_detail = ['rotate_preview_token']
 

@@ -76,7 +76,10 @@ class Announcement(models.Model):
     status = models.CharField(
         _("Status"), max_length=16, choices=AnnouncementStatus.choices, default=AnnouncementStatus.DRAFT,
     )
-    priority = models.IntegerField(_("Priority"), default=0, help_text=_("Higher shows first."))
+    position = models.PositiveIntegerField(
+        _("Position"), blank=True, db_index=True,
+        help_text=_("Order in the card, lowest first: drag the rows in the Announcements list. New ones go last."),
+    )
     category = models.ForeignKey(
         AnnouncementCategory, verbose_name=_("Category"), on_delete=models.SET_NULL,
         null=True, blank=True, related_name='announcements',
@@ -211,7 +214,7 @@ class Announcement(models.Model):
     class Meta:
         managed = True
         db_table = 'announcements'
-        ordering = ('-priority', '-starts_at')
+        ordering = ('position', 'id')
         verbose_name = _("Announcement")
         verbose_name_plural = _("Announcements")
         indexes = [
@@ -220,6 +223,12 @@ class Announcement(models.Model):
 
     def __str__(self):
         return self.title
+
+    def save(self, *args, **kwargs):
+        if self.position is None:  # a new announcement goes last
+            last = Announcement.objects.aggregate(last=models.Max('position'))['last']
+            self.position = 0 if last is None else last + 1
+        super().save(*args, **kwargs)
 
     @property
     def is_active(self) -> bool:

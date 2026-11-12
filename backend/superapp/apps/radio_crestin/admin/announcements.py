@@ -42,10 +42,14 @@ class AnnouncementAdmin(SuperAppModelAdmin):
     form = AnnouncementAdminForm
     inlines = [AnnouncementImageInline]
     list_display = [
-        'title', 'slug', 'category', 'placement', 'status', 'priority', 'starts_at', 'ends_at',
+        'title', 'slug', 'category', 'placement', 'status', 'starts_at', 'ends_at',
         'impressions', 'unique_viewers_display', 'unique_clickers_display', 'click_rate_display',
         'dismissals', 'push_sent_count',
     ]
+    # Drag and drop sets the order the API (and so every client) shows.
+    ordering = ['position', 'id']
+    ordering_field = 'position'
+    hide_ordering_field = True
     list_filter = ['status', 'placement', 'category', 'push_enabled']
     search_fields = ['title', 'slug']
     autocomplete_fields = [
@@ -81,7 +85,7 @@ class AnnouncementAdmin(SuperAppModelAdmin):
     def get_fieldsets(self, request, obj=None):
         fieldsets = [
             (_('Content'), {'classes': ['tab'], 'fields': [
-                'slug', 'category', ('status', 'priority'), 'preview_links_display', 'icon_name', 'icon_image', 'title', 'body_markdown',
+                'slug', 'category', 'status', 'preview_links_display', 'icon_name', 'icon_image', 'title', 'body_markdown',
             ]}),
             (_('Where it shows'), {'classes': ['tab'], 'fields': ['placement', 'stations']}),
             (_('Button & page'), {'classes': ['tab'], 'fields': [

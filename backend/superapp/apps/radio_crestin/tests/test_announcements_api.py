@@ -37,13 +37,13 @@ class SeededAnnouncementTests(TestCase):
     def test_whatsapp_announcement_has_the_contract_shape(self):
         body = self.client.get(LIST_URL).json()
 
-        self.assertEqual(body['settings'], {'rotation_mode': 'rotate', 'max_per_load': 5})
+        self.assertEqual(body['settings'], {'rotation_mode': 'rotate', 'autoplay_seconds': 0, 'max_per_load': 5})
         whatsapp = body['announcements'][0]
         starts_at = whatsapp.pop('starts_at')
         self.assertTrue(starts_at.endswith('Z'))
         self.assertEqual(whatsapp, {
             'slug': 'whatsapp-versetul-zilei',
-            'priority': 10,
+            'position': 0,
             'placement': 'home',
             'station_slugs': [],
             'category': {'slug': 'community', 'name': 'Comunitate', 'color': '#0F6E63', 'text_color': '#FFFFFF'},
@@ -123,12 +123,22 @@ class ListEndpointTests(TestCase):
         make_announcement('ending-later', ends_at=now + timedelta(days=1))
         self.assertEqual(sorted(slugs(self.client.get(LIST_URL))), ['ending-later', 'live', 'next-week'])
 
-    def test_ordering_is_priority_then_newest_start(self):
+    def test_order_is_the_position(self):
         now = timezone.now()
-        make_announcement('low', priority=1, starts_at=now - timedelta(days=1))
-        make_announcement('high', priority=5, starts_at=now - timedelta(days=3))
-        make_announcement('low-newer', priority=1, starts_at=now - timedelta(hours=1))
-        self.assertEqual(slugs(self.client.get(LIST_URL)), ['high', 'low-newer', 'low'])
+        make_announcement('third', position=7, starts_at=now - timedelta(days=9))
+        make_announcement('first', position=1, starts_at=now - timedelta(minutes=1))
+        make_announcement('second', position=3)
+        listed = items(self.client.get(LIST_URL))
+        self.assertEqual([item['slug'] for item in listed], ['first', 'second', 'third'])
+        self.assertEqual([item['position'] for item in listed], [1, 3, 7])
+        self.assertNotIn('priority', listed[0])
+
+    def test_a_new_announcement_goes_last(self):
+        make_announcement('one')
+        make_announcement('two')
+        self.assertEqual(list(Announcement.objects.order_by('position').values_list('slug', 'position')),
+                         [('one', 0), ('two', 1)])
+        self.assertEqual(slugs(self.client.get(LIST_URL)), ['one', 'two'])
 
     def test_no_cap_on_the_count(self):
         # Clients apply max_per_load after their own filtering.
@@ -212,7 +222,7 @@ class ListEndpointTests(TestCase):
     def test_station_announcements(self):
         elim = make_station('radio-elim', station_order=2.0)
         vocea = make_station('vocea', station_order=1.0)
-        make_announcement('inside', placement='station', priority=9).stations.add(elim, vocea)
+        make_announcement('inside', placement='station').stations.add(elim, vocea)
         make_announcement('home')
         by_slug = {item['slug']: item for item in items(self.client.get(LIST_URL))}
         self.assertEqual(by_slug['inside']['placement'], 'station')
