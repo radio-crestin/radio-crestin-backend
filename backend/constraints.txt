@@ -138,3 +138,7 @@ proto-plus==1.29.0
 protobuf==7.36.2
 pyasn1==0.6.5
 pyasn1-modules==0.4.2
+
+# markdown and nh3 (announcement HTML rendered and sanitized server-side), 2026-11-12.
+markdown==3.11.3
+nh3==0.3.7
