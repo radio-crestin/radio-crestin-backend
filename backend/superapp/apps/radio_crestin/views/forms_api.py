@@ -155,8 +155,12 @@ class FormSubmitView(View):
 
         if not form.allow_multiple_submissions and (
                 form_service.has_answered(form, device_id) or not _first_submit_in_flight(form, device_id)):
-            return _json(_compact({'status': 'already_submitted', 'results': form_service.poll_results(form)}),
-                         status=409)
+            # A poll's earlier choice comes back so the page marks "Votul tău" on the vote that counts.
+            return _json(_compact({
+                'status': 'already_submitted',
+                'results': form_service.poll_results(form),
+                'your_answer': form_service.previous_poll_choice(form, device_id),
+            }), status=409)
 
         platform = _text(payload.get('platform'), 32)
         FormSubmission.objects.create(

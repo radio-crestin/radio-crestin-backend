@@ -103,6 +103,18 @@ def poll_results(form: Form) -> Optional[dict]:
     }
 
 
+def previous_poll_choice(form: Form, device_id: str) -> Optional[str]:
+    """The option this device voted earlier in a poll that shows results (for a repeat vote's 409)."""
+    if not form.shows_results or not device_id:
+        return None
+    question = form.questions.first()
+    submission = FormSubmission.objects.filter(form=form, device_id=device_id).order_by('-created_at').first()
+    if question is None or submission is None:
+        return None
+    choice = submission.answers.get(str(question.id))
+    return choice if isinstance(choice, str) else None
+
+
 def page_config(form: Form) -> dict:
     """What the page script renders: the form, its questions and the texts as HTML."""
     return {

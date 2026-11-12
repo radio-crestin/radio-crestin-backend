@@ -181,7 +181,13 @@ class FormSubmitTests(TestCase):
         self.assertEqual(repeat.status_code, 409)
         self.assertEqual(repeat.json()['status'], 'already_submitted')
         self.assertEqual(repeat.json()['results']['total'], 1)
+        self.assertEqual(repeat.json()['your_answer'], 'Radio Elim')  # the vote that counts, not the new tap
         self.assertEqual(FormSubmission.objects.count(), 1)
+
+    def test_a_repeat_on_a_poll_without_results_reveals_nothing(self):
+        Form.objects.filter(pk=self.poll.pk).update(show_results=False)
+        self.submit()
+        self.assertEqual(self.submit().json(), {'status': 'already_submitted'})
 
     def test_several_answers_when_allowed(self):
         Form.objects.filter(pk=self.poll.pk).update(allow_multiple_submissions=True)

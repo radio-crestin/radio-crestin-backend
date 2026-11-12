@@ -98,6 +98,7 @@ function fail(text){var e=root.querySelector('.err');if(e)e.textContent=text}
 function submit(){if(busy)return;busy=true;
 fetch(C.submit_url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device_id:ctx.device_id||'',platform:ctx.platform||'',app_version:ctx.app_version||'',locale:ctx.locale||'',answers:ans})})
 .then(function(r){return r.json().then(function(d){return[r.status,d]})}).then(function(x){busy=false;var s=x[0],d=x[1];
+if(s===409){ans={};if(d.results&&d.your_answer)ans[d.results.question_id]=d.your_answer}
 if(s===200||s===409){remember();if(s===200)msg('submitted');if(d.results)results(d.results);else if(s===200)thanks();else done(T.already_title,esc(T.already_body))}
 else if(s===410)done(T.closed_title,esc(T.closed_body));else fail(d.code==='too_long'?T.text_too_long:T.error)})
 .catch(function(){busy=false;fail(T.error)})}
