@@ -12,6 +12,8 @@ class ContactKind(models.TextChoices):
     GENERAL = 'general', _('General message')
     STATION = 'station', _('New station')
     ANNOUNCEMENT = 'announcement', _('Announcement request')
+    REPORT = 'report', _('Station report')
+    FEEDBACK = 'feedback', _('Suggestion')
 
 
 class ContactStatus(models.TextChoices):

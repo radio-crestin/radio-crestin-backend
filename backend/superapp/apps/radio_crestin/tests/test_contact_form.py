@@ -34,7 +34,7 @@ def general(**overrides):
 
 def station(**overrides):
     data = {
-        'kind': 'station', 'email': 'ana@example.com', 'name': 'Ana', 'relation': 'listener',
+        'kind': 'station', 'email': 'ana@example.com', 'name': 'Ana',
         'station_name': 'Radio Speranța', 'website': 'radiosperanta.ro', 'denomination': 'baptist',
         'mission': 'Evanghelizare', 'elapsed_ms': '9000',
     }
@@ -104,11 +104,11 @@ class StationRequestTests(ContactTestCase):
     def test_rules_across_fields(self):
         self.assertEqual(self.errors(station(website='', name='')),
                          {'name': 'required', 'listen_url': 'need_website_or_listen_url'})
-        self.assertEqual(self.errors(station(relation='owner')), {'consent': 'consent_required'})
         self.assertEqual(self.errors(station(denomination='other')), {'denomination_other': 'required'})
         self.assertEqual(self.errors(station(denomination='cult')), {'denomination': 'invalid_choice'})
         self.assertEqual(self.errors(station(website='javascript:alert(1)')), {'website': 'invalid_url'})
         self.assertEqual(self.send(station(relation='owner', consent='true')).status_code, 201)
+        self.assertNotIn('relation', ContactMessage.objects.get().details)
 
 
 class AnnouncementRequestTests(ContactTestCase):
@@ -123,6 +123,54 @@ class AnnouncementRequestTests(ContactTestCase):
     def test_dates(self):
         self.assertEqual(self.errors(announcement(starts_on='2026-12-20', ends_on='2026-12-01')), {'ends_on': 'end_before_start'})
         self.assertEqual(self.errors(announcement(starts_on='20/12/2026')), {'starts_on': 'invalid_date'})
+
+
+def report(**overrides):
+    data = {'kind': 'report', 'email': 'ana@example.com', 'station_slug': 'speranta', 'problem': 'not_playing',
+            'elapsed_ms': '9000'}
+    data.update(overrides)
+    return data
+
+
+def feedback(**overrides):
+    data = {'kind': 'feedback', 'email': 'ana@example.com', 'suggestion_type': 'feature', 'area': 'app',
+            'message': 'Un mod de somn ar fi minunat.', 'elapsed_ms': '9000'}
+    data.update(overrides)
+    return data
+
+
+class StationReportTests(ContactTestCase):
+    def setUp(self):
+        super().setUp()
+        make_station('speranta')
+
+    def test_a_report_names_a_listed_station_and_a_problem(self):
+        self.assertEqual(self.send(report(images=[image_file()])).status_code, 201)
+        message = ContactMessage.objects.get()
+        self.assertEqual(message.subject, 'speranta · not_playing')
+        self.assertEqual(message.details, {'station_slug': 'speranta', 'problem': 'not_playing'})
+        self.assertEqual(message.images.count(), 1)
+
+    def test_rules(self):
+        self.assertEqual(self.errors(report(station_slug='')), {'station_slug': 'required'})
+        self.assertEqual(self.errors(report(station_slug='nope')), {'station_slug': 'unknown_station'})
+        self.assertEqual(self.errors(report(problem='boring')), {'problem': 'invalid_choice'})
+        self.assertEqual(self.errors(report(problem='other')), {'message': 'required'})
+        self.assertEqual(self.send(report(problem='other', message='Se aude alt post.')).status_code, 201)
+
+
+class FeedbackTests(ContactTestCase):
+    def test_a_suggestion_is_stored_with_its_type_and_area(self):
+        self.assertEqual(self.send(feedback()).status_code, 201)
+        message = ContactMessage.objects.get()
+        self.assertEqual((message.kind, message.subject), ('feedback', 'Un mod de somn ar fi minunat.'))
+        self.assertEqual(message.details, {'suggestion_type': 'feature', 'area': 'app'})
+
+    def test_rules(self):
+        self.assertEqual(self.errors(feedback(suggestion_type='', message='')),
+                         {'suggestion_type': 'required', 'message': 'required'})
+        self.assertEqual(self.errors(feedback(area='fridge')), {'area': 'invalid_choice'})
+        self.assertEqual(self.send(feedback(area='')).status_code, 201)
 
 
 class ImageUploadTests(ContactTestCase):

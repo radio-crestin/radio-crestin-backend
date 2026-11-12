@@ -24,7 +24,7 @@ DENOMINATIONS = (
 @dataclass(frozen=True)
 class Field:
     name: str
-    type: str = 'text'  # text | email | url | choice | date | bool
+    type: str = 'text'  # text | email | url | choice | date
     required: bool = False
     max_length: int = 200
     min_length: int = 0
@@ -51,12 +51,17 @@ CONTEXT_FIELDS = (
     Field('device_id', max_length=128),
 )
 
+REPORT_PROBLEMS = (
+    'not_playing', 'poor_quality', 'wrong_song_info', 'wrong_details', 'inappropriate_content', 'other',
+)
+SUGGESTION_TYPES = ('feature', 'improvement', 'bug', 'other')
+SUGGESTION_AREAS = ('app', 'website', 'car', 'tv', 'other')
+
 FIELDS = {
     ContactKind.GENERAL: (
         Field('message', required=True, min_length=10, max_length=5000),
     ),
     ContactKind.STATION: (
-        Field('relation', 'choice', required=True, choices=('owner', 'listener')),
         Field('station_name', required=True, max_length=120),
         Field('website', 'url', max_length=500),
         Field('listen_url', 'url', max_length=500),
@@ -66,7 +71,6 @@ FIELDS = {
         Field('mission', max_length=1000),
         Field('station_email', 'email', max_length=254),
         Field('facebook_url', 'url', max_length=500),
-        Field('consent', 'bool'),
         Field('note', max_length=2000),
     ),
     ContactKind.ANNOUNCEMENT: (
@@ -79,12 +83,24 @@ FIELDS = {
         Field('starts_on', 'date'),
         Field('ends_on', 'date'),
     ),
+    ContactKind.REPORT: (
+        Field('station_slug', required=True, max_length=100),
+        Field('problem', 'choice', required=True, choices=REPORT_PROBLEMS),
+        Field('message', max_length=3000),
+    ),
+    ContactKind.FEEDBACK: (
+        Field('suggestion_type', 'choice', required=True, choices=SUGGESTION_TYPES),
+        Field('area', 'choice', choices=SUGGESTION_AREAS),
+        Field('message', required=True, min_length=10, max_length=5000),
+    ),
 }
 
 FILES = {
     ContactKind.GENERAL: Files('images', 3),
     ContactKind.STATION: Files('logo', 1, ContactImageRole.LOGO),
     ContactKind.ANNOUNCEMENT: Files('images', 3),
+    ContactKind.REPORT: Files('images', 3),
+    ContactKind.FEEDBACK: Files('images', 3),
 }
 
 # Fields stored in their own columns rather than in `details`.
@@ -115,8 +131,6 @@ def _with_scheme(url: str) -> str:
 def _clean_field(spec: Field, raw):
     """(value, error_code)."""
     value = clean_text(raw)
-    if spec.type == 'bool':
-        return value.lower() in ('true', '1', 'on', 'yes'), None
     if not value:
         return '', 'required' if spec.required else None
     if len(value) > spec.max_length:
@@ -146,6 +160,17 @@ def _clean_field(spec: Field, raw):
     return value, None
 
 
+def _check_station(data: dict, errors: dict):
+    """station_slug, when present, must name a listed station."""
+    if 'station_slug' in errors:
+        return
+    slug = data.get('station_slug')
+    if not slug:
+        errors['station_slug'] = 'required'
+    elif not Stations.objects.filter(slug=slug, disabled=False).exists():
+        errors['station_slug'] = 'unknown_station'
+
+
 def _check_rules(kind: str, data: dict, errors: dict):
     """Rules that span fields."""
     def require(name, code='required'):
@@ -158,19 +183,17 @@ def _check_rules(kind: str, data: dict, errors: dict):
             errors['listen_url'] = 'need_website_or_listen_url'
         if data.get('denomination') == 'other':
             require('denomination_other')
-        if data.get('relation') == 'owner' and not data.get('consent'):
-            errors['consent'] = 'consent_required'
     elif kind == ContactKind.ANNOUNCEMENT:
         require('name')
-        if data.get('about') == 'station' and 'station_slug' not in errors:
-            slug = data.get('station_slug')
-            if not slug:
-                errors['station_slug'] = 'required'
-            elif not Stations.objects.filter(slug=slug, disabled=False).exists():
-                errors['station_slug'] = 'unknown_station'
+        if data.get('about') == 'station':
+            _check_station(data, errors)
         starts, ends = data.get('starts_on'), data.get('ends_on')
         if starts and ends and 'starts_on' not in errors and 'ends_on' not in errors and ends < starts:
             errors['ends_on'] = 'end_before_start'
+    elif kind == ContactKind.REPORT:
+        _check_station(data, errors)
+        if data.get('problem') == 'other':
+            require('message')
 
 
 def _clean_files(spec: Files, files, result: Result):
@@ -208,6 +231,7 @@ def _subject(kind: str, data: dict) -> str:
     text = {
         ContactKind.STATION: data.get('station_name'),
         ContactKind.ANNOUNCEMENT: data.get('title'),
+        ContactKind.REPORT: f"{data.get('station_slug')} · {data.get('problem')}",
     }.get(kind) or data.get('message', '')
     first_line = text.split('\n', 1)[0]
     return first_line[:120] + ('…' if len(first_line) > 120 else '')

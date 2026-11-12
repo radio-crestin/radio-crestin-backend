@@ -13,7 +13,6 @@ from ..models import ContactKind, ContactMessage, ContactStatus
 from ..services import contact_drafts
 
 ANSWER_LABELS = {
-    'relation': _('Relation to the station'),
     'station_name': _('Station name'),
     'website': _('Website'),
     'listen_url': _('Where to listen'),
@@ -23,7 +22,6 @@ ANSWER_LABELS = {
     'mission': _('Mission'),
     'station_email': _('Station email'),
     'facebook_url': _('Facebook'),
-    'consent': _('Station agrees to be listed'),
     'note': _('Note'),
     'about': _('About'),
     'station_slug': _('Station'),
@@ -33,6 +31,9 @@ ANSWER_LABELS = {
     'link': _('Link'),
     'starts_on': _('Starts on'),
     'ends_on': _('Ends on'),
+    'problem': _('Problem'),
+    'suggestion_type': _('Suggestion type'),
+    'area': _('Where'),
 }
 LINK_ANSWERS = {'website', 'listen_url', 'facebook_url', 'link'}
 
@@ -46,8 +47,6 @@ def _answer_html(name, value):
     if name in LINK_ANSWERS:
         # Only http(s) links are accepted by the form, so they are safe to link.
         return format_html('<a href="{0}" target="_blank" rel="noopener noreferrer">{0}</a>', value)
-    if isinstance(value, bool):
-        return _('Yes') if value else _('No')
     return format_html('<span style="white-space:pre-wrap">{}</span>', value)
 
 
