@@ -47,7 +47,7 @@ class SeededAnnouncementTests(TestCase):
             'placement': 'home',
             'station_slugs': [],
             'category': {'slug': 'community', 'name': 'Comunitate', 'color': '#0F6E63', 'text_color': '#FFFFFF'},
-            'icon': {'name': 'whatsapp'},
+            'icon': {'name': 'whatsapp', 'size': 'medium'},
             'title': 'Versetul Zilei',
             'body_markdown': '',
             'body_html': '',
@@ -271,6 +271,37 @@ class CacheInvalidationTests(TestCase):
         generation = cache.get(GENERATION_KEY)
         AnnouncementImage.objects.create(announcement=announcement, image='announcements/pages/choir.png')
         self.assertNotEqual(cache.get(GENERATION_KEY), generation)
+
+
+@override_settings(CACHES=LOCMEM_CACHE)
+class IconSizeTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        Announcement.objects.all().delete()
+
+    def test_medium_by_default(self):
+        self.assertEqual(make_announcement('info', icon_name='info').icon_size, 'medium')
+
+    def test_list_and_detail_send_the_size_with_the_icon(self):
+        make_announcement('named', icon_name='calendar', icon_size='large')
+        make_announcement('uploaded', icon_image='announcements/icons/choir.png', icon_size='small')
+        by_slug = {item['slug']: item for item in items(self.client.get(LIST_URL))}
+
+        self.assertEqual(by_slug['named']['icon'], {'name': 'calendar', 'size': 'large'})
+        self.assertEqual(set(by_slug['uploaded']['icon']), {'url', 'size'})
+        self.assertEqual(by_slug['uploaded']['icon']['size'], 'small')
+        self.assertEqual(self.client.get(f'{LIST_URL}named/').json()['icon'], {'name': 'calendar', 'size': 'large'})
+
+    def test_no_icon_sends_no_size(self):
+        make_announcement('bare')
+        self.assertEqual(items(self.client.get(LIST_URL))[0]['icon'], {})
+
+    def test_changing_the_size_drops_the_cached_list(self):
+        announcement = make_announcement('info', icon_name='info')
+        self.assertEqual(items(self.client.get(LIST_URL))[0]['icon']['size'], 'medium')
+        announcement.icon_size = 'small'
+        announcement.save()
+        self.assertEqual(items(self.client.get(LIST_URL))[0]['icon']['size'], 'small')
 
 
 @override_settings(CACHES=LOCMEM_CACHE)

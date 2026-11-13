@@ -146,6 +146,15 @@ def station_slugs(announcement: Announcement) -> list:
     return [slug for slug in map(_station_slug, stations) if slug]
 
 
+def _icon_payload(announcement: Announcement, absolute_url: AbsoluteUrl) -> dict:
+    """The card icon: a named icon or an uploaded image, with its size; {} when there is none."""
+    icon = _compact({
+        'name': announcement.icon_name or None,
+        'url': _image_url(announcement.icon_image, absolute_url),
+    })
+    return {**icon, 'size': announcement.icon_size} if icon else {}
+
+
 def serialize(announcement: Announcement, absolute_url: AbsoluteUrl = lambda url: url, *,
               with_page_body: bool = False) -> dict:
     """One announcement as the API sends it; the single endpoint also sends the page body."""
@@ -155,10 +164,7 @@ def serialize(announcement: Announcement, absolute_url: AbsoluteUrl = lambda url
         'placement': announcement.placement,
         'station_slugs': station_slugs(announcement),
         'category': _category_payload(announcement.category),
-        'icon': _compact({
-            'name': announcement.icon_name or None,
-            'url': _image_url(announcement.icon_image, absolute_url),
-        }),
+        'icon': _icon_payload(announcement, absolute_url),
         'title': announcement.title,
         'body_markdown': announcement.body_markdown,
         'body_html': announcement_html.body_html(announcement.body_markdown),

@@ -87,7 +87,7 @@ class AnnouncementAdmin(SuperAppModelAdmin):
     def get_fieldsets(self, request, obj=None):
         fieldsets = [
             (_('Content'), {'classes': ['tab'], 'fields': [
-                'slug', 'category', 'status', 'preview_links_display', 'icon_name', 'icon_image', 'title', 'body_markdown',
+                'slug', 'category', 'status', 'preview_links_display', 'icon_name', 'icon_image', 'icon_size', 'title', 'body_markdown',
             ]}),
             (_('Where it shows'), {'classes': ['tab'], 'fields': ['placement', 'stations']}),
             (_('Button & page'), {'classes': ['tab'], 'fields': [

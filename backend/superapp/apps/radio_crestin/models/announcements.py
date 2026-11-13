@@ -20,6 +20,12 @@ ICON_CHOICES = [(name, name.capitalize()) for name in ICON_NAMES]
 BUTTON_ICON_CHOICES = [('auto', _('Automatic from the action')), ('none', _('No icon'))] + ICON_CHOICES
 
 
+class IconSize(models.TextChoices):
+    SMALL = 'small', _('Small')
+    MEDIUM = 'medium', _('Medium')
+    LARGE = 'large', _('Large')
+
+
 
 class Placement(models.TextChoices):
     HOME = 'home', _('Home card')
@@ -97,6 +103,10 @@ class Announcement(models.Model):
     icon_image = models.ImageField(
         _("Icon image"), storage=get_public_storage, upload_to='announcements/icons/', blank=True, null=True,
         help_text=_("Replaces the icon when set."),
+    )
+    icon_size = models.CharField(
+        _("Icon size"), max_length=8, choices=IconSize.choices, default=IconSize.MEDIUM,
+        help_text=_("Size of the icon on the card"),
     )
     title = models.CharField(_("Title"), max_length=200)
     body_markdown = models.TextField(

@@ -3,6 +3,7 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -20,7 +21,7 @@ NOT_CONFIGURED = {announcement_push.CREDENTIALS_ENV: ''}
 def form_data(**overrides):
     data = {
         'slug': 'concert', 'title': 'Concert', 'body_markdown': 'Live **tonight**.', 'icon_name': 'calendar',
-        'status': 'active',
+        'icon_size': 'medium', 'status': 'active',
         'placement': 'home', 'action_type': 'none', 'web_link_target': 'new_tab', 'button_style': 'filled',
         'button_icon': 'auto', 'dismissible': 'on',
         'starts_at': '2026-11-12 10:00:00', 'push_schedule': 'manual',
@@ -37,6 +38,15 @@ class AnnouncementFormTests(TestCase):
 
     def test_minimal_announcement_is_valid(self):
         self.assertEqual(self.errors(), {})
+
+    def test_icon_size_defaults_to_medium_and_rejects_unknown_sizes(self):
+        self.assertEqual(AnnouncementAdminForm()['icon_size'].value(), 'medium')
+        self.assertEqual(self.errors(icon_size='large'), {})
+        self.assertIn('icon_size', self.errors(icon_size='huge'))
+        announcement = Announcement(slug='concert', title='Concert', icon_name='calendar', icon_size='huge')
+        with self.assertRaises(ValidationError) as raised:
+            announcement.full_clean()
+        self.assertIn('icon_size', raised.exception.message_dict)
 
     def test_list_fields_are_split_normalized_and_validated(self):
         form = AnnouncementAdminForm(data=form_data(
