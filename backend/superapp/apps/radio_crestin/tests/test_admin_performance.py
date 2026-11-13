@@ -170,7 +170,7 @@ class AdminQueryCountTests(TestCase):
             self.grow(devices=400, events=300)
             with self.assertNumQueries(small):
                 self.client.get(url)
-        self.assertLessEqual(small, 20)
+        self.assertLessEqual(small, 22)  # includes the two History reads (stat buckets)
 
     def test_changelist(self):
         url = reverse('admin:radio_crestin_announcement_changelist')

@@ -14,6 +14,7 @@ from superapp.apps.admin_portal.sites import superapp_admin_site
 from ..forms.announcement_admin import AnnouncementAdminForm
 from ..models import Announcement, AnnouncementImage, AnnouncementSettings, PushSchedule
 from ..services import announcement_order, announcement_push, announcement_stats
+from . import announcement_history
 
 HTTP_ACTIONS = "action_type == 'external' || action_type == 'in_app_browser'"
 
@@ -67,7 +68,7 @@ class AnnouncementAdmin(SuperAppModelAdmin):
         'category', 'station', 'stations', 'test_devices', 'form',
     ]
     readonly_fields = [
-        'stats_display', 'events_display', 'push_status_display', 'preview_links_display',
+        'stats_display', 'events_display', 'history_display', 'push_status_display', 'preview_links_display',
         'push_confirmed_at', 'push_sent_at', 'push_sent_count',
         'impressions', 'clicks', 'secondary_clicks', 'dismissals', 'page_views', 'push_opens', 'video_plays',
         'created_at', 'updated_at',
@@ -130,6 +131,7 @@ class AnnouncementAdmin(SuperAppModelAdmin):
                 'video_plays',
                 ('created_at', 'updated_at'),
             ]}),
+            (_('History'), {'classes': ['tab'], 'fields': ['history_display']}),
         ]
 
     def changelist_view(self, request, extra_context=None):
@@ -225,6 +227,14 @@ class AnnouncementAdmin(SuperAppModelAdmin):
             _('button'), _number(targets.get('button')), _('unknown'), _number(targets.get('')),
         )
 
+    @admin.display(description=_('History'))
+    def history_display(self, obj):
+        if not obj or not obj.pk:
+            return '-'
+        history = _once(obj, 'history', lambda: announcement_stats.history(obj))
+        settings = _once(obj, 'settings', AnnouncementSettings.load)
+        return announcement_history.render(obj, history, settings.stats_updated_until)
+
     @admin.display(description=_('Status'))
     def push_status_display(self, obj):
         if not announcement_push.is_configured():
@@ -294,7 +304,16 @@ class AnnouncementAdmin(SuperAppModelAdmin):
         return [
             path('<path:object_id>/push-reach/', self.admin_site.admin_view(self.push_reach_view),
                  name='radio_crestin_announcement_push_reach'),
+            path('<path:object_id>/history.csv', self.admin_site.admin_view(self.history_csv_view),
+                 name='radio_crestin_announcement_history_csv'),
         ] + super().get_urls()
+
+    def history_csv_view(self, request, object_id):
+        """The History tab's CSV download: ?granularity=day (default) or hour."""
+        announcement = get_object_or_404(Announcement, pk=object_id)
+        if not self.has_view_permission(request, announcement):
+            raise PermissionDenied
+        return announcement_history.csv_response(announcement, request.GET.get('granularity', 'day'))
 
     def push_reach_view(self, request, object_id):
         """The phones a send would reach, for the Notification tab (fetched by push_reach.js)."""

@@ -3,11 +3,41 @@
 They come from the raw events, which are kept 180 days; the plain totals on the
 announcement are kept forever.
 """
+from datetime import datetime, time, timedelta
 from typing import Optional
 
 from django.db.models import Count, IntegerField, OuterRef, Subquery
+from django.utils import timezone
 
-from ..models import AnnouncementEvent, AnnouncementEventType
+from ..models import AnnouncementEvent, AnnouncementEventType, AnnouncementStatBucket, StatGranularity
+from .announcement_stat_buckets import DAY_TIME_ZONE, bucket_start
+
+
+def history(announcement, days: int = 30, hours: int = 48, now: Optional[datetime] = None) -> dict:
+    """The last `days` Bucharest days and `hours` hours as buckets, oldest first, with empty ones filled in.
+
+    Two queries, both on the bucket table.
+    """
+    now = now or timezone.now()
+    today = now.astimezone(DAY_TIME_ZONE).date()
+    day_starts = [datetime.combine(today - timedelta(days=back), time(), DAY_TIME_ZONE) for back in range(days - 1, -1, -1)]
+    this_hour = bucket_start(StatGranularity.HOUR, now)
+    hour_starts = [this_hour - timedelta(hours=back) for back in range(hours - 1, -1, -1)]
+    return {
+        'days': _buckets(announcement, StatGranularity.DAY, day_starts),
+        'hours': _buckets(announcement, StatGranularity.HOUR, hour_starts),
+    }
+
+
+def _buckets(announcement, granularity: str, starts: list) -> list:
+    stored = {
+        bucket.bucket_start: bucket
+        for bucket in AnnouncementStatBucket.objects.filter(
+            announcement=announcement, granularity=granularity,
+            bucket_start__gte=starts[0], bucket_start__lte=starts[-1],
+        )
+    }
+    return [stored.get(start) or AnnouncementStatBucket(granularity=granularity, bucket_start=start) for start in starts]
 
 
 def _unique_devices_subquery(event_type: str):
