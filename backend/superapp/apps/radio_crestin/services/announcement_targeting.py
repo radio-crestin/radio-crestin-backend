@@ -4,7 +4,8 @@ The website and the apps apply the same rules on the device (the list endpoint
 sends the filters with each announcement). Every rule that is set must match;
 an empty rule matches everyone.
 """
-import re
+
+from ..utils.app_versions import parse_version, version_code  # noqa: F401  (re-exported)
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -53,15 +54,6 @@ def _clean(values, transform=lambda value: value):
 def normalize_locale(locale: str) -> str:
     """'ro_RO' -> 'ro-ro'."""
     return (locale or '').strip().replace('_', '-').lower()
-
-
-def parse_version(version: str) -> Optional[tuple]:
-    """'1.6.2', 'v1.6', '1.6.2+56' or '1.6.2-beta' -> (1, 6, 2); None when unparseable."""
-    match = re.match(r'^\s*v?(\d+(?:\.\d+)*)', version or '')
-    if not match:
-        return None
-    parts = [int(part) for part in match.group(1).split('.')]
-    return tuple(parts + [0] * (3 - len(parts)))
 
 
 def compare_versions(left: str, right: str) -> Optional[int]:

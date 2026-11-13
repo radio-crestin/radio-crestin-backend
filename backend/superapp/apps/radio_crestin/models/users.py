@@ -1,6 +1,8 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from ..utils.app_versions import version_code
+
 
 class AppUsers(models.Model):
     # This model matches the existing authentication_user table structure
@@ -23,7 +25,7 @@ class AppUsers(models.Model):
     checkout_phone_number = models.CharField(max_length=255, blank=True, null=True)
     photo_url = models.CharField(max_length=255, blank=True, null=True)
     address = models.CharField(max_length=1024, blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)  # the admin list sorts by it
     modified_at = models.DateTimeField(auto_now=True)
 
     # Device registration details — upserted by the mobile app on every launch
@@ -36,6 +38,8 @@ class AppUsers(models.Model):
     device_manufacturer = models.CharField(_("Device manufacturer"), max_length=255, blank=True, null=True)
     device_os_version = models.CharField(_("OS version"), max_length=64, blank=True, null=True)
     device_app_version = models.CharField(_("App version"), max_length=64, blank=True, null=True)
+    # The version as one comparable integer, so push audiences filter app versions in SQL.
+    device_app_version_code = models.BigIntegerField(_("App version code"), blank=True, null=True, db_index=True)
     device_build_number = models.CharField(_("App build number"), max_length=64, blank=True, null=True)
     device_locale = models.CharField(_("Locale"), max_length=64, blank=True, null=True)
     device_timezone = models.CharField(_("Timezone"), max_length=64, blank=True, null=True)
@@ -56,6 +60,13 @@ class AppUsers(models.Model):
         db_table = 'app_users'
         verbose_name = _("App User")
         verbose_name_plural = _("App Users")
+
+    def save(self, *args, **kwargs):
+        self.device_app_version_code = version_code(self.device_app_version)
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None and 'device_app_version' in update_fields:
+            kwargs['update_fields'] = {*update_fields, 'device_app_version_code'}
+        super().save(*args, **kwargs)
 
     def __str__(self):
         identity = self.anonymous_id or self.email or self.id

@@ -50,10 +50,23 @@ def summary(announcement) -> dict:
         'unique_page_viewers': unique_by_type.get(AnnouncementEventType.PAGE_VIEWED, 0),
         'unique_push_openers': unique_by_type.get(AnnouncementEventType.PUSH_OPENED, 0),
         'click_rate': click_rate(unique_clickers, unique_viewers),
-        'by_type_and_platform': list(
-            events.values('type', 'platform').annotate(events=Count('id')).order_by('type', 'platform')
-        ),
-        'clicks_by_target': dict(
-            events.filter(type=AnnouncementEventType.CLICKED).values_list('target').annotate(n=Count('id'))
-        ),
+        **_breakdowns(events),
+    }
+
+
+def _breakdowns(events) -> dict:
+    """Events per type and platform, and clicks per tapped target, from one grouped query."""
+    by_type_and_platform, clicks_by_target = {}, {}
+    rows = events.values_list('type', 'platform', 'target').annotate(n=Count('id'))
+    for event_type, platform, target, count in rows:
+        key = (event_type, platform)
+        by_type_and_platform[key] = by_type_and_platform.get(key, 0) + count
+        if event_type == AnnouncementEventType.CLICKED:
+            clicks_by_target[target] = clicks_by_target.get(target, 0) + count
+    return {
+        'by_type_and_platform': [
+            {'type': event_type, 'platform': platform, 'events': count}
+            for (event_type, platform), count in sorted(by_type_and_platform.items())
+        ],
+        'clicks_by_target': clicks_by_target,
     }

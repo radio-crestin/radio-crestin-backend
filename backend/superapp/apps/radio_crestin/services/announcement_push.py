@@ -5,13 +5,14 @@ import os
 import re
 from dataclasses import dataclass
 
-from django.db.models import Q
+from django.db.models import Count, Q, Value
+from django.db.models.functions import Lower, Replace
 from django.utils import timezone
 
 from superapp.apps.posthog_error_tracking.utils import track_event
 from ..models import Announcement, AppUsers
 from .announcement_feed import rules_for, station_slugs
-from .announcement_targeting import APP_PLATFORMS, Audience, TargetingRules, matches
+from .announcement_targeting import APP_PLATFORMS, version_code
 
 logger = logging.getLogger(__name__)
 
@@ -51,57 +52,62 @@ def _firebase_app():
 
 # ---------------------------------------------------------------- audience
 
-def _locale_filter(locales) -> Q:
-    """Rows whose locale could match one of the rules; the exact check is `matches`."""
-    condition = Q()
-    for rule in locales:
-        underscored = rule.replace('-', '_')
-        condition |= (
-            Q(device_locale__iexact=rule) | Q(device_locale__iexact=underscored)
-            | Q(device_locale__istartswith=f'{rule}-') | Q(device_locale__istartswith=f'{underscored}_')
-        )
-    return condition
+HAS_TOKEN = Q(device_fcm_token__isnull=False) & ~Q(device_fcm_token='')
+PAGE_SIZE = 2000
 
 
-def _candidate_users(rules: TargetingRules):
-    """A database pre-filter: never drops a row that `matches` would accept."""
+def audience(announcement: Announcement):
+    """The app devices the announcement's filters match, decided entirely in SQL.
+
+    The same rules the clients apply to the card: platform, country, language prefix
+    (ro matches ro-RO and ro_RO) and app version (compared through device_app_version_code).
+    """
+    rules = rules_for(announcement)
+    users = AppUsers.objects.filter(anonymous_id__isnull=False).annotate(platform_key=Lower('device_platform'))
     platforms = [platform for platform in APP_PLATFORMS if not rules.platforms or platform in rules.platforms]
     if not platforms:
-        return AppUsers.objects.none()
-    users = AppUsers.objects.filter(anonymous_id__isnull=False)
-    platform_filter = Q()
-    for platform in platforms:
-        platform_filter |= Q(device_platform__iexact=platform)
-    users = users.filter(platform_filter)
+        return users.none()
+    users = users.filter(platform_key__in=platforms)
     if rules.countries_include:
         users = users.filter(device_country__in=rules.countries_include)
     if rules.countries_exclude:
         users = users.exclude(device_country__in=rules.countries_exclude)
     if rules.locales:
-        users = users.filter(_locale_filter(rules.locales))
+        users = users.annotate(locale_key=Lower(Replace('device_locale', Value('_'), Value('-'))))
+        language = Q()
+        for rule in rules.locales:  # normalized: lowercase, '-' separators
+            language |= Q(locale_key=rule) | Q(locale_key__startswith=f'{rule}-')
+        users = users.filter(language)
+    for bound, lookup in ((rules.min_app_version, 'gte'), (rules.max_app_version, 'lte')):
+        if bound:
+            code = version_code(bound)
+            if code is None:
+                return users.none()  # an unreadable bound matches nobody, as on the clients
+            users = users.filter(**{f'device_app_version_code__{lookup}': code})
     return users
 
 
 def matching_devices(announcement: Announcement):
-    """Every app device the announcement targets, with its push token ('' when it has none)."""
-    rules = rules_for(announcement)
-    rows = _candidate_users(rules).values_list(
-        'id', 'device_platform', 'device_country', 'device_locale', 'device_app_version', 'device_fcm_token',
-    )
-    for user_id, platform, country, locale, app_version, token in rows.iterator(chunk_size=2000):
-        audience = Audience(
-            platform=(platform or '').lower(), country=country or '', locale=locale or '',
-            app_version=app_version or '',
-        )
-        if matches(rules, audience):
-            yield Device(id=user_id, platform=audience.platform, token=(token or '').strip())
+    """Every matching device with a push token, read in pages by id (no server-side cursor: PgBouncer)."""
+    users = audience(announcement).filter(HAS_TOKEN).order_by('id')
+    last_id = 0
+    while True:
+        page = list(users.filter(id__gt=last_id).values_list('id', 'platform_key', 'device_fcm_token')[:PAGE_SIZE])
+        if not page:
+            return
+        for user_id, platform, token in page:
+            yield Device(id=user_id, platform=platform, token=token.strip())
+        last_id = page[-1][0]
 
 
 def reach(announcement: Announcement) -> dict:
-    """How many phones a send would reach, per platform, and how many matching devices have no token."""
-    counts = {'android': 0, 'ios': 0, 'without_token': 0}
-    for device in matching_devices(announcement):
-        counts[device.platform if device.token else 'without_token'] += 1
+    """How many phones a send would reach, per platform, and how many matching devices have no token: one query."""
+    counts = audience(announcement).aggregate(
+        android=Count('id', filter=HAS_TOKEN & Q(platform_key='android')),
+        ios=Count('id', filter=HAS_TOKEN & Q(platform_key='ios')),
+        without_token=Count('id', filter=~HAS_TOKEN),
+    )
+    counts = {key: value or 0 for key, value in counts.items()}
     counts['total'] = counts['android'] + counts['ios']
     return counts
 

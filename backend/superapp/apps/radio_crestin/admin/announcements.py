@@ -17,6 +17,14 @@ from ..services import announcement_order, announcement_push, announcement_stats
 HTTP_ACTIONS = "action_type == 'external' || action_type == 'in_app_browser'"
 
 
+def _once(obj, key, compute):
+    """Computed once per object per request: Unfold renders a readonly field several times per page."""
+    computed = obj.__dict__.setdefault('_admin_once', {})
+    if key not in computed:
+        computed[key] = compute()
+    return computed[key]
+
+
 def _percent(rate):
     return '-' if rate is None else f'{rate * 100:.1f}%'
 
@@ -172,7 +180,7 @@ class AnnouncementAdmin(SuperAppModelAdmin):
     def stats_display(self, obj):
         if not obj or not obj.pk:
             return '-'
-        stats = announcement_stats.summary(obj)
+        stats = _once(obj, 'summary', lambda: announcement_stats.summary(obj))
         status = _('Active') if obj.is_live() else _('Not showing')
         tiles = [
             (_number(obj.impressions), _('Impressions')),
@@ -196,7 +204,7 @@ class AnnouncementAdmin(SuperAppModelAdmin):
     def events_display(self, obj):
         if not obj or not obj.pk:
             return '-'
-        stats = announcement_stats.summary(obj)
+        stats = _once(obj, 'summary', lambda: announcement_stats.summary(obj))
         rows = format_html_join(
             '', '<tr><td style="padding:2px 12px 2px 0">{}</td><td style="padding:2px 12px 2px 0">{}</td>'
                 '<td style="text-align:right">{}</td></tr>',
@@ -219,7 +227,7 @@ class AnnouncementAdmin(SuperAppModelAdmin):
                 'Push is not configured: set FIREBASE_SERVICE_ACCOUNT_JSON to send notifications.'))
         if not obj or not obj.pk:
             return _('Save the announcement to see its reach.')
-        reach = announcement_push.reach(obj)
+        reach = _once(obj, 'reach', lambda: announcement_push.reach(obj))
         lines = [_('Reach: Android %(android)s · iPhone %(ios)s · without token %(without)s') % {
             'android': _number(reach['android']), 'ios': _number(reach['ios']),
             'without': _number(reach['without_token']),
@@ -236,7 +244,7 @@ class AnnouncementAdmin(SuperAppModelAdmin):
 
     @admin.display(description=_('Preview links'))
     def preview_links_display(self, obj):
-        settings = AnnouncementSettings.load()
+        settings = _once(obj, 'settings', AnnouncementSettings.load) if obj else AnnouncementSettings.load()
         return format_html(
             '<div>{}</div><div><a href="{}" target="_blank" rel="noopener">{}</a></div>'
             '<div><code style="user-select:all">{}</code></div>',
