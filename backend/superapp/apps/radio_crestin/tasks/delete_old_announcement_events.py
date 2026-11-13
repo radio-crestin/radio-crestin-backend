@@ -6,10 +6,9 @@ from celery import shared_task
 from django.utils import timezone
 
 from ..models import AnnouncementEvent
+from ..models.announcement_events import RETENTION_DAYS
 
 logger = logging.getLogger(__name__)
-
-RETENTION_DAYS = 180
 
 
 @shared_task(queue='priority')

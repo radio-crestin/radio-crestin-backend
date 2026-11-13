@@ -19,6 +19,9 @@ class AnnouncementEventTarget(models.TextChoices):
     BUTTON = 'button', _('Button')
 
 
+# Raw events are deleted after this many days (tasks/delete_old_announcement_events.py).
+RETENTION_DAYS = 180
+
 # Event type -> the Announcement counter it increments.
 COUNTER_FIELD_BY_EVENT_TYPE = {
     AnnouncementEventType.IMPRESSION: 'impressions',

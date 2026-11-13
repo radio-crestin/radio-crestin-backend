@@ -11,6 +11,7 @@ from .send_announcement_push import send_announcement_push, send_scheduled_annou
 from .delete_old_announcement_events import delete_old_announcement_events
 from .trigger_web_deploy import trigger_web_deploy
 from .notify_contact_message import notify_contact_message
+from .update_announcement_stat_buckets import update_announcement_stat_buckets
 
 __all__ = [
     'delete_stale_listening_sessions',
@@ -22,4 +23,5 @@ __all__ = [
     'delete_old_announcement_events',
     'trigger_web_deploy',
     'notify_contact_message',
+    'update_announcement_stat_buckets',
 ]

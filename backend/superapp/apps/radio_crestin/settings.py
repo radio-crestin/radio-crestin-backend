@@ -198,6 +198,10 @@ def extend_superapp_settings(main_settings):
                 'task': 'superapp.apps.radio_crestin.tasks.delete_old_announcement_events.delete_old_announcement_events',
                 'schedule': crontab(hour=2, minute=30),  # Daily at 2:30 AM
             },
+            'update-announcement-stat-buckets': {
+                'task': 'superapp.apps.radio_crestin.tasks.update_announcement_stat_buckets.update_announcement_stat_buckets',
+                'schedule': crontab(minute='*/5'),  # Every 5 minutes
+            },
             'send-scheduled-announcement-pushes': {
                 'task': 'superapp.apps.radio_crestin.tasks.send_announcement_push.send_scheduled_announcement_pushes',
                 'schedule': crontab(minute='*'),  # Every minute

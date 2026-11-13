@@ -57,6 +57,10 @@ class AnnouncementSettings(models.Model):
         _("Preview token"), max_length=64, default=new_preview_token,
         help_text=_("Lets the preview links show announcements with the Preview status. Rotate it to revoke old links."),
     )
+    stats_updated_until = models.DateTimeField(
+        _("History updated until"), null=True, blank=True, editable=False,
+        help_text=_("Events received up to this time are in the hourly and daily history."),
+    )
     created_at = models.DateTimeField(_("Created at"), auto_now_add=True)
     updated_at = models.DateTimeField(_("Updated at"), auto_now=True)
 

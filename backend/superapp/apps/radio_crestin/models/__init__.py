@@ -24,6 +24,7 @@ from .announcements import (
     PushSchedule, TargetPlatform, WebLinkTarget,
 )
 from .announcement_events import AnnouncementEvent, AnnouncementEventTarget, AnnouncementEventType
+from .announcement_stat_buckets import AnnouncementStatBucket, StatGranularity
 from .forms import Form, FormKind, FormQuestion, QuestionType
 from .form_submissions import FormSubmission
 from .contact_messages import ContactImageRole, ContactKind, ContactMessage, ContactMessageImage, ContactStatus
@@ -68,6 +69,8 @@ __all__ = [
     'AnnouncementEvent',
     'AnnouncementEventTarget',
     'AnnouncementEventType',
+    'AnnouncementStatBucket',
+    'StatGranularity',
     'Form',
     'FormKind',
     'FormQuestion',
