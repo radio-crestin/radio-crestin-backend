@@ -152,7 +152,9 @@ class AnnouncementAdminPagesTests(TestCase):
         AppUsers.objects.create(anonymous_id='p1', device_platform='android', device_fcm_token='t1')
         with patch.dict(os.environ, CONFIGURED):
             response = self.client.get(reverse('admin:radio_crestin_announcement_change', args=(self.announcement.pk,)))
-        self.assertContains(response, 'Android 1 · iPhone 0 · without token 0')
+            reach = self.client.get(reverse('admin:radio_crestin_announcement_push_reach', args=(self.announcement.pk,)))
+        self.assertContains(response, 'Reach: counting…')
+        self.assertIn('Android 1 · iPhone 0 · without token 0', reach.json()['text'])
 
     def test_saving_through_the_admin_form(self):
         station = make_station('radio-elim')

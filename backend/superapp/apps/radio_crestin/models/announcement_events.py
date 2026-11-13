@@ -64,6 +64,9 @@ class AnnouncementEvent(models.Model):
         indexes = [
             models.Index(fields=['announcement', 'created_at'], name='announcement_event_ann_idx'),
             models.Index(fields=['created_at'], name='announcement_event_time_idx'),
+            # Admin stats read only this index: unique devices per type, and events per type, platform and target.
+            models.Index(fields=['announcement', 'type', 'device_id'], include=['platform', 'target'],
+                         name='announcement_event_uniq_idx'),
         ]
         constraints = [
             # A device's close counts once per announcement (the events endpoint relies on it).

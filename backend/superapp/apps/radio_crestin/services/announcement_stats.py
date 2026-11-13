@@ -57,7 +57,7 @@ def summary(announcement) -> dict:
 def _breakdowns(events) -> dict:
     """Events per type and platform, and clicks per tapped target, from one grouped query."""
     by_type_and_platform, clicks_by_target = {}, {}
-    rows = events.values_list('type', 'platform', 'target').annotate(n=Count('id'))
+    rows = events.values_list('type', 'platform', 'target').annotate(n=Count('*'))
     for event_type, platform, target, count in rows:
         key = (event_type, platform)
         by_type_and_platform[key] = by_type_and_platform.get(key, 0) + count

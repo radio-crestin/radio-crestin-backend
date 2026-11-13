@@ -7,9 +7,14 @@ from unittest.mock import patch
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.test import SimpleTestCase, TestCase, override_settings
+from django.db import connection
+from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.functional import Promise
+
+from superapp.apps.admin_portal.sites import superapp_admin_site
 
 from ..models import Announcement, AnnouncementEvent, AppUsers
 from ..services import announcement_push
@@ -152,8 +157,6 @@ class AdminQueryCountTests(TestCase):
         ])
 
     def count_queries(self, url):
-        from django.db import connection
-        from django.test.utils import CaptureQueriesContext
         self.client.get(url)  # the first request warms per-process caches
         with CaptureQueriesContext(connection) as queries:
             self.assertEqual(self.client.get(url).status_code, 200)
@@ -187,3 +190,70 @@ class AdminQueryCountTests(TestCase):
         self.grow(devices=300, events=0)
         with self.assertNumQueries(small):
             self.client.get(url)
+
+
+@override_settings(CACHES=LOCMEM_CACHE)
+class AnnouncementChangePageWorkTests(TestCase):
+    """The change page skips the work it does not show: list-only counts, and the reach (fetched after load)."""
+
+    def setUp(self):
+        cache.clear()
+        self.client.force_login(get_user_model().objects.create_superuser(email='admin@example.com', password='x'))
+        self.announcement = Announcement.objects.get(slug='whatsapp-versetul-zilei')
+        self.reach_url = reverse('admin:radio_crestin_announcement_push_reach', args=(self.announcement.pk,))
+        AppUsers.objects.bulk_create([
+            AppUsers(anonymous_id=f'reach-{index}', email=f'reach-{index}@example.invalid',
+                     device_platform=platform, device_fcm_token=f'token-{index}' if index % 3 else '')
+            for index, platform in enumerate(['android', 'ios'] * 6)
+        ])
+
+    def test_change_page_leaves_out_reach_and_list_counts(self):
+        url = reverse('admin:radio_crestin_announcement_change', args=(self.announcement.pk,))
+        with patch.dict(os.environ, CONFIGURED), CaptureQueriesContext(connection) as queries:
+            response = self.client.get(url)
+        self.assertContains(response, f'data-push-reach="{self.reach_url}"')
+        sql = [query['sql'] for query in queries]
+        self.assertFalse([q for q in sql if 'FROM "app_users"' in q and 'COUNT(' in q], 'the reach is counted on the page')
+        self.assertFalse([q for q in sql if q.startswith('SELECT "announcements"') and 'announcement_events' in q],
+                         'the change page annotates the list-only unique counts')
+
+    def test_push_reach_endpoint(self):
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(self.reach_url)
+        self.assertEqual(response.status_code, 200)
+        own = [q['sql'] for q in queries if 'FROM "announcements"' in q['sql'] or 'FROM "app_users"' in q['sql']]
+        self.assertEqual(len(own), 2, own)  # the announcement, and the reach as one aggregate
+        self.assertIn('no-store', response['Cache-Control'])
+        body = response.json()
+        expected = announcement_push.reach(self.announcement)
+        self.assertEqual({key: body[key] for key in expected}, expected)
+        self.assertIn('Reach:', body['text'])
+
+    def test_push_reach_needs_view_permission(self):
+        staff = get_user_model().objects.create_user(email='staff@example.com', password='x')
+        staff.is_staff = True
+        staff.save()
+        self.client.force_login(staff)
+        self.assertEqual(self.client.get(self.reach_url).status_code, 403)
+
+    def test_changelist_still_shows_unique_counts(self):
+        AnnouncementEvent.objects.bulk_create([
+            AnnouncementEvent(announcement=self.announcement, type='impression', device_id=f'viewer-{index}', platform='web')
+            for index in range(7)
+        ])
+        response = self.client.get(reverse('admin:radio_crestin_announcement_changelist'))
+        self.assertEqual(response.context['cl'].result_list.get(pk=self.announcement.pk).unique_viewers, 7)
+
+
+class SidebarLinkTests(TestCase):
+    def test_sidebar_links_are_resolved_once(self):
+        request = RequestFactory().get('/portal/')
+        request.user = get_user_model().objects.create_superuser(email='admin@example.com', password='x')
+        sidebar = superapp_admin_site._get_config('SIDEBAR', request)
+        links = [item.get('link') for group in sidebar.get('navigation') or [] for item in group.get('items', [])]
+        self.assertTrue(links)
+        self.assertFalse([link for link in links if isinstance(link, Promise)])
+
+        changelist = reverse('admin:radio_crestin_announcement_changelist')
+        self.client.force_login(request.user)
+        self.assertContains(self.client.get(changelist), f'href="{changelist}"')

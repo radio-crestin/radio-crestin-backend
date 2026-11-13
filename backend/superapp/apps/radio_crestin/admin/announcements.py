@@ -1,9 +1,10 @@
 import unfold.decorators
 from django.contrib import admin, messages
-from django.http import HttpResponseNotAllowed
+from django.core.exceptions import PermissionDenied
+from django.http import HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
-from django.urls import reverse
+from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 from django.utils.translation import gettext_lazy as _
@@ -158,7 +159,11 @@ class AnnouncementAdmin(SuperAppModelAdmin):
         return redirect(request.get_full_path())
 
     def get_queryset(self, request):
-        return announcement_stats.with_unique_counts(super().get_queryset(request).select_related('category'))
+        queryset = super().get_queryset(request).select_related('category')
+        # Only the list shows the unique counts; the change page has its own stats block.
+        if request.resolver_match and request.resolver_match.url_name.endswith('_changelist'):
+            queryset = announcement_stats.with_unique_counts(queryset)
+        return queryset
 
     # ------------------------------------------------------------ list columns
 
@@ -227,11 +232,9 @@ class AnnouncementAdmin(SuperAppModelAdmin):
                 'Push is not configured: set FIREBASE_SERVICE_ACCOUNT_JSON to send notifications.'))
         if not obj or not obj.pk:
             return _('Save the announcement to see its reach.')
-        reach = _once(obj, 'reach', lambda: announcement_push.reach(obj))
-        lines = [_('Reach: Android %(android)s · iPhone %(ios)s · without token %(without)s') % {
-            'android': _number(reach['android']), 'ios': _number(reach['ios']),
-            'without': _number(reach['without_token']),
-        }]
+        # The reach counts every device the filters match, so it loads after the page (push_reach_view).
+        reach_url = reverse('admin:radio_crestin_announcement_push_reach', args=(obj.pk,))
+        lines = [format_html('<span data-push-reach="{}">{}</span>', reach_url, _('Reach: counting…'))]
         if obj.push_sent_at:
             lines.append(_('Sent %(when)s to %(count)s phones.') % {
                 'when': timezone.localtime(obj.push_sent_at).strftime('%d %b %Y %H:%M'),
@@ -286,6 +289,29 @@ class AnnouncementAdmin(SuperAppModelAdmin):
                 'Test notification sent to %(sent)s device(s); %(failed)s failed; %(without)s without a push token.'
             ) % {'sent': result['sent'], 'failed': result['failed'], 'without': max(without_token, 0)})
         return redirect(self._change_url(object_id))
+
+    def get_urls(self):
+        return [
+            path('<path:object_id>/push-reach/', self.admin_site.admin_view(self.push_reach_view),
+                 name='radio_crestin_announcement_push_reach'),
+        ] + super().get_urls()
+
+    def push_reach_view(self, request, object_id):
+        """The phones a send would reach, for the Notification tab (fetched by push_reach.js)."""
+        announcement = get_object_or_404(Announcement, pk=object_id)
+        if not self.has_view_permission(request, announcement):
+            raise PermissionDenied
+        reach = announcement_push.reach(announcement)
+        text = _('Reach: Android %(android)s · iPhone %(ios)s · without token %(without)s') % {
+            'android': _number(reach['android']), 'ios': _number(reach['ios']),
+            'without': _number(reach['without_token']),
+        }
+        response = JsonResponse({**reach, 'text': str(text)})
+        response['Cache-Control'] = 'private, no-store'
+        return response
+
+    class Media:
+        js = ('radio_crestin/announcements/push_reach.js',)
 
     def _change_url(self, object_id):
         return reverse('admin:radio_crestin_announcement_change', args=(object_id,))
