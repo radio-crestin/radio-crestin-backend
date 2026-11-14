@@ -117,3 +117,11 @@ class ErrorDetailTests(GraphQLTestCase):
     def test_messages_meant_for_callers_are_kept(self):
         result = self.graphql('{ stations_metadata_history(station_slug: "nope") { count } }')
         self.assertEqual(result['errors'][0]['message'], "Station 'nope' not found.")
+
+
+class BodySizeTests(GraphQLTestCase):
+    def test_an_oversized_graphql_body_is_refused_before_parsing(self):
+        from superapp.apps.graphql.graphql_get_view import MAX_BODY_BYTES
+        body = json.dumps({'query': '{ health }', 'variables': {'pad': 'x' * MAX_BODY_BYTES}})
+        response = self.client.post('/graphql', body, content_type='application/json')
+        self.assertEqual(response.status_code, 413)
