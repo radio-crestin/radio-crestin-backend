@@ -24,6 +24,8 @@ class BasePortalTaskResultAdmin(TaskResultAdmin, SuperAppModelAdmin):
                     'status', 'worker')
 
     list_filter = ('status', 'date_done')
+    # The library sets date_hierarchy = 'date_done': SELECT DISTINCT over every result.
+    date_hierarchy = None
     ordering = ('-date_created',)
     paginator = InfinitePaginator
     show_full_result_count = False

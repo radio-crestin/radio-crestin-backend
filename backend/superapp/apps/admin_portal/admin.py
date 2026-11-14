@@ -21,6 +21,9 @@ from .widgets import ChainedAdminSelect
 
 
 class SuperAppModelAdmin(AdminConfirmMixin, ModelAdmin, ImportExportModelAdmin):
+    # Rendering a list row costs ~2.5 ms on the production CPUs: 100 rows (Django's
+    # default) made plain list pages take 200-400 ms. An admin can still set its own.
+    list_per_page = 25
     actions_hidden = ()
     formfield_overrides = {
         # models.TextField: {
