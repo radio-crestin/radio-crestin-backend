@@ -127,6 +127,29 @@ services:
       options:
         max-file: "5"
         max-size: "100m"
+  # The one Celery beat (the workers don't schedule): keep exactly one.
+  beat:
+    build:
+      context: backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app:delegated
+      - /app/__pycache__
+      - /app/**/__pycache__
+    env_file:
+      - .env
+    command: /app/scripts/run-beat.sh
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "5"
+        max-size: "100m"
   # Stream controller (manages per-station live streaming pods in K8s)
   # In local dev, runs as a single container for all stations
   stream-controller:
