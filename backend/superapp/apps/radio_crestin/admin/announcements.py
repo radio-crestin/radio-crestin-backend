@@ -183,11 +183,22 @@ class AnnouncementAdmin(SuperAppModelAdmin):
 
     # ------------------------------------------------------------ change page blocks
 
+    def _after_load(self, obj, key):
+        """A block filled after the page loads (after_load.js), so counting events never holds up the page."""
+        url = reverse('admin:radio_crestin_announcement_results', args=(obj.pk,))
+        return format_html('<div data-after-load="{}" data-after-load-key="{}" data-after-load-html>{}</div>',
+                           url, key, _('Counting…'))
+
     @admin.display(description=_('Results'))
     def stats_display(self, obj):
-        if not obj or not obj.pk:
-            return '-'
-        stats = _once(obj, 'summary', lambda: announcement_stats.summary(obj))
+        return self._after_load(obj, 'stats') if obj and obj.pk else '-'
+
+    @admin.display(description=_('Breakdown'))
+    def events_display(self, obj):
+        return self._after_load(obj, 'events') if obj and obj.pk else '-'
+
+    @staticmethod
+    def _stats_html(obj, stats):
         status = _('Active') if obj.is_live() else _('Not showing')
         tiles = [
             (_number(obj.impressions), _('Impressions')),
@@ -207,11 +218,8 @@ class AnnouncementAdmin(SuperAppModelAdmin):
             _('Unique numbers come from the last 180 days of events, counted once per device.'),
         )
 
-    @admin.display(description=_('Breakdown'))
-    def events_display(self, obj):
-        if not obj or not obj.pk:
-            return '-'
-        stats = _once(obj, 'summary', lambda: announcement_stats.summary(obj))
+    @staticmethod
+    def _events_html(stats):
         rows = format_html_join(
             '', '<tr><td style="padding:2px 12px 2px 0">{}</td><td style="padding:2px 12px 2px 0">{}</td>'
                 '<td style="text-align:right">{}</td></tr>',
@@ -226,6 +234,19 @@ class AnnouncementAdmin(SuperAppModelAdmin):
             _('Clicks by where they tapped'), _('card'), _number(targets.get('card')),
             _('button'), _number(targets.get('button')), _('unknown'), _number(targets.get('')),
         )
+
+    def results_view(self, request, object_id):
+        """The Results and Breakdown blocks of the change page (fetched by after_load.js)."""
+        announcement = get_object_or_404(Announcement, pk=object_id)
+        if not self.has_view_permission(request, announcement):
+            raise PermissionDenied
+        stats = announcement_stats.summary(announcement)
+        response = JsonResponse({
+            'stats': self._stats_html(announcement, stats),
+            'events': self._events_html(stats),
+        })
+        response['Cache-Control'] = 'private, no-store'
+        return response
 
     @admin.display(description=_('History'))
     def history_display(self, obj):
@@ -244,7 +265,8 @@ class AnnouncementAdmin(SuperAppModelAdmin):
             return _('Save the announcement to see its reach.')
         # The reach counts every device the filters match, so it loads after the page (push_reach_view).
         reach_url = reverse('admin:radio_crestin_announcement_push_reach', args=(obj.pk,))
-        lines = [format_html('<span data-push-reach="{}">{}</span>', reach_url, _('Reach: counting…'))]
+        lines = [format_html('<span data-after-load="{}" data-after-load-key="text">{}</span>',
+                             reach_url, _('Reach: counting…'))]
         if obj.push_sent_at:
             lines.append(_('Sent %(when)s to %(count)s phones.') % {
                 'when': timezone.localtime(obj.push_sent_at).strftime('%d %b %Y %H:%M'),
@@ -304,6 +326,8 @@ class AnnouncementAdmin(SuperAppModelAdmin):
         return [
             path('<path:object_id>/push-reach/', self.admin_site.admin_view(self.push_reach_view),
                  name='radio_crestin_announcement_push_reach'),
+            path('<path:object_id>/results/', self.admin_site.admin_view(self.results_view),
+                 name='radio_crestin_announcement_results'),
             path('<path:object_id>/history.csv', self.admin_site.admin_view(self.history_csv_view),
                  name='radio_crestin_announcement_history_csv'),
         ] + super().get_urls()
@@ -316,7 +340,7 @@ class AnnouncementAdmin(SuperAppModelAdmin):
         return announcement_history.csv_response(announcement, request.GET.get('granularity', 'day'))
 
     def push_reach_view(self, request, object_id):
-        """The phones a send would reach, for the Notification tab (fetched by push_reach.js)."""
+        """The phones a send would reach, for the Notification tab (fetched by after_load.js)."""
         announcement = get_object_or_404(Announcement, pk=object_id)
         if not self.has_view_permission(request, announcement):
             raise PermissionDenied
@@ -330,7 +354,7 @@ class AnnouncementAdmin(SuperAppModelAdmin):
         return response
 
     class Media:
-        js = ('radio_crestin/announcements/push_reach.js',)
+        js = ('radio_crestin/announcements/after_load.js',)
 
     def _change_url(self, object_id):
         return reverse('admin:radio_crestin_announcement_change', args=(object_id,))

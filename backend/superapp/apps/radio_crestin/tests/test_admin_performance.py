@@ -211,8 +211,11 @@ class AnnouncementChangePageWorkTests(TestCase):
         url = reverse('admin:radio_crestin_announcement_change', args=(self.announcement.pk,))
         with patch.dict(os.environ, CONFIGURED), CaptureQueriesContext(connection) as queries:
             response = self.client.get(url)
-        self.assertContains(response, f'data-push-reach="{self.reach_url}"')
+        self.assertContains(response, f'data-after-load="{self.reach_url}"')
+        results_url = reverse('admin:radio_crestin_announcement_results', args=(self.announcement.pk,))
+        self.assertContains(response, f'data-after-load="{results_url}"', count=2)  # results and breakdown
         sql = [query['sql'] for query in queries]
+        self.assertFalse([q for q in sql if 'FROM "announcement_events"' in q], 'events are counted on the page')
         self.assertFalse([q for q in sql if 'FROM "app_users"' in q and 'COUNT(' in q], 'the reach is counted on the page')
         self.assertFalse([q for q in sql if q.startswith('SELECT "announcements"') and 'announcement_events' in q],
                          'the change page annotates the list-only unique counts')
@@ -228,6 +231,25 @@ class AnnouncementChangePageWorkTests(TestCase):
         expected = announcement_push.reach(self.announcement)
         self.assertEqual({key: body[key] for key in expected}, expected)
         self.assertIn('Reach:', body['text'])
+
+    def test_results_endpoint(self):
+        from ..models import AnnouncementEvent
+        for device_id in ('a', 'a', 'b'):
+            AnnouncementEvent.objects.create(announcement=self.announcement, type='impression', device_id=device_id)
+        AnnouncementEvent.objects.create(announcement=self.announcement, type='clicked', device_id='a', target='card')
+        response = self.client.get(reverse('admin:radio_crestin_announcement_results', args=(self.announcement.pk,)))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('no-store', response['Cache-Control'])
+        body = response.json()
+        self.assertIn('50.0%', body['stats'])           # 1 unique clicker of 2 unique viewers
+        self.assertIn('Unique devices', body['stats'])
+        self.assertIn('impression', body['events'])
+        self.assertIn('card 1', body['events'])
+
+    def test_results_endpoint_needs_admin(self):
+        self.client.logout()
+        response = self.client.get(reverse('admin:radio_crestin_announcement_results', args=(self.announcement.pk,)))
+        self.assertEqual(response.status_code, 302)
 
     def test_push_reach_needs_view_permission(self):
         staff = get_user_model().objects.create_user(email='staff@example.com', password='x')
@@ -257,3 +279,22 @@ class SidebarLinkTests(TestCase):
         changelist = reverse('admin:radio_crestin_announcement_changelist')
         self.client.force_login(request.user)
         self.assertContains(self.client.get(changelist), f'href="{changelist}"')
+
+
+class ChangeformDataTests(TestCase):
+    """The faster changeform_data (admin_portal.unfold_patches) gives Unfold's exact output."""
+
+    def test_same_x_data_as_unfold_without_running_readonly_fields(self):
+        import json
+        from unfold.templatetags import unfold as unfold_tags
+        from superapp.apps.admin_portal import unfold_patches
+
+        self.client.force_login(get_user_model().objects.create_superuser(email='admin@example.com', password='x'))
+        announcement = Announcement.objects.get(slug='whatsapp-versetul-zilei')
+        response = self.client.get(reverse('admin:radio_crestin_announcement_change', args=(announcement.pk,)))
+        adminform = response.context['adminform']
+        self.assertIs(unfold_tags.register.filters['changeform_data'], unfold_patches.changeform_data)
+        self.assertEqual(json.loads(unfold_patches.changeform_data(adminform)),
+                         json.loads(unfold_tags.changeform_data(adminform)))
+        with patch.object(type(adminform.model_admin), 'history_display', side_effect=AssertionError('ran')):
+            unfold_patches.changeform_data(adminform)
