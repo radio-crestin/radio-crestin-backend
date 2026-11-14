@@ -1,7 +1,7 @@
 """
 health_server's HTTP probes: /live (liveness) never depends on upstream,
 and /health (readiness) answers even when cleanup.sh deletes a segment
-between glob() and getmtime() (that FileNotFoundError used to escape
+between listing and getmtime() (that FileNotFoundError used to escape
 check_health(), the probe got a 502 via NGINX).
 """
 
@@ -46,15 +46,57 @@ def test_segment_deleted_during_check_is_skipped(segments_dir, monkeypatch):
         with open(playlist, "w") as f:
             f.write("#EXTM3U\n" + "\n".join(names[1:]) + "\n")
 
-    real_glob = health_server.glob.glob
+    real_listing = health_server._segment_names
 
-    def glob_then_delete_oldest(pattern):
-        found = real_glob(pattern)
-        os.remove(os.path.join(segments_dir, "s-1.ts"))  # cleanup.sh deletes it
-        return found
+    def list_then_delete(doomed):
+        def listing():
+            found = real_listing()
+            os.remove(os.path.join(segments_dir, doomed))  # cleanup.sh deletes it
+            return found
+        return listing
 
-    monkeypatch.setattr(health_server.glob, "glob", glob_then_delete_oldest)
+    monkeypatch.setattr(health_server, "_segment_names", list_then_delete("s-1.ts"))
     assert health_server.check_health() == (True, "")
+    _write_segments(segments_dir, ["s-1.ts"])
+    monkeypatch.setattr(health_server, "_segment_names", list_then_delete("s-4.ts"))
+    ok, reason = health_server._check_segments_fresh()
+    assert ok, reason  # the newest vanished: the next newest is still fresh
+
+
+def test_newest_segment_is_the_highest_number(segments_dir, monkeypatch):
+    # An earlier ffmpeg run (lower boot epoch) and the current one.
+    old_run = [f"st-1700000000-{n}.ts" for n in range(1700000000, 1700000005)]
+    new_run = [f"st-1700000100-{n}.ts" for n in range(1700000100, 1700000103)]
+    _write_segments(segments_dir, old_run + new_run)
+    newest = os.path.join(segments_dir, new_run[-1])
+    os.utime(newest, (1234.0, 1234.0))
+
+    stat_calls = []
+    real_getmtime = os.path.getmtime
+    monkeypatch.setattr(health_server.os.path, "getmtime",
+                        lambda p: stat_calls.append(p) or real_getmtime(p))
+    assert health_server._newest_segment_mtime(health_server._segment_names()) == 1234.0
+    assert stat_calls == [newest]
+
+
+def test_names_without_a_number_check_every_file(segments_dir):
+    _write_segments(segments_dir, ["odd.ts", "st-1-5.ts"])
+    odd = os.path.join(segments_dir, "odd.ts")
+    numbered = os.path.join(segments_dir, "st-1-5.ts")
+    os.utime(numbered, (100.0, 100.0))
+    os.utime(odd, (200.0, 200.0))
+    assert health_server._newest_segment_mtime(health_server._segment_names()) == 200.0
+
+
+def test_listing_skips_temp_and_hidden_files(segments_dir):
+    _write_segments(segments_dir, ["a-1.ts", "a-2.ts.tmp", ".a-3.ts", "live.m3u8"])
+    assert health_server._segment_names() == ["a-1.ts"]
+
+
+def test_missing_directory_has_no_segments(segments_dir, monkeypatch):
+    monkeypatch.setattr(health_server, "AAC_SEGMENTS_DIR", os.path.join(segments_dir, "gone"))
+    assert health_server._segment_names() == []
+    assert health_server.check_health() == (False, "no aac segments on disk")
 
 
 def test_newest_mtime_ignores_missing_files(segments_dir):

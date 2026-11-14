@@ -32,7 +32,6 @@ Django answers a report with the station's config_version; it is written to
 LATEST_CONFIG_VERSION so scraper_engine reloads its config when it changes.
 """
 
-import glob
 import json
 import os
 import re
@@ -113,7 +112,7 @@ class HealthHandler(BaseHTTPRequestHandler):
 def _newest_mtime(paths):
     """Newest mtime among paths, skipping files deleted while we look.
 
-    cleanup.sh removes segments between glob() and getmtime(); raising
+    cleanup.sh removes segments between listing and getmtime(); raising
     there turned a healthy probe into a 502.
     """
     newest = 0.0
@@ -125,13 +124,49 @@ def _newest_mtime(paths):
     return newest
 
 
+def _segment_names() -> list[str]:
+    """Names of the finished .ts segments on disk: one directory read, no
+    stat per file (the DVR keeps ~700 of them)."""
+    try:
+        with os.scandir(AAC_SEGMENTS_DIR) as entries:
+            return [e.name for e in entries
+                    if e.name.endswith(".ts") and not e.name.startswith(".")]
+    except FileNotFoundError:
+        return []
+
+
+def _sequence_number(name: str) -> int | None:
+    """The number ffmpeg gave a segment (`<prefix>-<n>.ts`), or None."""
+    tail = name[:-len(".ts")].rpartition("-")[2]
+    return int(tail) if tail.isdigit() else None
+
+
+def _newest_segment_mtime(names: list[str]) -> float:
+    """mtime of the newest segment, stat-ing only it.
+
+    ffmpeg numbers segments from the epoch (-hls_start_number_source epoch,
+    one number per 6 s segment), so a later run always starts above an
+    earlier one and the highest number is the newest file. Names that are
+    not ffmpeg's are checked the old way: every file's mtime.
+    """
+    numbered = [(_sequence_number(name), name) for name in names]
+    if any(number is None for number, _ in numbered):
+        return _newest_mtime(os.path.join(AAC_SEGMENTS_DIR, n) for n in names)
+    for _, name in sorted(numbered, reverse=True):
+        try:
+            return os.path.getmtime(os.path.join(AAC_SEGMENTS_DIR, name))
+        except FileNotFoundError:  # cleanup.sh deleted it meanwhile
+            continue
+    return 0.0
+
+
 def _check_segments_fresh():
     """Check that recent .ts segments exist on disk."""
     now = time.time()
-    segments = glob.glob(os.path.join(AAC_SEGMENTS_DIR, "*.ts"))
+    segments = _segment_names()
     if not segments:
         return False, "no aac segments on disk"
-    newest_mtime = _newest_mtime(segments)
+    newest_mtime = _newest_segment_mtime(segments)
     age = now - newest_mtime
     if age > HEALTH_MAX_AGE:
         return False, f"aac segments stale ({int(age)}s old, max {HEALTH_MAX_AGE}s)"
@@ -267,10 +302,10 @@ def check_health():
 def _measure_latency():
     """Measure FFmpeg segment production latency (time since newest segment)."""
     try:
-        segments = glob.glob(os.path.join(AAC_SEGMENTS_DIR, "*.ts"))
+        segments = _segment_names()
         if not segments:
             return 0
-        return max(0, int((time.time() - _newest_mtime(segments)) * 1000))
+        return max(0, int((time.time() - _newest_segment_mtime(segments)) * 1000))
     except Exception:
         return 0
 
@@ -348,7 +383,7 @@ def _report_health_loop():
     reporter.report(False, 0, "pod starting, waiting for ffmpeg", time.time())
 
     # Wait for first segment to appear
-    while not glob.glob(os.path.join(AAC_SEGMENTS_DIR, "*.ts")):
+    while not _segment_names():
         time.sleep(2)
 
     # Report that FFmpeg is now producing segments
