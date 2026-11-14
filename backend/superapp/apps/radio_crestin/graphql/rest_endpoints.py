@@ -123,9 +123,14 @@ def parse_slug_filters(request) -> Dict[str, Any]:
     return variables
 
 
+# Phones and browsers often run a few seconds fast; within this much a future
+# timestamp is served as is instead of costing the client a 302 round trip.
+MAX_CLIENT_CLOCK_AHEAD_SECONDS = 5
+
+
 def validate_timestamp_not_future(request, window_seconds: int = 10) -> Optional[Dict[str, Any]]:
     """
-    Validate that the timestamp parameter is not in the future (beyond current time + 2 seconds).
+    Validate that the timestamp parameter is not in the future (beyond current time + MAX_CLIENT_CLOCK_AHEAD_SECONDS).
 
     If the timestamp is invalid or in the future (e.g. client clock skew), redirect to
     the correct rounded timestamp instead of returning an error.
@@ -144,7 +149,7 @@ def validate_timestamp_not_future(request, window_seconds: int = 10) -> Optional
 
         try:
             timestamp_value = int(timestamp_param)
-            max_allowed_timestamp = current_timestamp + 2  # Allow 2 seconds of clock drift
+            max_allowed_timestamp = current_timestamp + MAX_CLIENT_CLOCK_AHEAD_SECONDS
             if timestamp_value > max_allowed_timestamp:
                 needs_redirect = True
         except (ValueError, TypeError):

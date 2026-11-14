@@ -183,6 +183,19 @@ class StationsMetadataPerformanceTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn('timestamp=', response['Location'])
 
+    def test_stations_metadata_accepts_a_clock_a_few_seconds_fast(self):
+        """A client clock up to 5 s ahead is served, not redirected."""
+        ahead = int(timezone.now().timestamp()) + 4
+        response = self.client.get('/api/v1/stations-metadata', {'timestamp': ahead})
+        self.assertEqual(response.status_code, 200)
+
+    def test_stations_metadata_redirects_a_timestamp_far_ahead(self):
+        """Beyond 5 s ahead the client is sent to the current window."""
+        ahead = int(timezone.now().timestamp()) + 30
+        response = self.client.get('/api/v1/stations-metadata', {'timestamp': ahead})
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn(str(ahead), response['Location'])
+
     def test_stations_metadata_filter_by_station_slugs(self):
         """GET /api/v1/stations-metadata with station_slugs returns only matching stations."""
         ts = int(timezone.now().timestamp())
