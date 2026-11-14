@@ -153,72 +153,69 @@ class CacheExtension(SchemaExtension):
             )
             self.should_cache = True
 
+    def _reset(self):
+        """Per-request state starts from the defaults. The instance outlives
+        the request: what one request's @cached set must never decide (or
+        answer) the next one's."""
+        self.cache_key = None
+        self.should_cache = False
+        self.served_from_cache = False
+        self.cached_params = {
+            'ttl': self.cache_params.ttl,
+            'refresh_while_caching': self.cache_params.refresh_while_caching,
+            'include_user': self.cache_params.include_user
+        }
+
     def on_operation(self):
-        """Called when the operation is executed"""
-        # Check cache before execution
+        """Resets the state, then stores the result of an executed query."""
+        self._reset()
+        yield
+        if self.should_cache and self.cache_key and not self.served_from_cache:
+            result = self.execution_context.result
+            if result and not (hasattr(result, 'errors') and result.errors):
+                cache.set(self.cache_key, {'data': result.data, 'errors': None}, self.cached_params['ttl'])
+
+    def on_execute(self):
+        """Answers from the cache, once on_parse has read this request's
+        directive. Strawberry skips execution when the result is set."""
         if self.should_cache and self.cache_key:
             cached_result = cache.get(self.cache_key)
             if cached_result is not None:
-                # Check if we should refresh while serving cached content
-                refresh_while_caching = self.cached_params['refresh_while_caching']
-
-                # Set cached result regardless of refresh_while_caching
                 from graphql import ExecutionResult
                 self.execution_context.result = ExecutionResult(
-                    data=cached_result['data'] if 'data' in cached_result else None,
-                    errors=cached_result['errors'] if 'errors' in cached_result else None
+                    data=cached_result.get('data'),
+                    errors=cached_result.get('errors'),
                 )
-
-                if refresh_while_caching:
-                    # Check if there's already a refresh task running for this cache key
-                    refresh_lock_key = f"{self.cache_key}:refresh_lock"
-
-                    # Try to acquire lock with a short TTL (5 seconds for task to start)
-                    # If lock already exists, another refresh is in progress
-                    if cache.add(refresh_lock_key, True, timeout=5):
-                        # Lock acquired, trigger background refresh
-                        from superapp.apps.graphql.tasks import refresh_graphql_cache
-
-                        ttl = self.cached_params['ttl']
-
-                        # Get user ID if needed for background refresh
-                        user_id = None
-                        if 'include_user' in self.cached_params and self.cached_params['include_user']:
-                            context = self.execution_context.context
-                            request = context.get('request') if hasattr(context, 'get') else getattr(context, 'request', None)
-                            if request and hasattr(request, 'user') and request.user.is_authenticated:
-                                user_id = request.user.id
-
-                        logger.debug(f"Triggering background refresh for cache key: {self.cache_key}")
-                        refresh_graphql_cache.delay(
-                            query=self.execution_context.query,
-                            variables=self.execution_context.variables,
-                            operation_name=self.execution_context.operation_name,
-                            cache_key=self.cache_key,
-                            ttl=ttl,
-                            user_id=user_id
-                        )
-                    else:
-                        logger.debug(f"Skipping background refresh for cache key {self.cache_key} - refresh already in progress")
-
-                yield  # Must yield even when returning cached result
-                return
-
-        # Execute the query normally
+                self.served_from_cache = True
+                if self.cached_params['refresh_while_caching']:
+                    self._schedule_refresh()
         yield
 
-        # Cache the result after execution
-        if self.should_cache and self.cache_key:
-            result = self.execution_context.result
-            if result and not (hasattr(result, 'errors') and result.errors):
-                # Cache the data
-                ttl = self.cached_params['ttl']
-                cache_data = {
-                    'data': result.data,
-                    'errors': None
-                }
-                cache.set(self.cache_key, cache_data, ttl)
+    def _schedule_refresh(self):
+        # Try to acquire lock with a short TTL (5 seconds for task to start)
+        # If lock already exists, another refresh is in progress
+        refresh_lock_key = f"{self.cache_key}:refresh_lock"
+        if not cache.add(refresh_lock_key, True, timeout=5):
+            logger.debug(f"Skipping background refresh for cache key {self.cache_key} - refresh already in progress")
+            return
+        from superapp.apps.graphql.tasks import refresh_graphql_cache
 
+        user_id = None
+        if self.cached_params.get('include_user'):
+            context = self.execution_context.context
+            request = context.get('request') if hasattr(context, 'get') else getattr(context, 'request', None)
+            if request and hasattr(request, 'user') and request.user.is_authenticated:
+                user_id = request.user.id
+
+        logger.debug(f"Triggering background refresh for cache key: {self.cache_key}")
+        refresh_graphql_cache.delay(
+            query=self.execution_context.query,
+            variables=self.execution_context.variables,
+            operation_name=self.execution_context.operation_name,
+            cache_key=self.cache_key,
+            ttl=self.cached_params['ttl'],
+            user_id=user_id
+        )
 
     def _generate_cache_key(self, query: str, variables: Optional[Dict[str, Any]], operation_name: Optional[str], user_id: Optional[str] = None) -> str:
         """Generate a unique cache key for the query"""

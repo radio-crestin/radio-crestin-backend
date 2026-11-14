@@ -1,5 +1,7 @@
+import copy
 import importlib
 import os
+import threading
 import traceback
 from typing import List, Type, Any
 
@@ -233,7 +235,37 @@ all_extensions = find_graphql_extensions()
 # Combine base extensions with dynamically loaded ones
 final_extensions = base_extensions + all_extensions
 
-schema = strawberry.Schema(
+class PerThreadExtensionsSchema(strawberry.Schema):
+    """Strawberry builds the extensions of synchronous execution once and
+    shares those instances between all requests (its TODO #3571), and it
+    points each one at the running request through
+    `extension.execution_context`. Requests run on many threads at once
+    (gthread workers), so a shared instance could act on another request's
+    context or state. Each thread gets its own copies; a thread runs one
+    request at a time. The copies share the parse and validation LRU caches
+    (copy.deepcopy keeps functions)."""
+
+    def __init__(self, *args, extensions=(), **kwargs):
+        templates = list(extensions)
+        super().__init__(*args, extensions=[_per_thread_copy(t) for t in templates], **kwargs)
+        self._thread_state = threading.local()
+
+    @property
+    def _sync_extensions(self):
+        extensions = getattr(self._thread_state, 'extensions', None)
+        if extensions is None:
+            extensions = self._thread_state.extensions = self.get_extensions(sync=True)
+        return extensions
+
+
+def _per_thread_copy(template):
+    """A factory Strawberry calls for each new set of extensions."""
+    if not isinstance(template, Extension):
+        return template
+    return lambda execution_context=None: copy.deepcopy(template)
+
+
+schema = PerThreadExtensionsSchema(
     query=query_root,
     mutation=mutation_root,
     directives=all_directives,
