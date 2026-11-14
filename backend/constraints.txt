@@ -59,7 +59,7 @@ future==1.0.0
 geographiclib==2.1
 geopy==2.4.1
 graphql-core==3.2.11
-gunicorn==23.0.0
+gunicorn==27.0.1
 h11==0.16.0
 httpcore==1.0.9
 httptools==0.8.0

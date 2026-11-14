@@ -58,7 +58,7 @@ start_gunicorn() {
         log_message "Starting Django $mode server (attempt $((RESTART_COUNT + 1))/$MAX_RESTARTS)..."
         
         # Start Gunicorn in background
-        gunicorn --config "$config_file" superapp.asgi:application &
+        gunicorn --config "$config_file" superapp.wsgi:application &
         GUNICORN_PID=$!
         
         log_message "Gunicorn process started with PID: $GUNICORN_PID"

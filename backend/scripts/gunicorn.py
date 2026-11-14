@@ -1,8 +1,11 @@
 """
-Gunicorn production configuration with Uvicorn ASGI workers.
+Gunicorn production configuration: WSGI with threaded (gthread) workers.
 
-Gunicorn manages worker processes (spawning, restarts, signals).
-Uvicorn handles requests via ASGI with uvloop for high concurrency.
+Every view is synchronous, so ASGI only added cost: Django ran each request
+on a thread of its own, which opened a new database connection (a TLS
+handshake to PgBouncer, ~18 ms CPU in prod) on every request that touched
+the database. A gthread worker keeps its threads, so each thread keeps its
+connection for CONN_MAX_AGE.
 """
 import multiprocessing
 import logging
@@ -14,11 +17,15 @@ backlog = 2048
 
 # Workers — capped at 2 to keep memory under control in containerized environments
 # Each worker loads ~200MB (Django + boto3 + strawberry + graphql-core).
-# Uvicorn workers handle concurrency via async, so 2 workers is sufficient.
 workers = min(int(os.environ.get("GUNICORN_WORKERS", 2)), 4)
-worker_class = "uvicorn.workers.UvicornWorker"
-max_requests = 1000
-max_requests_jitter = 100
+worker_class = "gthread"
+# Requests in flight per worker; each thread holds one database connection.
+threads = int(os.environ.get("GUNICORN_THREADS", 16))
+# A worker boot costs about 3 s of CPU in prod. At 1000 requests a worker
+# restarted every 4-5 minutes (~50 boots an hour); this still recycles each
+# worker about hourly.
+max_requests = 20000
+max_requests_jitter = 2000
 timeout = 120
 keepalive = 5
 graceful_timeout = 30
@@ -28,7 +35,9 @@ max_worker_lifetime = 3600
 accesslog = "-"
 errorlog = "-"
 loglevel = "info"
-access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s" %(D)s'
+# %(D)s: request duration in microseconds. X-Forwarded-For names the client
+# behind the ingress (%(h)s is the ingress).
+access_log_format = '%(h)s %({x-forwarded-for}i)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s" %(D)s'
 
 
 class ConnectionErrorFilter(logging.Filter):
@@ -49,6 +58,8 @@ secure_scheme_headers = {
 
 # Process
 proc_name = "gunicorn_superapp"
+# Gunicorn 24+ opens a control socket under $HOME; nothing uses it.
+control_socket_disable = True
 daemon = False
 pidfile = "/tmp/gunicorn.pid"
 user = 1001
@@ -62,7 +73,7 @@ raw_env = [
 
 
 def when_ready(server):
-    server.log.info("Gunicorn + Uvicorn ready on %s", server.address)
+    server.log.info("Gunicorn ready on %s", server.address)
 
 
 def post_fork(server, worker):

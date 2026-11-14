@@ -1,6 +1,8 @@
-# Gunicorn + Uvicorn Configuration
+# Gunicorn Configuration
 
-ASGI server setup using Gunicorn as process manager with Uvicorn workers.
+WSGI server setup: Gunicorn with threaded (`gthread`) workers. Every view is
+synchronous; under ASGI (Uvicorn workers, used until 2026-11) Django ran each
+request on a new thread, which opened a new database connection per request.
 
 ## Files
 
@@ -11,21 +13,20 @@ ASGI server setup using Gunicorn as process manager with Uvicorn workers.
 ## How It Works
 
 - **Gunicorn** manages worker processes (spawning, restarting, graceful shutdown)
-- **Uvicorn** handles requests via ASGI with `uvloop` (2-4x faster than standard asyncio)
-- Each worker handles many concurrent connections asynchronously
+- Each worker serves `threads` requests at once; each thread keeps its own
+  database connection open for `CONN_MAX_AGE`
 
 ## Configuration
 
 ### Production (`gunicorn.py`)
-- **Workers**: `CPU cores * 2 + 1`
-- **Worker Class**: `uvicorn.workers.UvicornWorker`
+- **Workers**: `GUNICORN_WORKERS` (default 2, at most 4)
+- **Worker Class**: `gthread`, `GUNICORN_THREADS` threads (default 16)
 - **Timeout**: 120s
-- **Max Requests**: 1000 (with jitter to prevent thundering herd)
-- **Worker Lifetime**: 3600s (recycled to prevent memory leaks)
+- **Max Requests**: 20000 (with jitter to prevent thundering herd)
 
 ### Development (`gunicorn-dev.py`)
 - **Workers**: 1
-- **Worker Class**: `uvicorn.workers.UvicornWorker`
+- **Worker Class**: `gthread`, 4 threads
 - **Auto-reload**: Enabled
 - **Logging**: Debug level
 
@@ -39,7 +40,7 @@ ASGI server setup using Gunicorn as process manager with Uvicorn workers.
 DEBUG=true ./scripts/run-server.sh
 
 # Direct
-gunicorn --config scripts/gunicorn.py superapp.asgi:application
+gunicorn --config scripts/gunicorn.py superapp.wsgi:application
 ```
 
 ## Auto-Restart Features
@@ -51,5 +52,5 @@ The `run-server.sh` script provides:
 
 ## Dependencies
 
-- `gunicorn>=23.0.0`
-- `uvicorn[standard]>=0.34.0` (includes `uvloop` + `httptools`)
+- `gunicorn==27.0.*` (its gthread worker finishes the connections it accepted
+  when it restarts; 23.0 dropped them)
