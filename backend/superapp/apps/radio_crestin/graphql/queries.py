@@ -28,6 +28,28 @@ from .rest_endpoints import METADATA_SETTLE_SECONDS
 CHANGES_LOOKBACK_SECONDS = 60
 
 
+# Most rows a list field returns. Without a cap, `songs` or `artists` with
+# no limit read the whole table (226,000 songs) in one public request.
+MAX_PAGE_SIZE = 100
+# Reviews are listed per station in the apps; the busiest station has ~300.
+MAX_REVIEWS_PAGE_SIZE = 500
+
+
+def _page(queryset, limit, offset, max_size=MAX_PAGE_SIZE):
+    """`queryset` from `offset`, at most `limit` rows and never more than
+    `max_size` (None: no cap). Negative values count as 0 instead of
+    failing the query."""
+    start = max(offset or 0, 0)
+    size = None if limit is None else max(limit, 0)
+    if max_size is not None:
+        size = max_size if size is None else min(size, max_size)
+    return queryset[start:] if size is None else queryset[start:start + size]
+
+
+def _size(limit, default):
+    return min(max(default if limit is None else limit, 0), MAX_PAGE_SIZE)
+
+
 @strawberry.input
 class StationOrderBy:
     order: Optional[OrderDirectionEnum] = None
@@ -289,11 +311,7 @@ class Query:
             # Default Hasura ordering
             queryset = queryset.order_by('order', 'title')
 
-        # Apply pagination
-        if offset:
-            queryset = queryset[offset:]
-        if limit:
-            queryset = queryset[:limit]
+        queryset = _page(queryset, limit, offset, max_size=None)
 
         # Convert to list to execute the query, then batch-attach caches
         stations_list = list(queryset)
@@ -392,13 +410,7 @@ class Query:
             # Default ordering
             queryset = queryset.order_by('order', 'name')
 
-        # Apply pagination
-        if offset:
-            queryset = queryset[offset:]
-        if limit:
-            queryset = queryset[:limit]
-
-        return queryset
+        return _page(queryset, limit, offset, max_size=None)
 
     # Primary key lookups (Hasura-style)
     @strawberry_django.field
@@ -434,16 +446,9 @@ class Query:
         """Get artists with pagination and search support"""
         if search:
             # Use the autocomplete service for fast trigram-based search
-            return AutocompleteService.search_artists(search, limit or 10)
+            return AutocompleteService.search_artists(search, _size(limit, 10))
 
-        queryset = Artists.objects.all()
-
-        if offset:
-            queryset = queryset[offset:]
-        if limit:
-            queryset = queryset[:limit]
-
-        return queryset
+        return _page(Artists.objects.all(), limit, offset)
 
     @strawberry_django.field
     def artists_by_pk(self, id: int) -> Optional[ArtistType]:
@@ -463,16 +468,9 @@ class Query:
         """Get songs with pagination and search support"""
         if search:
             # Use the autocomplete service for fast trigram-based search
-            return AutocompleteService.search_songs(search, limit or 10)
+            return AutocompleteService.search_songs(search, _size(limit, 10))
 
-        queryset = Songs.objects.select_related('artist')
-
-        if offset:
-            queryset = queryset[offset:]
-        if limit:
-            queryset = queryset[:limit]
-
-        return queryset
+        return _page(Songs.objects.select_related('artist'), limit, offset)
 
     @strawberry_django.field
     def songs_by_pk(self, id: int) -> Optional[SongType]:
@@ -490,13 +488,7 @@ class Query:
     ) -> List[PostType]:
         """Get posts with pagination"""
         queryset = Posts.objects.select_related('station').order_by('-published')
-
-        if offset:
-            queryset = queryset[offset:]
-        if limit:
-            queryset = queryset[:limit]
-
-        return queryset
+        return _page(queryset, limit, offset)
 
     @strawberry_django.field
     def posts_by_pk(self, id: int) -> Optional[PostType]:
@@ -540,12 +532,7 @@ class Query:
             else:
                 return []
 
-        queryset = queryset.order_by('-created_at')
-
-        if offset:
-            queryset = queryset[offset:]
-        if limit:
-            queryset = queryset[:limit]
+        queryset = _page(queryset.order_by('-created_at'), limit, offset, max_size=MAX_REVIEWS_PAGE_SIZE)
 
         return [
             ReviewType(
@@ -583,7 +570,7 @@ class Query:
         return AutocompleteService.get_autocomplete_suggestions(
             query=query,
             search_type=search_type or "combined",
-            limit=limit or 10
+            limit=_size(limit, 10)
         )
 
     @strawberry.field
