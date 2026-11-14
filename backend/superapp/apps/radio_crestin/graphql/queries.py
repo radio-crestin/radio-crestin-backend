@@ -15,7 +15,7 @@ from .types import (
     StationStreamingConfigType, StationScraperConfigType,
 )
 from ..models import Stations, StationGroups, StationStreams, StationPlaylistItems, Posts, StationToStationGroup, Artists, Songs
-from ..models import StationsNowPlayingHistory
+from ..models import StationsNowPlaying, StationsNowPlayingHistory
 from ..services import AutocompleteService
 from ..utils.cdn_proxy import metadata_song_thumbnail_url, proxy_image_url
 from .rest_endpoints import METADATA_SETTLE_SECONDS
@@ -71,9 +71,44 @@ def _latest_history_per_station(station_ids, as_of_dt):
 
     records = StationsNowPlayingHistory.objects.filter(
         id__in=history_ids,
-    ).select_related('song', 'song__artist')
+    ).select_related('song', 'song__artist').only(*_HISTORY_ROW_FIELDS)
 
     return {h.station_id: h for h in records}
+
+
+# What the stations-metadata answer reads from a station and its rows; the
+# other columns (descriptions, uptime raw_data JSON, ...) are never loaded.
+_METADATA_STATION_FIELDS = (
+    'id', 'slug', 'title', 'latest_station_now_playing_id', 'latest_station_uptime',
+    'latest_station_uptime__is_up', 'latest_station_uptime__latency_ms',
+    'latest_station_uptime__timestamp',
+)
+_SONG_FIELDS = (
+    'song__id', 'song__name', 'song__thumbnail_url',
+    'song__artist__id', 'song__artist__name', 'song__artist__thumbnail_url',
+)
+_HISTORY_ROW_FIELDS = (
+    'id', 'station_id', 'timestamp', 'song_started_at', 'listeners', 'song', *_SONG_FIELDS,
+)
+
+
+def _metadata_stations(**filters):
+    return Stations.objects.filter(**filters).select_related(
+        'latest_station_uptime',
+    ).only(*_METADATA_STATION_FIELDS)
+
+
+def _attach_current_now_playing(stations, history_by_station):
+    """Load, in one query, the current now playing of the stations that
+    have no history row to answer from (their answer falls back to it):
+    read one by one, it cost 2-3 queries per such station."""
+    missing = [s for s in stations if s.id not in history_by_station]
+    ids = [s.latest_station_now_playing_id for s in missing if s.latest_station_now_playing_id]
+    now_playing = StationsNowPlaying.objects.filter(id__in=ids).select_related(
+        'song', 'song__artist',
+    ).only('id', 'timestamp', 'listeners', 'song', *_SONG_FIELDS).in_bulk() if ids else {}
+    for station in missing:
+        station.latest_station_now_playing = now_playing.get(station.latest_station_now_playing_id)
 
 
 def _stations_base_queryset():
@@ -673,11 +708,7 @@ class Query:
                 return []
 
             # Query 2: load those stations
-            qs = Stations.objects.filter(
-                id__in=changed_ids, **station_filter,
-            ).select_related(
-                'latest_station_uptime',
-            )
+            qs = _metadata_stations(id__in=changed_ids, **station_filter)
             if station_exclude:
                 qs = qs.exclude(**station_exclude)
             stations = list(qs)
@@ -686,6 +717,7 @@ class Query:
 
             # Query 3: latest history per station via LATERAL JOIN (O(n_stations))
             history_by_station = _latest_history_per_station(station_ids, as_of_dt)
+            _attach_current_now_playing(stations, history_by_station)
 
             # Internal listener counts (point-in-time-now only — relevant
             # because `changes_from_timestamp` polling returns *current*
@@ -710,9 +742,7 @@ class Query:
         # genuine historical playback (don't, because internal counts are
         # point-in-time-now only).
         if timestamp is not None:
-            qs = Stations.objects.filter(**station_filter).select_related(
-                'latest_station_uptime',
-            ).order_by('order', 'title')
+            qs = _metadata_stations(**station_filter).order_by('order', 'title')
             if station_exclude:
                 qs = qs.exclude(**station_exclude)
             stations = list(qs)
@@ -721,6 +751,7 @@ class Query:
 
             # Latest history per station via LATERAL JOIN (O(n_stations))
             history_by_station = _latest_history_per_station(station_ids, as_of_dt)
+            _attach_current_now_playing(stations, history_by_station)
 
             # Near-now means not yet settled: a settled answer is cached as
             # immutable, so it must not carry counts taken now.
