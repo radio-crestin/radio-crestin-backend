@@ -23,6 +23,9 @@ class SongsAdmin(SuperAppModelAdmin):
 
     # Optimization for large datasets
     list_per_page = 25
+    # Newest first through the primary key. Meta.ordering (artist, name) joined and
+    # sorted every song by artist name: 390 ms on 226k songs.
+    ordering = ('-id',)
     list_max_show_all = 100
     show_full_result_count = False
     list_select_related = ['artist']

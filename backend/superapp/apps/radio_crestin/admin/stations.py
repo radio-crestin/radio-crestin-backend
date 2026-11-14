@@ -87,6 +87,7 @@ class StationsAdmin(SuperAppModelAdmin):
     resource_class = StationResource
     list_display = ['title', 'station_type', 'is_public', 'status_indicator', 'thumbnail_preview', 'station_order', 'website_link', 'groups_display', 'latest_uptime_status']
     list_filter = ['disabled', 'is_public', 'station_type', 'transcode_enabled', 'feature_latest_post', 'groups', 'created_at']
+    list_per_page = 100  # every station (~75) on one page
     search_fields = ['title', 'slug', 'website', 'email']
     prepopulated_fields = {'slug': ('title',)}
     autocomplete_fields = ['latest_station_uptime', 'latest_station_now_playing', 'visible_to_devices']
