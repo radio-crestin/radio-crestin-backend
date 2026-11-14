@@ -4,6 +4,7 @@ from django.utils.html import format_html
 from django.urls import reverse
 from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Q
+from unfold.contrib.filters.admin import AutocompleteSelectFilter
 
 from superapp.apps.admin_portal.admin import SuperAppModelAdmin
 from superapp.apps.admin_portal.sites import superapp_admin_site
@@ -14,7 +15,7 @@ from ..services import AutocompleteService
 @admin.register(Songs, site=superapp_admin_site)
 class SongsAdmin(SuperAppModelAdmin):
     list_display = ['name', 'artist_link', 'thumbnail_preview', 'created_at']
-    list_filter = ['dirty_metadata', 'created_at', 'updated_at', 'artist']
+    list_filter = ['dirty_metadata', 'created_at', 'updated_at', ('artist', AutocompleteSelectFilter)]
     search_fields = ['name', 'artist__name']
     autocomplete_fields = ['artist']
     readonly_fields = ['thumbnail_url', 'created_at', 'updated_at', 'thumbnail_preview']

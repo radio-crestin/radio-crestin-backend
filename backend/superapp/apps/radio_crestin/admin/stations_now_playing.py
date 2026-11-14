@@ -12,7 +12,7 @@ from ..models import StationsNowPlaying
 @admin.register(StationsNowPlaying, site=superapp_admin_site)
 class StationsNowPlayingAdmin(SuperAppModelAdmin):
     list_display = ['pk', 'station_link', 'song_link', 'timestamp', 'listeners', 'has_error']
-    list_filter = ['timestamp', 'station', 'song__artist']
+    list_filter = ['timestamp', 'station']
     search_fields = ['station__title', 'song__name', 'song__artist__name']
     autocomplete_fields = ['station', 'song']
     readonly_fields = ['created_at', 'updated_at', 'raw_data', 'error_preview']
