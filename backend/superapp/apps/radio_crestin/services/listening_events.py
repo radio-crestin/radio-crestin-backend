@@ -1,7 +1,10 @@
 """Records the HLS listening events the streaming pods submit.
 
-Every pod with listeners sends a batch every 10 s (log_monitor.py), one
-event per listening session (about 15,000 batches an hour). A batch is
+Every pod with listeners sends a batch every 20 s (log_monitor.py), a few
+events per listening session: its first request in the batch, then one
+summary per request type with request_count, each dated by a real request.
+Sessions are dated and counted from those, never from when the batch
+arrived, so the batch length shifts nothing. A batch is
 written with a fixed number of queries whatever its size: one per table to
 read the stations, users and active sessions, one insert each for the new
 users and sessions, and one update for the sessions that continue.
@@ -124,13 +127,16 @@ def _still_active(session, now) -> bool:
 
 
 def _new_session(user, event, now) -> ListeningSessions:
+    """A session starting at the event's request (a pod clock ahead of
+    ours cannot date it in the future)."""
     source = event.source
+    started = min(event.timestamp, now)
     return ListeningSessions(
         user=user,
         station=event.station,
         anonymous_session_id=event.session_id,
-        start_time=now,
-        last_activity=now,
+        start_time=started,
+        last_activity=started,
         ip_address=source.ip_address,
         user_agent=source.user_agent,
         referer=source.referer,
@@ -139,14 +145,16 @@ def _new_session(user, event, now) -> ListeningSessions:
 
 
 def _count_activity(session, event, now) -> None:
-    """ListeningSessions.update_activity, without the save."""
-    session.last_activity = event.timestamp
-    session.total_requests += 1
+    """ListeningSessions.update_activity, without the save. An event stands
+    for request_count requests (one when it is missing)."""
+    requests = event.source.request_count or 1
+    session.last_activity = max(session.last_activity, event.timestamp)
+    session.total_requests += requests
     session.bytes_transferred += event.source.bytes_transferred
     if event.source.event_type == 'playlist_request':
-        session.playlist_requests += 1
+        session.playlist_requests += requests
     else:
-        session.segment_requests += 1
+        session.segment_requests += requests
     session.duration_seconds = int((session.last_activity - session.start_time).total_seconds())
     session.is_active = True
 
