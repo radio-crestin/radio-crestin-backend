@@ -32,7 +32,10 @@ class IsAnonymousFilter(admin.SimpleListFilter):
 
 
 class PlatformFilter(admin.SimpleListFilter):
-    """Fixed choices: the default filter would scan every device for its distinct platforms."""
+    """Fixed choices: the default filter would scan every row for its distinct platforms.
+
+    Filters the field named by parameter_name; subclass and override it for another model.
+    """
     title = _('Device platform')
     parameter_name = 'device_platform'
 
@@ -40,7 +43,7 @@ class PlatformFilter(admin.SimpleListFilter):
         return (('android', 'Android'), ('ios', 'iOS'))
 
     def queryset(self, request, queryset):
-        return queryset.filter(device_platform__iexact=self.value()) if self.value() else queryset
+        return queryset.filter(**{f'{self.parameter_name}__iexact': self.value()}) if self.value() else queryset
 
 
 @admin.register(AppUsers, site=superapp_admin_site)

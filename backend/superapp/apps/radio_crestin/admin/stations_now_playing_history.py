@@ -4,6 +4,7 @@ from django.utils.html import format_html
 from django.urls import reverse
 
 from unfold.contrib.filters.admin import RangeDateTimeFilter, AutocompleteSelectFilter
+from unfold.paginator import InfinitePaginator
 
 from superapp.apps.admin_portal.admin import SuperAppModelAdmin
 from superapp.apps.admin_portal.sites import superapp_admin_site
@@ -28,6 +29,7 @@ class StationsNowPlayingHistoryAdmin(SuperAppModelAdmin):
     ordering = ['-timestamp']
 
     list_per_page = 25
+    paginator = InfinitePaginator
     show_full_result_count = False
 
     fieldsets = (

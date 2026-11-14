@@ -7,6 +7,7 @@ from django.utils.translation import gettext_lazy as _
 from django_celery_beat.models import PeriodicTask, IntervalSchedule, CrontabSchedule, SolarSchedule, ClockedSchedule
 from django_celery_results.admin import TaskResult, GroupResult, TaskResultAdmin, GroupResultAdmin
 from unfold.decorators import action
+from unfold.paginator import InfinitePaginator
 
 from superapp.apps.admin_portal.admin import SuperAppModelAdmin
 from superapp.apps.admin_portal.sites import superapp_admin_site
@@ -22,8 +23,10 @@ class BasePortalTaskResultAdmin(TaskResultAdmin, SuperAppModelAdmin):
     list_display = ('task_id', 'periodic_task_name', 'task_name', 'date_created', 'date_done',
                     'status', 'worker')
 
-    date_hierarchy = 'date_created'
+    list_filter = ('status', 'date_done')
     ordering = ('-date_created',)
+    paginator = InfinitePaginator
+    show_full_result_count = False
 
     @unfold.decorators.action(description=_("Drop all tasks"))
     def drop_all_tasks_action(self, request):

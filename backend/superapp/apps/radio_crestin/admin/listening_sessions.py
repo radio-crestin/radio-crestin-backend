@@ -5,6 +5,7 @@ from django.utils import timezone
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 import unfold.decorators
+from unfold.paginator import InfinitePaginator
 
 from superapp.apps.admin_portal.admin import SuperAppModelAdmin
 from superapp.apps.admin_portal.sites import superapp_admin_site
@@ -22,8 +23,9 @@ class ListeningSessionsAdmin(SuperAppModelAdmin):
     search_fields = ['user__email', 'user__anonymous_id', 'station__title', 'anonymous_session_id', 'ip_address']
     autocomplete_fields = ['user', 'station']
     readonly_fields = ['created_at', 'updated_at', 'duration_display', 'session_preview', 'user_agent_display', 'last_activity']
-    date_hierarchy = 'start_time'
     ordering = ['-last_activity']
+    paginator = InfinitePaginator
+    show_full_result_count = False
     
     fieldsets = (
         (_("Session Details"), {

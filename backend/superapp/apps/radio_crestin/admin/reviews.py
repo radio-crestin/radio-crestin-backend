@@ -43,6 +43,8 @@ class ReviewsAdmin(SuperAppModelAdmin):
     )
     
     def stars_display(self, obj):
+        if obj.stars is None:
+            return "-"
         filled_stars = '★' * obj.stars
         empty_stars = '☆' * (5 - obj.stars)
         color = '#FFD700' if obj.stars >= 4 else '#FFA500' if obj.stars >= 2 else '#FF6347'
@@ -79,4 +81,4 @@ class ReviewsAdmin(SuperAppModelAdmin):
     unverify_reviews.short_description = _("Unverify selected reviews")
     
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('user', 'station', 'song')
+        return super().get_queryset(request).select_related('user', 'station', 'song__artist')

@@ -82,6 +82,7 @@ class Reviews(models.Model):
             models.Index(fields=['station', 'ip_address']),
             models.Index(fields=['user_identifier']),
             models.Index(fields=['song']),
+            models.Index(fields=['created_at'], name='reviews_created_at_idx'),
         ]
 
     def __str__(self):

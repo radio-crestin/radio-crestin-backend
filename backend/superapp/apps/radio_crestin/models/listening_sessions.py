@@ -78,6 +78,7 @@ class ListeningSessions(models.Model):
             models.Index(fields=['user', 'station', 'last_activity']),
             models.Index(fields=['anonymous_session_id', 'station']),
             models.Index(fields=['is_active', 'last_activity']),
+            models.Index(fields=['last_activity'], name='listening_last_activity_idx'),
         ]
 
     def __str__(self):

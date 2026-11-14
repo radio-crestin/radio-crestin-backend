@@ -3,6 +3,8 @@ from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils import timezone
+from unfold.contrib.filters.admin import AutocompleteSelectFilter
+from unfold.paginator import InfinitePaginator
 
 from superapp.apps.admin_portal.admin import SuperAppModelAdmin
 from superapp.apps.admin_portal.sites import superapp_admin_site
@@ -48,6 +50,7 @@ class ShareLinkAdmin(SuperAppModelAdmin):
     ]
     
     autocomplete_fields = ['user']
+    list_select_related = ['user']
     
     ordering = ['-created_at']
     
@@ -134,7 +137,7 @@ class ShareLinkVisitAdmin(SuperAppModelAdmin):
     
     list_filter = [
         'visited_at',
-        ('share_link', admin.RelatedOnlyFieldListFilter)
+        ('share_link', AutocompleteSelectFilter)
     ]
     
     search_fields = [
@@ -155,8 +158,9 @@ class ShareLinkVisitAdmin(SuperAppModelAdmin):
     ]
     
     ordering = ['-visited_at']
-    
-    date_hierarchy = 'visited_at'
+    list_select_related = ['share_link']
+    paginator = InfinitePaginator
+    show_full_result_count = False
     
     fieldsets = (
         (_('Visit Information'), {
