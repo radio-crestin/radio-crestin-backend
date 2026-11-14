@@ -12,6 +12,10 @@ validate_public_slug = RegexValidator(
 )
 CONTACT_SCHEMES = ('mailto:', 'tel:')
 
+# An uploaded card icon: a drawing (SVG) or a picture.
+ICON_RASTER_EXTENSIONS = ('jpg', 'jpeg', 'png', 'webp')
+ICON_FILE_EXTENSIONS = ('svg', *ICON_RASTER_EXTENSIONS)
+
 
 def validate_web_url(value: str):
     """http(s) only: no javascript:, data:, vbscript:, file: or ftp:."""
