@@ -8,7 +8,7 @@ class Migration(migrations.Migration):
     atomic = False
 
     dependencies = [
-        ('radio_crestin', '0054_song_thumbnail_checks'),
+        ('radio_crestin', '0072_announcement_stat_buckets'),
     ]
 
     operations = [

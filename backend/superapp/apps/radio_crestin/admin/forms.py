@@ -18,6 +18,7 @@ from superapp.apps.admin_portal.sites import superapp_admin_site
 from ..models import Form, FormKind, FormQuestion, FormSubmission, QuestionType
 from ..models.forms import CHOICE_TYPES
 from ..services import forms as form_service
+from .app_users import PlatformFilter
 
 TEXT_ANSWERS_PER_PAGE = 50
 
@@ -146,10 +147,14 @@ class FormAdmin(SuperAppModelAdmin):
         return response
 
 
+class SubmissionPlatformFilter(PlatformFilter):
+    parameter_name = 'platform'
+
+
 @admin.register(FormSubmission, site=superapp_admin_site)
 class FormSubmissionAdmin(SuperAppModelAdmin):
     list_display = ['form', 'device_id', 'platform', 'country', 'created_at']
-    list_filter = ['form', 'platform']
+    list_filter = ['form', SubmissionPlatformFilter]
     search_fields = ['device_id', 'form__slug']
     readonly_fields = ['form', 'device_id', 'platform', 'app_version', 'locale', 'country', 'answers', 'created_at']
 
