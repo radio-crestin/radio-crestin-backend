@@ -33,6 +33,7 @@ from ..models import Stations, ListeningSessions, AppUsers
 from ..services.share_link_service import ShareLinkService
 from ..services.review_service import ReviewService
 from ..services.listening_events import record_listening_events
+from ..utils.streaming_pod_auth import is_streaming_pod
 
 
 class IsSuperuser(BasePermission):
@@ -53,12 +54,7 @@ class IsStreamingPod(BasePermission):
     def has_permission(
             self, source: typing.Any, info: strawberry.Info, **kwargs
     ) -> bool:
-        request = info.context.request
-        api_key = request.headers.get('X-Streaming-Api-Key', '')
-        expected_key = os.getenv('STREAMING_POD_API_KEY', '')
-        if not expected_key:
-            return False
-        return api_key == expected_key
+        return is_streaming_pod(info.context.request)
 
 
 @strawberry.type

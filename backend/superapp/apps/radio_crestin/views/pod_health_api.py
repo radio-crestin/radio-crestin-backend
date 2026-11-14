@@ -1,5 +1,4 @@
 import json
-import os
 
 from django.http import JsonResponse
 from django.utils import timezone
@@ -8,13 +7,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 
 from ..models import Stations
-
-
-def _check_api_key(request) -> bool:
-    """Validate the streaming pod API key."""
-    key = request.headers.get('X-Streaming-Api-Key', '')
-    expected = os.getenv('STREAMING_POD_API_KEY', 'dev-streaming-key')
-    return key == expected
+from ..utils.streaming_pod_auth import is_streaming_pod
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -30,7 +23,7 @@ class PodHealthReportView(View):
     """
 
     def post(self, request):
-        if not _check_api_key(request):
+        if not is_streaming_pod(request):
             return JsonResponse({'error': 'Unauthorized'}, status=401)
 
         try:

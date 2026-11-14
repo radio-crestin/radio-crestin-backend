@@ -17,6 +17,7 @@ from .types import (
 from ..models import Stations, StationGroups, StationStreams, StationPlaylistItems, Posts, StationToStationGroup, Artists, Songs
 from ..models import StationsNowPlaying, StationsNowPlayingHistory
 from ..services import AutocompleteService
+from ..utils.streaming_pod_auth import is_streaming_pod
 from ..utils.cdn_proxy import metadata_song_thumbnail_url, proxy_image_url
 from .rest_endpoints import METADATA_SETTLE_SECONDS
 
@@ -895,11 +896,7 @@ class Query:
     ) -> List[StationStreamingConfigType]:
         """Get station streaming configs for pod bootstrap.
         Protected by X-Streaming-Api-Key header."""
-        import os
-        request = info.context.request
-        api_key = request.headers.get('X-Streaming-Api-Key', '')
-        expected_key = os.getenv('STREAMING_POD_API_KEY', '')
-        if not expected_key or api_key != expected_key:
+        if not is_streaming_pod(info.context.request):
             raise PermissionError("Invalid streaming pod API key")
 
         qs = Stations.objects.filter(

@@ -51,3 +51,18 @@ class PodHealthApiTests(TestCase):
             content_type='application/json', HTTP_X_STREAMING_API_KEY='wrong',
         )
         self.assertEqual(response.status_code, 401)
+
+
+class PodHealthWithoutKeyTests(TestCase):
+    """An unset STREAMING_POD_API_KEY used to fall back to a default key
+    ('dev-streaming-key') here; now it refuses everyone."""
+
+    def test_unset_key_refuses_the_old_default(self):
+        make_station('station-a')
+        env = {k: v for k, v in os.environ.items() if k != 'STREAMING_POD_API_KEY'}
+        with patch.dict(os.environ, env, clear=True):
+            response = self.client.post(
+                '/api/v1/pod-health/', json.dumps({'station_slug': 'station-a'}),
+                content_type='application/json', HTTP_X_STREAMING_API_KEY='dev-streaming-key',
+            )
+        self.assertEqual(response.status_code, 401)

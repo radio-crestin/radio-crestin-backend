@@ -1,5 +1,6 @@
 import asyncio
 import os
+import secrets
 import logging
 
 from asgiref.sync import iscoroutinefunction, markcoroutinefunction
@@ -21,7 +22,7 @@ class GraphQlSuperuserApiAuthMiddleware:
         if request.path == '/graphql' or request.path == '/v1/graphql' or request.path == '/v2/graphql':
             auth_header = request.headers.get('Authorization')
             if not request.user.is_authenticated:
-                if auth_header and self.api_key and auth_header.endswith(self.api_key):
+                if auth_header and self.api_key and _ends_with_key(auth_header, self.api_key):
                     # Lazy load superuser only when needed
                     if self._superuser is None:
                         User = get_user_model()
@@ -35,6 +36,11 @@ class GraphQlSuperuserApiAuthMiddleware:
 
         response = self.get_response(request)
         return response
+
+
+def _ends_with_key(header: str, key: str) -> bool:
+    """`header` ends with `key` ("Bearer <key>" or the bare key), compared in constant time."""
+    return len(header) >= len(key) and secrets.compare_digest(header[-len(key):].encode(), key.encode())
 
 
 CREDENTIAL_HEADERS = ('Authorization', 'X-Streaming-Api-Key', 'X-Api-Key')
