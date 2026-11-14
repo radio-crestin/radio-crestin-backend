@@ -47,3 +47,25 @@ class PageSizeTests(GraphQLTestCase):
         result = self.graphql('{ artists(search: "Art", limit: 5000) { id } autocomplete(query: "Song", limit: 5000) }')
         self.assertNotIn('errors', result)
         self.assertLessEqual(len(result['data']['autocomplete']), MAX_PAGE_SIZE)
+
+
+class DocumentLimitTests(GraphQLTestCase):
+    def test_many_aliases_are_rejected_before_running(self):
+        from superapp.apps.graphql.schema import MAX_QUERY_ALIASES
+        fields = ' '.join(f'a{n}: songs(limit: 100) {{ id }}' for n in range(MAX_QUERY_ALIASES + 1))
+        result = self.graphql(f'{{ {fields} }}')
+        self.assertIsNone(result.get('data'))
+        self.assertIn('aliases', result['errors'][0]['message'])
+
+    def test_an_oversized_document_is_rejected(self):
+        from superapp.apps.graphql.schema import MAX_QUERY_TOKENS
+        fields = ' '.join(['id'] * MAX_QUERY_TOKENS)
+        result = self.graphql(f'{{ songs {{ {fields} }} }}')
+        self.assertIsNone(result.get('data'))
+        self.assertIn('token', result['errors'][0]['message'].lower())
+
+    def test_the_apps_queries_and_introspection_still_run(self):
+        from graphql import get_introspection_query
+        from ..constants import STATIONS_GRAPHQL_QUERY
+        self.assertNotIn('errors', self.graphql(STATIONS_GRAPHQL_QUERY))
+        self.assertNotIn('errors', self.graphql(get_introspection_query()))

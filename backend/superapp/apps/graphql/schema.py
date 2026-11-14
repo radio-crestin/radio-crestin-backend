@@ -8,7 +8,7 @@ from typing import List, Type, Any
 import strawberry
 from django.apps import apps
 from django.db import connection
-from strawberry.extensions import Extension, ParserCache, ValidationCache
+from strawberry.extensions import Extension, MaxAliasesLimiter, MaxTokensLimiter, ParserCache, QueryDepthLimiter, ValidationCache
 from strawberry.tools import merge_types
 from strawberry.types.base import StrawberryObjectDefinition
 from strawberry_django.optimizer import DjangoOptimizerExtension
@@ -211,7 +211,17 @@ from strawberry.schema.config import StrawberryConfig
 all_directives = find_graphql_directives()
 
 # Collect base extensions
+# Bounds on one document, so a single request cannot ask for unbounded work.
+# The apps' own queries use at most 180 tokens, depth 5 and no aliases; the
+# GraphiQL introspection query needs ~400 tokens and depth 13.
+MAX_QUERY_TOKENS = 2000
+MAX_QUERY_DEPTH = 15
+MAX_QUERY_ALIASES = 20
+
 base_extensions = [
+    MaxTokensLimiter(max_token_count=MAX_QUERY_TOKENS),
+    MaxAliasesLimiter(max_alias_count=MAX_QUERY_ALIASES),
+    QueryDepthLimiter(max_depth=MAX_QUERY_DEPTH),
     ParserCache(maxsize=1000),
     # In memory, per process: the Django-cache variant keyed Redis entries on
     # object addresses, so every process wrote 7-day keys no other one read.
