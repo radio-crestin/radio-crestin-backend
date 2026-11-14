@@ -19,26 +19,26 @@ class UptimeService:
         return Stations.objects.filter(disabled=False)
 
     @staticmethod
-    @transaction.atomic
     def upsert_station_uptime(station_id: int, data: StationUptimeData) -> bool:
-        """Upsert station uptime data"""
+        """Upsert station uptime data.
+
+        A station has one uptime row, which its latest_station_uptime points
+        to from the moment it is created. Streaming pods report every 15 s
+        (~14,000 reports an hour), so the common case is one UPDATE; the row
+        is created, and linked, only the first time.
+        """
+        fields = {
+            'timestamp': data.timestamp,
+            'is_up': data.is_up,
+            'latency_ms': data.latency_ms,
+            'raw_data': data.raw_data,
+        }
         try:
-            uptime, created = StationsUptime.objects.update_or_create(
-                station_id=station_id,
-                defaults={
-                    'timestamp': data.timestamp,
-                    'is_up': data.is_up,
-                    'latency_ms': data.latency_ms,
-                    'raw_data': data.raw_data,
-                }
-            )
-
-            # Update station's latest_station_uptime reference
-            Stations.objects.filter(id=station_id).update(
-                latest_station_uptime=uptime
-            )
-
-            logger.info(f"{'Created' if created else 'Updated'} uptime for station {station_id}")
+            updated = StationsUptime.objects.filter(station_id=station_id).update(
+                **fields, updated_at=timezone.now())
+            if not updated:
+                UptimeService._create_station_uptime(station_id, fields)
+            logger.debug(f"{'Updated' if updated else 'Created'} uptime for station {station_id}")
             return True
 
         except Exception as error:
@@ -46,3 +46,9 @@ class UptimeService:
                 raise
             logger.error(f"Error upserting station uptime for station {station_id}: {error}")
             return False
+
+    @staticmethod
+    @transaction.atomic
+    def _create_station_uptime(station_id: int, fields: Dict[str, Any]) -> None:
+        uptime, _ = StationsUptime.objects.update_or_create(station_id=station_id, defaults=fields)
+        Stations.objects.filter(id=station_id).update(latest_station_uptime=uptime)

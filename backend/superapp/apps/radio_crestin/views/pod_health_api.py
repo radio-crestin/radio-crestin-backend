@@ -42,9 +42,8 @@ class PodHealthReportView(View):
         if not station_slug:
             return JsonResponse({'error': 'station_slug required'}, status=400)
 
-        try:
-            station = Stations.objects.only('id', 'check_uptime').get(slug=station_slug)
-        except Stations.DoesNotExist:
+        station_id = Stations.objects.filter(slug=station_slug).values_list('id', flat=True).first()
+        if station_id is None:
             return JsonResponse({'error': f'Station {station_slug} not found'}, status=404)
 
         from superapp.apps.radio_crestin_scraping.services.uptime_service import UptimeService
@@ -65,5 +64,5 @@ class PodHealthReportView(View):
             },
         )
 
-        success = UptimeService.upsert_station_uptime(station.id, data)
+        success = UptimeService.upsert_station_uptime(station_id, data)
         return JsonResponse({'success': success})
