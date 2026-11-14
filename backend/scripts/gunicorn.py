@@ -36,8 +36,9 @@ accesslog = "-"
 errorlog = "-"
 loglevel = "info"
 # %(D)s: request duration in microseconds. X-Forwarded-For names the client
-# behind the ingress (%(h)s is the ingress).
-access_log_format = '%(h)s %({x-forwarded-for}i)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s" %(D)s'
+# behind the ingress (%(h)s is the ingress). %({host}i)s: the Host header,
+# which ALLOWED_HOSTS must cover.
+access_log_format = '%(h)s %({x-forwarded-for}i)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s" %({host}i)s %(D)s'
 
 
 class ConnectionErrorFilter(logging.Filter):
