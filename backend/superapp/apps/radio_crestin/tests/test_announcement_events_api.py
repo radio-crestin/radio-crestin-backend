@@ -132,8 +132,12 @@ class EventsEndpointTests(TestCase):
         self.assertIn('POST', response['Access-Control-Allow-Methods'])
 
 
+@override_settings(CACHES=LOCMEM_CACHE)
 class DeviceCountryTests(TestCase):
     URL = '/api/v1/devices/register/'
+
+    def setUp(self):
+        cache.clear()  # the registration rate limit lives in the cache
 
     def register(self, **headers):
         body = {'device_id': 'dev-1', 'platform': 'android', 'fcm_token': headers.pop('token', 'tok-1')}
