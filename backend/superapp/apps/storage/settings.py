@@ -12,8 +12,10 @@ def extend_superapp_settings(main_settings):
     Args:
         main_settings: Main Django settings dictionary
     """
-    # Add storage app to installed apps
-    main_settings['INSTALLED_APPS'] += ['superapp.apps.storage']
+    # Add storage app to installed apps, before django.contrib.staticfiles:
+    # its collectstatic command replaces Django's (the first app wins).
+    installed = main_settings['INSTALLED_APPS']
+    installed.insert(installed.index('django.contrib.staticfiles'), 'superapp.apps.storage')
 
     # Override STORAGES with our storage configuration
     main_settings['STORAGES'] = StorageConfig.get_storage_settings()
