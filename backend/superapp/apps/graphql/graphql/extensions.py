@@ -8,6 +8,11 @@ from strawberry.extensions import SchemaExtension
 
 logger = logging.getLogger(__name__)
 
+# Longest a client's @cached directive may keep a result in Redis. The TTL is
+# written by whoever sends the query, so unbounded it let anyone fill Redis
+# with long-lived entries (one per distinct query text).
+MAX_DIRECTIVE_TTL = 60
+
 
 @dataclass
 class CacheParams:
@@ -97,6 +102,11 @@ class CacheExtension(SchemaExtension):
                             self.cached_params[arg_name] = value
                         else:
                             self.cached_params[arg_name] = arg_value
+
+                    self.cached_params['ttl'] = _bounded_ttl(self.cached_params.get('ttl'))
+                    # A result computed for a signed-in user is never shared,
+                    # whatever the query asks.
+                    self.cached_params['include_user'] = True
 
                     # Get user ID if needed
                     user_id = None
@@ -236,6 +246,14 @@ class CacheExtension(SchemaExtension):
             prefix = f"graphql:user:{user_id}:query"
 
         return f"{prefix}:{key_hash}"
+
+
+def _bounded_ttl(value) -> int:
+    """The directive's TTL as seconds in 0..MAX_DIRECTIVE_TTL (0: not cached)."""
+    try:
+        return min(max(int(value), 0), MAX_DIRECTIVE_TTL)
+    except (TypeError, ValueError):
+        return 0
 
 
 class CacheControlExtension(SchemaExtension):
