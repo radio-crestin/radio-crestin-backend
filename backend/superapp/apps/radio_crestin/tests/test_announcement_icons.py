@@ -23,6 +23,9 @@ HOSTILE_SVG = (
     b'<animate attributeName="href" to="javascript:alert(1)"/>'
     b'<rect width="4" height="4" style="fill:url(https://evil.example/x)" onclick="alert(1)"/>'
     b'<style>@import url(https://evil.example/x.css);</style>'
+    b'<rect width="1" style="fill:u\\72l(https://evil.example/escaped)"/>'
+    b'<rect width="2" fill="image-set(\'https://evil.example/set\' 1x)"/>'
+    b'<rect width="3" fill="url( //evil.example/spaced)"/>'
     b'<circle r="2" fill="red"/></svg>'
 )
 
@@ -42,9 +45,18 @@ class CleanSvgTests(TestCase):
     def test_scripts_handlers_foreign_content_and_outside_links_are_removed(self):
         cleaned = clean_svg(HOSTILE_SVG).decode()
         for removed in ('script', 'onload', 'onclick', 'foreignObject', 'javascript', 'evil.example',
-                        '<animate', '<image', '@import'):
+                        '<animate', '<image', '<style', '@import', 'image-set'):
             self.assertNotIn(removed, cleaned)
         self.assertIn('fill="red"', cleaned)
+        self.assertIn('width="1"', cleaned)  # the shape stays, without its unsafe style
+
+    def test_colours_and_transforms_keep_their_functions(self):
+        cleaned = clean_svg(
+            b'<svg xmlns="http://www.w3.org/2000/svg"><g transform="translate(2, 3) rotate(45)">'
+            b'<rect fill="rgba(0, 0, 0, 0.5)" style="stroke:#fff;stroke-width:2"/></g></svg>'
+        ).decode()
+        for kept in ('translate(2, 3) rotate(45)', 'rgba(0, 0, 0, 0.5)', 'stroke:#fff;stroke-width:2'):
+            self.assertIn(kept, cleaned)
 
     def test_entities_and_non_svg_files_are_refused(self):
         bomb = b'<?xml version="1.0"?><!DOCTYPE svg [<!ENTITY a "aaaa">]><svg xmlns="http://www.w3.org/2000/svg">&a;</svg>'
