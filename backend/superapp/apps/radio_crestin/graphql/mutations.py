@@ -32,6 +32,7 @@ from .types import (
 from ..models import Stations, ListeningSessions, AppUsers
 from ..services.share_link_service import ShareLinkService
 from ..services.review_service import ReviewService
+from ..services.listening_events import record_listening_events
 
 
 class IsSuperuser(BasePermission):
@@ -75,82 +76,20 @@ class Mutation:
     @strawberry_django.mutation(handle_django_errors=True, permission_classes=[IsStreamingPod])
     def submit_listening_events(self, events: List[ListeningEventInput]) -> SubmitListeningEventsResponse:
         """Submit batch of listening events from HLS streaming logs"""
-        logger = logging.getLogger(__name__)
-        processed_count = 0
-
         try:
-            # Cache user and station lookups within the batch to avoid repeated queries
-            user_cache = {}
-            station_cache = {}
-
-            for event_input in events:
-                # DEBUG, not INFO: streaming pods submit these in batches for every
-                # active listener, so one line per event floods the web pod logs
-                # (and the formatting/IO cost lands in the request path).
-                logger.debug("Processing event: %s", event_input)
-                try:
-                    # Parse timestamp
-                    timestamp = datetime.fromisoformat(event_input.timestamp.replace('Z', '+00:00'))
-
-                    # Find or get station by slug (cached)
-                    station_slug = event_input.station_slug
-                    if station_slug not in station_cache:
-                        try:
-                            station_cache[station_slug] = Stations.objects.get(slug=station_slug)
-                        except Stations.DoesNotExist:
-                            station_cache[station_slug] = None
-                            logger.warning(f"Station not found: {station_slug}")
-                    station = station_cache[station_slug]
-                    if station is None:
-                        continue
-
-                    # Get or create AppUsers by anonymous_id (same device ID from ?s= param)
-                    # Links the same user across listening sessions, reviews, and share links
-                    session_id = event_input.anonymous_session_id
-                    if session_id not in user_cache:
-                        user, _ = AppUsers.objects.get_or_create(
-                            anonymous_id=session_id
-                        )
-                        user_cache[session_id] = user
-                    anonymous_user = user_cache[session_id]
-
-                    # Get or create listening session and update activity
-                    session, created = ListeningSessions.get_or_create_session(
-                        user=anonymous_user,
-                        station=station,
-                        anonymous_session_id=event_input.anonymous_session_id,
-                        ip_address=event_input.ip_address,
-                        user_agent=event_input.user_agent,
-                        referer=event_input.referer
-                    )
-
-                    # Update session activity with new event data
-                    is_playlist = event_input.event_type == 'playlist_request'
-                    session.update_activity(
-                        timestamp=timestamp,
-                        bytes_sent=event_input.bytes_transferred,
-                        is_playlist=is_playlist
-                    )
-
-                    processed_count += 1
-
-                except Exception as event_error:
-                    logger.error(f"Error processing individual event: {event_error}")
-                    continue
-
-            return SubmitListeningEventsResponse(
-                success=True,
-                message=f"Successfully processed {processed_count}/{len(events)} events",
-                processed_count=processed_count
-            )
-
+            processed_count = record_listening_events(events)
         except Exception as e:
-            logger.error(f"Error in submit_listening_events: {e}")
+            logging.getLogger(__name__).error(f"Error in submit_listening_events: {e}")
             return SubmitListeningEventsResponse(
                 success=False,
                 message=f"Error processing events: {str(e)}",
-                processed_count=processed_count
+                processed_count=0
             )
+        return SubmitListeningEventsResponse(
+            success=True,
+            message=f"Successfully processed {processed_count}/{len(events)} events",
+            processed_count=processed_count
+        )
 
     @strawberry_django.mutation(handle_django_errors=True, permission_classes=[IsSuperuser])
     def trigger_metadata_fetch(self, station_id: int) -> TriggerMetadataFetchResponse:
