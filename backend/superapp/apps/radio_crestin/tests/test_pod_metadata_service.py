@@ -281,3 +281,27 @@ def _newest_row_read_by_both():
         return row
 
     return newest_row
+
+
+class RepeatedReportWritesTests(TestCase):
+    """Pods re-report the playing song every 30 s or so: only the now
+    playing row changes, the song and the station rows are not rewritten."""
+
+    @classmethod
+    def setUpTestData(cls):
+        make_station('repeat-station')
+
+    def updates_of(self, *call):
+        from django.test.utils import CaptureQueriesContext
+        with CaptureQueriesContext(connection) as ctx:
+            report(*call[:2], thumbnail_url=call[2] if len(call) > 2 else None)
+        return {q['sql'].split('"')[1] for q in ctx.captured_queries if q['sql'].startswith('UPDATE')}
+
+    def test_same_song_again_updates_only_now_playing(self):
+        report('repeat-station', 'Same song')
+        self.assertEqual(self.updates_of('repeat-station', 'Same song'), {'stations_now_playing'})
+
+    def test_a_new_thumbnail_is_still_stored_on_the_song(self):
+        report('repeat-station', 'Same song')
+        self.assertIn('songs', self.updates_of('repeat-station', 'Same song', 'https://example.com/cover.jpg'))
+        self.assertEqual(Songs.objects.get(name='Same song').thumbnail_url, 'https://example.com/cover.jpg')

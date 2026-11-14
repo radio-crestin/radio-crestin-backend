@@ -7,7 +7,8 @@ from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.contrib import messages
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseNotAllowed, HttpResponseRedirect
+from django.template.response import TemplateResponse
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.conf import settings
@@ -345,6 +346,33 @@ class StationsAdmin(SuperAppModelAdmin):
         'scrape_single_station_sync',
         'scrape_single_station_async'
     ]
+    actions_list = ['rebuild_website']
+
+    @unfold.decorators.action(description=_("Rebuild website now"), permissions=['change'])
+    def rebuild_website(self, request):
+        """Calls the website's deploy hook right away (changes also rebuild it on their own)."""
+        from ..services import web_deploy
+        from ..tasks.trigger_web_deploy import trigger_web_deploy
+
+        changelist_url = reverse('admin:radio_crestin_stations_changelist')
+        if not web_deploy.hook_url():
+            messages.error(request, _('The website rebuild is not configured (WEB_DEPLOY_HOOK_URL is not set).'))
+            return redirect(changelist_url)
+        if request.method == 'GET':
+            return TemplateResponse(request, 'admin/radio_crestin/confirm_action.html', {
+                **self.admin_site.each_context(request),
+                'opts': self.model._meta,
+                'title': _('Rebuild website now'),
+                'lines': [_('radiocrestin.ro is rebuilt with the current stations and announcements. '
+                            'It also rebuilds on its own a couple of minutes after a change.')],
+                'confirm_label': _('Rebuild'),
+                'cancel_url': changelist_url,
+            })
+        if request.method != 'POST':
+            return HttpResponseNotAllowed(['GET', 'POST'])
+        trigger_web_deploy.delay(force=True)
+        messages.success(request, _('The website rebuild has started; it is live in a few minutes.'))
+        return redirect(changelist_url)
 
     def _execute_station_tasks(self, station_id, sync=True):
         from superapp.apps.radio_crestin_scraping.tasks.scrape_station_metadata import scrape_station_metadata

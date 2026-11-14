@@ -17,8 +17,9 @@ DUMMY_CACHE = {'default': {
 
 
 def make_station(slug, **extra):
+    extra.setdefault('station_order', 0.0)
     return Stations.objects.create(
-        slug=slug, title=slug, order=0, station_order=0.0,
+        slug=slug, title=slug, order=0,
         website='https://example.com', stream_url=f'https://example.com/{slug}',
         **extra,
     )

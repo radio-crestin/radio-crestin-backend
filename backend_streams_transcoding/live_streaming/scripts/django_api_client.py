@@ -41,13 +41,14 @@ def _request(method, path, body=None):
 
 
 def report_health(is_up, latency_ms=0, reason=""):
-    """Report pod health (FFmpeg status) to Django."""
+    """Report pod health (FFmpeg status) to Django; its answer
+    ({success, config_version}), or None when the report failed."""
     if not STATION_SLUG:
-        return False
+        return None
     result = _request("POST", "/api/v1/pod-health/", body={
         "station_slug": STATION_SLUG,
         "is_up": is_up,
         "latency_ms": latency_ms,
         "reason": reason,
     })
-    return result.get("success", False) if result else False
+    return result

@@ -1,5 +1,5 @@
 """
-Gunicorn development configuration with Uvicorn ASGI workers.
+Gunicorn development configuration (WSGI, threaded worker, like production).
 
 Single worker with auto-reload for local development.
 """
@@ -9,7 +9,8 @@ bind = "0.0.0.0:8080"
 
 # Workers - single worker for development
 workers = 1
-worker_class = "uvicorn.workers.UvicornWorker"
+worker_class = "gthread"
+threads = 4
 timeout = 60
 keepalive = 2
 graceful_timeout = 10
@@ -28,6 +29,7 @@ access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"
 proc_name = "gunicorn_superapp_dev"
 daemon = False
 pidfile = "/tmp/gunicorn-dev.pid"
+control_socket_disable = True
 user = 1001
 group = 1001
 worker_tmp_dir = "/tmp"

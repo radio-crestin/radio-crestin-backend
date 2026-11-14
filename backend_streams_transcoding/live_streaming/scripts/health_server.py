@@ -22,14 +22,20 @@ Runs on 127.0.0.1:8082.
 
 Also reports health to Django API so the station's uptime record reflects
 real FFmpeg status. Reports immediately on startup (is_up=False, starting),
-then every REPORT_INTERVAL seconds with current status. A stalled metadata
-monitor is added to that report's reason (and sent to PostHog) without
-failing /health: the audio is fine, and a restart would cut listeners off.
+then checks every REPORT_INTERVAL seconds and sends a report when its
+content (is_up, reason) changed, or a heartbeat every HEARTBEAT_INTERVAL
+seconds when it did not. A stalled metadata monitor is added to that
+report's reason (and sent to PostHog) without failing /health: the audio is
+fine, and a restart would cut listeners off.
+
+Django answers a report with the station's config_version; it is written to
+LATEST_CONFIG_VERSION so scraper_engine reloads its config when it changes.
 """
 
 import glob
 import json
 import os
+import re
 import sys
 import time
 import threading
@@ -60,6 +66,9 @@ SERVED_PLAYLIST = os.path.join(AAC_SEGMENTS_DIR, "index.m3u8")
 # withheld on purpose (audio replayed by a reconnect or a new ffmpeg run).
 SEGMENT_HISTORY = os.path.join(AAC_SEGMENTS_DIR, "dvr_history.json")
 METADATA_INDEX = "/data/metadata/index.json"
+# The station's config_version in Django's latest pod-health answer;
+# scraper_engine reads it.
+LATEST_CONFIG_VERSION = "/data/metadata/latest_config_version"
 HEALTH_MAX_AGE = int(os.environ.get("HEALTH_MAX_AGE", "30"))
 # metadata_monitor refreshes monitor_alive_at while the stream delivers
 # media; older than this means its reader is stuck.
@@ -69,7 +78,10 @@ MONITOR_STALE_REPORT_INTERVAL = 600
 # Ensures players have enough buffer before traffic is switched over.
 MIN_READY_SEGMENTS = int(os.environ.get("MIN_READY_SEGMENTS", "3"))
 LISTEN_PORT = 8082
+# How often health is checked; a report is sent only when it changed...
 REPORT_INTERVAL = int(os.environ.get("HEALTH_REPORT_INTERVAL", "15"))
+# ...or when the last one Django accepted is this old.
+HEARTBEAT_INTERVAL = int(os.environ.get("HEALTH_HEARTBEAT_INTERVAL", "60"))
 
 
 class HealthHandler(BaseHTTPRequestHandler):
@@ -263,37 +275,86 @@ def _measure_latency():
         return 0
 
 
-def _report_to_django(is_up, latency_ms=0, reason=""):
-    """Send a single health report to Django."""
+def report_key(is_up: bool, reason: str) -> tuple:
+    """What makes a report new: its verdict and reason, without the numbers
+    in the reason (ages, counts) that change on every check."""
+    return bool(is_up), re.sub(r"\d+", "#", reason)
+
+
+class HealthReporter:
+    """Sends a report when its key differs from the last one Django
+    accepted, or as a heartbeat when that one is HEARTBEAT_INTERVAL old.
+    A failed send is retried at the next check."""
+
+    def __init__(self, send, heartbeat: float = HEARTBEAT_INTERVAL):
+        self._send = send
+        self._heartbeat = heartbeat
+        self._sent_key = None
+        self._sent_at = 0.0
+
+    def report(self, is_up: bool, latency_ms: int, reason: str, now: float) -> bool:
+        """Whether a report was sent."""
+        key = report_key(is_up, reason)
+        if key == self._sent_key and now - self._sent_at < self._heartbeat:
+            return False
+        if self._send(is_up, latency_ms, reason):
+            self._sent_key, self._sent_at = key, now
+        return True
+
+
+def write_latest_config_version(version) -> None:
+    """tmp + os.replace, so scraper_engine never reads a partial file."""
+    if not isinstance(version, int) or isinstance(version, bool):
+        return
+    try:
+        os.makedirs(os.path.dirname(LATEST_CONFIG_VERSION), exist_ok=True)
+        tmp = LATEST_CONFIG_VERSION + ".tmp"
+        with open(tmp, "w") as f:
+            f.write(str(version))
+        os.replace(tmp, LATEST_CONFIG_VERSION)
+    except OSError as e:
+        print(f"Health report: config version write error: {e}", flush=True)
+
+
+def _report_to_django(is_up, latency_ms=0, reason="") -> bool:
+    """Send a single health report to Django; whether it was accepted."""
     try:
         import django_api_client
-        django_api_client.report_health(
+        response = django_api_client.report_health(
             is_up=is_up,
             latency_ms=latency_ms,
             reason=reason,
         )
     except Exception as e:
         print(f"Health report error: {e}", flush=True)
+        return False
+    if not response:
+        return False
+    # Django releases before the config_version answer send none.
+    write_latest_config_version(response.get("config_version"))
+    return bool(response.get("success"))
 
 
 def _report_health_loop():
     """Report FFmpeg health status to Django.
 
-    Reports immediately on startup (is_up=False, starting up), then
-    periodically with actual health status. This ensures the station
-    uptime reflects the real FFmpeg state from the moment the pod starts.
+    Reports immediately on startup (is_up=False, starting up), then the
+    actual health status whenever it changes, with a heartbeat every
+    HEARTBEAT_INTERVAL. This ensures the station uptime reflects the real
+    FFmpeg state from the moment the pod starts.
     """
+    reporter = HealthReporter(_report_to_django)
     # Report starting state immediately
-    _report_to_django(is_up=False, reason="pod starting, waiting for ffmpeg")
+    reporter.report(False, 0, "pod starting, waiting for ffmpeg", time.time())
 
     # Wait for first segment to appear
     while not glob.glob(os.path.join(AAC_SEGMENTS_DIR, "*.ts")):
         time.sleep(2)
 
     # Report that FFmpeg is now producing segments
-    _report_to_django(is_up=True, latency_ms=_measure_latency(), reason="ffmpeg producing segments")
+    reporter.report(True, _measure_latency(), "ffmpeg producing segments", time.time())
 
-    # Ongoing periodic reporting
+    # Ongoing reporting: on change, and a heartbeat
     last_stale_event = 0.0
     while True:
         time.sleep(REPORT_INTERVAL)
@@ -310,7 +371,7 @@ def _report_health_loop():
                 posthog_reporter.capture_event("metadata_monitor_stale", {
                     "stalled_s": int(stalled),
                 })
-        _report_to_django(is_up=ok, latency_ms=latency_ms, reason=reason)
+        reporter.report(ok, latency_ms, reason, now)
 
 
 if __name__ == "__main__":
@@ -320,5 +381,6 @@ if __name__ == "__main__":
     reporter.start()
 
     server = QuietHTTPServer(("127.0.0.1", LISTEN_PORT), HealthHandler)
-    print(f"Health server listening on 127.0.0.1:{LISTEN_PORT} (reporting every {REPORT_INTERVAL}s)")
+    print(f"Health server listening on 127.0.0.1:{LISTEN_PORT} (checking every "
+          f"{REPORT_INTERVAL}s, reporting changes and a {HEARTBEAT_INTERVAL}s heartbeat)")
     server.serve_forever()

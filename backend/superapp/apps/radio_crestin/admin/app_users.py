@@ -31,10 +31,25 @@ class IsAnonymousFilter(admin.SimpleListFilter):
         return queryset
 
 
+class PlatformFilter(admin.SimpleListFilter):
+    """Fixed choices: the default filter would scan every device for its distinct platforms."""
+    title = _('Device platform')
+    parameter_name = 'device_platform'
+
+    def lookups(self, request, model_admin):
+        return (('android', 'Android'), ('ios', 'iOS'))
+
+    def queryset(self, request, queryset):
+        return queryset.filter(device_platform__iexact=self.value()) if self.value() else queryset
+
+
 @admin.register(AppUsers, site=superapp_admin_site)
 class AppUsersAdmin(SuperAppModelAdmin):
     list_display = ['id', 'email', 'anonymous_id', 'user_type_display', 'device_platform', 'device_model', 'device_app_version', 'is_active', 'device_last_seen_at', 'created_at']
-    list_filter = ['is_active', 'device_platform', 'created_at', IsAnonymousFilter]
+    list_filter = ['is_active', PlatformFilter, 'created_at', IsAnonymousFilter]
+    # The table holds every device: don't count it twice per page, and skip the raw JSON on the list.
+    show_full_result_count = False
+    list_per_page = 50
     search_fields = ['email', 'anonymous_id', 'device_model', 'device_manufacturer', 'device_fcm_token']
     readonly_fields = [
         'created_at', 'modified_at', 'date_joined',
@@ -82,6 +97,12 @@ class AppUsersAdmin(SuperAppModelAdmin):
         }),
     )
     
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        if request.resolver_match and request.resolver_match.url_name.endswith('_changelist'):
+            queryset = queryset.defer('device_info')
+        return queryset
+
     def user_type_display(self, obj):
         """Display whether user is anonymous or registered"""
         if obj.email and obj.email.strip():

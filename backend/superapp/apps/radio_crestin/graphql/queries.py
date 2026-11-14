@@ -15,8 +15,9 @@ from .types import (
     StationStreamingConfigType, StationScraperConfigType,
 )
 from ..models import Stations, StationGroups, StationStreams, StationPlaylistItems, Posts, StationToStationGroup, Artists, Songs
-from ..models import StationsNowPlayingHistory
+from ..models import StationsNowPlaying, StationsNowPlayingHistory
 from ..services import AutocompleteService
+from ..utils.streaming_pod_auth import is_streaming_pod
 from ..utils.cdn_proxy import metadata_song_thumbnail_url, proxy_image_url
 from .rest_endpoints import METADATA_SETTLE_SECONDS
 
@@ -26,6 +27,33 @@ from .rest_endpoints import METADATA_SETTLE_SECONDS
 # written and T is at most 2 s in the future, so a row a client's previous
 # diff (C', T'=C] missed is dated after C - 47 s. 60 s adds margin.
 CHANGES_LOOKBACK_SECONDS = 60
+
+
+# Most rows a list field returns. Without a cap, `songs` or `artists` with
+# no limit read the whole table (226,000 songs) in one public request.
+MAX_PAGE_SIZE = 100
+# Reviews are listed per station in the apps; the busiest station has ~300.
+MAX_REVIEWS_PAGE_SIZE = 500
+
+
+# Rows that belong to a station only show while the station is listed
+# publicly: private stations are for their allowlisted devices only.
+_ON_PUBLIC_STATION = {'station__disabled': False, 'station__is_public': True}
+
+
+def _page(queryset, limit, offset, max_size=MAX_PAGE_SIZE):
+    """`queryset` from `offset`, at most `limit` rows and never more than
+    `max_size` (None: no cap). Negative values count as 0 instead of
+    failing the query."""
+    start = max(offset or 0, 0)
+    size = None if limit is None else max(limit, 0)
+    if max_size is not None:
+        size = max_size if size is None else min(size, max_size)
+    return queryset[start:] if size is None else queryset[start:start + size]
+
+
+def _size(limit, default):
+    return min(max(default if limit is None else limit, 0), MAX_PAGE_SIZE)
 
 
 @strawberry.input
@@ -71,9 +99,44 @@ def _latest_history_per_station(station_ids, as_of_dt):
 
     records = StationsNowPlayingHistory.objects.filter(
         id__in=history_ids,
-    ).select_related('song', 'song__artist')
+    ).select_related('song', 'song__artist').only(*_HISTORY_ROW_FIELDS)
 
     return {h.station_id: h for h in records}
+
+
+# What the stations-metadata answer reads from a station and its rows; the
+# other columns (descriptions, uptime raw_data JSON, ...) are never loaded.
+_METADATA_STATION_FIELDS = (
+    'id', 'slug', 'title', 'latest_station_now_playing_id', 'latest_station_uptime',
+    'latest_station_uptime__is_up', 'latest_station_uptime__latency_ms',
+    'latest_station_uptime__timestamp',
+)
+_SONG_FIELDS = (
+    'song__id', 'song__name', 'song__thumbnail_url',
+    'song__artist__id', 'song__artist__name', 'song__artist__thumbnail_url',
+)
+_HISTORY_ROW_FIELDS = (
+    'id', 'station_id', 'timestamp', 'song_started_at', 'listeners', 'song', *_SONG_FIELDS,
+)
+
+
+def _metadata_stations(**filters):
+    return Stations.objects.filter(**filters).select_related(
+        'latest_station_uptime',
+    ).only(*_METADATA_STATION_FIELDS)
+
+
+def _attach_current_now_playing(stations, history_by_station):
+    """Load, in one query, the current now playing of the stations that
+    have no history row to answer from (their answer falls back to it):
+    read one by one, it cost 2-3 queries per such station."""
+    missing = [s for s in stations if s.id not in history_by_station]
+    ids = [s.latest_station_now_playing_id for s in missing if s.latest_station_now_playing_id]
+    now_playing = StationsNowPlaying.objects.filter(id__in=ids).select_related(
+        'song', 'song__artist',
+    ).only('id', 'timestamp', 'listeners', 'song', *_SONG_FIELDS).in_bulk() if ids else {}
+    for station in missing:
+        station.latest_station_now_playing = now_playing.get(station.latest_station_now_playing_id)
 
 
 def _stations_base_queryset():
@@ -254,11 +317,7 @@ class Query:
             # Default Hasura ordering
             queryset = queryset.order_by('order', 'title')
 
-        # Apply pagination
-        if offset:
-            queryset = queryset[offset:]
-        if limit:
-            queryset = queryset[:limit]
+        queryset = _page(queryset, limit, offset, max_size=None)
 
         # Convert to list to execute the query, then batch-attach caches
         stations_list = list(queryset)
@@ -357,13 +416,7 @@ class Query:
             # Default ordering
             queryset = queryset.order_by('order', 'name')
 
-        # Apply pagination
-        if offset:
-            queryset = queryset[offset:]
-        if limit:
-            queryset = queryset[:limit]
-
-        return queryset
+        return _page(queryset, limit, offset, max_size=None)
 
     # Primary key lookups (Hasura-style)
     @strawberry_django.field
@@ -399,16 +452,9 @@ class Query:
         """Get artists with pagination and search support"""
         if search:
             # Use the autocomplete service for fast trigram-based search
-            return AutocompleteService.search_artists(search, limit or 10)
+            return AutocompleteService.search_artists(search, _size(limit, 10))
 
-        queryset = Artists.objects.all()
-
-        if offset:
-            queryset = queryset[offset:]
-        if limit:
-            queryset = queryset[:limit]
-
-        return queryset
+        return _page(Artists.objects.all(), limit, offset)
 
     @strawberry_django.field
     def artists_by_pk(self, id: int) -> Optional[ArtistType]:
@@ -428,16 +474,9 @@ class Query:
         """Get songs with pagination and search support"""
         if search:
             # Use the autocomplete service for fast trigram-based search
-            return AutocompleteService.search_songs(search, limit or 10)
+            return AutocompleteService.search_songs(search, _size(limit, 10))
 
-        queryset = Songs.objects.select_related('artist')
-
-        if offset:
-            queryset = queryset[offset:]
-        if limit:
-            queryset = queryset[:limit]
-
-        return queryset
+        return _page(Songs.objects.select_related('artist'), limit, offset)
 
     @strawberry_django.field
     def songs_by_pk(self, id: int) -> Optional[SongType]:
@@ -454,20 +493,14 @@ class Query:
         offset: Optional[int] = None,
     ) -> List[PostType]:
         """Get posts with pagination"""
-        queryset = Posts.objects.select_related('station').order_by('-published')
-
-        if offset:
-            queryset = queryset[offset:]
-        if limit:
-            queryset = queryset[:limit]
-
-        return queryset
+        queryset = Posts.objects.filter(**_ON_PUBLIC_STATION).select_related('station').order_by('-published')
+        return _page(queryset, limit, offset)
 
     @strawberry_django.field
     def posts_by_pk(self, id: int) -> Optional[PostType]:
         """Get post by primary key"""
         try:
-            return Posts.objects.select_related('station').get(id=id)
+            return Posts.objects.select_related('station').get(id=id, **_ON_PUBLIC_STATION)
         except Posts.DoesNotExist:
             return None
 
@@ -494,23 +527,18 @@ class Query:
         """
         from ..models import Reviews as ReviewsModel
 
-        queryset = ReviewsModel.objects.filter(verified=True)
+        queryset = ReviewsModel.objects.filter(verified=True, **_ON_PUBLIC_STATION)
 
         if station_id is not None:
             queryset = queryset.filter(station_id=station_id)
         elif station_slug:
-            station = Stations.objects.filter(slug=station_slug, disabled=False).first()
+            station = Stations.objects.filter(slug=station_slug, disabled=False, is_public=True).first()
             if station:
                 queryset = queryset.filter(station_id=station.id)
             else:
                 return []
 
-        queryset = queryset.order_by('-created_at')
-
-        if offset:
-            queryset = queryset[offset:]
-        if limit:
-            queryset = queryset[:limit]
+        queryset = _page(queryset.order_by('-created_at'), limit, offset, max_size=MAX_REVIEWS_PAGE_SIZE)
 
         return [
             ReviewType(
@@ -548,7 +576,7 @@ class Query:
         return AutocompleteService.get_autocomplete_suggestions(
             query=query,
             search_type=search_type or "combined",
-            limit=limit or 10
+            limit=_size(limit, 10)
         )
 
     @strawberry.field
@@ -673,11 +701,7 @@ class Query:
                 return []
 
             # Query 2: load those stations
-            qs = Stations.objects.filter(
-                id__in=changed_ids, **station_filter,
-            ).select_related(
-                'latest_station_uptime',
-            )
+            qs = _metadata_stations(id__in=changed_ids, **station_filter)
             if station_exclude:
                 qs = qs.exclude(**station_exclude)
             stations = list(qs)
@@ -686,6 +710,7 @@ class Query:
 
             # Query 3: latest history per station via LATERAL JOIN (O(n_stations))
             history_by_station = _latest_history_per_station(station_ids, as_of_dt)
+            _attach_current_now_playing(stations, history_by_station)
 
             # Internal listener counts (point-in-time-now only — relevant
             # because `changes_from_timestamp` polling returns *current*
@@ -710,9 +735,7 @@ class Query:
         # genuine historical playback (don't, because internal counts are
         # point-in-time-now only).
         if timestamp is not None:
-            qs = Stations.objects.filter(**station_filter).select_related(
-                'latest_station_uptime',
-            ).order_by('order', 'title')
+            qs = _metadata_stations(**station_filter).order_by('order', 'title')
             if station_exclude:
                 qs = qs.exclude(**station_exclude)
             stations = list(qs)
@@ -721,6 +744,7 @@ class Query:
 
             # Latest history per station via LATERAL JOIN (O(n_stations))
             history_by_station = _latest_history_per_station(station_ids, as_of_dt)
+            _attach_current_now_playing(stations, history_by_station)
 
             # Near-now means not yet settled: a settled answer is cached as
             # immutable, so it must not carry counts taken now.
@@ -877,11 +901,7 @@ class Query:
     ) -> List[StationStreamingConfigType]:
         """Get station streaming configs for pod bootstrap.
         Protected by X-Streaming-Api-Key header."""
-        import os
-        request = info.context.request
-        api_key = request.headers.get('X-Streaming-Api-Key', '')
-        expected_key = os.getenv('STREAMING_POD_API_KEY', '')
-        if not expected_key or api_key != expected_key:
+        if not is_streaming_pod(info.context.request):
             raise PermissionError("Invalid streaming pod API key")
 
         qs = Stations.objects.filter(

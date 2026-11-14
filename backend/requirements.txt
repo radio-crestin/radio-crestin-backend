@@ -1,5 +1,5 @@
 Django==5.1.*
-gunicorn==23.0.*
+gunicorn==27.0.*
 uvicorn[standard]==0.34.*
 whitenoise==6.9.*
 django-debug-toolbar==5.0.*

@@ -114,6 +114,10 @@ DATABASES = {
         **dj_database_url.config(default=os.environ.get('DATABASE_URL')),
         "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", 0)),
         "CONN_HEALTH_CHECKS": True,
+        # Production reaches Postgres through PgBouncer in transaction mode, where a
+        # server-side cursor (QuerySet.iterator()) can land on another server connection
+        # and fail with InvalidCursorName. Client-side cursors still stream in chunks.
+        "DISABLE_SERVER_SIDE_CURSORS": True,
     },
     # Direct connection bypassing PgBouncer - required for operations that use
     # server-side cursors (e.g. dumpdata), which are incompatible with

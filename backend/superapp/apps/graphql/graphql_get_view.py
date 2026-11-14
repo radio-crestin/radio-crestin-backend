@@ -62,6 +62,20 @@ _CACHE_CONTROL_HEADER_MAP = {
 }
 
 
+# Largest GraphQL request body. Django accepts 10 MB (DATA_UPLOAD_MAX_MEMORY_SIZE)
+# and this view parses the JSON before Strawberry sees it. The biggest real
+# bodies are the streaming pods' listening-event batches, a few KB each.
+MAX_BODY_BYTES = 1024 * 1024
+
+
+def _body_too_large(request) -> bool:
+    try:
+        length = int(request.META.get('CONTENT_LENGTH') or 0)
+    except ValueError:
+        length = 0
+    return length > MAX_BODY_BYTES
+
+
 def _is_mutation(query: str) -> bool:
     """Check if a GraphQL query string is a mutation."""
     return bool(_MUTATION_RE.match(query))
@@ -121,6 +135,9 @@ class GraphQLWithGetRedirectView(View):
         return cls._strawberry_view_func
 
     def dispatch(self, request, *args, **kwargs):
+        if request.method == 'POST' and _body_too_large(request):
+            return JsonResponse({"errors": [{"message": "Request body too large."}]}, status=413)
+
         # POST queries -> redirect to GET for CDN caching
         if request.method == 'POST' and self._should_redirect(request):
             return self._redirect_post_to_get(request)
@@ -249,7 +266,7 @@ class GraphQLWithGetRedirectView(View):
             response_data = {"data": result.data}
             if result.errors:
                 response_data["errors"] = [
-                    {"message": str(error)} for error in result.errors
+                    {"message": error.message} for error in result.errors
                 ]
 
             response = JsonResponse(response_data)
@@ -280,8 +297,8 @@ class GraphQLWithGetRedirectView(View):
             return response
 
         except Exception as e:
-            logger.error(f"Error in GraphQL GET query execution: {e}")
+            logger.exception(f"Error in GraphQL GET query execution: {e}")
             return JsonResponse(
-                {"errors": [{"message": f"Internal server error: {str(e)}"}]},
+                {"errors": [{"message": "Internal server error"}]},
                 status=500,
             )

@@ -65,7 +65,7 @@ def extend_superapp_settings(main_settings):
         },
         "SIDEBAR": {
             "show_search": False,
-            "show_all_applications": True,
+            "show_all_applications": False,
             "navigation": [
 
             ]

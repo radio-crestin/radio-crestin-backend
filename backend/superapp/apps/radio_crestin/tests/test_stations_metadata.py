@@ -183,6 +183,19 @@ class StationsMetadataPerformanceTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn('timestamp=', response['Location'])
 
+    def test_stations_metadata_accepts_a_clock_a_few_seconds_fast(self):
+        """A client clock up to 5 s ahead is served, not redirected."""
+        ahead = int(timezone.now().timestamp()) + 4
+        response = self.client.get('/api/v1/stations-metadata', {'timestamp': ahead})
+        self.assertEqual(response.status_code, 200)
+
+    def test_stations_metadata_redirects_a_timestamp_far_ahead(self):
+        """Beyond 5 s ahead the client is sent to the current window."""
+        ahead = int(timezone.now().timestamp()) + 30
+        response = self.client.get('/api/v1/stations-metadata', {'timestamp': ahead})
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn(str(ahead), response['Location'])
+
     def test_stations_metadata_filter_by_station_slugs(self):
         """GET /api/v1/stations-metadata with station_slugs returns only matching stations."""
         ts = int(timezone.now().timestamp())
@@ -359,3 +372,46 @@ class StationsMetadataPerformanceTests(TestCase):
         self.assertIn('/api/v1/stations-metadata-history', paths)
         self.assertIn('/api/v1/reviews', paths)
         self.assertIn('/api/v1/reviews/', paths)
+
+
+@override_settings(
+    CACHES={'default': {'BACKEND': 'django.core.cache.backends.dummy.DummyCache'}},
+)
+class StationsWithoutHistoryTests(TestCase):
+    """A station with no history row up to T answers with its current now
+    playing; in prod 7 such stations cost 21 extra queries per request."""
+
+    def add_stations(self, count):
+        for i in range(count):
+            n = Stations.objects.count()
+            artist = Artists.objects.create(name=f'Artist {n}', thumbnail_url=f'https://example.com/a{n}.jpg')
+            song = Songs.objects.create(name=f'Song {n}', artist=artist,
+                                        thumbnail_url=f'https://example.com/s{n}.jpg')
+            station = Stations.objects.create(
+                slug=f'quiet-{n}', title=f'Quiet {n}', order=n, station_order=float(n),
+                stream_url='http://stream.example.com', website='http://example.com',
+            )
+            station.latest_station_now_playing = StationsNowPlaying.objects.create(
+                station=station, timestamp=timezone.now(), song=song, listeners=3, raw_data={},
+            )
+            station.save()
+
+    def metadata(self):
+        with CaptureQueriesContext(connection) as ctx:
+            response = self.client.get('/api/v1/stations-metadata', {'timestamp': int(timezone.now().timestamp())})
+        return response.json()['data']['stations_metadata'], len(ctx.captured_queries)
+
+    def test_answers_with_the_current_song_in_a_fixed_number_of_queries(self):
+        self.add_stations(2)
+        _, two_stations = self.metadata()
+        self.add_stations(4)
+        stations, six_stations = self.metadata()
+        self.assertEqual(six_stations, two_stations)
+        self.assertEqual(len(stations), 6)
+        for station in stations:
+            n = station['slug'].split('-')[1]
+            song = station['now_playing']['song']
+            self.assertEqual(song['name'], f'Song {n}')
+            self.assertEqual(song['artist']['name'], f'Artist {n}')
+            self.assertTrue(song['thumbnail_url'])
+            self.assertEqual(station['now_playing']['listeners'], 3)

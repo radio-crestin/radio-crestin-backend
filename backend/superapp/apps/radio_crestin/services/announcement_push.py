@@ -1,0 +1,242 @@
+"""Push notifications for announcements, sent through firebase-admin to the matching AppUsers."""
+import json
+import logging
+import os
+import re
+from dataclasses import dataclass
+
+from django.db.models import Count, Q, Value
+from django.db.models.functions import Lower, Replace
+from django.utils import timezone
+
+from superapp.apps.posthog_error_tracking.utils import track_event
+from ..models import Announcement, AppUsers
+from .announcement_feed import rules_for, station_slugs
+from .announcement_targeting import APP_PLATFORMS, version_code
+
+logger = logging.getLogger(__name__)
+
+CREDENTIALS_ENV = 'FIREBASE_SERVICE_ACCOUNT_JSON'
+FIREBASE_APP_NAME = 'radio-crestin-announcements'
+ANDROID_CHANNEL_ID = 'announcements'
+BATCH_SIZE = 500
+POSTHOG_DISTINCT_ID = 'radio-crestin-backend'
+
+
+@dataclass(frozen=True)
+class Device:
+    id: int
+    platform: str
+    token: str
+
+
+def is_configured() -> bool:
+    return bool(os.environ.get(CREDENTIALS_ENV, '').strip())
+
+
+def _firebase_app():
+    import firebase_admin
+    from firebase_admin import credentials
+
+    try:
+        return firebase_admin.get_app(FIREBASE_APP_NAME)
+    except ValueError:
+        pass
+    try:
+        service_account = json.loads(os.environ[CREDENTIALS_ENV])
+        return firebase_admin.initialize_app(credentials.Certificate(service_account), name=FIREBASE_APP_NAME)
+    except Exception as error:
+        # The message could quote the service-account key: report only the error type.
+        raise RuntimeError(f'{CREDENTIALS_ENV} is not a valid service account ({type(error).__name__})') from None
+
+
+# ---------------------------------------------------------------- audience
+
+HAS_TOKEN = Q(device_fcm_token__isnull=False) & ~Q(device_fcm_token='')
+PAGE_SIZE = 2000
+
+
+def audience(announcement: Announcement):
+    """The app devices the announcement's filters match, decided entirely in SQL.
+
+    The same rules the clients apply to the card: platform, country, language prefix
+    (ro matches ro-RO and ro_RO) and app version (compared through device_app_version_code).
+    """
+    rules = rules_for(announcement)
+    users = AppUsers.objects.filter(anonymous_id__isnull=False).annotate(platform_key=Lower('device_platform'))
+    platforms = [platform for platform in APP_PLATFORMS if not rules.platforms or platform in rules.platforms]
+    if not platforms:
+        return users.none()
+    users = users.filter(platform_key__in=platforms)
+    if rules.countries_include:
+        users = users.filter(device_country__in=rules.countries_include)
+    if rules.countries_exclude:
+        users = users.exclude(device_country__in=rules.countries_exclude)
+    if rules.locales:
+        users = users.annotate(locale_key=Lower(Replace('device_locale', Value('_'), Value('-'))))
+        language = Q()
+        for rule in rules.locales:  # normalized: lowercase, '-' separators
+            language |= Q(locale_key=rule) | Q(locale_key__startswith=f'{rule}-')
+        users = users.filter(language)
+    for bound, lookup in ((rules.min_app_version, 'gte'), (rules.max_app_version, 'lte')):
+        if bound:
+            code = version_code(bound)
+            if code is None:
+                return users.none()  # an unreadable bound matches nobody, as on the clients
+            users = users.filter(**{f'device_app_version_code__{lookup}': code})
+    return users
+
+
+def matching_devices(announcement: Announcement):
+    """Every matching device with a push token, read in pages by id (no server-side cursor: PgBouncer)."""
+    users = audience(announcement).filter(HAS_TOKEN).order_by('id')
+    last_id = 0
+    while True:
+        page = list(users.filter(id__gt=last_id).values_list('id', 'platform_key', 'device_fcm_token')[:PAGE_SIZE])
+        if not page:
+            return
+        for user_id, platform, token in page:
+            yield Device(id=user_id, platform=platform, token=token.strip())
+        last_id = page[-1][0]
+
+
+def reach(announcement: Announcement) -> dict:
+    """How many phones a send would reach, per platform, and how many matching devices have no token: one query."""
+    counts = audience(announcement).aggregate(
+        android=Count('id', filter=HAS_TOKEN & Q(platform_key='android')),
+        ios=Count('id', filter=HAS_TOKEN & Q(platform_key='ios')),
+        without_token=Count('id', filter=~HAS_TOKEN),
+    )
+    counts = {key: value or 0 for key, value in counts.items()}
+    counts['total'] = counts['android'] + counts['ios']
+    return counts
+
+
+# ---------------------------------------------------------------- message
+
+def markdown_to_plain_text(markdown: str) -> str:
+    text = re.sub(r'!\[[^\]]*\]\([^)]*\)', '', markdown or '')
+    text = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', text)
+    text = re.sub(r'[*_`#>]', '', text)
+    return re.sub(r'\s+', ' ', text).strip()
+
+
+def notification_title(announcement: Announcement) -> str:
+    return announcement.push_title or announcement.title
+
+
+def notification_body(announcement: Announcement) -> str:
+    return announcement.push_body or markdown_to_plain_text(announcement.body_markdown)
+
+
+def _image_url(announcement: Announcement):
+    url = announcement.push_image.url if announcement.push_image else ''
+    return url if url.startswith('https://') else None
+
+
+def push_data(announcement: Announcement) -> dict:
+    data = {'type': 'announcement', 'slug': announcement.slug}
+    linked_stations = station_slugs(announcement)
+    if linked_stations:
+        data['station_slug'] = linked_stations[0]
+    return data
+
+
+def build_message(announcement: Announcement, tokens):
+    from firebase_admin import messaging
+
+    image = _image_url(announcement)
+    return messaging.MulticastMessage(
+        tokens=list(tokens),
+        notification=messaging.Notification(
+            title=notification_title(announcement), body=notification_body(announcement), image=image,
+        ),
+        data=push_data(announcement),
+        android=messaging.AndroidConfig(
+            notification=messaging.AndroidNotification(channel_id=ANDROID_CHANNEL_ID),
+        ),
+        apns=messaging.APNSConfig(
+            payload=messaging.APNSPayload(aps=messaging.Aps(sound='default', mutable_content=bool(image))),
+        ),
+    )
+
+
+# ---------------------------------------------------------------- sending
+
+def _batches(items, size=BATCH_SIZE):
+    for start in range(0, len(items), size):
+        yield items[start:start + size]
+
+
+def picked_test_devices(announcement: Announcement):
+    """The phones picked under "Test devices", with their tokens."""
+    rows = announcement.test_devices.values_list('id', 'device_platform', 'device_fcm_token')
+    for user_id, platform, token in rows:
+        yield Device(id=user_id, platform=(platform or '').lower(), token=(token or '').strip())
+
+
+def send(announcement: Announcement) -> dict:
+    """Sends the notification to every device its filters match; records and reports the count."""
+    result = _deliver(announcement, matching_devices(announcement))
+    Announcement.objects.filter(pk=announcement.pk).update(push_sent_at=timezone.now(), push_sent_count=result['sent'])
+    _capture_sent(announcement, result)
+    logger.info('Announcement %s push sent: %s', announcement.slug, result)
+    return result
+
+
+def send_test(announcement: Announcement) -> dict:
+    """Sends the notification to the test devices only; nothing is recorded on the announcement."""
+    result = _deliver(announcement, picked_test_devices(announcement))
+    logger.info('Announcement %s test push sent: %s', announcement.slug, result)
+    return result
+
+
+def _deliver(announcement: Announcement, devices) -> dict:
+    """Sends to each device with a token in batches of 500; clears the tokens FCM no longer knows."""
+    from firebase_admin import messaging
+
+    if not is_configured():
+        raise RuntimeError(f'Push is not configured: {CREDENTIALS_ENV} is missing.')
+
+    # One message per token, even when several rows share it.
+    devices = list({device.token: device for device in devices if device.token}.values())
+    app = _firebase_app()
+    sent = {'android': 0, 'ios': 0, 'other': 0}
+    failed = 0
+    unregistered_tokens = []
+
+    for batch in _batches(devices):
+        response = messaging.send_each_for_multicast(build_message(announcement, [d.token for d in batch]), app=app)
+        for device, result in zip(batch, response.responses):
+            if result.success:
+                sent[device.platform if device.platform in sent else 'other'] += 1
+                continue
+            failed += 1
+            if isinstance(result.exception, messaging.UnregisteredError):
+                unregistered_tokens.append(device.token)
+
+    if unregistered_tokens:
+        AppUsers.objects.filter(device_fcm_token__in=unregistered_tokens).update(device_fcm_token=None)
+
+    return {
+        'sent': sum(sent.values()),
+        'android': sent['android'],
+        'ios': sent['ios'],
+        'failed': failed,
+        'cleared_tokens': len(unregistered_tokens),
+    }
+
+
+def _capture_sent(announcement: Announcement, result: dict):
+    track_event(POSTHOG_DISTINCT_ID, 'announcement_push_sent', {
+        'announcement_slug': announcement.slug,
+        'announcement_category': announcement.category.slug if announcement.category_id else None,
+        'action_type': announcement.action_type,
+        'platform': 'server',
+        'sent_count': result['sent'],
+        'android_count': result['android'],
+        'ios_count': result['ios'],
+        'failed_count': result['failed'],
+        'cleared_tokens': result['cleared_tokens'],
+        '$process_person_profile': False,
+    })

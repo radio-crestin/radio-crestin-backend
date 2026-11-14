@@ -213,5 +213,49 @@ class MetadataMonitorTests(HealthFixture):
         self.assertEqual(hs.check_health(), (True, ""))
 
 
+class HealthReporterTests(unittest.TestCase):
+    """Django hears a report when it changes, else a heartbeat a minute."""
+
+    def setUp(self):
+        self.sent = []
+        self.accept = True
+        self.reporter = hs.HealthReporter(self.send, heartbeat=60)
+
+    def send(self, is_up, latency_ms, reason):
+        self.sent.append((is_up, reason))
+        return self.accept
+
+    def test_an_unchanged_report_waits_for_the_heartbeat(self):
+        for now in (0, 15, 30, 45):
+            self.reporter.report(True, 120, "ffmpeg producing segments", now)
+        self.assertEqual(len(self.sent), 1)
+        self.reporter.report(True, 80, "ffmpeg producing segments", 60)
+        self.assertEqual(len(self.sent), 2)
+
+    def test_a_change_is_sent_at_once(self):
+        self.reporter.report(True, 0, "ffmpeg producing segments", 0)
+        self.reporter.report(False, 0, "aac segments stale (31s old, max 30s)", 15)
+        self.reporter.report(True, 0, "ffmpeg producing segments", 30)
+        self.assertEqual([up for up, _ in self.sent], [True, False, True])
+
+    def test_numbers_in_the_reason_are_not_a_change(self):
+        self.reporter.report(False, 0, "aac segments stale (31s old, max 30s)", 0)
+        self.reporter.report(False, 0, "aac segments stale (46s old, max 30s)", 15)
+        self.reporter.report(True, 0, "ffmpeg producing segments; "
+                             "metadata monitor stalled (61s)", 30)
+        self.reporter.report(True, 0, "ffmpeg producing segments; "
+                             "metadata monitor stalled (76s)", 45)
+        self.assertEqual(len(self.sent), 2)
+
+    def test_a_refused_report_is_retried_at_the_next_check(self):
+        self.accept = False
+        self.reporter.report(True, 0, "ffmpeg producing segments", 0)
+        self.reporter.report(True, 0, "ffmpeg producing segments", 15)
+        self.accept = True
+        self.reporter.report(True, 0, "ffmpeg producing segments", 30)
+        self.reporter.report(True, 0, "ffmpeg producing segments", 45)
+        self.assertEqual(len(self.sent), 3)
+
+
 if __name__ == "__main__":
     unittest.main()

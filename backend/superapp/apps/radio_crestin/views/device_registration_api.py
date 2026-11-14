@@ -1,4 +1,3 @@
-import ipaddress
 import json
 
 from django.http import JsonResponse, HttpResponseBadRequest
@@ -8,6 +7,16 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
 from ..models import AppUsers
+from ..utils.client_request import client_country, client_ip, safe_ip
+from ..utils.rate_limits import over_limit
+
+# The app's payload is ~1 KB; device_info stores it verbatim.
+MAX_BODY_BYTES = 16 * 1024
+MAX_DEVICE_ID_LENGTH = 512  # AppUsers.anonymous_id
+MAX_FCM_TOKEN_LENGTH = 4096
+# The app registers on every launch: generous per IP (carrier NAT), tight per device.
+RATE_PER_IP = '600/h'
+RATE_PER_DEVICE = '30/h'
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -24,11 +33,12 @@ class DeviceRegistrationView(View):
         "is_physical_device": true, "fcm_token": "...",
         ... any extra fields (brand, screen size, ABIs, ...) ...
     }
-    Response: { "status": "ok", "created": bool }
+    Response: { "status": "ok", "created": bool, "country": "RO" | null }
 
     The mobile app calls this on every launch, so it's an idempotent
     ``update_or_create`` keyed by ``anonymous_id``. The public IP is taken from
-    the request headers (server-side) and never trusted from the body. The full
+    the request headers (server-side) and never trusted from the body, and so is
+    the country (Cloudflare's CF-IPCountry; kept unchanged when unknown). The full
     payload is stored verbatim in ``device_info``; the mapped keys also populate
     dedicated columns for easy filtering in the admin.
     """
@@ -46,6 +56,15 @@ class DeviceRegistrationView(View):
     }
 
     def post(self, request):
+        ip = safe_ip(client_ip(request))
+        if over_limit(request, 'device-register-ip', ip, RATE_PER_IP):
+            return JsonResponse({'error': 'rate limited'}, status=429)
+        try:
+            length = int(request.META.get('CONTENT_LENGTH') or 0)
+        except ValueError:
+            length = 0
+        if length > MAX_BODY_BYTES or len(request.body) > MAX_BODY_BYTES:
+            return JsonResponse({'error': 'payload too large'}, status=413)
         try:
             data = json.loads((request.body or b'{}').decode('utf-8'))
         except (ValueError, UnicodeDecodeError):
@@ -57,10 +76,14 @@ class DeviceRegistrationView(View):
         device_id = str(data.get('device_id') or '').strip()
         if not device_id:
             return JsonResponse({'error': 'device_id is required'}, status=400)
+        if len(device_id) > MAX_DEVICE_ID_LENGTH:
+            return JsonResponse({'error': 'device_id is too long'}, status=400)
+        if over_limit(request, 'device-register-device', device_id, RATE_PER_DEVICE):
+            return JsonResponse({'error': 'rate limited'}, status=429)
 
         now = timezone.now()
         defaults = {
-            'device_last_ip': self._safe_ip(self._get_client_ip(request)),
+            'device_last_ip': ip,
             'device_last_seen_at': now,
             'device_info': data,
         }
@@ -74,9 +97,17 @@ class DeviceRegistrationView(View):
         if isinstance(is_physical, bool):
             defaults['device_is_physical'] = is_physical
 
-        fcm_token = data.get('fcm_token')
+        country = client_country(request)
+        if country:
+            defaults['device_country'] = country
+
+        fcm_token = str(data.get('fcm_token') or '')
+        if len(fcm_token) > MAX_FCM_TOKEN_LENGTH:
+            return JsonResponse({'error': 'fcm_token is too long'}, status=400)
         if fcm_token:
-            defaults['device_fcm_token'] = str(fcm_token)
+            defaults['device_fcm_token'] = fcm_token
+            if fcm_token != self._stored_push_token(device_id):
+                defaults['device_push_token_updated_at'] = now
 
         user, created = AppUsers.objects.update_or_create(
             anonymous_id=device_id,
@@ -88,33 +119,12 @@ class DeviceRegistrationView(View):
             user.device_first_seen_at = now
             user.save(update_fields=['device_first_seen_at'])
 
-        response = JsonResponse({'status': 'ok', 'created': created})
+        # The country lets the app evaluate the announcements' country filters.
+        response = JsonResponse({'status': 'ok', 'created': created, 'country': country})
         response['Cache-Control'] = 'no-store'
         response['Access-Control-Allow-Origin'] = '*'
         return response
 
     @staticmethod
-    def _safe_ip(value):
-        """Return a normalized IP string, or None if it isn't a valid IP."""
-        try:
-            return str(ipaddress.ip_address(value)) if value else None
-        except ValueError:
-            return None
-
-    @staticmethod
-    def _get_client_ip(request) -> str:
-        """Client IP from proxy headers, mirroring the GraphQL mutation helper.
-
-        Priority: CF-Connecting-IP (Cloudflare) -> X-Real-IP (Nginx) ->
-        X-Forwarded-For (first hop) -> REMOTE_ADDR.
-        """
-        cf_connecting_ip = request.META.get('HTTP_CF_CONNECTING_IP')
-        if cf_connecting_ip:
-            return cf_connecting_ip.strip()
-        x_real_ip = request.META.get('HTTP_X_REAL_IP')
-        if x_real_ip:
-            return x_real_ip.strip()
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            return x_forwarded_for.split(',')[0].strip()
-        return request.META.get('REMOTE_ADDR', '')
+    def _stored_push_token(device_id):
+        return AppUsers.objects.filter(anonymous_id=device_id).values_list('device_fcm_token', flat=True).first()

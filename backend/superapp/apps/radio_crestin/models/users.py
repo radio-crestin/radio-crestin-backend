@@ -1,6 +1,8 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from ..utils.app_versions import version_code
+
 
 class AppUsers(models.Model):
     # This model matches the existing authentication_user table structure
@@ -23,7 +25,7 @@ class AppUsers(models.Model):
     checkout_phone_number = models.CharField(max_length=255, blank=True, null=True)
     photo_url = models.CharField(max_length=255, blank=True, null=True)
     address = models.CharField(max_length=1024, blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)  # the admin list sorts by it
     modified_at = models.DateTimeField(auto_now=True)
 
     # Device registration details — upserted by the mobile app on every launch
@@ -36,11 +38,18 @@ class AppUsers(models.Model):
     device_manufacturer = models.CharField(_("Device manufacturer"), max_length=255, blank=True, null=True)
     device_os_version = models.CharField(_("OS version"), max_length=64, blank=True, null=True)
     device_app_version = models.CharField(_("App version"), max_length=64, blank=True, null=True)
+    # The version as one comparable integer, so push audiences filter app versions in SQL.
+    device_app_version_code = models.BigIntegerField(_("App version code"), blank=True, null=True, db_index=True)
     device_build_number = models.CharField(_("App build number"), max_length=64, blank=True, null=True)
     device_locale = models.CharField(_("Locale"), max_length=64, blank=True, null=True)
     device_timezone = models.CharField(_("Timezone"), max_length=64, blank=True, null=True)
     device_is_physical = models.BooleanField(_("Is physical device"), blank=True, null=True)
     device_fcm_token = models.TextField(_("FCM push token"), blank=True, null=True)
+    device_push_token_updated_at = models.DateTimeField(_("Push token updated at"), blank=True, null=True)
+    device_country = models.CharField(
+        _("Country"), max_length=2, blank=True, null=True,
+        help_text=_("From Cloudflare's CF-IPCountry header at the last registration."),
+    )
     device_last_ip = models.GenericIPAddressField(_("Last IP address"), blank=True, null=True)
     device_info = models.JSONField(_("Raw device info"), blank=True, null=True)
     device_first_seen_at = models.DateTimeField(_("Device first seen at"), blank=True, null=True)
@@ -52,5 +61,19 @@ class AppUsers(models.Model):
         verbose_name = _("App User")
         verbose_name_plural = _("App Users")
 
+    def save(self, *args, **kwargs):
+        self.device_app_version_code = version_code(self.device_app_version)
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None and 'device_app_version' in update_fields:
+            kwargs['update_fields'] = {*update_fields, 'device_app_version_code'}
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"App User {self.anonymous_id or self.email or self.id}"
+        identity = self.anonymous_id or self.email or self.id
+        if not (self.device_model or self.device_platform):
+            return f"App User {identity}"
+        # Device details first, so the announcement device picker can tell phones apart.
+        details = [self.device_model, self.device_platform, self.device_app_version and f"v{self.device_app_version}"]
+        if self.device_last_seen_at:
+            details.append(f"seen {self.device_last_seen_at:%Y-%m-%d}")
+        return " · ".join(str(detail) for detail in details if detail) + f" ({identity})"

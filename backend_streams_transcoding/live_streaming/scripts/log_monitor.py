@@ -2,7 +2,7 @@
 NGINX log monitor — tracks listening sessions from HLS request logs.
 
 Tails the NGINX session_access log, parses HLS playlist/segment requests,
-batches events every BATCH_INTERVAL seconds, and submits them to Django
+batches events every BATCH_INTERVAL (20) seconds, and submits them to Django
 via the submit_listening_events GraphQL mutation.
 
 Per-station pod: STATION_SLUG is known from env, no need to parse from URI.
@@ -35,7 +35,11 @@ LOG_MAX_BYTES = int(os.environ.get("NGINX_SESSION_LOG_MAX_BYTES", str(64 * 1024 
 NGINX_PID_FILE = os.environ.get("NGINX_PID_FILE", "/tmp/nginx/nginx.pid")
 REOPEN_WAIT_SECONDS = 1
 ROTATE_RETRY_SECONDS = 600
-BATCH_INTERVAL = int(os.environ.get("LOG_MONITOR_BATCH_INTERVAL", "10"))
+# Django counts a listener while its latest request is under a minute old
+# (listener counts, delete_stale_listening_sessions). For a session still
+# listening, the latest request Django has is at most this old plus the
+# time between two of its requests (one segment).
+BATCH_INTERVAL = int(os.environ.get("LOG_MONITOR_BATCH_INTERVAL", "20"))
 
 # Regex for the session_access log format defined in nginx.conf
 _LOG_RE = re.compile(
@@ -187,6 +191,35 @@ def _submit_batch(events):
             print(f"log_monitor: graphql errors: {errors}", flush=True)
 
 
+def _summary(events):
+    """One event for these requests: the latest, with their bytes and count."""
+    latest = dict(max(events, key=lambda e: e["timestamp"]))
+    latest["bytes_transferred"] = sum(e["bytes_transferred"] for e in events)
+    latest["request_count"] = len(events)
+    return latest
+
+
+def consolidate(queue):
+    """A batch's requests as a few events per session, in time order: its
+    first request on its own (Django starts a new session at it), then one
+    summary per request type, dated by that type's latest request. Every
+    timestamp is a request's own, so a longer batch shifts nothing."""
+    sessions = defaultdict(list)
+    for ev in queue:
+        sessions[ev["anonymous_session_id"]].append(ev)
+
+    consolidated = []
+    for events in sessions.values():
+        events.sort(key=lambda e: e["timestamp"])
+        consolidated.append(_summary(events[:1]))
+        by_type = defaultdict(list)
+        for ev in events[1:]:
+            by_type[ev["event_type"]].append(ev)
+        consolidated.extend(_summary(group) for group in by_type.values())
+    consolidated.sort(key=lambda e: e["timestamp"])
+    return consolidated
+
+
 def _process_batch():
     """Consolidate queued events per session and submit."""
     with _batch_lock:
@@ -196,19 +229,7 @@ def _process_batch():
     if not queue:
         return
 
-    # Group by session_id, keep latest event per session, sum bytes/counts
-    grouped = defaultdict(list)
-    for ev in queue:
-        grouped[ev["anonymous_session_id"]].append(ev)
-
-    consolidated = []
-    for _sid, events in grouped.items():
-        latest = max(events, key=lambda e: e["timestamp"])
-        latest["bytes_transferred"] = sum(e["bytes_transferred"] for e in events)
-        latest["request_count"] = len(events)
-        consolidated.append(latest)
-
-    _submit_batch(consolidated)
+    _submit_batch(consolidate(queue))
 
 
 def _batch_loop():

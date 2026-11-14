@@ -1,0 +1,58 @@
+{% extends "admin/base_site.html" %}
+{% load i18n unfold %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block content %}
+    <div class="max-w-2xl">
+        {% component "unfold/components/card.html" with title=title %}
+            <form method="post" class="flex flex-col gap-4">
+                {% csrf_token %}
+                <input type="hidden" name="confirm" value="yes">
+
+                <h3 class="font-semibold text-lg text-important">
+                    {% blocktrans with title=push_title count total=reach.total %}Send "{{ title }}" to {{ total }} phone?{% plural %}Send "{{ title }}" to {{ total }} phones?{% endblocktrans %}
+                </h3>
+
+                <p>
+                    {% blocktrans with android=reach.android ios=reach.ios without=reach.without_token %}Android {{ android }} · iPhone {{ ios }} · {{ without }} matching devices have no push token yet (older app version or notifications turned off).{% endblocktrans %}
+                </p>
+
+                <div class="border border-base-200 rounded-default p-4 dark:border-base-700">
+                    <div class="text-xs opacity-70 mb-1">{% trans "Notification preview" %}</div>
+                    <div class="font-semibold">{{ push_title }}</div>
+                    <div>{{ push_body|default:"-" }}</div>
+                </div>
+
+                {% if announcement.push_sent_at %}
+                    <p class="text-orange-600 font-medium">
+                        {% blocktrans with when=announcement.push_sent_at sent_count=announcement.push_sent_count %}It was already sent on {{ when }} to {{ sent_count }} phones. Confirming sends it again.{% endblocktrans %}
+                    </p>
+                {% endif %}
+
+                {% if waits_for_start %}
+                    <p class="font-medium">
+                        {% blocktrans with when=announcement.starts_at %}It will be sent automatically at the start time, {{ when }}.{% endblocktrans %}
+                    </p>
+                {% endif %}
+
+                {% if not_live %}
+                    <p class="text-red-600 font-medium">
+                        {% trans "This announcement is not showing right now (inactive or outside its dates), so tapping the notification will find nothing to open." %}
+                    </p>
+                {% endif %}
+
+                <div class="flex flex-row gap-2">
+                    {% if reach.total or waits_for_start %}
+                        {% component "unfold/components/button.html" with submit=1 %}
+                            {% if waits_for_start %}{% trans "Confirm for the start time" %}{% else %}{% trans "Send now" %}{% endif %}
+                        {% endcomponent %}
+                    {% endif %}
+                    {% component "unfold/components/button.html" with href=change_url variant="default" %}
+                        {% trans "Cancel" %}
+                    {% endcomponent %}
+                </div>
+            </form>
+        {% endcomponent %}
+    </div>
+{% endblock %}

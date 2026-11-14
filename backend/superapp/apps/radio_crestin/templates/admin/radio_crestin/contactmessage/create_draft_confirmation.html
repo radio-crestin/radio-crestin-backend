@@ -1,0 +1,24 @@
+{% extends "admin/base_site.html" %}
+{% load i18n unfold %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block content %}
+    <div class="max-w-2xl">
+        {% component "unfold/components/card.html" with title=title %}
+            <form method="post" class="flex flex-col gap-4">
+                {% csrf_token %}
+                <p>{{ explanation }}</p>
+                <p class="font-semibold text-important">{{ message.subject }}</p>
+                <div class="flex flex-row gap-2">
+                    {% component "unfold/components/button.html" with submit=1 %}
+                        {{ title }}
+                    {% endcomponent %}
+                    {% component "unfold/components/button.html" with href=change_url variant="default" %}
+                        {% trans "Cancel" %}
+                    {% endcomponent %}
+                </div>
+            </form>
+        {% endcomponent %}
+    </div>
+{% endblock %}

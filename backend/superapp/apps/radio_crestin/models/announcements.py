@@ -1,0 +1,272 @@
+from django.core.validators import MinValueValidator
+from django.db import models
+from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
+
+from ...storage.config import get_public_storage
+from .announcement_categories import AnnouncementCategory, hex_color_validator
+from .forms import Form
+from .announcement_validators import (
+    validate_action_url, validate_intent_uri, validate_public_slug, validate_web_url,
+)
+from .stations import Stations
+from .users import AppUsers
+
+ICON_NAMES = (
+    'whatsapp', 'calendar', 'car', 'megaphone', 'gift', 'heart',
+    'bible', 'info', 'warning', 'play', 'star', 'bell',
+)
+ICON_CHOICES = [(name, name.capitalize()) for name in ICON_NAMES]
+BUTTON_ICON_CHOICES = [('auto', _('Automatic from the action')), ('none', _('No icon'))] + ICON_CHOICES
+
+
+class IconSize(models.TextChoices):
+    SMALL = 'small', _('Small')
+    MEDIUM = 'medium', _('Medium')
+    LARGE = 'large', _('Large')
+
+
+
+class Placement(models.TextChoices):
+    HOME = 'home', _('Home card')
+    STATION = 'station', _('Inside a station')
+
+
+class ActionType(models.TextChoices):
+    NONE = 'none', _('No button')
+    EXTERNAL = 'external', _('Link outside the app')
+    IN_APP_BROWSER = 'in_app_browser', _('In-app browser')
+    ANDROID_INTENT = 'android_intent', _('Android intent')
+    PAGE = 'page', _('Announcement page')
+    STATION = 'station', _('Station')
+    FORM = 'form', _('Form (question, poll or questionnaire)')
+
+
+class WebLinkTarget(models.TextChoices):
+    NEW_TAB = 'new_tab', _('New tab')
+    SAME_TAB = 'same_tab', _('Same tab')
+
+
+class ButtonStyle(models.TextChoices):
+    FILLED = 'filled', _('Filled')
+    OUTLINE = 'outline', _('Outlined')
+    TEXT = 'text', _('Text link')
+    HIDDEN = 'hidden', _('Hidden (the whole card is tappable)')
+
+
+class TargetPlatform(models.TextChoices):
+    WEB_MOBILE = 'web_mobile', _('Website on phones')
+    WEB_DESKTOP = 'web_desktop', _('Website on desktop')
+    ANDROID = 'android', _('Android app')
+    IOS = 'ios', _('iOS app')
+
+
+class AnnouncementStatus(models.TextChoices):
+    DRAFT = 'draft', _('Draft: not shown')
+    PREVIEW = 'preview', _('Preview: only with the preview link')
+    ACTIVE = 'active', _('Active: shown to everyone it targets')
+
+
+class PushSchedule(models.TextChoices):
+    MANUAL = 'manual', _('Send with the "Send push notification" button')
+    AT_START = 'at_start', _('Send automatically at the start time')
+
+
+class Announcement(models.Model):
+    """A short message shown in the card above the station list (website and apps)."""
+
+    slug = models.SlugField(
+        _("Slug"), max_length=100, unique=True, validators=[validate_public_slug],
+        help_text=_("Closing is remembered per slug. Change it to show this again to people who closed it."),
+    )
+    status = models.CharField(
+        _("Status"), max_length=16, choices=AnnouncementStatus.choices, default=AnnouncementStatus.DRAFT,
+    )
+    position = models.PositiveIntegerField(
+        _("Position"), blank=True, db_index=True,
+        help_text=_("Order in the card, lowest first: drag the rows in the Announcements list. New ones go last."),
+    )
+    category = models.ForeignKey(
+        AnnouncementCategory, verbose_name=_("Category"), on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='announcements',
+    )
+
+    # Where it shows
+    placement = models.CharField(_("Placement"), max_length=16, choices=Placement.choices, default=Placement.HOME)
+    stations = models.ManyToManyField(
+        Stations, verbose_name=_("Stations"), blank=True, related_name='announcements',
+        help_text=_("For \"Inside a station\": shown while one of these stations is playing."),
+    )
+
+    # Content
+    icon_name = models.CharField(_("Icon"), max_length=32, choices=ICON_CHOICES, blank=True, default='')
+    icon_image = models.ImageField(
+        _("Icon image"), storage=get_public_storage, upload_to='announcements/icons/', blank=True, null=True,
+        help_text=_("Replaces the icon when set."),
+    )
+    icon_size = models.CharField(
+        _("Icon size"), max_length=8, choices=IconSize.choices, default=IconSize.MEDIUM,
+        help_text=_("Size of the icon on the card"),
+    )
+    title = models.CharField(_("Title"), max_length=200)
+    body_markdown = models.TextField(
+        _("Description"), blank=True, default='',
+        help_text=_("Inline markdown only: **bold**, *italic*, [link](https://...)."),
+    )
+
+    # Primary button
+    action_type = models.CharField(_("Action"), max_length=32, choices=ActionType.choices, default=ActionType.NONE)
+    action_label = models.CharField(_("Button text"), max_length=80, blank=True, default='')
+    action_url = models.CharField(
+        _("Link"), max_length=2000, blank=True, default='', validators=[validate_action_url],
+        help_text=_("https://..., or mailto: / tel:"),
+    )
+    web_link_target = models.CharField(
+        _("On the website"), max_length=16, choices=WebLinkTarget.choices, default=WebLinkTarget.NEW_TAB,
+    )
+    android_intent_uri = models.TextField(
+        _("Android intent URI"), blank=True, default='', validators=[validate_intent_uri],
+        help_text=_("For example intent://...#Intent;package=...;end"),
+    )
+    fallback_url = models.CharField(
+        _("Fallback link"), max_length=2000, blank=True, default='', validators=[validate_web_url],
+        help_text=_("Opened on the website, on iOS, and when the Android intent fails."),
+    )
+    station = models.ForeignKey(
+        Stations, verbose_name=_("Station"), on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+    )
+    form = models.ForeignKey(
+        Form, verbose_name=_("Form"), on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+    )
+    button_style = models.CharField(_("Style"), max_length=16, choices=ButtonStyle.choices, default=ButtonStyle.FILLED)
+    button_color = models.CharField(
+        _("Color"), max_length=7, blank=True, default='', validators=[hex_color_validator],
+        help_text=_("Empty uses the app's and website's default color."),
+    )
+    button_text_color = models.CharField(
+        _("Label color"), max_length=7, blank=True, default='', validators=[hex_color_validator],
+        help_text=_(
+            "Empty uses the app's and website's default color; with a button color set, empty picks white "
+            "or black, whichever contrasts more."
+        ),
+    )
+    button_icon = models.CharField(_("Button icon"), max_length=32, choices=BUTTON_ICON_CHOICES, default='auto')
+
+    # Page
+    page_title = models.CharField(_("Page title"), max_length=200, blank=True, default='')
+    page_cover_image = models.ImageField(
+        _("Page cover image"), storage=get_public_storage, upload_to='announcements/pages/', blank=True, null=True,
+    )
+    page_markdown = models.TextField(
+        _("Page content"), blank=True, default='',
+        help_text=_("Full markdown: headings, lists, quotes, images and links. Upload images below and paste their markdown."),
+    )
+
+    embed_details = models.JSONField(
+        _("Video details"), default=dict, blank=True, editable=False,
+        help_text=_("Titles and thumbnails fetched from YouTube when the page is saved, so the page never waits for it."),
+    )
+
+    # Schedule and display
+    dismissible = models.BooleanField(_("Can be closed"), default=True)
+    starts_at = models.DateTimeField(_("Starts at"), default=timezone.now)
+    ends_at = models.DateTimeField(_("Ends at"), null=True, blank=True)
+    hide_after_seconds = models.PositiveIntegerField(
+        _("Hide after seconds"), null=True, blank=True,
+        help_text=_("Remove it from the current view after this many seconds on screen."),
+    )
+    max_impressions = models.PositiveIntegerField(
+        _("Max impressions per device"), null=True, blank=True,
+    )
+
+    # Filters: every rule that is set must match; empty means everyone. Clients evaluate
+    # them for the card (the list is the same for everyone); push sending applies them server-side.
+    platforms = models.JSONField(_("Platforms"), default=list, blank=True)
+    countries_include = models.JSONField(_("Only in countries"), default=list, blank=True)
+    countries_exclude = models.JSONField(_("Except countries"), default=list, blank=True)
+    locales = models.JSONField(_("Languages"), default=list, blank=True)
+    min_app_version = models.CharField(_("Min app version"), max_length=32, blank=True, default='')
+    max_app_version = models.CharField(_("Max app version"), max_length=32, blank=True, default='')
+
+    # Push notification
+    test_devices = models.ManyToManyField(
+        AppUsers, verbose_name=_("Test devices"), blank=True, related_name='test_announcements',
+        help_text=_("Phones that get \"Send a test notification\". Search App Users by device ID or model."),
+    )
+    push_enabled = models.BooleanField(_("Also send as notification"), default=False)
+    push_schedule = models.CharField(
+        _("When"), max_length=16, choices=PushSchedule.choices, default=PushSchedule.MANUAL,
+    )
+    push_title = models.CharField(_("Notification title"), max_length=120, blank=True, default='')
+    push_body = models.CharField(_("Notification text"), max_length=240, blank=True, default='')
+    push_image = models.ImageField(
+        _("Notification image"), storage=get_public_storage, upload_to='announcements/push/', blank=True, null=True,
+    )
+    push_confirmed_at = models.DateTimeField(
+        _("Notification confirmed at"), null=True, blank=True,
+        help_text=_("Set when the send is confirmed; a send at the start time waits for it."),
+    )
+    push_sent_at = models.DateTimeField(_("Notification sent at"), null=True, blank=True)
+    push_sent_count = models.PositiveIntegerField(_("Notification sent to"), default=0)
+
+    # Totals, updated from the reported events
+    impressions = models.PositiveBigIntegerField(_("Impressions"), default=0)
+    clicks = models.PositiveBigIntegerField(_("Clicks"), default=0)
+    secondary_clicks = models.PositiveBigIntegerField(_("Second button clicks"), default=0)
+    dismissals = models.PositiveBigIntegerField(_("Closed"), default=0)
+    page_views = models.PositiveBigIntegerField(_("Page views"), default=0)
+    push_opens = models.PositiveBigIntegerField(_("Notification opens"), default=0)
+    video_plays = models.PositiveBigIntegerField(_("Video plays"), default=0)
+
+    created_at = models.DateTimeField(_("Created at"), auto_now_add=True)
+    updated_at = models.DateTimeField(_("Updated at"), auto_now=True)
+
+    class Meta:
+        managed = True
+        db_table = 'announcements'
+        ordering = ('position', 'id')
+        verbose_name = _("Announcement")
+        verbose_name_plural = _("Announcements")
+        indexes = [
+            models.Index(fields=['status', 'ends_at'], name='announcement_status_idx'),
+        ]
+
+    def __str__(self):
+        return self.title
+
+    def save(self, *args, **kwargs):
+        if self.position is None:  # a new announcement goes last
+            last = Announcement.objects.aggregate(last=models.Max('position'))['last']
+            self.position = 0 if last is None else last + 1
+        super().save(*args, **kwargs)
+
+    @property
+    def is_active(self) -> bool:
+        return self.status == AnnouncementStatus.ACTIVE
+
+    def is_live(self, now=None) -> bool:
+        now = now or timezone.now()
+        return self.is_active and self.starts_at <= now and (self.ends_at is None or self.ends_at > now)
+
+
+class AnnouncementImage(models.Model):
+    """An image uploaded for an announcement's page; paste its markdown into the page content."""
+
+    announcement = models.ForeignKey(Announcement, on_delete=models.CASCADE, related_name='images')
+    image = models.ImageField(_("Image"), storage=get_public_storage, upload_to='announcements/pages/')
+    caption = models.CharField(_("Caption"), max_length=200, blank=True, default='')
+    created_at = models.DateTimeField(_("Created at"), auto_now_add=True)
+
+    class Meta:
+        managed = True
+        db_table = 'announcement_images'
+        ordering = ('created_at',)
+        verbose_name = _("Announcement Image")
+        verbose_name_plural = _("Announcement Images")
+
+    def __str__(self):
+        return self.caption or self.image.name
+
+    @property
+    def markdown(self) -> str:
+        return f'![{self.caption}]({self.image.url})' if self.image else ''

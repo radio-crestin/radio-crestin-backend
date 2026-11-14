@@ -1,0 +1,37 @@
+/* Textarea and its live preview side by side; stacked on narrow screens. */
+.announcement-md {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  width: 100%;
+}
+@media (min-width: 1024px) {
+  .announcement-md { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+.announcement-md__preview {
+  border: 1px dashed rgba(127, 127, 127, .35);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  max-height: 480px;
+  overflow: auto;
+}
+.announcement-md__preview p { margin: 0 0 .6em; }
+.announcement-md__preview h2 { font-size: 1.3em; font-weight: 700; margin: .6em 0 .3em; }
+.announcement-md__preview h3 { font-size: 1.15em; font-weight: 700; margin: .6em 0 .3em; }
+.announcement-md__preview h4 { font-weight: 700; margin: .6em 0 .3em; }
+.announcement-md__preview ul { list-style: disc; padding-left: 1.4em; margin: 0 0 .6em; }
+.announcement-md__preview ol { list-style: decimal; padding-left: 1.4em; margin: 0 0 .6em; }
+.announcement-md__preview blockquote { border-left: 3px solid currentColor; opacity: .8; padding-left: .8em; margin: 0 0 .6em; font-style: italic; }
+.announcement-md__preview img { max-width: 100%; border-radius: 8px; }
+.announcement-md__preview a { text-decoration: underline; }
+.announcement-md__preview strong { font-weight: 700; }
+.announcement-md__empty { opacity: .45; }
+.announcement-md__preview .rc-embed { position: relative; margin: 0 0 .8em; border-radius: 10px; overflow: hidden; background: #000; aspect-ratio: 16 / 9; }
+.announcement-md__preview .rc-embed--short { aspect-ratio: 9 / 16; max-width: 240px; }
+.announcement-md__preview .rc-embed img { width: 100%; height: 100%; object-fit: cover; border-radius: 0; }
+.announcement-md__preview .rc-embed span { position: absolute; inset: 0; margin: auto; width: 56px; height: 40px; border-radius: 10px; background: #FF0033; color: #fff; display: grid; place-items: center; font-size: 18px; }
+.announcement-md__preview .rc-embed--list { aspect-ratio: auto; padding: 14px 16px 14px 76px; color: #fff; }
+.announcement-md__preview .rc-embed--list span { right: auto; left: 12px; }

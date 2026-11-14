@@ -1,5 +1,10 @@
 from .app_users import AppUsersAdmin
+from .announcement_categories import AnnouncementCategoryAdmin
+from .announcement_settings import AnnouncementSettingsAdmin
+from .announcements import AnnouncementAdmin
+from .forms import FormAdmin, FormSubmissionAdmin
 from .artists import ArtistsAdmin
+from .contact_messages import ContactMessageAdmin
 from .listening_sessions import ListeningSessionsAdmin
 from .posts import PostsAdmin
 from .reviews import ReviewsAdmin
@@ -20,7 +25,13 @@ from .stations_uptime import StationsUptimeAdmin
 
 __all__ = [
     'AppUsersAdmin',
+    'AnnouncementCategoryAdmin',
+    'AnnouncementSettingsAdmin',
+    'AnnouncementAdmin',
+    'FormAdmin',
+    'FormSubmissionAdmin',
     'ArtistsAdmin',
+    'ContactMessageAdmin',
     'ListeningSessionsAdmin',
     'PostsAdmin',
     'ReviewsAdmin',

@@ -13,7 +13,7 @@ billiard==4.2.4
 boto3==1.37.38
 botocore==1.37.38
 celery==5.5.3
-certifi==2026.7.22
+certifi==2026.10.23
 cffi==2.1.1
 charset-normalizer==3.4.9
 click==8.4.2
@@ -59,7 +59,7 @@ future==1.0.0
 geographiclib==2.1
 geopy==2.4.1
 graphql-core==3.2.11
-gunicorn==23.0.0
+gunicorn==27.0.1
 h11==0.16.0
 httpcore==1.0.9
 httptools==0.8.0
@@ -75,7 +75,7 @@ oauthlib==3.3.1
 packaging==26.2
 pathspec==1.1.1
 phonenumbers==9.0.36
-pillow==12.2.0
+pillow==13.0.0
 platformdirs==4.11.0
 plumbum==2.0.2
 posthog==7.10.3
@@ -117,3 +117,28 @@ watchfiles==1.2.0
 wcwidth==0.8.2
 websockets==17.0.1
 whitenoise==6.9.0
+
+# firebase-admin (announcement push notifications) and the packages it adds, 2026-11-12.
+firebase-admin==7.7.0
+google-api-core==2.30.3
+google-auth==2.62.2
+google-cloud-core==2.8.0
+google-cloud-firestore==2.34.1
+google-cloud-storage==3.17.1
+google-crc32c==1.9.0
+google-resumable-media==2.11.0
+googleapis-common-protos==1.76.0
+grpcio==1.85.1
+grpcio-status==1.85.1
+h2==4.4.1
+hpack==4.2.0
+hyperframe==6.1.0
+msgpack==1.2.4
+proto-plus==1.29.0
+protobuf==7.36.2
+pyasn1==0.6.5
+pyasn1-modules==0.4.2
+
+# markdown and nh3 (announcement HTML rendered and sanitized server-side), 2026-11-12.
+markdown==3.11.3
+nh3==0.3.7

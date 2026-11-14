@@ -32,6 +32,20 @@ from .types import (
 from ..models import Stations, ListeningSessions, AppUsers
 from ..services.share_link_service import ShareLinkService
 from ..services.review_service import ReviewService
+from ..services.listening_events import record_listening_events
+from ..utils.streaming_pod_auth import is_streaming_pod
+from ..utils.rate_limits import over_limit
+from ..utils.client_request import client_ip
+
+
+# Public writes, per client IP. Generous: many phones share one carrier
+# (CGNAT) address, and a person leaves a few reviews at most.
+REVIEW_RATE_PER_IP = '30/h'
+SHARE_LINK_RATE_PER_IP = '120/h'
+RATE_LIMITED_MESSAGE = "Too many requests; try again later."
+MAX_REVIEW_MESSAGE_LENGTH = 2000
+MAX_USER_IDENTIFIER_LENGTH = 255
+MAX_ANONYMOUS_ID_LENGTH = 512
 
 
 class IsSuperuser(BasePermission):
@@ -52,12 +66,7 @@ class IsStreamingPod(BasePermission):
     def has_permission(
             self, source: typing.Any, info: strawberry.Info, **kwargs
     ) -> bool:
-        request = info.context.request
-        api_key = request.headers.get('X-Streaming-Api-Key', '')
-        expected_key = os.getenv('STREAMING_POD_API_KEY', '')
-        if not expected_key:
-            return False
-        return api_key == expected_key
+        return is_streaming_pod(info.context.request)
 
 
 @strawberry.type
@@ -75,100 +84,36 @@ class Mutation:
     @strawberry_django.mutation(handle_django_errors=True, permission_classes=[IsStreamingPod])
     def submit_listening_events(self, events: List[ListeningEventInput]) -> SubmitListeningEventsResponse:
         """Submit batch of listening events from HLS streaming logs"""
-        logger = logging.getLogger(__name__)
-        processed_count = 0
-
         try:
-            # Cache user and station lookups within the batch to avoid repeated queries
-            user_cache = {}
-            station_cache = {}
-
-            for event_input in events:
-                # DEBUG, not INFO: streaming pods submit these in batches for every
-                # active listener, so one line per event floods the web pod logs
-                # (and the formatting/IO cost lands in the request path).
-                logger.debug("Processing event: %s", event_input)
-                try:
-                    # Parse timestamp
-                    timestamp = datetime.fromisoformat(event_input.timestamp.replace('Z', '+00:00'))
-
-                    # Find or get station by slug (cached)
-                    station_slug = event_input.station_slug
-                    if station_slug not in station_cache:
-                        try:
-                            station_cache[station_slug] = Stations.objects.get(slug=station_slug)
-                        except Stations.DoesNotExist:
-                            station_cache[station_slug] = None
-                            logger.warning(f"Station not found: {station_slug}")
-                    station = station_cache[station_slug]
-                    if station is None:
-                        continue
-
-                    # Get or create AppUsers by anonymous_id (same device ID from ?s= param)
-                    # Links the same user across listening sessions, reviews, and share links
-                    session_id = event_input.anonymous_session_id
-                    if session_id not in user_cache:
-                        user, _ = AppUsers.objects.get_or_create(
-                            anonymous_id=session_id
-                        )
-                        user_cache[session_id] = user
-                    anonymous_user = user_cache[session_id]
-
-                    # Get or create listening session and update activity
-                    session, created = ListeningSessions.get_or_create_session(
-                        user=anonymous_user,
-                        station=station,
-                        anonymous_session_id=event_input.anonymous_session_id,
-                        ip_address=event_input.ip_address,
-                        user_agent=event_input.user_agent,
-                        referer=event_input.referer
-                    )
-
-                    # Update session activity with new event data
-                    is_playlist = event_input.event_type == 'playlist_request'
-                    session.update_activity(
-                        timestamp=timestamp,
-                        bytes_sent=event_input.bytes_transferred,
-                        is_playlist=is_playlist
-                    )
-
-                    processed_count += 1
-
-                except Exception as event_error:
-                    logger.error(f"Error processing individual event: {event_error}")
-                    continue
-
-            return SubmitListeningEventsResponse(
-                success=True,
-                message=f"Successfully processed {processed_count}/{len(events)} events",
-                processed_count=processed_count
-            )
-
+            processed_count = record_listening_events(events)
         except Exception as e:
-            logger.error(f"Error in submit_listening_events: {e}")
+            logging.getLogger(__name__).error(f"Error in submit_listening_events: {e}")
             return SubmitListeningEventsResponse(
                 success=False,
-                message=f"Error processing events: {str(e)}",
-                processed_count=processed_count
+                message="Error processing events",
+                processed_count=0
             )
+        return SubmitListeningEventsResponse(
+            success=True,
+            message=f"Successfully processed {processed_count}/{len(events)} events",
+            processed_count=processed_count
+        )
 
     @strawberry_django.mutation(handle_django_errors=True, permission_classes=[IsSuperuser])
     def trigger_metadata_fetch(self, station_id: int) -> TriggerMetadataFetchResponse:
         """Schedule a metadata fetch task for a specific station"""
+        from superapp.apps.radio_crestin_scraping.tasks.scrape_station_metadata import scrape_station_metadata
+
         logger = logging.getLogger(__name__)
 
         try:
-            # Validate that the station exists
-            station = Stations.objects.get(id=station_id)
-
-            # For now, we'll just return success indicating the task was scheduled
-            # In a real implementation, this would trigger a background task
-            # using Celery, Django-RQ, or similar task queue system
-            logger.info(f"Metadata fetch task scheduled for station {station.name} (ID: {station_id})")
+            station = Stations.objects.only('title').get(id=station_id)
+            scrape_station_metadata.delay(station_id)
+            logger.info(f"Metadata fetch task scheduled for station {station.title} (ID: {station_id})")
 
             return TriggerMetadataFetchResponse(
                 success=True,
-                message=f"Metadata fetch task scheduled for station {station.name}"
+                message=f"Metadata fetch task scheduled for station {station.title}"
             )
 
         except Stations.DoesNotExist:
@@ -182,13 +127,19 @@ class Mutation:
             logger.error(f"Error scheduling metadata fetch for station {station_id}: {e}")
             return TriggerMetadataFetchResponse(
                 success=False,
-                message=f"Error scheduling metadata fetch: {str(e)}"
+                message="Error scheduling metadata fetch"
             )
 
     @strawberry_django.mutation(handle_django_errors=True)
-    def get_share_link(self, anonymous_id: str) -> GetShareLinkResponse:
+    def get_share_link(self, info: strawberry.Info, anonymous_id: str) -> GetShareLinkResponse:
         """Get or create the unique share link for a user"""
         logger = logging.getLogger(__name__)
+
+        if not anonymous_id or len(anonymous_id) > MAX_ANONYMOUS_ID_LENGTH:
+            return GetShareLinkResponse(success=False, message="Invalid anonymous_id", anonymous_id=anonymous_id[:64])
+        request = info.context.request
+        if over_limit(request, 'share-link-ip', Mutation._get_client_ip(request), SHARE_LINK_RATE_PER_IP):
+            return GetShareLinkResponse(success=False, message=RATE_LIMITED_MESSAGE, anonymous_id=anonymous_id)
 
         try:
             # Get share link info from service (will create user and link if needed)
@@ -232,7 +183,7 @@ class Mutation:
             logger.error(f"Error getting share link: {e}")
             return GetShareLinkResponse(
                 success=False,
-                message=f"Error getting share link: {str(e)}",
+                message="Error getting share link",
                 anonymous_id=anonymous_id
             )
 
@@ -257,6 +208,16 @@ class Mutation:
                     message="Could not determine client IP address",
                     created=False
                 )
+            if over_limit(request, 'review-ip', ip_address, REVIEW_RATE_PER_IP):
+                return SubmitReviewResponse(success=False, message=RATE_LIMITED_MESSAGE, created=False)
+            if input.message and len(input.message) > MAX_REVIEW_MESSAGE_LENGTH:
+                return SubmitReviewResponse(
+                    success=False,
+                    message=f"The message is longer than {MAX_REVIEW_MESSAGE_LENGTH} characters",
+                    created=False,
+                )
+            if input.user_identifier and len(input.user_identifier) > MAX_USER_IDENTIFIER_LENGTH:
+                return SubmitReviewResponse(success=False, message="Invalid user_identifier", created=False)
 
             # Resolve station_id from station_slug if needed
             station_id = input.station_id
@@ -319,7 +280,7 @@ class Mutation:
             logger.error(f"Error submitting review: {e}")
             return SubmitReviewResponse(
                 success=False,
-                message=f"Error submitting review: {str(e)}",
+                message="Error submitting review",
                 created=False
             )
 
@@ -340,6 +301,8 @@ class Mutation:
                     success=False,
                     message="Could not determine client IP address"
                 )
+            if over_limit(request, 'review-ip', ip_address, REVIEW_RATE_PER_IP):
+                return DeleteReviewResponse(success=False, message=RATE_LIMITED_MESSAGE)
 
             station_id = input.station_id
             if not station_id and input.station_slug:
@@ -378,7 +341,7 @@ class Mutation:
             logger.error(f"Error deleting review: {e}")
             return DeleteReviewResponse(
                 success=False,
-                message=f"Error deleting review: {str(e)}"
+                message="Error deleting review"
             )
 
     @strawberry.mutation
@@ -417,35 +380,11 @@ class Mutation:
             logger.error(f"Error reporting station metadata: {e}")
             return ReportStationMetadataResponse(
                 success=False,
-                message=f"Error: {str(e)}",
+                message="Error reporting metadata",
             )
 
     @staticmethod
     def _get_client_ip(request) -> str:
-        """
-        Extract client IP from request, handling various proxy configurations.
-
-        Checks headers in order of priority:
-        1. CF-Connecting-IP (Cloudflare)
-        2. X-Real-IP (Nginx proxy_set_header X-Real-IP)
-        3. X-Forwarded-For (Standard proxy header, takes first IP)
-        4. REMOTE_ADDR (Direct connection fallback)
-        """
-        # Cloudflare
-        cf_connecting_ip = request.META.get('HTTP_CF_CONNECTING_IP')
-        if cf_connecting_ip:
-            return cf_connecting_ip.strip()
-
-        # Nginx X-Real-IP (single IP set by proxy)
-        x_real_ip = request.META.get('HTTP_X_REAL_IP')
-        if x_real_ip:
-            return x_real_ip.strip()
-
-        # X-Forwarded-For (may contain chain of IPs: client, proxy1, proxy2)
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            # Take the first IP in the chain (original client)
-            return x_forwarded_for.split(',')[0].strip()
-
-        # Direct connection
-        return request.META.get('REMOTE_ADDR', '')
+        """The caller's IP (utils/client_request.client_ip: forwarded
+        headers count only from trusted proxies)."""
+        return client_ip(request)

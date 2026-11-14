@@ -1,5 +1,4 @@
 import json
-import os
 
 from django.http import JsonResponse
 from django.utils import timezone
@@ -8,13 +7,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 
 from ..models import Stations
-
-
-def _check_api_key(request) -> bool:
-    """Validate the streaming pod API key."""
-    key = request.headers.get('X-Streaming-Api-Key', '')
-    expected = os.getenv('STREAMING_POD_API_KEY', 'dev-streaming-key')
-    return key == expected
+from ..utils.streaming_pod_auth import is_streaming_pod
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -24,13 +17,16 @@ class PodHealthReportView(View):
 
     POST /api/v1/pod-health/
     Body: {station_slug, is_up, latency_ms?, reason?}
+    Answer: {success, config_version}
 
     Updates the station's uptime record using the same UptimeService
-    that the external uptime checker uses.
+    that the external uptime checker uses. The answer carries the station's
+    config_version: a pod reports at least every minute and reloads its
+    streaming config when the version changes, instead of polling for it.
     """
 
     def post(self, request):
-        if not _check_api_key(request):
+        if not is_streaming_pod(request):
             return JsonResponse({'error': 'Unauthorized'}, status=401)
 
         try:
@@ -42,9 +38,8 @@ class PodHealthReportView(View):
         if not station_slug:
             return JsonResponse({'error': 'station_slug required'}, status=400)
 
-        try:
-            station = Stations.objects.only('id', 'check_uptime').get(slug=station_slug)
-        except Stations.DoesNotExist:
+        station = Stations.objects.filter(slug=station_slug).values('id', 'config_version').first()
+        if station is None:
             return JsonResponse({'error': f'Station {station_slug} not found'}, status=404)
 
         from superapp.apps.radio_crestin_scraping.services.uptime_service import UptimeService
@@ -65,5 +60,5 @@ class PodHealthReportView(View):
             },
         )
 
-        success = UptimeService.upsert_station_uptime(station.id, data)
-        return JsonResponse({'success': success})
+        success = UptimeService.upsert_station_uptime(station['id'], data)
+        return JsonResponse({'success': success, 'config_version': station['config_version']})
