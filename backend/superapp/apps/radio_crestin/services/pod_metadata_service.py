@@ -29,6 +29,19 @@ def _parse_iso_timestamp(iso_str: Optional[str]) -> Optional[datetime]:
     return datetime.fromisoformat(iso_str.replace('Z', '+00:00'))
 
 
+def _upsert_song(name, artist, defaults) -> Songs:
+    """The song, created or updated with `defaults`. Pods re-report the
+    playing song every 30 s or so; the row is written only when a value
+    changes (update_or_create locked and rewrote it every time)."""
+    song, created = Songs.objects.get_or_create(name=name, artist=artist, defaults=defaults)
+    changed = [field for field, value in defaults.items() if getattr(song, field) != value]
+    if not created and changed:
+        for field in changed:
+            setattr(song, field, defaults[field])
+        song.save(update_fields=[*changed, 'updated_at'])
+    return song
+
+
 class PodMetadataService:
 
     @staticmethod
@@ -65,11 +78,7 @@ class PodMetadataService:
             }
             if song_thumbnail_url:
                 song_defaults['thumbnail_url'] = song_thumbnail_url
-            song, _ = Songs.objects.update_or_create(
-                name=song_title,
-                artist=artist,
-                defaults=song_defaults,
-            )
+            song = _upsert_song(song_title, artist, song_defaults)
             check_song_thumbnail_later(song.thumbnail_url)
 
         now = timezone.now()
@@ -116,10 +125,11 @@ class PodMetadataService:
                 timestamp_source=input.timestamp_source,
             )
 
-        # Update denormalized FK
-        Stations.objects.filter(id=station.id).update(
-            latest_station_now_playing=now_playing
-        )
+        # Update denormalized FK (set once: the now playing row is reused)
+        if station.latest_station_now_playing_id != now_playing.id:
+            Stations.objects.filter(id=station.id).update(
+                latest_station_now_playing=now_playing
+            )
 
         # The song exactly as the API serves it (cleaned names, proxied
         # thumbnail), so pods can put it in the HLS playlist. `artist` is
