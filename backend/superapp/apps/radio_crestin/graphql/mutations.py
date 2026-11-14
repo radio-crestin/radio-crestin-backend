@@ -102,20 +102,18 @@ class Mutation:
     @strawberry_django.mutation(handle_django_errors=True, permission_classes=[IsSuperuser])
     def trigger_metadata_fetch(self, station_id: int) -> TriggerMetadataFetchResponse:
         """Schedule a metadata fetch task for a specific station"""
+        from superapp.apps.radio_crestin_scraping.tasks.scrape_station_metadata import scrape_station_metadata
+
         logger = logging.getLogger(__name__)
 
         try:
-            # Validate that the station exists
-            station = Stations.objects.get(id=station_id)
-
-            # For now, we'll just return success indicating the task was scheduled
-            # In a real implementation, this would trigger a background task
-            # using Celery, Django-RQ, or similar task queue system
-            logger.info(f"Metadata fetch task scheduled for station {station.name} (ID: {station_id})")
+            station = Stations.objects.only('title').get(id=station_id)
+            scrape_station_metadata.delay(station_id)
+            logger.info(f"Metadata fetch task scheduled for station {station.title} (ID: {station_id})")
 
             return TriggerMetadataFetchResponse(
                 success=True,
-                message=f"Metadata fetch task scheduled for station {station.name}"
+                message=f"Metadata fetch task scheduled for station {station.title}"
             )
 
         except Stations.DoesNotExist:
