@@ -8,6 +8,15 @@ from django.views.decorators.csrf import csrf_exempt
 
 from ..models import AppUsers
 from ..utils.client_request import client_country, client_ip, safe_ip
+from ..utils.rate_limits import over_limit
+
+# The app's payload is ~1 KB; device_info stores it verbatim.
+MAX_BODY_BYTES = 16 * 1024
+MAX_DEVICE_ID_LENGTH = 512  # AppUsers.anonymous_id
+MAX_FCM_TOKEN_LENGTH = 4096
+# The app registers on every launch: generous per IP (carrier NAT), tight per device.
+RATE_PER_IP = '600/h'
+RATE_PER_DEVICE = '30/h'
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -47,6 +56,15 @@ class DeviceRegistrationView(View):
     }
 
     def post(self, request):
+        ip = safe_ip(client_ip(request))
+        if over_limit(request, 'device-register-ip', ip, RATE_PER_IP):
+            return JsonResponse({'error': 'rate limited'}, status=429)
+        try:
+            length = int(request.META.get('CONTENT_LENGTH') or 0)
+        except ValueError:
+            length = 0
+        if length > MAX_BODY_BYTES or len(request.body) > MAX_BODY_BYTES:
+            return JsonResponse({'error': 'payload too large'}, status=413)
         try:
             data = json.loads((request.body or b'{}').decode('utf-8'))
         except (ValueError, UnicodeDecodeError):
@@ -58,10 +76,14 @@ class DeviceRegistrationView(View):
         device_id = str(data.get('device_id') or '').strip()
         if not device_id:
             return JsonResponse({'error': 'device_id is required'}, status=400)
+        if len(device_id) > MAX_DEVICE_ID_LENGTH:
+            return JsonResponse({'error': 'device_id is too long'}, status=400)
+        if over_limit(request, 'device-register-device', device_id, RATE_PER_DEVICE):
+            return JsonResponse({'error': 'rate limited'}, status=429)
 
         now = timezone.now()
         defaults = {
-            'device_last_ip': safe_ip(client_ip(request)),
+            'device_last_ip': ip,
             'device_last_seen_at': now,
             'device_info': data,
         }
@@ -80,6 +102,8 @@ class DeviceRegistrationView(View):
             defaults['device_country'] = country
 
         fcm_token = str(data.get('fcm_token') or '')
+        if len(fcm_token) > MAX_FCM_TOKEN_LENGTH:
+            return JsonResponse({'error': 'fcm_token is too long'}, status=400)
         if fcm_token:
             defaults['device_fcm_token'] = fcm_token
             if fcm_token != self._stored_push_token(device_id):

@@ -34,6 +34,17 @@ from ..services.share_link_service import ShareLinkService
 from ..services.review_service import ReviewService
 from ..services.listening_events import record_listening_events
 from ..utils.streaming_pod_auth import is_streaming_pod
+from ..utils.rate_limits import over_limit
+
+
+# Public writes, per client IP. Generous: many phones share one carrier
+# (CGNAT) address, and a person leaves a few reviews at most.
+REVIEW_RATE_PER_IP = '30/h'
+SHARE_LINK_RATE_PER_IP = '120/h'
+RATE_LIMITED_MESSAGE = "Too many requests; try again later."
+MAX_REVIEW_MESSAGE_LENGTH = 2000
+MAX_USER_IDENTIFIER_LENGTH = 255
+MAX_ANONYMOUS_ID_LENGTH = 512
 
 
 class IsSuperuser(BasePermission):
@@ -121,9 +132,15 @@ class Mutation:
             )
 
     @strawberry_django.mutation(handle_django_errors=True)
-    def get_share_link(self, anonymous_id: str) -> GetShareLinkResponse:
+    def get_share_link(self, info: strawberry.Info, anonymous_id: str) -> GetShareLinkResponse:
         """Get or create the unique share link for a user"""
         logger = logging.getLogger(__name__)
+
+        if not anonymous_id or len(anonymous_id) > MAX_ANONYMOUS_ID_LENGTH:
+            return GetShareLinkResponse(success=False, message="Invalid anonymous_id", anonymous_id=anonymous_id[:64])
+        request = info.context.request
+        if over_limit(request, 'share-link-ip', Mutation._get_client_ip(request), SHARE_LINK_RATE_PER_IP):
+            return GetShareLinkResponse(success=False, message=RATE_LIMITED_MESSAGE, anonymous_id=anonymous_id)
 
         try:
             # Get share link info from service (will create user and link if needed)
@@ -192,6 +209,16 @@ class Mutation:
                     message="Could not determine client IP address",
                     created=False
                 )
+            if over_limit(request, 'review-ip', ip_address, REVIEW_RATE_PER_IP):
+                return SubmitReviewResponse(success=False, message=RATE_LIMITED_MESSAGE, created=False)
+            if input.message and len(input.message) > MAX_REVIEW_MESSAGE_LENGTH:
+                return SubmitReviewResponse(
+                    success=False,
+                    message=f"The message is longer than {MAX_REVIEW_MESSAGE_LENGTH} characters",
+                    created=False,
+                )
+            if input.user_identifier and len(input.user_identifier) > MAX_USER_IDENTIFIER_LENGTH:
+                return SubmitReviewResponse(success=False, message="Invalid user_identifier", created=False)
 
             # Resolve station_id from station_slug if needed
             station_id = input.station_id
@@ -275,6 +302,8 @@ class Mutation:
                     success=False,
                     message="Could not determine client IP address"
                 )
+            if over_limit(request, 'review-ip', ip_address, REVIEW_RATE_PER_IP):
+                return DeleteReviewResponse(success=False, message=RATE_LIMITED_MESSAGE)
 
             station_id = input.station_id
             if not station_id and input.station_slug:
