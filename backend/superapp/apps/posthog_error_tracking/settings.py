@@ -67,25 +67,4 @@ def extend_superapp_settings(main_settings):
         main_settings['POSTHOG_MW_ENABLE_SESSION_TRACKING'] = True
         main_settings['POSTHOG_MW_ENABLE_USER_TRACKING'] = True
     
-    # Add admin sidebar navigation for PostHog error tracking
-    main_settings.setdefault('UNFOLD', {}).setdefault('SIDEBAR', {}).setdefault('navigation', []).append({
-        "title": _("PostHog Analytics"),
-        "icon": "analytics",
-        "permission": lambda request: request.user.is_staff,
-        "items": [
-            {
-                "title": _("Error Tracking"),
-                "icon": "bug_report",
-                "link": f"{posthog_host}/project/{posthog_project_id}/errors" if posthog_api_key and posthog_project_id else "#",
-                "permission": lambda request: request.user.is_staff,
-            },
-            {
-                "title": _("Analytics Dashboard"),
-                "icon": "dashboard",
-                "link": f"{posthog_host}/project/{posthog_project_id}/dashboard" if posthog_api_key and posthog_project_id else "#", 
-                "permission": lambda request: request.user.is_staff,
-            },
-        ]
-    })
-    
     return main_settings

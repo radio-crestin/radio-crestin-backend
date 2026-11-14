@@ -160,6 +160,24 @@ def extend_superapp_settings(main_settings):
                     "permission": lambda request: request.user.has_perm("radio_crestin.view_form"),
                 },
                 {
+                    "title": lambda request: _("Form Submissions"),
+                    "icon": "inbox",
+                    "link": reverse_lazy("admin:radio_crestin_formsubmission_changelist"),
+                    "permission": lambda request: request.user.has_perm("radio_crestin.view_formsubmission"),
+                },
+                {
+                    "title": lambda request: _("Session Recording"),
+                    "icon": "videocam",
+                    "link": reverse_lazy("admin:radio_crestin_sessionrecordingconfig_changelist"),
+                    "permission": lambda request: request.user.has_perm("radio_crestin.view_sessionrecordingconfig"),
+                },
+                {
+                    "title": lambda request: _("Session Recording Overrides"),
+                    "icon": "video_settings",
+                    "link": reverse_lazy("admin:radio_crestin_sessionrecordingoverride_changelist"),
+                    "permission": lambda request: request.user.has_perm("radio_crestin.view_sessionrecordingoverride"),
+                },
+                {
                     "title": lambda request: _("App Users"),
                     "icon": "people",
                     "link": reverse_lazy("admin:radio_crestin_appusers_changelist"),

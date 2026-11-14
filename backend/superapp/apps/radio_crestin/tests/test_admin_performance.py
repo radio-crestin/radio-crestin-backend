@@ -280,6 +280,25 @@ class SidebarLinkTests(TestCase):
         self.client.force_login(request.user)
         self.assertContains(self.client.get(changelist), f'href="{changelist}"')
 
+    def test_sidebar_is_only_the_configured_navigation(self):
+        request = RequestFactory().get('/portal/')
+        request.user = get_user_model().objects.create_superuser(email='admin@example.com', password='x')
+        sidebar = superapp_admin_site._get_config('SIDEBAR', request)
+        tabs = superapp_admin_site._get_config('TABS', request) or []
+        links = {str(item.get('link')) for group in [*(sidebar.get('navigation') or []), *tabs] for item in group.get('items', [])}
+
+        self.assertFalse(sidebar.get('show_all_applications'))
+        self.assertFalse([link for link in links if 'posthog' in link])
+        links = {link.split('?')[0] for link in links}
+        linked_elsewhere = {'radio_crestin_sharelinkvisit'}  # from each share link's visit count
+        unreachable = [
+            f'{model._meta.app_label}_{model._meta.model_name}'
+            for model in superapp_admin_site._registry
+            if f'{model._meta.app_label}_{model._meta.model_name}' not in linked_elsewhere
+            and reverse(f'admin:{model._meta.app_label}_{model._meta.model_name}_changelist') not in links
+        ]
+        self.assertEqual(unreachable, [])
+
 
 class ChangeformDataTests(TestCase):
     """The faster changeform_data (admin_portal.unfold_patches) gives Unfold's exact output."""

@@ -101,6 +101,36 @@ def extend_superapp_settings(main_settings):
                     "link": reverse_lazy("admin:auth_group_changelist"),  # add url pattern here
                     "permission": lambda request: request.user.has_perm('auth.view_group'),
                 },
+                {
+                    "title": _("Email Addresses"),
+                    "icon": "alternate_email",
+                    "link": reverse_lazy("admin:account_emailaddress_changelist"),
+                    "permission": lambda request: request.user.has_perm('account.view_emailaddress'),
+                },
+                {
+                    "title": _("User Sessions"),
+                    "icon": "devices",
+                    "link": reverse_lazy("admin:usersessions_usersession_changelist"),
+                    "permission": lambda request: request.user.has_perm('usersessions.view_usersession'),
+                },
+                {
+                    "title": _("Social Accounts"),
+                    "icon": "account_circle",
+                    "link": reverse_lazy("admin:socialaccount_socialaccount_changelist"),
+                    "permission": lambda request: request.user.has_perm('socialaccount.view_socialaccount'),
+                },
+                {
+                    "title": _("Social Applications"),
+                    "icon": "apps",
+                    "link": reverse_lazy("admin:socialaccount_socialapp_changelist"),
+                    "permission": lambda request: request.user.has_perm('socialaccount.view_socialapp'),
+                },
+                {
+                    "title": _("Social Tokens"),
+                    "icon": "key",
+                    "link": reverse_lazy("admin:socialaccount_socialtoken_changelist"),
+                    "permission": lambda request: request.user.has_perm('socialaccount.view_socialtoken'),
+                },
             ]
         }
     ]
