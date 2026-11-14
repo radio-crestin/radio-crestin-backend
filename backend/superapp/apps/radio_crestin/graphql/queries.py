@@ -36,6 +36,11 @@ MAX_PAGE_SIZE = 100
 MAX_REVIEWS_PAGE_SIZE = 500
 
 
+# Rows that belong to a station only show while the station is listed
+# publicly: private stations are for their allowlisted devices only.
+_ON_PUBLIC_STATION = {'station__disabled': False, 'station__is_public': True}
+
+
 def _page(queryset, limit, offset, max_size=MAX_PAGE_SIZE):
     """`queryset` from `offset`, at most `limit` rows and never more than
     `max_size` (None: no cap). Negative values count as 0 instead of
@@ -488,14 +493,14 @@ class Query:
         offset: Optional[int] = None,
     ) -> List[PostType]:
         """Get posts with pagination"""
-        queryset = Posts.objects.select_related('station').order_by('-published')
+        queryset = Posts.objects.filter(**_ON_PUBLIC_STATION).select_related('station').order_by('-published')
         return _page(queryset, limit, offset)
 
     @strawberry_django.field
     def posts_by_pk(self, id: int) -> Optional[PostType]:
         """Get post by primary key"""
         try:
-            return Posts.objects.select_related('station').get(id=id)
+            return Posts.objects.select_related('station').get(id=id, **_ON_PUBLIC_STATION)
         except Posts.DoesNotExist:
             return None
 
@@ -522,12 +527,12 @@ class Query:
         """
         from ..models import Reviews as ReviewsModel
 
-        queryset = ReviewsModel.objects.filter(verified=True)
+        queryset = ReviewsModel.objects.filter(verified=True, **_ON_PUBLIC_STATION)
 
         if station_id is not None:
             queryset = queryset.filter(station_id=station_id)
         elif station_slug:
-            station = Stations.objects.filter(slug=station_slug, disabled=False).first()
+            station = Stations.objects.filter(slug=station_slug, disabled=False, is_public=True).first()
             if station:
                 queryset = queryset.filter(station_id=station.id)
             else:

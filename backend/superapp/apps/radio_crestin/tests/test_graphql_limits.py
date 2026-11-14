@@ -69,3 +69,32 @@ class DocumentLimitTests(GraphQLTestCase):
         from ..constants import STATIONS_GRAPHQL_QUERY
         self.assertNotIn('errors', self.graphql(STATIONS_GRAPHQL_QUERY))
         self.assertNotIn('errors', self.graphql(get_introspection_query()))
+
+
+class PrivateStationRowsTests(GraphQLTestCase):
+    """Posts and reviews of a private (or disabled) station stay with it."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from django.utils import timezone
+        from ..models import Posts, Reviews
+        from .helpers import make_station
+        for slug, extra in (('open', {}), ('private', {'is_public': False}), ('off', {'disabled': True})):
+            station = make_station(slug, **extra)
+            post = Posts.objects.create(station=station, title=f'{slug} post', link='https://example.com',
+                                        published=timezone.now())
+            Reviews.objects.create(station=station, ip_address='203.0.113.1', stars=5, message=f'{slug} review')
+            setattr(cls, f'{slug}_station', station)
+            setattr(cls, f'{slug}_post', post)
+
+    def test_lists_show_only_public_stations_rows(self):
+        data = self.graphql('{ posts { title } reviews { message } }')['data']
+        self.assertEqual([p['title'] for p in data['posts']], ['open post'])
+        self.assertEqual([r['message'] for r in data['reviews']], ['open review'])
+
+    def test_lookups_by_id_or_slug_do_not_reach_private_rows(self):
+        data = self.graphql(f'{{ posts_by_pk(id: {self.private_post.id}) {{ title }} '
+                            f'reviews(station_id: {self.private_station.id}) {{ message }} }}')['data']
+        self.assertIsNone(data['posts_by_pk'])
+        self.assertEqual(data['reviews'], [])
+        self.assertEqual(self.graphql('{ reviews(station_slug: "private") { message } }')['data']['reviews'], [])
