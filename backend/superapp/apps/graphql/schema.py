@@ -8,7 +8,8 @@ from typing import List, Type, Any
 import strawberry
 from django.apps import apps
 from django.db import connection
-from strawberry.extensions import Extension, MaxAliasesLimiter, MaxTokensLimiter, ParserCache, QueryDepthLimiter, ValidationCache
+from graphql import GraphQLError
+from strawberry.extensions import Extension, MaskErrors, MaxAliasesLimiter, MaxTokensLimiter, ParserCache, QueryDepthLimiter, ValidationCache
 from strawberry.tools import merge_types
 from strawberry.types.base import StrawberryObjectDefinition
 from strawberry_django.optimizer import DjangoOptimizerExtension
@@ -218,7 +219,19 @@ MAX_QUERY_TOKENS = 2000
 MAX_QUERY_DEPTH = 15
 MAX_QUERY_ALIASES = 20
 
+def is_unexpected_error(error: GraphQLError) -> bool:
+    """An exception a resolver did not mean to show (a database error, a bug).
+    Its text can carry SQL, hosts or paths, so the client gets a generic
+    message; the logs and PostHog keep the original. ValueError and
+    PermissionError are the resolvers' messages for callers ("Station 'x' not
+    found.", "Invalid streaming pod API key"); syntax and validation errors
+    have no original error."""
+    original = error.original_error
+    return original is not None and not isinstance(original, (ValueError, PermissionError, GraphQLError))
+
+
 base_extensions = [
+    MaskErrors(should_mask_error=is_unexpected_error, error_message="Internal server error"),
     MaxTokensLimiter(max_token_count=MAX_QUERY_TOKENS),
     MaxAliasesLimiter(max_alias_count=MAX_QUERY_ALIASES),
     QueryDepthLimiter(max_depth=MAX_QUERY_DEPTH),

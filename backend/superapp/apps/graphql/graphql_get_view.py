@@ -249,7 +249,7 @@ class GraphQLWithGetRedirectView(View):
             response_data = {"data": result.data}
             if result.errors:
                 response_data["errors"] = [
-                    {"message": str(error)} for error in result.errors
+                    {"message": error.message} for error in result.errors
                 ]
 
             response = JsonResponse(response_data)
@@ -280,8 +280,8 @@ class GraphQLWithGetRedirectView(View):
             return response
 
         except Exception as e:
-            logger.error(f"Error in GraphQL GET query execution: {e}")
+            logger.exception(f"Error in GraphQL GET query execution: {e}")
             return JsonResponse(
-                {"errors": [{"message": f"Internal server error: {str(e)}"}]},
+                {"errors": [{"message": "Internal server error"}]},
                 status=500,
             )

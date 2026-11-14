@@ -89,7 +89,7 @@ class Mutation:
             logging.getLogger(__name__).error(f"Error in submit_listening_events: {e}")
             return SubmitListeningEventsResponse(
                 success=False,
-                message=f"Error processing events: {str(e)}",
+                message="Error processing events",
                 processed_count=0
             )
         return SubmitListeningEventsResponse(
@@ -128,7 +128,7 @@ class Mutation:
             logger.error(f"Error scheduling metadata fetch for station {station_id}: {e}")
             return TriggerMetadataFetchResponse(
                 success=False,
-                message=f"Error scheduling metadata fetch: {str(e)}"
+                message="Error scheduling metadata fetch"
             )
 
     @strawberry_django.mutation(handle_django_errors=True)
@@ -184,7 +184,7 @@ class Mutation:
             logger.error(f"Error getting share link: {e}")
             return GetShareLinkResponse(
                 success=False,
-                message=f"Error getting share link: {str(e)}",
+                message="Error getting share link",
                 anonymous_id=anonymous_id
             )
 
@@ -281,7 +281,7 @@ class Mutation:
             logger.error(f"Error submitting review: {e}")
             return SubmitReviewResponse(
                 success=False,
-                message=f"Error submitting review: {str(e)}",
+                message="Error submitting review",
                 created=False
             )
 
@@ -342,7 +342,7 @@ class Mutation:
             logger.error(f"Error deleting review: {e}")
             return DeleteReviewResponse(
                 success=False,
-                message=f"Error deleting review: {str(e)}"
+                message="Error deleting review"
             )
 
     @strawberry.mutation
@@ -381,7 +381,7 @@ class Mutation:
             logger.error(f"Error reporting station metadata: {e}")
             return ReportStationMetadataResponse(
                 success=False,
-                message=f"Error: {str(e)}",
+                message="Error reporting metadata",
             )
 
     @staticmethod

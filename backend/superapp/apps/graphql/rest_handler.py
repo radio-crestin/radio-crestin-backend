@@ -169,13 +169,9 @@ class GraphQLRestApiView(View):
             return response
 
         except Exception as e:
-            logger.error(f"Error in REST API handler for {self.endpoint_config.path}: {e}")
+            logger.exception(f"Error in REST API handler for {self.endpoint_config.path}: {e}")
 
-            error_response = {
-                "errors": [
-                    {"message": f"Internal server error: {str(e)}"}
-                ]
-            }
+            error_response = {"errors": [{"message": "Internal server error"}]}
 
             response = JsonResponse(error_response, status=500)
             self._add_cors_headers(response)
@@ -242,7 +238,7 @@ class GraphQLRestApiView(View):
         
         if result.errors:
             response_data["errors"] = [
-                {"message": str(error)} for error in result.errors
+                {"message": error.message} for error in result.errors
             ]
         
         return response_data

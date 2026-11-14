@@ -98,3 +98,22 @@ class PrivateStationRowsTests(GraphQLTestCase):
         self.assertIsNone(data['posts_by_pk'])
         self.assertEqual(data['reviews'], [])
         self.assertEqual(self.graphql('{ reviews(station_slug: "private") { message } }')['data']['reviews'], [])
+
+
+class ErrorDetailTests(GraphQLTestCase):
+    """Unexpected exceptions reach the logs, not the caller."""
+
+    def test_a_database_error_is_masked(self):
+        from unittest.mock import patch
+        from django.db import OperationalError
+        error = OperationalError('could not connect to server at "10.20.20.5", port 5432')
+        with patch('superapp.apps.radio_crestin.graphql.queries.Stations.objects.filter', side_effect=error):
+            result = self.graphql('{ stations_metadata_history(station_slug: "x") { count } }')
+            rest = self.client.get('/api/v1/stations-metadata-history', {'station_slug': 'x'}).json()
+        for body in (result, rest):
+            self.assertEqual([e['message'] for e in body['errors']], ['Internal server error'])
+            self.assertNotIn('10.20.20.5', json.dumps(body))
+
+    def test_messages_meant_for_callers_are_kept(self):
+        result = self.graphql('{ stations_metadata_history(station_slug: "nope") { count } }')
+        self.assertEqual(result['errors'][0]['message'], "Station 'nope' not found.")
