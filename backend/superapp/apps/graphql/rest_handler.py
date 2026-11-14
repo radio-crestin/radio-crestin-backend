@@ -192,7 +192,9 @@ class GraphQLRestApiView(View):
         privileged response can never land in the shared entry.
 
         Query parameters are sorted, so the same parameters in a different order
-        hit the same entry.
+        hit the same entry, and the legacy `_t` counts as `timestamp`: the
+        endpoints read them alike, and about half the /stations pollers
+        still send `_t`, which made two entries (two executions) per window.
         """
         if policy.ttl <= 0:
             return None
@@ -201,7 +203,10 @@ class GraphQLRestApiView(View):
         if request.headers.get('Authorization'):
             return None
 
-        params = sorted((key, sorted(values)) for key, values in request.GET.lists())
+        params = dict(request.GET.lists())
+        if '_t' in params and 'timestamp' not in params:
+            params['timestamp'] = params.pop('_t')
+        params = sorted((key, sorted(values)) for key, values in params.items())
         key_source = json.dumps([request.path, params, policy.key], separators=(',', ':'))
         digest = hashlib.md5(key_source.encode()).hexdigest()
         # v2: entries hold {'body', 'generated_at'}, not the bare body.

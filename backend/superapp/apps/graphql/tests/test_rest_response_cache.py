@@ -155,6 +155,17 @@ class RestResponseCacheTests(SimpleTestCase):
 
         self.assertEqual(execute.call_count, 2)
 
+    def test_legacy_t_parameter_shares_the_timestamp_entry(self):
+        view = build_view()
+        with patch.object(
+            GraphQLRestApiView, '_execute_graphql', return_value={'data': {'things': [1]}}
+        ) as execute:
+            self.call(view, timestamp='100')
+            self.call(view, _t='100')
+            self.call(view, _t='110')
+
+        self.assertEqual(execute.call_count, 2)
+
     def test_last_modified_is_when_the_body_was_generated(self):
         view = build_view()
         before = int(time.time())
