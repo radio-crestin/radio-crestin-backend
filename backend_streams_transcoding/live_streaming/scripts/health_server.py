@@ -27,6 +27,9 @@ content (is_up, reason) changed, or a heartbeat every HEARTBEAT_INTERVAL
 seconds when it did not. A stalled metadata monitor is added to that
 report's reason (and sent to PostHog) without failing /health: the audio is
 fine, and a restart would cut listeners off.
+
+Django answers a report with the station's config_version; it is written to
+LATEST_CONFIG_VERSION so scraper_engine reloads its config when it changes.
 """
 
 import glob
@@ -63,6 +66,9 @@ SERVED_PLAYLIST = os.path.join(AAC_SEGMENTS_DIR, "index.m3u8")
 # withheld on purpose (audio replayed by a reconnect or a new ffmpeg run).
 SEGMENT_HISTORY = os.path.join(AAC_SEGMENTS_DIR, "dvr_history.json")
 METADATA_INDEX = "/data/metadata/index.json"
+# The station's config_version in Django's latest pod-health answer;
+# scraper_engine reads it.
+LATEST_CONFIG_VERSION = "/data/metadata/latest_config_version"
 HEALTH_MAX_AGE = int(os.environ.get("HEALTH_MAX_AGE", "30"))
 # metadata_monitor refreshes monitor_alive_at while the stream delivers
 # media; older than this means its reader is stuck.
@@ -296,6 +302,20 @@ class HealthReporter:
         return True
 
 
+def write_latest_config_version(version) -> None:
+    """tmp + os.replace, so scraper_engine never reads a partial file."""
+    if not isinstance(version, int) or isinstance(version, bool):
+        return
+    try:
+        os.makedirs(os.path.dirname(LATEST_CONFIG_VERSION), exist_ok=True)
+        tmp = LATEST_CONFIG_VERSION + ".tmp"
+        with open(tmp, "w") as f:
+            f.write(str(version))
+        os.replace(tmp, LATEST_CONFIG_VERSION)
+    except OSError as e:
+        print(f"Health report: config version write error: {e}", flush=True)
+
+
 def _report_to_django(is_up, latency_ms=0, reason="") -> bool:
     """Send a single health report to Django; whether it was accepted."""
     try:
@@ -310,6 +330,8 @@ def _report_to_django(is_up, latency_ms=0, reason="") -> bool:
         return False
     if not response:
         return False
+    # Django releases before the config_version answer send none.
+    write_latest_config_version(response.get("config_version"))
     return bool(response.get("success"))
 
 

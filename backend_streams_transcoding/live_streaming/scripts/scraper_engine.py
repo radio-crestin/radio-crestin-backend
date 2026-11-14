@@ -14,7 +14,10 @@ A report dated by an ICY start reaches Django before that start is
 ICY_REPORT_MAX_AGE old, so Django stores it unclamped and the API's song
 change stays at the playlist's EPOCH.
 
-Polls config_version from Django to detect admin changes and reload config.
+Reloads its config when an admin changes it: health_server writes the
+config_version of Django's pod-health answers (at least one a minute) to
+latest_config_version, and a newer one triggers a fetch. The config is also
+fetched every CONFIG_POLL_INTERVAL, for a Django that does not send it.
 
 Files under /data/metadata (all written atomically):
   - index.json        read only; metadata_monitor is its single writer.
@@ -50,7 +53,9 @@ METADATA_INDEX = Path("/data/metadata/index.json")
 STATION_CONFIG_PATH = Path("/data/metadata/station.json")
 NOW_PLAYING_PATH = Path("/data/metadata/now_playing.json")
 ID3_TRIGGER = Path("/data/id3_trigger")
-CONFIG_POLL_INTERVAL = 60
+# Written by health_server (LATEST_CONFIG_VERSION there).
+LATEST_CONFIG_VERSION = Path("/data/metadata/latest_config_version")
+CONFIG_POLL_INTERVAL = 300
 SCRAPER_HTTP_TIMEOUT = 5
 # Django dates a song at most 45 s before it receives the report
 # (METADATA_BACKDATE_LIMIT in history_timeline.py) and clamps an older
@@ -827,6 +832,32 @@ def _scrape_and_report(clock: ReportClock, timestamp_source: str,
     return dating
 
 
+def _latest_config_version() -> int:
+    """The config_version Django last told health_server; 0 when unknown."""
+    try:
+        return int(LATEST_CONFIG_VERSION.read_text())
+    except (OSError, ValueError):
+        return 0
+
+
+class ConfigPoll:
+    """When to fetch the config again: once for each config_version newer
+    than the loaded one, and every CONFIG_POLL_INTERVAL. A version is
+    fetched once, so a failed fetch waits for the interval, not a loop."""
+
+    def __init__(self, now: float):
+        self._fetched_at = now
+        self._fetched_for = 0
+
+    def due(self, loaded_version: int, latest_version: int, now: float) -> bool:
+        return (latest_version > max(loaded_version, self._fetched_for)
+                or now - self._fetched_at > CONFIG_POLL_INTERVAL)
+
+    def fetched(self, latest_version: int, now: float) -> None:
+        self._fetched_at = now
+        self._fetched_for = max(self._fetched_for, latest_version)
+
+
 def _load_config(config: dict) -> None:
     global _config, _config_version
     _config = config
@@ -854,7 +885,7 @@ def main():
               f"interval={_config.get('metadata_scrape_interval')}s, "
               f"scrapers={len(_config.get('scrapers', []))}", flush=True)
 
-    last_config_check = time.time()
+    config_poll = ConfigPoll(time.time())
     ts_source = _config.get("metadata_timestamp_source", "scraper")
     interval = _config.get("metadata_scrape_interval", 30)
     clock = ReportClock()
@@ -864,8 +895,10 @@ def main():
     while True:
         now = time.time()
 
-        # Periodically check for config changes
-        if now - last_config_check > CONFIG_POLL_INTERVAL:
+        # Reload the config when an admin changed it
+        latest_version = _latest_config_version()
+        if config_poll.due(_config_version, latest_version, now):
+            config_poll.fetched(latest_version, now)
             new_config = _fetch_config()
             if new_config and new_config.get("config_version", 0) > _config_version:
                 _load_config(new_config)
@@ -873,7 +906,6 @@ def main():
                 interval = _config.get("metadata_scrape_interval", 30)
                 schedule.interval = interval
                 print(f"scraper: config updated to v{_config_version}", flush=True)
-            last_config_check = now
 
         if ts_source == "id3_metadata":
             id3_reporter.poll(_get_icy_current(), now)

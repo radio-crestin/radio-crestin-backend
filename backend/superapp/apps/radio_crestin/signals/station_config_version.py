@@ -1,7 +1,7 @@
 import logging
 
 from django.db import models
-from django.db.models.signals import post_save
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
 from superapp.apps.radio_crestin.models import Stations, StationsMetadataFetch
@@ -10,8 +10,10 @@ logger = logging.getLogger(__name__)
 
 
 @receiver(post_save, sender=StationsMetadataFetch)
+@receiver(post_delete, sender=StationsMetadataFetch)
 def increment_config_version_on_fetcher_change(sender, instance, **kwargs):
-    """When a scraper config changes, bump the station's config_version so the pod reloads."""
+    """When a scraper config is added, changed or removed, bump the station's
+    config_version so the pod reloads."""
     Stations.objects.filter(id=instance.station_id).update(
         config_version=models.F('config_version') + 1
     )

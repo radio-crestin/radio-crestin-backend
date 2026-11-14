@@ -17,9 +17,12 @@ class PodHealthReportView(View):
 
     POST /api/v1/pod-health/
     Body: {station_slug, is_up, latency_ms?, reason?}
+    Answer: {success, config_version}
 
     Updates the station's uptime record using the same UptimeService
-    that the external uptime checker uses.
+    that the external uptime checker uses. The answer carries the station's
+    config_version: a pod reports at least every minute and reloads its
+    streaming config when the version changes, instead of polling for it.
     """
 
     def post(self, request):
@@ -35,8 +38,8 @@ class PodHealthReportView(View):
         if not station_slug:
             return JsonResponse({'error': 'station_slug required'}, status=400)
 
-        station_id = Stations.objects.filter(slug=station_slug).values_list('id', flat=True).first()
-        if station_id is None:
+        station = Stations.objects.filter(slug=station_slug).values('id', 'config_version').first()
+        if station is None:
             return JsonResponse({'error': f'Station {station_slug} not found'}, status=404)
 
         from superapp.apps.radio_crestin_scraping.services.uptime_service import UptimeService
@@ -57,5 +60,5 @@ class PodHealthReportView(View):
             },
         )
 
-        success = UptimeService.upsert_station_uptime(station_id, data)
-        return JsonResponse({'success': success})
+        success = UptimeService.upsert_station_uptime(station['id'], data)
+        return JsonResponse({'success': success, 'config_version': station['config_version']})

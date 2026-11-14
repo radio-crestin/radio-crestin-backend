@@ -10,7 +10,9 @@ from django.utils import timezone
 
 from superapp.apps.radio_crestin_scraping.scrapers.uptime import UptimeScraper
 
-from ..models import Stations, StationsUptime
+from ..models import (
+    StationMetadataFetchCategories, Stations, StationsMetadataFetch, StationsUptime,
+)
 from .helpers import make_station
 
 POD_KEY = 'test-pod-key'
@@ -30,7 +32,7 @@ class PodHealthApiTests(TestCase):
 
     def test_first_report_creates_the_uptime_row_and_links_the_station(self):
         response = self.report(is_up=True, latency_ms=12)
-        self.assertEqual(response.json(), {'success': True})
+        self.assertEqual(response.json(), {'success': True, 'config_version': 1})
         uptime = StationsUptime.objects.get(station=self.station)
         self.assertEqual((uptime.is_up, uptime.latency_ms), (True, 12))
         self.assertEqual(Stations.objects.get(id=self.station.id).latest_station_uptime_id, uptime.id)
@@ -47,6 +49,18 @@ class PodHealthApiTests(TestCase):
         self.assertEqual(uptime.raw_data['reason'], 'aac segments stale')
         self.assertGreater(uptime.timestamp, first.timestamp)
         self.assertGreater(uptime.updated_at, first.updated_at)
+
+    def test_the_answer_carries_the_config_version_an_admin_change_bumps(self):
+        before = self.report(is_up=True).json()['config_version']
+        category = StationMetadataFetchCategories.objects.create(slug='shoutcast')
+        fetcher = StationsMetadataFetch.objects.create(
+            station=self.station, station_metadata_fetch_category=category,
+            url='https://example.com/stats')
+        added = self.report(is_up=True).json()['config_version']
+        fetcher.delete()
+        removed = self.report(is_up=True).json()['config_version']
+        self.assertGreater(added, before)
+        self.assertGreater(removed, added)
 
     def test_unknown_station_and_wrong_key(self):
         self.assertEqual(self.report(slug='no-such-station').status_code, 404)
