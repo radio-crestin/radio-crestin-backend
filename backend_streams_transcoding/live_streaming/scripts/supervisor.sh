@@ -13,10 +13,11 @@
 # SIGTERM to that subshell stops its child and ends the loop.
 
 # First retry delay; doubled after every quick exit up to the max.
-FFMPEG_RETRY_DELAY="${FFMPEG_RETRY_DELAY:-2}"
+FFMPEG_RETRY_DELAY="${FFMPEG_RETRY_DELAY:-1}"
 # Liveness (/live) never restarts the pod during an upstream outage, so this
-# loop is the only recovery; at most 20 s keeps the gap short.
-FFMPEG_MAX_RETRY_DELAY="${FFMPEG_MAX_RETRY_DELAY:-20}"
+# loop is the only recovery; at most 10 s keeps the gap short (the relay
+# rides out upstream outages itself, so a restart means ffmpeg failed).
+FFMPEG_MAX_RETRY_DELAY="${FFMPEG_MAX_RETRY_DELAY:-10}"
 # A run (or helper) that lasted this long was healthy: the backoff restarts
 # from the first delay instead of staying at the max forever.
 FFMPEG_STABLE_RUN="${FFMPEG_STABLE_RUN:-60}"

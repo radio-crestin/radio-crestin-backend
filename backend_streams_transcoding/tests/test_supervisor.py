@@ -1,5 +1,5 @@
 """supervisor.sh: ffmpeg_loop keeps the real exit code, backs off
-2 → 20 s and resets after a stable run; supervise restarts helpers; SIGTERM
+1 → 10 s and resets after a stable run; supervise restarts helpers; SIGTERM
 stops a loop together with its child. Runs the real shell functions with
 start_ffmpeg / backoff_sleep / report_event stubbed."""
 
@@ -48,11 +48,11 @@ FFMPEG_STABLE_RUN=1000
 start_ffmpeg() { (exit 3) & FFMPEG_PID=$!; }
 ffmpeg_loop
 """)
-        self.assertEqual(sleeps(out), [2, 4, 8, 16, 20, 20])
+        self.assertEqual(sleeps(out), [1, 2, 4, 8, 10, 10])
         # `ran` has whole-second resolution (date +%s): the instant run
         # reads 1 s when it straddles a second boundary.
         self.assertRegex(out, r"ffmpeg exited \(code=3, ran=[01]s, "
-                              r"restart_count=1\); retrying in 2s")
+                              r"restart_count=1\); retrying in 1s")
         self.assertIn("event ffmpeg_exit --prop exit_code=3", out)
 
     def test_backoff_resets_after_a_stable_run(self):
@@ -66,7 +66,7 @@ start_ffmpeg() {
 }
 ffmpeg_loop
 """, limit=5)
-        self.assertEqual(sleeps(out), [2, 4, 8, 2, 4])
+        self.assertEqual(sleeps(out), [1, 2, 4, 1, 2])
         self.assertIn("code=0", out)
 
     def test_term_stops_the_loop_and_ffmpeg(self):
