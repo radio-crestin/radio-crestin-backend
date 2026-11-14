@@ -23,9 +23,10 @@ class UptimeService:
         """Upsert station uptime data.
 
         A station has one uptime row, which its latest_station_uptime points
-        to from the moment it is created. Streaming pods report every 15 s
-        (~14,000 reports an hour), so the common case is one UPDATE; the row
-        is created, and linked, only the first time.
+        to from the moment it is created. Streaming pods report when their
+        stream changes and at least every 60 s (~3,500 reports an hour), so
+        the common case is one UPDATE; the row is created, and linked, only
+        the first time.
         """
         fields = {
             'timestamp': data.timestamp,

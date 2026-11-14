@@ -2,9 +2,13 @@
 
 import json
 import os
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.test import TestCase
+from django.utils import timezone
+
+from superapp.apps.radio_crestin_scraping.scrapers.uptime import UptimeScraper
 
 from ..models import Stations, StationsUptime
 from .helpers import make_station
@@ -66,3 +70,45 @@ class PodHealthWithoutKeyTests(TestCase):
                 content_type='application/json', HTTP_X_STREAMING_API_KEY='dev-streaming-key',
             )
         self.assertEqual(response.status_code, 401)
+
+
+class ScheduledUptimeCheckTests(TestCase):
+    """The 5-minute HTTP check leaves a station to its streaming pod while the
+    pod's report is fresh: pods send a heartbeat only every 60 s, so an
+    overwritten verdict would otherwise stay up to a minute."""
+
+    def setUp(self):
+        self.station = make_station('station-a')
+
+    @patch.dict(os.environ, {'STREAMING_POD_API_KEY': POD_KEY})
+    def pod_reports(self, is_up):
+        self.client.post(
+            '/api/v1/pod-health/', json.dumps({'station_slug': 'station-a', 'is_up': is_up}),
+            content_type='application/json', HTTP_X_STREAMING_API_KEY=POD_KEY,
+        )
+
+    def check_all(self, upstream_up):
+        with patch.object(UptimeScraper, '_check_stream_response',
+                          return_value={'success': upstream_up, 'status_code': 200}):
+            return UptimeScraper().check_all_stations_uptime()
+
+    def test_a_fresh_pod_report_is_left_alone(self):
+        self.pod_reports(is_up=True)
+        summary = self.check_all(upstream_up=False)
+        self.assertEqual((summary['total_checked'], summary['left_to_pods']), (0, 1))
+        self.assertTrue(StationsUptime.objects.get(station=self.station).is_up)
+
+    def test_a_pod_silent_for_minutes_is_checked_again(self):
+        self.pod_reports(is_up=True)
+        StationsUptime.objects.update(timestamp=timezone.now() - timedelta(minutes=4))
+        summary = self.check_all(upstream_up=False)
+        self.assertEqual(summary['total_checked'], 1)
+        self.assertFalse(StationsUptime.objects.get(station=self.station).is_up)
+
+    def test_a_station_without_a_pod_is_checked(self):
+        self.check_all(upstream_up=False)
+        uptime = StationsUptime.objects.get(station=self.station)
+        self.assertFalse(uptime.is_up)
+        # and its own result is not mistaken for a pod's next time
+        self.check_all(upstream_up=True)
+        self.assertTrue(StationsUptime.objects.get(station=self.station).is_up)

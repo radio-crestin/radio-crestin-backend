@@ -1,6 +1,7 @@
 import logging
 import time
 import urllib3
+from datetime import timedelta
 from typing import Dict, Any, Optional
 
 import requests
@@ -15,6 +16,24 @@ from ..utils.data_types import StationUptimeData
 from ..services.uptime_service import UptimeService
 
 logger = logging.getLogger(__name__)
+
+# A streaming pod reports its stream when it changes and at least every 60 s
+# (HEARTBEAT_INTERVAL in backend_streams_transcoding health_server.py). The
+# scheduled check leaves a station to its pod while the pod's report is
+# younger than this: overwriting it would show the check's verdict until the
+# pod's next heartbeat. A pod gone for longer is checked again.
+POD_REPORT_FRESH_FOR = timedelta(minutes=3)
+
+
+def has_fresh_pod_report(station, now) -> bool:
+    """Whether the station's uptime is a streaming pod's recent report."""
+    uptime = station.latest_station_uptime
+    return (
+        uptime is not None
+        and isinstance(uptime.raw_data, dict)
+        and uptime.raw_data.get('source') == 'ffmpeg_pod'
+        and uptime.timestamp >= now - POD_REPORT_FRESH_FOR
+    )
 
 
 class UptimeScraper(BaseScraper):
@@ -50,14 +69,20 @@ class UptimeScraper(BaseScraper):
         return result
 
     def check_all_stations_uptime(self) -> Dict[str, Any]:
-        """Check uptime for all active stations"""
-        stations = UptimeService.get_all_active_stations()
+        """Check uptime for all active stations whose streaming pod has not
+        reported recently"""
+        stations = UptimeService.get_all_active_stations().select_related('latest_station_uptime')
+        now = timezone.now()
 
         results = []
         total_checked = 0
         total_up = 0
+        left_to_pods = 0
 
         for station in stations:
+            if has_fresh_pod_report(station, now):
+                left_to_pods += 1
+                continue
             total_checked += 1
             result = self._check_single_station_uptime(station)
             results.append(result)
@@ -71,6 +96,7 @@ class UptimeScraper(BaseScraper):
             "total_checked": total_checked,
             "total_up": total_up,
             "total_down": total_checked - total_up,
+            "left_to_pods": left_to_pods,
             "results": results
         }
 
