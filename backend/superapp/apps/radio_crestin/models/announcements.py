@@ -1,4 +1,4 @@
-from django.core.validators import MinValueValidator
+from django.core.validators import FileExtensionValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -7,7 +7,7 @@ from ...storage.config import get_public_storage
 from .announcement_categories import AnnouncementCategory, hex_color_validator
 from .forms import Form
 from .announcement_validators import (
-    validate_action_url, validate_intent_uri, validate_public_slug, validate_web_url,
+    ICON_FILE_EXTENSIONS, validate_action_url, validate_intent_uri, validate_public_slug, validate_web_url,
 )
 from .stations import Stations
 from .users import AppUsers
@@ -100,9 +100,10 @@ class Announcement(models.Model):
 
     # Content
     icon_name = models.CharField(_("Icon"), max_length=32, choices=ICON_CHOICES, blank=True, default='')
-    icon_image = models.ImageField(
-        _("Icon image"), storage=get_public_storage, upload_to='announcements/icons/', blank=True, null=True,
-        help_text=_("Replaces the icon when set."),
+    icon_image = models.FileField(
+        _("Custom icon"), storage=get_public_storage, upload_to='announcements/icons/', blank=True, null=True,
+        validators=[FileExtensionValidator(ICON_FILE_EXTENSIONS)],
+        help_text=_("Your own icon: SVG, PNG, JPG or WebP, square works best. Replaces the icon above when set."),
     )
     icon_size = models.CharField(
         _("Icon size"), max_length=8, choices=IconSize.choices, default=IconSize.MEDIUM,

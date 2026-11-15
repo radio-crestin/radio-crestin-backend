@@ -2,12 +2,22 @@
 import re
 
 from django import forms
+from django.core.files.uploadedfile import UploadedFile
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from unfold.widgets import UnfoldAdminCheckboxSelectMultipleWidget, UnfoldAdminTextareaWidget
 
 from ..models import ActionType, Announcement, ButtonStyle, Placement, TargetPlatform
+from ..services.announcement_icons import ImageRejected, clean_icon
 
+ICON_REJECTIONS = {
+    'file_too_large': _('This file is too large: an SVG may be up to 512 KB, a picture up to 10 MB.'),
+    'unsupported_icon': _('Upload an SVG, PNG, JPG or WebP file.'),
+    'unsupported_image': _('This picture could not be read. Upload an SVG, PNG, JPG or WebP file.'),
+    'image_too_large_dimensions': _('This picture has too many pixels.'),
+    'invalid_svg': _('This SVG could not be read. Export it again as a plain SVG (UTF-8).'),
+    'unsafe_svg': _('This SVG declares entities, which are not allowed. Export it again as a plain SVG.'),
+}
 RESERVED_SLUGS = {'events'}  # /api/v1/announcements/events/ is the events endpoint
 LOCALE_PATTERN = re.compile(r'^[a-z]{2,3}([-_][a-z0-9]{2,8})*$', re.IGNORECASE)
 
@@ -103,6 +113,16 @@ class AnnouncementAdminForm(forms.ModelForm):
             raise forms.ValidationError(_('This slug is reserved.'))
         return slug
 
+    def clean_icon_image(self):
+        """A new upload is stored cleaned: pictures re-encoded, SVGs rebuilt without anything that could run."""
+        upload = self.cleaned_data.get('icon_image')
+        if not isinstance(upload, UploadedFile):
+            return upload  # unchanged, or cleared
+        try:
+            return clean_icon(upload)
+        except ImageRejected as rejected:
+            raise forms.ValidationError(ICON_REJECTIONS.get(rejected.code, ICON_REJECTIONS['unsupported_icon']))
+
     def clean(self):
         data = super().clean()
         self._require_icon(data)
@@ -124,7 +144,7 @@ class AnnouncementAdminForm(forms.ModelForm):
 
     def _require_icon(self, data):
         if not data.get('icon_name') and not data.get('icon_image'):
-            self.add_error('icon_name', _('Pick an icon or upload an image.'))
+            self.add_error('icon_name', _('Pick an icon or upload your own.'))
 
     def _check_schedule(self, data):
         starts_at, ends_at = data.get('starts_at'), data.get('ends_at')
