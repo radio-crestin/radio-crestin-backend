@@ -67,6 +67,13 @@ class EventsEndpointTests(TestCase):
         impression = AnnouncementEvent.objects.get(type='impression')
         self.assertEqual(impression.occurred_at.isoformat().replace('+00:00', 'Z'), two_minutes_ago)
 
+    def test_a_link_in_the_description_counts_as_a_click_on_a_link(self):
+        response = self.post({'device_id': 'a', 'events': [{'slug': 'concert', 'type': 'clicked', 'target': 'link'}]})
+        self.assertEqual(response.json()['accepted'], 1)
+        self.assertEqual(AnnouncementEvent.objects.get().target, 'link')
+        self.announcement.refresh_from_db()
+        self.assertEqual(self.announcement.clicks, 1)
+
     def test_json_content_type_also_works(self):
         response = self.post({'device_id': 'a', 'events': [{'slug': 'concert', 'type': 'clicked'}]},
                              content_type='application/json')

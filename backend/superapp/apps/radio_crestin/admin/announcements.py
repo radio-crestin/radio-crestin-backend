@@ -229,10 +229,11 @@ class AnnouncementAdmin(SuperAppModelAdmin):
         return format_html(
             '<table><thead><tr><th style="text-align:left">{}</th><th style="text-align:left">{}</th>'
             '<th style="text-align:right">{}</th></tr></thead><tbody>{}</tbody></table>'
-            '<p style="margin-top:8px">{}: {} {} · {} {} · {} {}</p>',
+            '<p style="margin-top:8px">{}: {} {} · {} {} · {} {} · {} {}</p>',
             _('Event'), _('Platform'), _('Events'), rows or format_html('<tr><td colspan="3">-</td></tr>'),
             _('Clicks by where they tapped'), _('card'), _number(targets.get('card')),
-            _('button'), _number(targets.get('button')), _('unknown'), _number(targets.get('')),
+            _('button'), _number(targets.get('button')), _('description link'), _number(targets.get('link')),
+            _('unknown'), _number(targets.get('')),
         )
 
     def results_view(self, request, object_id):

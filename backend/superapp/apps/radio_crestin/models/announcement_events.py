@@ -17,6 +17,7 @@ class AnnouncementEventType(models.TextChoices):
 class AnnouncementEventTarget(models.TextChoices):
     CARD = 'card', _('Card')
     BUTTON = 'button', _('Button')
+    LINK = 'link', _('Link in the description')
 
 
 # Raw events are deleted after this many days (tasks/delete_old_announcement_events.py).
@@ -50,7 +51,7 @@ class AnnouncementEvent(models.Model):
     station_slug = models.CharField(_("Station"), max_length=100, blank=True, default='')
     target = models.CharField(
         _("Tapped"), max_length=16, choices=AnnouncementEventTarget.choices, blank=True, default='',
-        help_text=_("For clicks: the whole card or the button."),
+        help_text=_("For clicks: the whole card, the button or a link in the description."),
     )
     detail = models.CharField(
         _("Detail"), max_length=32, blank=True, default='', help_text=_("For video plays: provider:kind."),
